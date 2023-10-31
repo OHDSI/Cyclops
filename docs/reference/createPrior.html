@@ -120,7 +120,7 @@ See <code>"glmnet"</code>, for example.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co">#Generate some simulated data:</span></span></span>
 <span class="r-in"><span><span class="va">sim</span> <span class="op">&lt;-</span> <span class="fu"><a href="simulateCyclopsData.html">simulateCyclopsData</a></span><span class="op">(</span>nstrata <span class="op">=</span> <span class="fl">1</span>, nrows <span class="op">=</span> <span class="fl">1000</span>, ncovars <span class="op">=</span> <span class="fl">2</span>, eCovarsPerRow <span class="op">=</span> <span class="fl">0.5</span>, </span></span>
 <span class="r-in"><span>                           model <span class="op">=</span> <span class="st">"poisson"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Sparseness = 76.2 %</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Sparseness = 76.6 %</span>
 <span class="r-in"><span><span class="va">cyclopsData</span> <span class="op">&lt;-</span> <span class="fu"><a href="convertToCyclopsData.html">convertToCyclopsData</a></span><span class="op">(</span><span class="va">sim</span><span class="op">$</span><span class="va">outcomes</span>, <span class="va">sim</span><span class="op">$</span><span class="va">covariates</span>, modelType <span class="op">=</span> <span class="st">"pr"</span>, </span></span>
 <span class="r-in"><span>                                    addIntercept <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Sorting covariates by covariateId and rowId</span>
@@ -133,81 +133,190 @@ See <code>"glmnet"</code>, for example.</p>
 <span class="r-in"><span><span class="co">#Fit the model</span></span></span>
 <span class="r-in"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="fitCyclopsModel.html">fitCyclopsModel</a></span><span class="op">(</span><span class="va">cyclopsData</span>,prior <span class="op">=</span> <span class="va">prior</span>, control <span class="op">=</span> <span class="va">control</span><span class="op">)</span>  </span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Using cross-validation selector type byRow</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Performing 10-fold cross-validation [seed = 1698757934] with data partitions of sizes 100 100 100 100 100 100 100 100 100 100</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Performing 10-fold cross-validation [seed = 1698789248] with data partitions of sizes 100 100 100 100 100 100 100 100 100 100</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Using 1 thread(s)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Starting var = 0.238 (default)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.89886) None  Grid-point #1 at 0.238 	Fold #1 Rep #1 pred log like = 898.631</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.89886) None  Grid-point #1 at 0.238 	Fold #2 Rep #1 pred log like = 1378.61</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.89886) None  Grid-point #1 at 0.238 	Fold #3 Rep #1 pred log like = 1439.51</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.89886) None  Grid-point #1 at 0.238 	Fold #4 Rep #1 pred log like = 1227.83</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.89886) None  Grid-point #1 at 0.238 	Fold #5 Rep #1 pred log like = 1717.57</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.89886) None  Grid-point #1 at 0.238 	Fold #6 Rep #1 pred log like = 1272.34</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.89886) None  Grid-point #1 at 0.238 	Fold #7 Rep #1 pred log like = 1047.47</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.89886) None  Grid-point #1 at 0.238 	Fold #8 Rep #1 pred log like = 1266.38</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.89886) None  Grid-point #1 at 0.238 	Fold #9 Rep #1 pred log like = 1253.53</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.89886) None  Grid-point #1 at 0.238 	Fold #10 Rep #1 pred log like = 1346.96</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> AvgPred = 1284.88 with stdev = 208.341</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Completed at 0.238</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Next point at 2.38 with value 0 and continue = 1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 0.238 ] = 1284.88(208.341)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Starting var = 0.234 (default)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.92353) None  Grid-point #1 at 0.234 	Fold #1 Rep #1 pred log like = 600.677</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.92353) None  Grid-point #1 at 0.234 	Fold #2 Rep #1 pred log like = 519.924</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.92353) None  Grid-point #1 at 0.234 	Fold #3 Rep #1 pred log like = 621.534</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.92353) None  Grid-point #1 at 0.234 	Fold #4 Rep #1 pred log like = 429.156</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.92353) None  Grid-point #1 at 0.234 	Fold #5 Rep #1 pred log like = 455.987</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.92353) None  Grid-point #1 at 0.234 	Fold #6 Rep #1 pred log like = 569.073</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.92353) None  Grid-point #1 at 0.234 	Fold #7 Rep #1 pred log like = 445.111</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.92353) None  Grid-point #1 at 0.234 	Fold #8 Rep #1 pred log like = 680.122</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.92353) None  Grid-point #1 at 0.234 	Fold #9 Rep #1 pred log like = 513.724</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(2.92353) None  Grid-point #1 at 0.234 	Fold #10 Rep #1 pred log like = 579.541</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> AvgPred = 541.485 with stdev = 78.608</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Completed at 0.234</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Next point at 2.34 with value 0 and continue = 1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 0.234 ] = 541.485(78.608)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.916698) None  Grid-point #2 at 2.38 	Fold #1 Rep #1 pred log like = 898.623</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.916698) None  Grid-point #2 at 2.38 	Fold #2 Rep #1 pred log like = 1378.57</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.916698) None  Grid-point #2 at 2.38 	Fold #3 Rep #1 pred log like = 1439.49</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.916698) None  Grid-point #2 at 2.38 	Fold #4 Rep #1 pred log like = 1227.81</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.916698) None  Grid-point #2 at 2.38 	Fold #5 Rep #1 pred log like = 1717.55</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.916698) None  Grid-point #2 at 2.38 	Fold #6 Rep #1 pred log like = 1272.36</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.916698) None  Grid-point #2 at 2.38 	Fold #7 Rep #1 pred log like = 1047.55</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.916698) None  Grid-point #2 at 2.38 	Fold #8 Rep #1 pred log like = 1266.43</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.916698) None  Grid-point #2 at 2.38 	Fold #9 Rep #1 pred log like = 1253.54</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.916698) None  Grid-point #2 at 2.38 	Fold #10 Rep #1 pred log like = 1346.91</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> AvgPred = 1284.88 with stdev = 208.324</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Completed at 2.38</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Next point at 23.8 with value 0 and continue = 1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 0.238 ] = 1284.88(208.341)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 2.38 ] = 1284.88(208.324)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.9245) None  Grid-point #2 at 2.34 	Fold #1 Rep #1 pred log like = 600.62</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.9245) None  Grid-point #2 at 2.34 	Fold #2 Rep #1 pred log like = 519.914</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.9245) None  Grid-point #2 at 2.34 	Fold #3 Rep #1 pred log like = 621.499</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.9245) None  Grid-point #2 at 2.34 	Fold #4 Rep #1 pred log like = 429.072</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.9245) None  Grid-point #2 at 2.34 	Fold #5 Rep #1 pred log like = 455.985</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.9245) None  Grid-point #2 at 2.34 	Fold #6 Rep #1 pred log like = 569.055</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.9245) None  Grid-point #2 at 2.34 	Fold #7 Rep #1 pred log like = 445.068</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.9245) None  Grid-point #2 at 2.34 	Fold #8 Rep #1 pred log like = 680.096</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.9245) None  Grid-point #2 at 2.34 	Fold #9 Rep #1 pred log like = 513.724</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.9245) None  Grid-point #2 at 2.34 	Fold #10 Rep #1 pred log like = 579.472</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> AvgPred = 541.45 with stdev = 78.6096</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Completed at 2.34</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Next point at 0.0234 with value 0 and continue = 1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 0.234 ] = 541.485(78.608)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 2.34 ] = 541.45(78.6096)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.289886) None  Grid-point #3 at 23.8 	Fold #1 Rep #1 pred log like = 898.62</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.289886) None  Grid-point #3 at 23.8 	Fold #2 Rep #1 pred log like = 1378.56</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.289886) None  Grid-point #3 at 23.8 	Fold #3 Rep #1 pred log like = 1439.48</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.289886) None  Grid-point #3 at 23.8 	Fold #4 Rep #1 pred log like = 1227.81</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.289886) None  Grid-point #3 at 23.8 	Fold #5 Rep #1 pred log like = 1717.54</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.289886) None  Grid-point #3 at 23.8 	Fold #6 Rep #1 pred log like = 1272.37</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.289886) None  Grid-point #3 at 23.8 	Fold #7 Rep #1 pred log like = 1047.58</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.289886) None  Grid-point #3 at 23.8 	Fold #8 Rep #1 pred log like = 1266.45</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.289886) None  Grid-point #3 at 23.8 	Fold #9 Rep #1 pred log like = 1253.54</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(0.289886) None  Grid-point #3 at 23.8 	Fold #10 Rep #1 pred log like = 1346.9</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> AvgPred = 1284.88 with stdev = 208.318</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Completed at 23.8</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Next point at 5.37835 with value 1284.88 and continue = 0</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 0.238 ] = 1284.88(208.341)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 2.38 ] = 1284.88(208.324)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 23.8 ] = 1284.88(208.318)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(9.245) None  Grid-point #3 at 0.0234 	Fold #1 Rep #1 pred log like = 600.805</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(9.245) None  Grid-point #3 at 0.0234 	Fold #2 Rep #1 pred log like = 519.924</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(9.245) None  Grid-point #3 at 0.0234 	Fold #3 Rep #1 pred log like = 621.649</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(9.245) None  Grid-point #3 at 0.0234 	Fold #4 Rep #1 pred log like = 429.416</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(9.245) None  Grid-point #3 at 0.0234 	Fold #5 Rep #1 pred log like = 456.004</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(9.245) None  Grid-point #3 at 0.0234 	Fold #6 Rep #1 pred log like = 569.073</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(9.245) None  Grid-point #3 at 0.0234 	Fold #7 Rep #1 pred log like = 445.152</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(9.245) None  Grid-point #3 at 0.0234 	Fold #8 Rep #1 pred log like = 680.134</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(9.245) None  Grid-point #3 at 0.0234 	Fold #9 Rep #1 pred log like = 513.725</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(9.245) None  Grid-point #3 at 0.0234 	Fold #10 Rep #1 pred log like = 579.753</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> AvgPred = 541.564 with stdev = 78.598</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Completed at 0.0234</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Next point at 0.00234 with value 0 and continue = 1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 0.0234 ] = 541.564(78.598)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 0.234 ] = 541.485(78.608)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 2.34 ] = 541.45(78.6096)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(29.2353) None  Grid-point #4 at 0.00234 	Fold #1 Rep #1 pred log like = 600.805</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(29.2353) None  Grid-point #4 at 0.00234 	Fold #2 Rep #1 pred log like = 519.924</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(29.2353) None  Grid-point #4 at 0.00234 	Fold #3 Rep #1 pred log like = 621.874</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(29.2353) None  Grid-point #4 at 0.00234 	Fold #4 Rep #1 pred log like = 430.035</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(29.2353) None  Grid-point #4 at 0.00234 	Fold #5 Rep #1 pred log like = 456.006</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(29.2353) None  Grid-point #4 at 0.00234 	Fold #6 Rep #1 pred log like = 569.073</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(29.2353) None  Grid-point #4 at 0.00234 	Fold #7 Rep #1 pred log like = 445.152</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(29.2353) None  Grid-point #4 at 0.00234 	Fold #8 Rep #1 pred log like = 680.134</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(29.2353) None  Grid-point #4 at 0.00234 	Fold #9 Rep #1 pred log like = 513.725</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(29.2353) None  Grid-point #4 at 0.00234 	Fold #10 Rep #1 pred log like = 580.157</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> AvgPred = 541.688 with stdev = 78.5522</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Completed at 0.00234</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Next point at 0.000234 with value 0 and continue = 1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 0.00234 ] = 541.688(78.5522)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 0.0234 ] = 541.564(78.598)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 0.234 ] = 541.485(78.608)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 2.34 ] = 541.45(78.6096)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(92.45) None  Grid-point #5 at 0.000234 	Fold #1 Rep #1 pred log like = 600.805</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(92.45) None  Grid-point #5 at 0.000234 	Fold #2 Rep #1 pred log like = 519.924</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(92.45) None  Grid-point #5 at 0.000234 	Fold #3 Rep #1 pred log like = 621.874</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(92.45) None  Grid-point #5 at 0.000234 	Fold #4 Rep #1 pred log like = 430.035</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(92.45) None  Grid-point #5 at 0.000234 	Fold #5 Rep #1 pred log like = 456.006</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(92.45) None  Grid-point #5 at 0.000234 	Fold #6 Rep #1 pred log like = 569.073</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(92.45) None  Grid-point #5 at 0.000234 	Fold #7 Rep #1 pred log like = 445.152</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(92.45) None  Grid-point #5 at 0.000234 	Fold #8 Rep #1 pred log like = 680.134</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(92.45) None  Grid-point #5 at 0.000234 	Fold #9 Rep #1 pred log like = 513.725</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Running at Laplace(92.45) None  Grid-point #5 at 0.000234 	Fold #10 Rep #1 pred log like = 580.157</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> AvgPred = 541.688 with stdev = 78.5522</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Completed at 0.000234</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Next point at 3.23147e-23 with value 542.287 and continue = 0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 0.000234 ] = 541.688(78.5522)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 0.00234 ] = 541.688(78.5522)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 0.0234 ] = 541.564(78.598)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 0.234 ] = 541.485(78.608)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> search[ 2.34 ] = 541.45(78.6096)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Maximum predicted log likelihood (1284.88) estimated at:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 	5.37835 (variance)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 	0.609804 (lambda)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Maximum predicted log likelihood (542.287) estimated at:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 	3.23147e-23 (variance)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 	2.4878e+11 (lambda)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Fitting model at optimal hyperparameter</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Using prior: Laplace(0.609804) None </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Using prior: Laplace(2.4878e+11) None </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co">#Find out what the optimal hyperparameter was:</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="getHyperParameter.html">getHyperParameter</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 5.37835</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 3.231474e-23</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co">#Extract the current log-likelihood, and coefficients</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/stats/logLik.html" class="external-link">logLik</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 'log Lik.' -2158.207 (df=3)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 'log Lik.' -2122.09 (df=3)</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept)           1           2 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> -3.92974607 -0.02127371  1.41692709 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   -3.777662    0.000000    0.000000 </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co">#We can only retrieve the confidence interval for unregularized coefficients:</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">fit</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Using 1 thread(s)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             covariate     2.5 %  97.5 % evaluations</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept)         0 -3.962925 -3.8969          22</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Warning: BLR gradient is ill-conditioned</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Enforcing convergence!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>             covariate     2.5 %    97.5 % evaluations</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept)         0 -3.803731 -3.751804          24</span>
 </code></pre></div>
     </div>
   </div>
