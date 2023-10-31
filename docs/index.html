@@ -24,6 +24,8 @@
 <![endif]-->
 </head>
 <body data-spy="scroll" data-target="#toc">
+    
+
     <div class="container template-home">
       <header><div class="navbar navbar-default navbar-fixed-top" role="navigation">
   <div class="container">
@@ -36,18 +38,12 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="index.html">Cyclops</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">3.1.2</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">3.4.0</span>
       </span>
     </div>
 
     <div id="navbar" class="navbar-collapse collapse">
       <ul class="nav navbar-nav">
-<li>
-  <a href="index.html">
-    <span class="fas fa-home fa-lg"></span>
-     
-  </a>
-</li>
 <li>
   <a href="reference/index.html">Reference</a>
 </li>
@@ -57,10 +53,10 @@
       </ul>
 <ul class="nav navbar-nav navbar-right">
 <li>
-  <a href="https://ohdsi.github.io/Hades"><img src='https://ohdsi.github.io/Hades/images/hadesMini.png' width=80 height=17 style='vertical-align: top;'></a>
+  <a href="https://ohdsi.github.io/Hades" class="external-link">hadesLogo</a>
 </li>
 <li>
-  <a href="https://github.com/ohdsi/cyclops/">
+  <a href="https://github.com/ohdsi/cyclops/" class="external-link">
     <span class="fab fa-github fa-lg"></span>
      
   </a>
@@ -78,20 +74,20 @@
       </header><div class="row">
   <div class="contents col-md-9">
 
-<div id="cyclops" class="section level1">
-<div class="page-header"><h1 class="hasAnchor">
-<a href="#cyclops" class="anchor"></a>Cyclops</h1></div>
-
-<p>Cyclops is part of the <a href="https://ohdsi.github.io/Hades/">HADES</a>.</p>
+<div class="section level1">
+<div class="page-header"><h1 id="cyclops">Cyclops<a class="anchor" aria-label="anchor" href="#cyclops"></a>
+</h1></div>
+<p><a href="https://github.com/OHDSI/Cyclops/actions?query=workflow%3AR-CMD-check" class="external-link"><img src="https://github.com/ohdsi/Cyclops/workflows/R-CMD-check/badge.svg" alt="Build Status"></a> <a href="https://codecov.io/github/OHDSI/Cyclops?branch=main" class="external-link"><img src="https://codecov.io/github/OHDSI/Cyclops/coverage.svg?branch=main" alt="codecov.io"></a> <a href="https://CRAN.R-project.org/package=Cyclops" class="external-link"><img src="https://www.r-pkg.org/badges/version/Cyclops" alt="CRAN_Status_Badge"></a> <a href="https://cran.r-project.org/package=Cyclops" class="external-link"><img src="https://cranlogs.r-pkg.org/badges/Cyclops" alt="CRAN_Status_Badge"></a></p>
+<p>Cyclops is part of the <a href="https://ohdsi.github.io/Hades/" class="external-link">HADES</a>.</p>
 </div>
-<div id="introduction" class="section level1">
-<h1 class="hasAnchor">
-<a href="#introduction" class="anchor"></a>Introduction</h1>
+<div class="section level1">
+<h1 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
+</h1>
 <p>Cyclops (Cyclic coordinate descent for logistic, Poisson and survival analysis) is an R package for performing large scale regularized regressions.</p>
 </div>
-<div id="features" class="section level1">
-<h1 class="hasAnchor">
-<a href="#features" class="anchor"></a>Features</h1>
+<div class="section level1">
+<h1 id="features">Features<a class="anchor" aria-label="anchor" href="#features"></a>
+</h1>
 <ul>
 <li>Regression of very large problems: up to millions of observations, millions of variables</li>
 <li>Supports (conditional) logistic regression, (conditional) Poisson regression, as well as (conditional) Cox regression</li>
@@ -101,78 +97,69 @@
 <li>Efficient estimation of confidence intervals for a single variable using a profile-likelihood for that variable</li>
 </ul>
 </div>
-<div id="examples" class="section level1">
-<h1 class="hasAnchor">
-<a href="#examples" class="anchor"></a>Examples</h1>
+<div class="section level1">
+<h1 id="examples">Examples<a class="anchor" aria-label="anchor" href="#examples"></a>
+</h1>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R">  <span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ohdsi/cyclops">Cyclops</a></span><span class="op">)</span>
-  <span class="va">cyclopsData</span> <span class="op">&lt;-</span> <span class="fu">createCyclopsDataFrame</span><span class="op">(</span><span class="va">formula</span><span class="op">)</span>
-  <span class="va">cyclopsFit</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fitCyclopsModel.html">fitCyclopsModel</a></span><span class="op">(</span><span class="va">cyclopsData</span><span class="op">)</span></code></pre></div>
+<code class="sourceCode R"><span>  <span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ohdsi/cyclops" class="external-link">Cyclops</a></span><span class="op">)</span></span>
+<span>  <span class="va">cyclopsData</span> <span class="op">&lt;-</span> <span class="fu">createCyclopsDataFrame</span><span class="op">(</span><span class="va">formula</span><span class="op">)</span></span>
+<span>  <span class="va">cyclopsFit</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fitCyclopsModel.html">fitCyclopsModel</a></span><span class="op">(</span><span class="va">cyclopsData</span><span class="op">)</span></span></code></pre></div>
 </div>
-<div id="technology" class="section level1">
-<h1 class="hasAnchor">
-<a href="#technology" class="anchor"></a>Technology</h1>
+<div class="section level1">
+<h1 id="technology">Technology<a class="anchor" aria-label="anchor" href="#technology"></a>
+</h1>
 <p>Cyclops in an R package, with most functionality implemented in C++. Cyclops uses cyclic coordinate descent to optimize the likelihood function, which makes use of the sparse nature of the data.</p>
 </div>
-<div id="system-requirements" class="section level1">
-<h1 class="hasAnchor">
-<a href="#system-requirements" class="anchor"></a>System Requirements</h1>
-<p>Requires R (version 3.1.0 or higher). Compilation on Windows requires <a href="https://CRAN.R-project.org/bin/windows/Rtools/">RTools &gt;= 3.4</a>.</p>
+<div class="section level1">
+<h1 id="system-requirements">System Requirements<a class="anchor" aria-label="anchor" href="#system-requirements"></a>
+</h1>
+<p>Requires R (version 3.1.0 or higher). Compilation on Windows requires <a href="https://CRAN.R-project.org/bin/windows/Rtools/" class="external-link">RTools &gt;= 3.4</a>.</p>
 </div>
-<div id="installation" class="section level1">
-<h1 class="hasAnchor">
-<a href="#installation" class="anchor"></a>Installation</h1>
+<div class="section level1">
+<h1 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
+</h1>
 <p>In R, to install the latest stable version, install from CRAN:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html">install.packages</a></span><span class="op">(</span><span class="st">"Cyclops"</span><span class="op">)</span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"Cyclops"</span><span class="op">)</span></span></code></pre></div>
 <p>To install the latest development version, install from GitHub. Note that this will require RTools to be installed.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html">install.packages</a></span><span class="op">(</span><span class="st">"devtools"</span><span class="op">)</span>
-<span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org//reference/remote-reexports.html">install_github</a></span><span class="op">(</span><span class="st">"OHDSI/Cyclops"</span><span class="op">)</span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"devtools"</span><span class="op">)</span></span>
+<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"OHDSI/Cyclops"</span><span class="op">)</span></span></code></pre></div>
 </div>
-<div id="user-documentation" class="section level1">
-<h1 class="hasAnchor">
-<a href="#user-documentation" class="anchor"></a>User Documentation</h1>
-<p>Documentation can be found on the <a href="https://ohdsi.github.io/Cyclops/">package website</a>.</p>
-<p>PDF versions of the documentation are also available:</p>
+<div class="section level1">
+<h1 id="user-documentation">User Documentation<a class="anchor" aria-label="anchor" href="#user-documentation"></a>
+</h1>
+<p>Documentation can be found on the <a href="https://ohdsi.github.io/Cyclops/" class="external-link">package website</a>.</p>
+<p>PDF versions of the documentation are also available: * Package manual: <a href="https://raw.githubusercontent.com/OHDSI/Cyclops/main/extras/Cyclops.pdf" class="external-link">Cyclops manual</a></p>
+</div>
+<div class="section level1">
+<h1 id="support">Support<a class="anchor" aria-label="anchor" href="#support"></a>
+</h1>
 <ul>
-<li>Package manual: <a href="https://raw.githubusercontent.com/OHDSI/Cyclops/master/extras/Cyclops.pdf">Cyclops manual</a>
+<li>Developer questions/comments/feedback: <a href="http://forums.ohdsi.org/c/developers" class="external-link">OHDSI Forum</a>
 </li>
+<li>We use the <a href="https://github.com/OHDSI/Cyclops/issues" class="external-link">GitHub issue tracker</a> for all bugs/issues/enhancements</li>
 </ul>
 </div>
-<div id="support" class="section level1">
-<h1 class="hasAnchor">
-<a href="#support" class="anchor"></a>Support</h1>
-<ul>
-<li>Developer questions/comments/feedback: <a href="http://forums.ohdsi.org/c/developers">OHDSI Forum</a>
-</li>
-<li>We use the <a href="https://github.com/OHDSI/Cyclops/issues">GitHub issue tracker</a> for all bugs/issues/enhancements</li>
-</ul>
+<div class="section level1">
+<h1 id="contributing">Contributing<a class="anchor" aria-label="anchor" href="#contributing"></a>
+</h1>
+<p>Read <a href="https://ohdsi.github.io/Hades/contribute.html" class="external-link">here</a> how you can contribute to this package.</p>
 </div>
-<div id="contributing" class="section level1">
-<h1 class="hasAnchor">
-<a href="#contributing" class="anchor"></a>Contributing</h1>
-<p>Read <a href="https://ohdsi.github.io/Hades/contribute.html">here</a> how you can contribute to this package.</p>
-</div>
-<div id="license" class="section level1">
-<h1 class="hasAnchor">
-<a href="#license" class="anchor"></a>License</h1>
+<div class="section level1">
+<h1 id="license">License<a class="anchor" aria-label="anchor" href="#license"></a>
+</h1>
 <p>Cyclops is licensed under Apache License 2.0. Cyclops contains the TinyThread libray.</p>
-<p>The TinyThread library is licensed under the <a href="https://opensource.org/licenses/Zlib/">zlib/libpng</a> license as described <a href="https://tinythreadpp.bitsnbites.eu/">here</a>.</p>
+<p>The TinyThread library is licensed under the <a href="https://opensource.org/license/zlib-license-php/" class="external-link">zlib/libpng</a> license as described <a href="https://tinythreadpp.bitsnbites.eu/" class="external-link">here</a>.</p>
 </div>
-<div id="development" class="section level1">
-<h1 class="hasAnchor">
-<a href="#development" class="anchor"></a>Development</h1>
+<div class="section level1">
+<h1 id="development">Development<a class="anchor" aria-label="anchor" href="#development"></a>
+</h1>
 <p>Cyclops is being developed in R Studio.</p>
-<div id="development-status" class="section level3">
-<h3 class="hasAnchor">
-<a href="#development-status" class="anchor"></a>Development status</h3>
-<p>Beta</p>
 </div>
-</div>
-<div id="acknowledgements" class="section level1">
-<h1 class="hasAnchor">
-<a href="#acknowledgements" class="anchor"></a>Acknowledgements</h1>
+<div class="section level1">
+<h1 id="acknowledgements">Acknowledgements<a class="anchor" aria-label="anchor" href="#acknowledgements"></a>
+</h1>
 <ul>
 <li>This project is supported in part through the National Science Foundation grants IIS 1251151 and DMS 1264153.</li>
 </ul>
@@ -182,32 +169,32 @@
 
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
     <div class="links">
-<h2>Links</h2>
+<h2 data-toc-skip>Links</h2>
 <ul class="list-unstyled">
-<li>Download from CRAN at <br><a href="https://cloud.r-project.org/package=Cyclops">https://​cloud.r-project.org/​package=Cyclops</a>
-</li>
-<li>Browse source code at <br><a href="https://github.com/ohdsi/cyclops/">https://​github.com/​ohdsi/​cyclops/​</a>
-</li>
-<li>Report a bug at <br><a href="https://github.com/ohdsi/cyclops/issues">https://​github.com/​ohdsi/​cyclops/​issues</a>
-</li>
-<li>Ask a question at <br><a href="http://forums.ohdsi.org">http://​forums.ohdsi.org</a>
-</li>
+<li><a href="https://cloud.r-project.org/package=Cyclops" class="external-link">View on CRAN</a></li>
+<li><a href="https://github.com/ohdsi/cyclops/" class="external-link">Browse source code</a></li>
+<li><a href="https://github.com/ohdsi/cyclops/issues" class="external-link">Report a bug</a></li>
+<li><a href="http://forums.ohdsi.org" class="external-link">Ask a question</a></li>
 </ul>
 </div>
+
 <div class="license">
-<h2>License</h2>
+<h2 data-toc-skip>License</h2>
 <ul class="list-unstyled">
 <li>Apache License 2.0</li>
 </ul>
 </div>
+
+
 <div class="citation">
-<h2>Citation</h2>
+<h2 data-toc-skip>Citation</h2>
 <ul class="list-unstyled">
-<li><a href="authors.html">Citing Cyclops</a></li>
+<li><a href="authors.html#citation">Citing Cyclops</a></li>
 </ul>
 </div>
+
 <div class="developers">
-<h2>Developers</h2>
+<h2 data-toc-skip>Developers</h2>
 <ul class="list-unstyled">
 <li>Marc A. Suchard <br><small class="roles"> Author, maintainer </small>  </li>
 <li>Martijn J. Schuemie <br><small class="roles"> Author </small>  </li>
@@ -215,29 +202,24 @@
 <li>Yuxi Tian <br><small class="roles"> Author </small>  </li>
 <li>Jianxiao Yang <br><small class="roles"> Author </small>  </li>
 <li>Eric Kawaguchi <br><small class="roles"> Author </small>  </li>
-<li><a href="authors.html">All authors...</a></li>
+<li><a href="authors.html">More about authors...</a></li>
 </ul>
 </div>
 
-  <div class="dev-status">
-<h2>Dev status</h2>
-<ul class="list-unstyled">
-<li><a href="https://github.com/OHDSI/Cyclops/actions?query=workflow%3AR-CMD-check"><img src="https://github.com/ohdsi/Cyclops/workflows/R-CMD-check/badge.svg" alt="Build Status"></a></li>
-<li><a href="https://codecov.io/github/OHDSI/Cyclops?branch=master"><img src="https://codecov.io/github/OHDSI/Cyclops/coverage.svg?branch=master" alt="codecov.io"></a></li>
-<li><a href="https://CRAN.R-project.org/package=Cyclops"><img src="https://www.r-pkg.org/badges/version/Cyclops" alt="CRAN_Status_Badge"></a></li>
-<li><a href="https://cran.r-project.org/package=Cyclops"><img src="https://cranlogs.r-pkg.org/badges/Cyclops" alt="CRAN_Status_Badge"></a></li>
-</ul>
-</div>
-</div>
+
+
+  </div>
 </div>
 
 
       <footer><div class="copyright">
-  <p>Developed by Marc A. Suchard, Martijn J. Schuemie, Trevor R. Shaddox, Yuxi Tian, Jianxiao Yang, Eric Kawaguchi.</p>
+  <p></p>
+<p>Developed by Marc A. Suchard, Martijn J. Schuemie, Trevor R. Shaddox, Yuxi Tian, Jianxiao Yang, Eric Kawaguchi.</p>
 </div>
 
 <div class="pkgdown">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.6.1.</p>
+  <p></p>
+<p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.0.7.</p>
 </div>
 
       </footer>
@@ -245,6 +227,8 @@
 
   
 
+
+  
 
   </body>
 </html>
