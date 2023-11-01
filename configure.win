@@ -1,2 +1,2 @@
 #! /usr/bin/env sh
-sh ./configure_win
+sh ./configure
