@@ -21,49 +21,6 @@ if (getRversion() < "4.2") { # Windoz
     }
 }
 
-
-#################### CUDA Toolkit ####################
-
-cuda_home <- system2(command = "find", args = c("/usr/local/", "-maxdepth", "1" ,"-name", "cuda"), stdout  = TRUE)
-if (length(cuda_home)==0) {
-    message("no CUDA installation found")
-} else {
-    message(paste0("using CUDA_HOME=", cuda_home))
-    nvcc <- c(paste0(cuda_home, "/bin/nvcc -arch=sm_70")) # TODO remove hardcoding of ARCH
-    cub_path <- paste0(cuda_home ,"/include") # CUB is included since CUDA Toolkit 11.0
-
-    # whether this is the 64 bit linux version of CUDA
-    cu_libdir <- system2(command = "find", args = c(paste0(cuda_home ,"/lib64")), stdout  = TRUE)
-    if (length(cu_libdir) == 0) {
-        cu_libdir <- paste0(cuda_home ,"/lib")
-    }
-
-    cuda_libs <- paste0("-L", cu_libdir, " -lcudart")
-    cuda_cppflags <-paste0("-DHAVE_CUDA -I", cuda_home, "/include -I", cu_libdir, " -pthread -rdynamic")
-
-    txt <- c(paste0("CUDA_HOME =", cuda_home),
-             paste0("CUB_PATH =", cub_path),
-             paste0("NVCC =", nvcc),
-             paste0("CPICFLAGS = -fpic"), # TODO
-             txt)
-    txt[grep("^PKG_LIBS", txt)] <- paste(txt[grep("^PKG_LIBS", txt)], cuda_libs)
-    txt[grep("^PKG_CPPFLAGS", txt)] <- paste(txt[grep("^PKG_CPPFLAGS", txt)], cuda_cppflags)
-    engine_idx <- grep("^OBJECTS.engine =", txt)
-    txt[engine_idx+1] <- paste(txt[engine_idx+1],
-                               "cyclops/engine/CudaKernel.o",
-                               "cyclops/engine/CudaDetail.o")
-    txt <- c(txt,
-             'all: $(OBJECTS)',
-             '%.o: %.cu',
-             paste0('\t', nvcc,' --default-stream per-thread -c -Xcompiler "$(CPICFLAGS) $(CPPFLAGS) -c" -I$(CUB_PATH) $(R_PATH_LINKER) $^ -o $@'),
-             'clean:',
-             '\trm -rf *o',
-             '.PHONY: all clean')
-}
-
-######################################################
-
-
 if (.Platform$OS.type == "unix") {
 	cat(txt, file = makevars_out, sep = "\n")
 } else {
