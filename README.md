@@ -1,8 +1,8 @@
 Cyclops
 =======
 
-[![Build Status](https://github.com/ohdsi/Cyclops/workflows/R-CMD-check/badge.svg)](https://github.com/OHDSI/Cyclops/actions?query=workflow%3AR-CMD-check)
-[![codecov.io](https://app.codecov.io/github/OHDSI/Cyclops/coverage.svg?branch=main)](https://app.codecov.io/github/OHDSI/Cyclops?branch=main)
+[![Build Status](https://github.com/ohdsi/Cyclops/actions/workflows/R_CMD_check_Hades.yaml/badge.svg)](https://github.com/OHDSI/Cyclops/actions?query=workflow%3AR-CMD-check)
+[![codecov.io](https://codecov.io/github/OHDSI/Cyclops/coverage.svg?branch=main)](https://codecov.io/github/OHDSI/Cyclops?branch=main)
 [![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/Cyclops)](https://CRAN.R-project.org/package=Cyclops)
 [![CRAN_Status_Badge](https://cranlogs.r-pkg.org/badges/Cyclops)](https://cran.r-project.org/package=Cyclops)
 

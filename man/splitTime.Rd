@@ -13,9 +13,9 @@ splitTime(shortOut, cut)
 
 These columns are expected in the shortOut object:
 \tabular{lll}{
-  \verb{rowId}   \tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
-  \verb{y}       \tab(real) \tab Observed event status \cr
-  \verb{time}    \tab(real) \tab Observed event time \cr
+\verb{rowId}   \tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
+\verb{y}       \tab(real) \tab Observed event status \cr
+\verb{time}    \tab(real) \tab Observed event time \cr
 }}
 }
 \value{

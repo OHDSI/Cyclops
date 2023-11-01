@@ -1,16 +1,9 @@
-## Resubmission after VALGRIND feedback from Brian Ripley
+## Submission of v3.4.0
 
-* fixed VALGRIND uninitialized value (UB) issue; variable 'priorType' was uninitialized,
-  specifically in:
-
-    ==2293460== Conditional jump or move depends on uninitialised value(s)
-    ==2293460==    at 0x22CE4848: bsccs::CyclicCoordinateDescent::computeAsymptoticPrecisionMatrix() (packages/tests-vg/Cyclops/src/cyclops/CyclicCoordinateDescent.cpp:1335)
+* fixed use of deprecated `$` function in `dbplyr` using CRAN errors
     
-* fixed VALGRIND memory leak issue; was caused by calls to '::Rf_error()' instead of 
-  'Rcpp::stop()' when handling some error edge-cases
-
 ## Test environments
-* local OS X install, R 4.1
+* local OS X install, R 4.3
 * r-devel-valgrind docker container
 * ubuntu 20.04 (via gh-actions: devel and release)
 * win-builder (devel and release)
