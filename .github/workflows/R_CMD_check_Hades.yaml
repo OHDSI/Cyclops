@@ -57,6 +57,9 @@ jobs:
       WEBAPI_TEST_ADMIN_USER_PASSWORD: ${{ secrets.WEBAPI_TEST_ADMIN_USER_PASSWORD }}
 
     steps:
+      - name: Configure git
+        run: git config --global core.autocrlf false
+
       - uses: actions/checkout@v3
 
       - uses: r-lib/actions/setup-r@v2
