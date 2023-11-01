@@ -26,7 +26,7 @@ if (getRversion() < "4.2") { # Windoz
 
 cuda_home <- system2(command = "find", args = c("/usr/local/", "-maxdepth", "1" ,"-name", "cuda"), stdout  = TRUE)
 if (length(cuda_home)==0) {
-    message("no CUDA installation found")
+    message("no CUDA installation found; only compile host code")
 } else {
     message(paste0("using CUDA_HOME=", cuda_home))
     nvcc <- c(paste0(cuda_home, "/bin/nvcc -arch=sm_70")) # TODO remove hardcoding of ARCH
@@ -41,21 +41,17 @@ if (length(cuda_home)==0) {
     cuda_libs <- paste0("-L", cu_libdir, " -lcudart")
     cuda_cppflags <-paste0("-DHAVE_CUDA -I", cuda_home, "/include -I", cu_libdir, " -pthread -rdynamic")
 
-    txt <- c(paste0("CUDA_HOME =", cuda_home),
-             paste0("CUB_PATH =", cub_path),
-             paste0("NVCC =", nvcc),
-             paste0("CPICFLAGS = -fpic"), # TODO
-             txt)
+    # modify Makevars.in if CUDA is available
     txt[grep("^PKG_LIBS", txt)] <- paste(txt[grep("^PKG_LIBS", txt)], cuda_libs)
     txt[grep("^PKG_CPPFLAGS", txt)] <- paste(txt[grep("^PKG_CPPFLAGS", txt)], cuda_cppflags)
-    engine_idx <- grep("^OBJECTS.engine =", txt)
+    engine_idx <- grep("^OBJECTS.engine", txt)
     txt[engine_idx+1] <- paste(txt[engine_idx+1],
                                "cyclops/engine/CudaKernel.o",
                                "cyclops/engine/CudaDetail.o")
     txt <- c(txt,
              'all: $(OBJECTS)',
              '%.o: %.cu',
-             paste0('\t', nvcc,' --default-stream per-thread -c -Xcompiler "$(CPICFLAGS) $(CPPFLAGS) -c" -I$(CUB_PATH) $(R_PATH_LINKER) $^ -o $@'),
+             paste0('\t', nvcc,' --default-stream per-thread -c -Xcompiler "-fPIC $(CPPFLAGS) -c" -I', cub_path,' $(R_PATH_LINKER) $^ -o $@'),
              'clean:',
              '\trm -rf *o',
              '.PHONY: all clean')
