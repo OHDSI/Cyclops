@@ -7,11 +7,12 @@
 #'
 #' @export
 setOpenCLDevice <- function(name) {
-    devices <- listOpenCLDevices()
+    devices <- listGPUDevices()
 
     if (!(name %in% devices)) {
         stop("Unable to find device.")
     }
 
     Sys.setenv(BOOST_COMPUTE_DEFAULT_DEVICE = name)
+    # TODO set CUDA device
 }

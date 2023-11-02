@@ -120,15 +120,15 @@
 #' @title List available GPU devices
 #'
 #' @description
-#' \code{listOpenCLDevices} list available GPU devices
+#' \code{listGPUDevices} list available GPU devices
 #'
 #' @export
-listOpenCLDevices <- function() {
-    .Call(`_Cyclops_listOpenCLDevices`)
+listGPUDevices <- function() {
+    .Call(`_Cyclops_listGPUDevices`)
 }
 
-.getDefaultOpenCLDevice <- function() {
-    .Call(`_Cyclops_getDefaultOpenCLDevice`)
+.getDefaultGPUDevice <- function() {
+    .Call(`_Cyclops_getDefaultGPUDevice`)
 }
 
 .isSorted <- function(dataFrame, indexes, ascending) {

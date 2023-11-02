@@ -387,7 +387,7 @@ fitCyclopsModel <- function(cyclopsData,
         }
 
         if (computeDevice != "native") {
-            stopifnot(computeDevice %in% listOpenCLDevices())
+            stopifnot(computeDevice %in% listGPUDevices())
         }
 
         # Build interface

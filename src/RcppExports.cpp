@@ -379,23 +379,23 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// listOpenCLDevices
-Rcpp::CharacterVector listOpenCLDevices();
-RcppExport SEXP _Cyclops_listOpenCLDevices() {
+// listGPUDevices
+Rcpp::CharacterVector listGPUDevices();
+RcppExport SEXP _Cyclops_listGPUDevices() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(listOpenCLDevices());
+    rcpp_result_gen = Rcpp::wrap(listGPUDevices());
     return rcpp_result_gen;
 END_RCPP
 }
-// getDefaultOpenCLDevice
-std::string getDefaultOpenCLDevice();
-RcppExport SEXP _Cyclops_getDefaultOpenCLDevice() {
+// getDefaultGPUDevice
+std::string getDefaultGPUDevice();
+RcppExport SEXP _Cyclops_getDefaultGPUDevice() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(getDefaultOpenCLDevice());
+    rcpp_result_gen = Rcpp::wrap(getDefaultGPUDevice());
     return rcpp_result_gen;
 END_RCPP
 }
@@ -875,8 +875,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsRunBootstrap", (DL_FUNC) &_Cyclops_cyclopsRunBootstrap, 4},
     {"_Cyclops_cyclopsLogModel", (DL_FUNC) &_Cyclops_cyclopsLogModel, 1},
     {"_Cyclops_cyclopsInitializeModel", (DL_FUNC) &_Cyclops_cyclopsInitializeModel, 4},
-    {"_Cyclops_listOpenCLDevices", (DL_FUNC) &_Cyclops_listOpenCLDevices, 0},
-    {"_Cyclops_getDefaultOpenCLDevice", (DL_FUNC) &_Cyclops_getDefaultOpenCLDevice, 0},
+    {"_Cyclops_listGPUDevices", (DL_FUNC) &_Cyclops_listGPUDevices, 0},
+    {"_Cyclops_getDefaultGPUDevice", (DL_FUNC) &_Cyclops_getDefaultGPUDevice, 0},
     {"_Cyclops_isSorted", (DL_FUNC) &_Cyclops_isSorted, 3},
     {"_Cyclops_isSortedVectorList", (DL_FUNC) &_Cyclops_isSortedVectorList, 2},
     {"_Cyclops_isRcppPtrNull", (DL_FUNC) &_Cyclops_isRcppPtrNull, 1},

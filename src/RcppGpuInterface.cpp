@@ -18,11 +18,11 @@
 //' @title List available GPU devices
 //'
 //' @description
-//' \code{listOpenCLDevices} list available GPU devices
+//' \code{listGPUDevices} list available GPU devices
 //'
 //' @export
-// [[Rcpp::export("listOpenCLDevices")]]
-Rcpp::CharacterVector listOpenCLDevices() {
+// [[Rcpp::export("listGPUDevices")]]
+Rcpp::CharacterVector listGPUDevices() {
 	using namespace Rcpp;
 	CharacterVector devices;
 
@@ -45,8 +45,8 @@ Rcpp::CharacterVector listOpenCLDevices() {
     return devices;
 }
 
-// [[Rcpp::export(".getDefaultOpenCLDevice")]]
-std::string getDefaultOpenCLDevice() {
+// [[Rcpp::export(".getDefaultGPUDevice")]]
+std::string getDefaultGPUDevice() {
 #ifdef HAVE_OPENCL
 	return boost::compute::system::default_device().name();
 #else

@@ -3,13 +3,13 @@ library("testthat")
 library("survival")
 
 
-GpuDevice <- listOpenCLDevices()[1]
+GpuDevice <- listGPUDevices()[1]
 tolerance <- 1E-4
 
 
 # small cox
 test_that("Check small Cox on GPU", {
-    skip_if(length(listOpenCLDevices()) == 0, "GPU not available")
+    skip_if(length(listGPUDevices()) == 0, "GPU not available")
     test <- read.table(header=T, sep = ",", text = "
                    start, length, event, x1, x2
                        0, 4,  1,0,0
@@ -34,7 +34,7 @@ test_that("Check small Cox on GPU", {
 })
 
 test_that("Check very small Cox example with time-ties", {
-    skip_if(length(listOpenCLDevices()) == 0, "GPU not available")
+    skip_if(length(listGPUDevices()) == 0, "GPU not available")
     test <- read.table(header=T, sep = ",", text = "
 start, length, event, x1, x2
                        0, 4,  1,0,0
@@ -60,7 +60,7 @@ start, length, event, x1, x2
 
 # large cox
 test_that("Check Cox on GPU", {
-    skip_if(length(listOpenCLDevices()) == 0, "GPU not available")
+    skip_if(length(listGPUDevices()) == 0, "GPU not available")
     set.seed(123)
     sim <- simulateCyclopsData(nstrata = 1,
                                nrows = 100000,
@@ -85,7 +85,7 @@ test_that("Check Cox on GPU", {
 
 # lasso cv
 test_that("Check cross-validation for lasso Cox on GPU", {
-    skip_if(length(listOpenCLDevices()) == 0, "GPU not available")
+    skip_if(length(listGPUDevices()) == 0, "GPU not available")
     set.seed(123)
     sim <- simulateCyclopsData(nstrata = 1,
                                nrows = 900,
@@ -115,7 +115,7 @@ test_that("Check cross-validation for lasso Cox on GPU", {
 
 # multi-core
 test_that("Check multi-core cross-validation for lasso Cox on GPU", {
-    skip_if(length(listOpenCLDevices()) == 0, "GPU not available")
+    skip_if(length(listGPUDevices()) == 0, "GPU not available")
     set.seed(123)
     sim <- simulateCyclopsData(nstrata = 1,
                                nrows = 900,
