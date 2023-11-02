@@ -5,14 +5,21 @@
 #ifndef BASEGPUMODELSPECIFICS_HPP
 #define BASEGPUMODELSPECIFICS_HPP
 
+#ifdef HAVE_OPENCL
 #include <boost/compute/algorithm/reduce.hpp>
+#endif // HAVE_OPENCL
+
+#ifdef HAVE_CUDA
 #include <thrust/device_vector.h>
+#endif //HAVE_CUDA
 
 #include "ModelSpecifics.hpp"
 
 namespace bsccs {
 
+#ifdef HAVE_OPENCL
     namespace compute = boost::compute;
+#endif // HAVE_OPENCL
 
     namespace detail {
 
@@ -24,6 +31,7 @@ namespace bsccs {
             static const int maxBlockSize = 256;
         }; // namespace constant
 
+#ifdef HAVE_OPENCL
         template <typename DeviceVec, typename HostVec>
         DeviceVec allocateAndCopyToDevice(const HostVec& hostVec, const compute::context& context, compute::command_queue& queue) {
             DeviceVec deviceVec(hostVec.size(), context);
@@ -36,6 +44,7 @@ namespace bsccs {
             deviceVec.resize(hostVec.size());
             compute::copy(std::begin(hostVec), std::end(hostVec), std::begin(deviceVec), queue);
         }
+#endif // HAVE_OPENCL
 
         template <typename HostVec, typename DeviceVec>
         void compare(const HostVec& host, const DeviceVec& device, const std::string& error, double tolerance = 1E-10) {
@@ -69,6 +78,7 @@ namespace bsccs {
         SourceCode(std::string body, std::string name) : body(body), name(name) { }
     };
 
+#ifdef HAVE_OPENCL
     template <typename RealType>
     class AllGpuColumns {
     public:
@@ -466,6 +476,6 @@ namespace bsccs {
         int multiprocessors = device.get_info<cl_uint>(CL_DEVICE_MAX_COMPUTE_UNITS)*4/5;
 
     };
-
+#endif // HAVE_OPENCL
 }
 #endif //BASEGPUMODELSPECIFICS_HPP
