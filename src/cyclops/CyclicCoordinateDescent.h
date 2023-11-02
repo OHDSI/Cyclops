@@ -15,19 +15,6 @@
 #include "priors/JointPrior.h"
 #include "io/ProgressLogger.h"
 
-// TODO is the following needed?
-// The following changes were made in 02cf68d447b7af88c63c905b67cab95834ac639d ... 8237923e690d099fe26faf5df36401fbb9c3b091 on Aug 4, 2016
-/*
-#pragma GCC diagnostic push
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
-#pragma GCC diagnostic ignored "-Wpragmas"
-#endif
-#pragma GCC diagnostic ignored "-Wunknown-pragmas"
-#pragma GCC diagnostic ignored "-Wignored-attributes" // To keep C++14 quiet
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#pragma GCC diagnostic pop
-*/
-
 #include <Eigen/Dense>
 #include <deque>
 
