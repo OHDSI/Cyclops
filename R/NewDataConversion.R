@@ -446,7 +446,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                           batchSize = 100000) # TODO Pick magic number
 
     if (modelType == "cox_time" && !is.null(timeEffectMap)) {
-        covarNames <- unique(pull(covariates, covariateId))
+        covarNames <- unique(pull(covariates, .data$covariateId))
         if (!all(timeEffectMap$covariateId %in% covarNames)) stop("Invalid covariateId for time effects.")
         loadNewSqlCyclopsDataStratTimeEffects(object = dataPtr,
 					      stratumId = outcomes$stratumId,
