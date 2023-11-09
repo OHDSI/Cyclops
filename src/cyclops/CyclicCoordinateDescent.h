@@ -15,6 +15,8 @@
 #include "priors/JointPrior.h"
 #include "io/ProgressLogger.h"
 
+#define EIGEN_PERMANENTLY_DISABLE_STUPID_WARNINGS
+
 #include <Eigen/Dense>
 #include <deque>
 
