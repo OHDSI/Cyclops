@@ -4,6 +4,8 @@
 .settings
 .Rproj.user
 .Rhistory
+.DS_Store
+.idea/
 standalone/build/**
 src/**/*.o
 src/**/*.o-*
@@ -13,6 +15,7 @@ CMakeCache.txt
 CMakefiles/**
 Makefile
 cmake_install.cmake
+cmake-build-debug/
 codebase/**
 autom4te.cache/
 config.log

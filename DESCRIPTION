@@ -41,7 +41,8 @@ Imports:
     survival,
     bit64
 LinkingTo: Rcpp,
-    RcppEigen (>= 0.3.2)
+    RcppEigen (>= 0.3.2),
+    RcppParallel
 Suggests:
     testthat,
     readr,

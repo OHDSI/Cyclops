@@ -282,3 +282,52 @@ test_that("Check very small Cox example with weights and censor weights defined 
     tolerance <- 1E-4
     expect_equivalent(coef(cyclopsFit1), coef(cyclopsFit2), tolerance = tolerance)
 })
+
+test_that("Check very small Fine-Gray example with weights and censor weights defined.", {
+    test <- read.table(header=T, sep = ",", text = "
+                       start, length, event, x1, x2
+                       0, 6,  1,0,1
+                       0, 5,  0,1,1
+                       0, 4,  1,0,0
+                       0, 3.5,2,2,0
+                       0, 3,  0,0,1
+                       0, 2.5,2,0,1
+                       0, 2,  1,1,1
+                       0, 2,  1,2,0
+                       0, 1.5,0,1,0
+                       0, 1,  1,1,0")
+    weights <- c(0,0,1,1,1,1,1,0,1,1)
+    sub <- c(FALSE, FALSE, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, TRUE, TRUE)
+
+    fgDat <- Cyclops:::getFineGrayWeights(test$length, test$event, weights)
+    dataPtr <- Cyclops:::createCyclopsData(fgDat$surv ~ test$x1 + test$x2, modelType = "fgr", censorWeights = fgDat$weights)
+    dataFit <- Cyclops:::fitCyclopsModel(dataPtr, weights = weights)
+
+    goldFit <- crr(test$length, test$event, cbind(test$x1, test$x2), subset = sub, variance = FALSE)
+
+    tolerance <- 1E-6
+    expect_equivalent(coef(dataFit), goldFit$coef, tolerance = tolerance)
+
+
+    test_sub <- read.table(header=T, sep = ",", text = "
+                       start, length, event, x1, x2
+#                        0, 6,  1,0,1
+#                        0, 5,  0,1,1
+                        0, 4,  1,0,0
+                        0, 3.5,2,2,0
+                        0, 3,  0,0,1
+                        0, 2.5,2,0,1
+                        0, 2,  1,1,1
+#                        0, 2,  1,2,0
+                        0, 1.5,0,1,0
+                        0, 1,  1,1,0")
+    fgDat_sub <- Cyclops:::getFineGrayWeights(test_sub$length, test_sub$event)
+
+    dataPtr_sub <- Cyclops:::createCyclopsData(fgDat_sub$surv ~ test_sub$x1 + test_sub$x2, modelType = "fgr", censorWeights = fgDat_sub$weights)
+    dataFit_sub <- Cyclops:::fitCyclopsModel(dataPtr_sub)
+
+    goldFit_sub <- crr(test_sub$length, test_sub$event, cbind(test_sub$x1, test_sub$x2), variance = FALSE)
+
+    expect_equivalent(coef(dataFit_sub), goldFit_sub$coef, tolerance = tolerance)
+    expect_equivalent(coef(dataFit_sub), coef(dataFit), tolerance = tolerance)
+})

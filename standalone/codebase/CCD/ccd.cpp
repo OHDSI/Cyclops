@@ -55,12 +55,14 @@ int main(int argc, char* argv[]) {
 			selector.getWeights(0, weights);
 			ccd->setWeights(&weights[0]);
 		}
+
 		// Handle weights
 		auto weights = modelData->copyZVector();
 		if (weights.size() == 0) {
 		    weights = std::vector<double>(modelData->getNumberOfRows(), 1);
 		}
 		ccd->setWeights(weights.data()); // TODO Only set weights when specified after BAD ACCESS fix
+
 		timeUpdate = interface.fitModel(ccd);
 		if (arguments.fitMLEAtMode) {
 			timeUpdate += interface.runFitMLEAtMode(ccd);

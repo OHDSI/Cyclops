@@ -43,6 +43,8 @@ public:
 
 	virtual double getKktBoundary(const int index) const = 0; // pure virtual
 
+	virtual PriorType getPriorType(const int index) {return PriorType::NONE;};
+
 //  	virtual JointPrior* clone() const = 0; // pure virtual
 
     void addVarianceParameter(const VariancePtr& ptr) {
@@ -100,6 +102,10 @@ public:
 	        stream << prior->getDescription() << " ";
 	    }
 		return stream.str();
+	}
+
+	PriorType getPriorType(int index) {
+		return listPriors[index]->getPriorType();
 	}
 
 // 	void setVariance(int index, double x) {
@@ -635,6 +641,10 @@ public:
 
 	double getKktBoundary(const int index) const {
 		return singlePrior->getKktBoundary();
+	}
+
+	PriorType getPriorType(int index) {
+		return singlePrior->getPriorType();
 	}
 
 // 	JointPrior* clone() const {

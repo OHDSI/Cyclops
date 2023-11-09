@@ -25,6 +25,7 @@ PKG_LIBS = `$(R_HOME)/bin/Rscript -e "Rcpp:::LdFlags()"`
 ## comfortable with autoconf and its related tools.
 
 PKG_CPPFLAGS = -I. -Icyclops -DR_BUILD -DDOUBLE_PRECISION
+
 PKG_CXXFLAGS = -g1
 
 OBJECTS.cyclops = \
@@ -68,6 +69,7 @@ OBJECTS.R = \
     RcppExports.o \
     RcppModelData.o \
     RcppCyclopsInterface.o \
+    RcppGpuInterface.o \
     RcppIsSorted.o
 
 OBJECTS = $(OBJECTS.cyclops) $(OBJECTS.drivers) \

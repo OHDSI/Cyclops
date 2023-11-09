@@ -41,11 +41,13 @@ namespace bsccs {
  	{ModelType::POISSON, "pr"},
  	{ModelType::LOGISTIC, "lr"},
  	{ModelType::CONDITIONAL_LOGISTIC, "clr"},
+ 	{ModelType::EFRON_CONDITIONAL_LOGISTIC, "clr_efron"},
  	{ModelType::TIED_CONDITIONAL_LOGISTIC, "clr_exact"},
  	{ModelType::CONDITIONAL_POISSON, "cpr"},
  	{ModelType::SELF_CONTROLLED_MODEL, "sccs"},
  	{ModelType::COX, "cox"},
  	{ModelType::COX_RAW, "cox_raw"},
+	{ModelType::TIME_VARYING_COX, "cox_time"},
  	{ModelType::FINE_GRAY, "fgr"},
  };
 
@@ -69,11 +71,13 @@ std::vector<std::string> cyclopsGetRemoveInterceptNames() {
 	using namespace bsccs;
 	std::vector<std::string> names = {
 		modelTypeNames[ModelType::CONDITIONAL_LOGISTIC],
+        modelTypeNames[ModelType::EFRON_CONDITIONAL_LOGISTIC],
 		modelTypeNames[ModelType::TIED_CONDITIONAL_LOGISTIC],
 		modelTypeNames[ModelType::CONDITIONAL_POISSON],
 		modelTypeNames[ModelType::SELF_CONTROLLED_MODEL],
 		modelTypeNames[ModelType::COX],
 		modelTypeNames[ModelType::COX_RAW],
+		modelTypeNames[ModelType::TIME_VARYING_COX],
         modelTypeNames[ModelType::FINE_GRAY]
 	};
 	return names;
@@ -85,6 +89,7 @@ std::vector<std::string> cyclopsGetIsSurvivalNames() {
 	std::vector<std::string> names = {
 		modelTypeNames[ModelType::COX],
 		modelTypeNames[ModelType::COX_RAW],
+		modelTypeNames[ModelType::TIME_VARYING_COX],
         modelTypeNames[ModelType::FINE_GRAY]
 	};
 	return names;
@@ -97,6 +102,7 @@ std::vector<std::string> cyclopsGetUseOffsetNames() {
 		modelTypeNames[ModelType::SELF_CONTROLLED_MODEL],
 		modelTypeNames[ModelType::COX],
 		modelTypeNames[ModelType::COX_RAW],
+		modelTypeNames[ModelType::TIME_VARYING_COX],
         modelTypeNames[ModelType::FINE_GRAY]
 	};
 	return names;
@@ -461,7 +467,7 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
 		bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps,
 		const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance,
         bool useKKTSwindle, int swindleMultipler, const std::string& selectorType, double initialBound,
-        int maxBoundCount, const std::string& algorithm
+        int maxBoundCount, const std::string& algorithm, bool doItAll, bool syncCV
 		) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
@@ -474,6 +480,8 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
     args.modeFinding.swindleMultipler = swindleMultipler;
     args.modeFinding.initialBound = initialBound;
     args.modeFinding.maxBoundCount = maxBoundCount;
+    args.modeFinding.doItAll = doItAll;
+
     if (algorithm == "mm") {
         args.modeFinding.algorithmType = AlgorithmType::MM;
     }
@@ -487,6 +495,7 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
 	args.crossValidation.gridSteps = gridSteps;
 	args.crossValidation.startingVariance = startingVariance;
 	args.crossValidation.selectorType = RcppCcdInterface::parseSelectorType(selectorType);
+	args.crossValidation.syncCV = syncCV;
 
 	NoiseLevels noise = RcppCcdInterface::parseNoiseLevel(noiseLevel);
 	args.noiseLevel = noise;
@@ -529,6 +538,32 @@ List cyclopsFitModel(SEXP inRcppCcdInterface) {
 		);
 	RcppCcdInterface::appendRList(list, interface->getResult());
 	return list;
+}
+
+// [[Rcpp::export(".cyclopsRunBootstrap")]]
+List cyclopsRunBootstrap(SEXP inRcppCcdInterface, const std::string& outFileName, std::string& treatmentId, int replicates) {
+    using namespace bsccs;
+
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    interface->getArguments().doBootstrap = true;
+    interface->getArguments().outFileName = outFileName;
+    interface->getArguments().replicates = replicates;
+
+    // Save parameter point-estimates
+    std::vector<double> savedBeta;
+    for (int j = 0; j < interface->getCcd().getBetaSize(); ++j) {
+        savedBeta.push_back(interface->getCcd().getBeta(j));
+    } // TODO Handle above work in interface.runBootstrap
+    double timeUpdate = interface->runBoostrap(savedBeta, treatmentId);
+
+    interface->diagnoseModel(0.0, 0.0);
+
+    List list = List::create(
+        Rcpp::Named("interface")=interface,
+        Rcpp::Named("timeFit")=timeUpdate
+    );
+    RcppCcdInterface::appendRList(list, interface->getResult());
+    return list;
 }
 
 // [[Rcpp::export(".cyclopsLogModel")]]

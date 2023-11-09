@@ -25,7 +25,9 @@ createControl(
   selectorType = "auto",
   initialBound = 2,
   maxBoundCount = 5,
-  algorithm = "ccd"
+  algorithm = "ccd",
+  doItAll = TRUE,
+  syncCV = FALSE
 )
 }
 \arguments{
@@ -75,7 +77,11 @@ the average number of rows per stratum is smaller than the number of strata.}
 
 \item{maxBoundCount}{Numeric: Maximum number of tries to decrease initial trust-region size}
 
-\item{algorithm}{String: name of fitting algorithm to employ; default is \code{ccd}
+\item{algorithm}{String: name of fitting algorithm to employ; default is \code{ccd}}
+
+\item{doItAll}{Currently unused}
+
+\item{syncCV}{Currently unused
 
 Todo: Describe convegence types}
 }

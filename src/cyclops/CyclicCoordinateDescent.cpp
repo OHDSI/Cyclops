@@ -59,17 +59,16 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(
 	init(hXI.getHasOffsetCovariate());
 }
 
-CyclicCoordinateDescent* CyclicCoordinateDescent::clone() {
-	return new (std::nothrow) CyclicCoordinateDescent(*this);
+CyclicCoordinateDescent* CyclicCoordinateDescent::clone(ComputeDeviceArguments computeDevice) {
+	return new (std::nothrow) CyclicCoordinateDescent(*this, computeDevice);
 }
 
 //template <typename T>
 //struct GetType<T>;
-
-CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& copy)
+CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& copy, ComputeDeviceArguments computeDevice)
 	: privateModelSpecifics(
 			bsccs::unique_ptr<AbstractModelSpecifics>(
-				copy.modelSpecifics.clone())), // deep copy
+				copy.modelSpecifics.clone(computeDevice))), // deep copy
 	  modelSpecifics(*privateModelSpecifics),
       jointPrior(copy.jointPrior), // swallow
       hXI(copy.hXI), // swallow
@@ -245,6 +244,10 @@ void CyclicCoordinateDescent::init(bool offset) {
 			NULL
 		//	hY
 			);
+
+	usingGPU = modelSpecifics.isGPU();
+	usingCUDA = modelSpecifics.isCUDA();
+	resetBeta();
 }
 
 int CyclicCoordinateDescent::getAlignedLength(int N) {
@@ -252,6 +255,19 @@ int CyclicCoordinateDescent::getAlignedLength(int N) {
 }
 
 void CyclicCoordinateDescent::computeNEvents() {
+	if (syncCV) {
+		for (int i=0; i<syncCVFolds; i++) {
+			modelSpecifics.setWeights(
+					hWeightsPool[i].size() > 0 ? hWeightsPool[i].data() : nullptr,
+							useCrossValidation, i);
+		}
+	} else {
+		modelSpecifics.setWeights(
+				hWeights.size() > 0 ? hWeights.data() : nullptr,
+				cWeights.size() > 0 ? cWeights.data() : nullptr,
+				useCrossValidation);
+	}
+/*
 	//modelSpecifics.setWeights(
 	//	hWeights.size() > 0 ? hWeights.data() : nullptr,
 	//	useCrossValidation);
@@ -260,6 +276,7 @@ void CyclicCoordinateDescent::computeNEvents() {
 	    hWeights.size() > 0 ? hWeights.data() : nullptr,
 	    cWeights.size() > 0 ? cWeights.data() : nullptr,
 	    useCrossValidation);
+*/
 }
 
 void CyclicCoordinateDescent::resetBeta(void) {
@@ -273,6 +290,9 @@ void CyclicCoordinateDescent::resetBeta(void) {
     	} else {
     		hBeta[j] = 0.0;
     	}
+    }
+	if (usingGPU || usingCUDA) {
+		modelSpecifics.resetBeta();
 	}
 	computeXBeta();
 	sufficientStatisticsKnown = false;
@@ -444,6 +464,21 @@ double convertHyperparameterToVariance(double value) {
 
 void CyclicCoordinateDescent::setHyperprior(int index, double value) {
     jointPrior->setVariance(index, value);
+    if (usingGPU) {
+		std::vector<double> varianceList = jointPrior->getVariance();
+		std::vector<double> temp;
+		temp.resize(J, 0.0);
+		for (int i=0; i<J; i++) {
+			int type = jointPrior->getPriorType(i);
+			if (type == 1) {
+				temp[i] = convertVarianceToHyperparameter(varianceList[0]);
+			}
+			if (type == 2) {
+				temp[i] = varianceList[0];
+			}
+		}
+		modelSpecifics.setPriorParams(temp);
+    }
 }
 
 // TODO Depricate
@@ -483,6 +518,18 @@ void CyclicCoordinateDescent::setBeta(const std::vector<double>& beta) {
 	sufficientStatisticsKnown = false;
 	fisherInformationKnown = false;
 	varianceKnown = false;
+}
+
+void CyclicCoordinateDescent::getHBeta(void) {
+	if (usingCUDA) {
+		hBeta = modelSpecifics.getBeta();
+	}
+}
+
+void CyclicCoordinateDescent::setHXBeta(void) {
+	if (usingCUDA) {
+		modelSpecifics.setHXBeta();
+	}
 }
 
 void CyclicCoordinateDescent::setStartingBeta(const std::vector<double>& inStartingBeta) {
@@ -612,17 +659,31 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	const auto epsilon = arguments.tolerance;
 	const int maxCount = arguments.maxBoundCount;
 	const auto algorthmType = arguments.algorithmType;
+	const bool doItAll = arguments.doItAll;
 	const int qnQ = 0;
 
 	initialBound = arguments.initialBound;
 
 	int count = 0;
 	bool done = false;
+
+	if (syncCV) {
+		donePool.resize(syncCVFolds);
+		for (int i=0; i<syncCVFolds; i++) {
+			donePool[i] = false;
+		}
+		if (usingGPU) modelSpecifics.updateDoneFolds(donePool);
+	}
+//	for (int i=0; i<J; i++) {
+//		fixBeta[i] = false;
+//	}
+
+
 	while (!done) {
  	    if (arguments.useKktSwindle && jointPrior->getSupportsKktSwindle()) {
 		    kktSwindle(arguments);
 	    } else {
-		    findMode(maxIterations, convergenceType, epsilon, algorthmType, qnQ);
+		    findMode(maxIterations, convergenceType, epsilon, algorthmType, qnQ, doItAll);
 	    }
 	    ++count;
 
@@ -645,13 +706,13 @@ typedef std::tuple<
 template <typename Iterator>
 void CyclicCoordinateDescent::findMode(Iterator begin, Iterator end,
 		const int maxIterations, const int convergenceType, const double epsilon,
-		const AlgorithmType algorithmType, const int qnQ) {
+		const AlgorithmType algorithmType, const int qnQ, const bool doItAll) {
 
 	std::fill(fixBeta.begin(), fixBeta.end(), true);
  	std::for_each(begin, end, [this] (ScoreTuple& tuple) {
  		fixBeta[std::get<0>(tuple)] = false;
  	});
-	findMode(maxIterations, convergenceType, epsilon, algorithmType, qnQ);
+	findMode(maxIterations, convergenceType, epsilon, algorithmType, qnQ, doItAll);
     // fixBeta is no longer valid
 }
 
@@ -661,6 +722,7 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 	const auto convergenceType = arguments.convergenceType;
 	const auto epsilon = arguments.tolerance;
 	const auto algorithmType = arguments.algorithmType;
+	const auto doItAll = arguments.doItAll;
 	const int qnQ = 0;
 
 	// Make sure internal state is up-to-date
@@ -718,7 +780,7 @@ void CyclicCoordinateDescent::kktSwindle(const ModeFindingArguments& arguments) 
 			auto start = bsccs::chrono::steady_clock::now();
 
 			findMode(begin(activeSet), end(activeSet), maxIterations, convergenceType, epsilon,
-            algorithmType, qnQ);
+            algorithmType, qnQ, doItAll);
 
 			auto end = bsccs::chrono::steady_clock::now();
 			bsccs::chrono::duration<double> elapsed_seconds = end-start;
@@ -946,7 +1008,7 @@ void CyclicCoordinateDescent::findMode(
 		int convergenceType,
 		double epsilon,
 		AlgorithmType algorithmType,
-		int qnQ
+		int qnQ, bool doItAll
 		) {
 
 	if (convergenceType < GRADIENT || convergenceType > ZHANG_OLES) {
@@ -980,9 +1042,14 @@ void CyclicCoordinateDescent::findMode(
 	bool done = false;
 	int iteration = 0;
 	double lastObjFunc = 0.0;
+	std::vector<double> lastObjFuncVec;
 
 	if (convergenceType < ZHANG_OLES) {
-		lastObjFunc = getObjectiveFunction(convergenceType);
+		if (syncCV) {
+			lastObjFuncVec = getObjectiveFunctions(convergenceType);
+		} else {
+			lastObjFunc = getObjectiveFunction(convergenceType);
+		}
 	} else { // ZHANG_OLES
 		saveXBeta();
 	}
@@ -996,8 +1063,48 @@ void CyclicCoordinateDescent::findMode(
 	    lastLogPosterior = -10E10;
 	}
 
-	auto cycle = [this,&iteration,algorithmType,&allDelta] {
+	if (usingGPU || usingCUDA) {
+		modelSpecifics.setBounds(initialBound);
+		std::vector<int> priorList;
+		std::vector<double> varianceList = jointPrior->getVariance();
+		std::vector<double> temp;
+		temp.resize(J, 0.0);
 
+		for (int i=0; i<J; i++) {
+			int type = jointPrior->getPriorType(i);
+			priorList.push_back(type);
+			if (type == 1) {
+				temp[i] = convertVarianceToHyperparameter(varianceList[0]);
+			}
+			if (type == 2) {
+				temp[i] = varianceList[0];
+			}
+		}
+		modelSpecifics.setPriorTypes(priorList);
+		modelSpecifics.setPriorParams(temp);
+		//modelSpecifics.resetBeta();
+	}
+	
+	auto cycle = [this,&lastObjFunc,&lastObjFuncVec,&iteration,algorithmType,&allDelta,&doItAll] {
+/*
+		if (iteration%10==0) {
+			std::cout<<"iteration " << iteration << " ";
+
+			if (!syncCV) {
+				std::cout << "lastObjFunc: " << lastObjFunc << " ";
+			}
+
+			if (syncCV) {
+				for (int i=0; i<syncCVFolds; i++) {
+					if (!donePool[i]) {
+						std::cout << lastObjFuncVec[i] << " ";
+					}
+				}
+			}
+
+			std::cout << "\n";
+		}
+*/
 	    auto log = [this](const int index) {
 	        if ( (noiseLevel > QUIET) && ((index+1) % 100 == 0)) {
 	            std::ostringstream stream;
@@ -1040,25 +1147,41 @@ void CyclicCoordinateDescent::findMode(
 
 	    } else {
 
-	        // Do a complete cycle in serial
-	        for(int index = 0; index < J; index++) {
+	    	if (usingGPU) {
+			//if (usingGPU && syncCV) {
+	    		modelSpecifics.runCCD(useCrossValidation, doItAll);
+	    		if (!syncCV) {
+	    			hBeta = modelSpecifics.getBeta();
+	    		}
+	    	} else if (usingCUDA) {
+	    		for(int index = 0; index < J; index++) {
+	    			if (!fixBeta[index]) {
+	    				modelSpecifics.updateBetaAndDelta(index, useCrossValidation);
+	    			}
+	    		}
+	    		hBeta = modelSpecifics.getBeta();
+	    	} else {
 
-	            if (!fixBeta[index]) {
-	                double delta = ccdUpdateBeta(index);
-	                delta = applyBounds(delta, index);
-	                if (delta != 0.0) {
-	                    sufficientStatisticsKnown = false;
-	                    updateSufficientStatistics(delta, index);
-	                }
-	            }
+	    		// Do a complete cycle in serial
+	    		for(int index = 0; index < J; index++) {
 
-	            log(index);
-	        }
+	    			if (!fixBeta[index]) {
+						double delta = ccdUpdateBeta(index);
+						delta = applyBounds(delta, index);
+					//	std::cout << "index: " << index << " delta: " << delta << "\n";
+						if (delta != 0.0) {
+							sufficientStatisticsKnown = false;
+							updateSufficientStatistics(delta, index);
+						}	
+				}
+	    			log(index);
+	    		}
+	    	}
 	    }
 	    iteration++;
 	};
 
-	auto check = [this,&iteration,&lastObjFunc,algorithmType,&lastLogPosterior,
+	auto check = [this,&iteration,&lastObjFunc,algorithmType,&lastLogPosterior,&lastObjFuncVec,
                convergenceType, epsilon,maxIterations] {
                    bool done = false;
                    //		bool checkConvergence = (iteration % J == 0 || iteration == maxIterations);
@@ -1080,11 +1203,13 @@ void CyclicCoordinateDescent::findMode(
                        lastLogPosterior = thisLogPosterior;
                    }
 
-
                    if (checkConvergence) {
-                       done = performCheckConvergence(convergenceType, epsilon, maxIterations, iteration, &lastObjFunc);
+                	   if (syncCV) {
+                		   done = performCheckConvergence(convergenceType, epsilon, maxIterations, iteration, lastObjFuncVec);
+                	   } else {
+                		   done = performCheckConvergence(convergenceType, epsilon, maxIterations, iteration, &lastObjFunc);
+                	   }
                    }
-
 
                    return done;
                };
@@ -1242,6 +1367,8 @@ void CyclicCoordinateDescent::findMode(
     }
 
 	lastIterationCount = iteration;
+//	std::cout << "iterations: " << lastIterationCount << " lastObjFunc: " << lastObjFunc << '\n';
+
 	updateCount += 1;
 
 	modelSpecifics.printTiming();
@@ -1451,6 +1578,8 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	priors::GradientHessian gh;
 	computeGradientAndHessian(index, &gh.first, &gh.second);
 
+//	std::cout << "index: " << index << " grad: " << gh.first << " hess: " << gh.second << "\n";
+
 	if (gh.second < 0.0) {
 	    gh.first = 0.0;
 	    gh.second = 0.0;
@@ -1626,6 +1755,250 @@ inline int CyclicCoordinateDescent::sign(double x) {
 		return -1;
 	}
 	return 1;
+}
+
+void CyclicCoordinateDescent::getFold(int fold) {
+	modelSpecifics.setFold(fold);
+}
+
+void CyclicCoordinateDescent::turnOnStreamCV(int foldToCompute) {
+
+	streamCV = true;
+	streamCVFolds = foldToCompute;
+//	std::cout << "foldToCompute: " << foldToCompute << "\n";
+	modelSpecifics.turnOnStreamCV(foldToCompute);
+
+}
+
+void CyclicCoordinateDescent::turnOnSyncCV(int foldToCompute) {
+
+	syncCV = true;
+	syncCVFolds = foldToCompute;
+//	std::cout << "foldToCompute: " << foldToCompute << "\n";
+	modelSpecifics.turnOnSyncCV(foldToCompute);
+	for(int i=0; i<foldToCompute; ++i) {
+		hBetaPool.push_back(hBeta);
+		hDeltaPool.push_back(hDelta);
+		hWeightsPool.push_back(hWeights);
+	}
+
+	fixBetaPool.resize(foldToCompute);
+	donePool.resize(foldToCompute, false);
+	for (int i=0; i<foldToCompute; i++) {
+		fixBetaPool[i].resize(J, false);
+	}
+
+	modelSpecifics.setBounds(initialBound);
+	std::vector<int> priorList;
+	std::vector<double> varianceList = jointPrior->getVariance();
+	std::vector<double> temp;
+	temp.resize(J, 0.0);
+
+	for (int i=0; i<J; i++) {
+		int type = jointPrior->getPriorType(i);
+		priorList.push_back(type);
+		if (type == 1) {
+			temp[i] = convertVarianceToHyperparameter(varianceList[0]);
+		}
+		if (type == 2) {
+			temp[i] = varianceList[0];
+		}
+	}
+	modelSpecifics.setPriorTypes(priorList);
+	modelSpecifics.setPriorParams(temp);
+	modelSpecifics.resetBeta();
+
+}
+
+void CyclicCoordinateDescent::turnOffSyncCV() {
+	syncCV = false;
+	modelSpecifics.turnOffSyncCV();
+}
+
+std::vector<double> CyclicCoordinateDescent::getPredictiveLogLikelihood(std::vector<std::vector<double>>& weightsPool) {
+	xBetaKnown = false;
+	if (usingGPU && syncCV) xBetaKnown = true;
+
+	if (!xBetaKnown) {
+		computeXBeta();
+		xBetaKnown = true;
+		sufficientStatisticsKnown = false;
+	}
+
+	if (!sufficientStatisticsKnown) {
+		computeRemainingStatistics(true, 0); // TODO Remove index????
+		sufficientStatisticsKnown = true;
+	}
+
+	getDenominators();
+
+	std::vector<double> result;
+	result.resize(syncCVFolds);
+	for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+		if (donePool[cvIndex]) {
+			result[cvIndex] = modelSpecifics.getPredictiveLogLikelihood(&weightsPool[cvIndex][0], cvIndex); // TODO Pass double
+		} else {
+			result[cvIndex] = std::numeric_limits<double>::quiet_NaN();
+		}
+	}
+
+//	std::cout << "iterations: " << lastIterationCount << " ";
+	return result;
+}
+
+double getPredictiveLogLikelihood(double* weights, int cvIndex) {
+	return 0;
+}
+
+
+void CyclicCoordinateDescent::setWeights(double* iWeights, int syncCVIndex) {
+	if (hWeightsPool[syncCVIndex].size() != static_cast<size_t>(K)) {
+		hWeightsPool[syncCVIndex].resize(K); // = (double*) malloc(sizeof(double) * K);
+	}
+	for (int i = 0; i < K; ++i) {
+		hWeightsPool[syncCVIndex][i] = iWeights[i];
+	}
+	useCrossValidation = true;
+	validWeights = false;
+	sufficientStatisticsKnown = false;
+}
+
+std::vector<double> CyclicCoordinateDescent::getObjectiveFunctions(int convergenceType) {
+	if (convergenceType == GRADIENT) {
+		//std::cout << "grad obj \n";
+	    return modelSpecifics.getGradientObjectives();
+	} else
+	if (convergenceType == MITTAL) {
+		//std::cout << "mittal obj \n";
+		return getLogLikelihoods();
+	} else
+	if (convergenceType == LANGE) {
+		//std::cout << "lange obj: ";
+	    std::vector<double> logLikelihoods = getLogLikelihoods();
+	    std::vector<double> logPriors = getLogPriors();
+	    for (int i = 0; i < syncCVFolds; i++) {
+	        logLikelihoods[i] = logLikelihoods[i] + logPriors[i];
+	    }
+		return logLikelihoods;
+	} else {
+    	std::ostringstream stream;
+    	stream << "Invalid convergence type: " << convergenceType;
+    	error->throwError(stream);
+    }
+	std::vector<double> result;
+    return result;
+}
+
+std::vector<double> CyclicCoordinateDescent::getLogLikelihoods(void) {
+
+	checkAllLazyFlags();
+
+	getDenominators();
+	likelihoodCount += 1;
+
+	std::vector<double> result;
+	return result;
+
+	//return modelSpecifics.getLogLikelihoods(useCrossValidation);
+}
+std::vector<double> CyclicCoordinateDescent::getLogPriors(void) {
+	std::vector<double> result;
+	for (int index = 0; index < syncCVFolds; index++) {
+		result.push_back(jointPrior->logDensity(hBetaPool[index], *this));
+	}
+	return result;
+}
+
+
+bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
+                                                      double epsilon,
+                                                      int maxIterations,
+                                                      int iteration,
+                                                      std::vector<double>& lastObjFuncVec) {
+
+    std::ostringstream stream;
+
+    bool done = true;
+    std::vector<double> conv;
+    conv.resize(syncCVFolds);
+    //std::vector<bool> illconditioned;
+    //illconditioned.resize(syncCVFolds, false);
+    bool illconditioned = true;
+    //bool allIllconditioned = true;
+
+    if (convergenceType < ZHANG_OLES) {
+    	std::vector<double> thisObjFuncVec = getObjectiveFunctions(convergenceType);
+
+//    	std::cout << "thisObjFunc " << iteration << ": ";
+//        for (auto x : thisObjFuncVec) {
+//            std::cout << " " << x;
+//        }
+//        std::cout << '\n';
+
+    	//std::cout << "ObjFunc" << convergenceType << ": " << thisObjFunc << '\n';
+    	bool needsUpdate = false;
+    	for (int cvIndex = 0; cvIndex < syncCVFolds; cvIndex++) {
+    		if (thisObjFuncVec[cvIndex] != thisObjFuncVec[cvIndex]) {
+    			std::ostringstream stream;
+    			stream << "\nWarning: problem is ill-conditioned for this choice of\n"
+    					<< "\t prior (" << jointPrior->getDescription() << ") or\n"
+						<< "\t initial bounding box (" << initialBound << ")\n"
+						<< "Enforcing convergence!";
+    			logger->writeLine(stream);
+    			conv[cvIndex] = 0.0;
+    			//illconditioned[cvIndex] = true;
+    			//illconditioned = true;
+    			//done = false;
+    		} else {
+    			illconditioned = false;
+    			conv[cvIndex] = computeConvergenceCriterion(thisObjFuncVec[cvIndex], lastObjFuncVec[cvIndex]);
+    			if (!donePool[cvIndex] && epsilon > 0 && conv[cvIndex] >= epsilon) {
+    				done = false;
+    			}
+    			if (!donePool[cvIndex] && epsilon > 0 && conv[cvIndex] < epsilon) {
+    				donePool[cvIndex] = true;
+    				needsUpdate = true;
+    				//if (usingGPU) modelSpecifics.updateDoneFolds(donePool);
+    				/*
+    				for (int j = 0; j < J; j++) {
+    					fixBetaPool[cvIndex][j] = true;
+    				}
+    				syncCVIterator.fix(cvIndex);
+    				*/
+    			}
+    		}
+    		lastObjFuncVec[cvIndex] = thisObjFuncVec[cvIndex];
+    	}
+    	if (usingGPU && needsUpdate) modelSpecifics.updateDoneFolds(donePool);
+    } else { // TODO ZHANG_OLES
+        //conv = computeZhangOlesConvergenceCriterion();
+        //saveXBeta();
+    } // Necessary to call getObjFxn or computeZO before getLogLikelihood,
+    // since these copy over XBeta
+
+    if (illconditioned) {
+    	done = true;
+		lastReturnFlag = ILLCONDITIONED;
+    } else if (done) {
+    	if (noiseLevel > SILENT) {
+    		stream << "Reached convergence criterion";
+    	}
+    	lastReturnFlag = SUCCESS;
+    } else if (iteration > maxIterations) {
+    	if (noiseLevel > SILENT) {
+    		stream << "Reached maximum iterations";
+    	}
+    	done = true;
+    	lastReturnFlag = MAX_ITERATIONS;
+    }
+
+    if (noiseLevel > QUIET) {
+        logger->writeLine(stream);
+    }
+
+    logger->yield();
+
+    return done;
 }
 
 } // namespace

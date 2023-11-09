@@ -131,4 +131,87 @@ void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<doub
 	outLog.close();
 }
 
+void BootstrapDriver::logHR(const CCDArguments& arguments, std::vector<double>& savedBeta, std::string treatmentId) {
+
+	int tId = 0;
+	while (modelData->getColumnLabel(tId) != treatmentId) tId++;
+
+	ofstream outLog(arguments.outFileName.c_str());
+	if (!outLog) {
+        std::ostringstream stream;
+		stream << "Unable to open log file: " << arguments.bsFileName;
+		error->throwError(stream);
+	}
+
+	string sep(","); // TODO Make option
+
+	// Stats
+	outLog << "Drug_concept_id" << sep << "Condition_concept_id" << sep <<
+		"score" << sep << "standard_error" << sep << "bs_mean" << sep << "bs_lower" << sep <<
+		"bs_upper" << sep << "bs_prob0" << endl;
+
+	for (int j = tId; j < J; ++j) {
+		outLog << modelData->getColumnLabel(j) <<
+			sep << treatmentId << sep;
+
+		double mean = 0.0;
+		double var = 0.0;
+		double prob0 = 0.0;
+		for (rvector::iterator it = estimates[j]->begin(); it != estimates[j]->end(); ++it) {
+			mean += *it;
+			var += *it * *it;
+			if (*it == 0.0) {
+				prob0 += 1.0;
+			}
+		}
+
+		double size = static_cast<double>(estimates[j]->size());
+		mean /= size;
+		var = (var / size) - (mean * mean);
+		prob0 /= size;
+
+		sort(estimates[j]->begin(), estimates[j]->end());
+		int offsetLower = static_cast<int>(size * 0.025);
+		int offsetUpper = static_cast<int>(size * 0.975);
+
+		double lower = *(estimates[j]->begin() + offsetLower);
+		double upper = *(estimates[j]->begin() + offsetUpper);
+
+		outLog << savedBeta[j] << sep;
+		outLog << std::sqrt(var) << sep << mean << sep << lower << sep << upper << sep << prob0 << endl;
+	}
+
+        if (arguments.reportDifference) {
+                double mean = 0.0;
+                double var = 0.0;
+                double prob0 = 0.0;
+
+		double size = static_cast<double>(estimates[tId]->size());
+                std::vector<double> diff(size, static_cast<double>(0));
+                for (int i = 0; i < size; i++) {
+                        diff[i] = *(estimates[tId]->begin() + i) - *(estimates[tId+1]->begin() + i);
+                        mean += diff[i];
+                        var += diff[i] * diff[i];
+                        if (diff[i] == 0.0) {
+                                prob0 += 1.0;
+                        }
+                }
+
+                mean /= size;
+                var = (var / size) - (mean * mean);
+                prob0 /= size;
+                sort(diff.begin(), diff.end());
+
+                int offsetLower = static_cast<int>(size * 0.025);
+                int offsetUpper = static_cast<int>(size * 0.975);
+
+                double lower = diff[offsetLower];
+                double upper = diff[offsetUpper];
+
+                outLog << savedBeta[tId] - savedBeta[tId+1] << sep;
+                outLog << std::sqrt(var) << sep << mean << sep << lower << sep << upper << sep << prob0 << endl;
+	}
+	outLog.close();
+}
+
 } // namespace

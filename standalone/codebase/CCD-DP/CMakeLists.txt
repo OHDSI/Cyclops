@@ -20,10 +20,6 @@ set(BASE_SOURCE_FILES
 	 ${CCD_SOURCE_DIR}/CCD/io/SCCSInputReader.cpp
      ${CCD_SOURCE_DIR}/CCD/io/NewCoxInputReader.h
      ${CCD_SOURCE_DIR}/CCD/io/NewCoxInputReader.h
-#	 ${CCD_SOURCE_DIR}/CCD/io/CLRInputReader.cpp
-#	 ${CCD_SOURCE_DIR}/CCD/io/RTestInputReader.cpp
-#	 ${CCD_SOURCE_DIR}/CCD/io/CoxInputReader.cpp
-#	 ${CCD_SOURCE_DIR}/CCD/io/CCTestInputReader.cpp
 	 ${CCD_SOURCE_DIR}/CCD/CmdLineCcdInterface.cpp
 	${RCCD_SOURCE_DIR}/cyclops/engine/AbstractModelSpecifics.cpp
 	${RCCD_SOURCE_DIR}/cyclops/drivers/AbstractDriver.cpp
@@ -39,11 +35,12 @@ set(BASE_SOURCE_FILES
 	${RCCD_SOURCE_DIR}/cyclops/drivers/BootstrapDriver.cpp
 	${RCCD_SOURCE_DIR}/utils/HParSearch.cpp
 	${RCCD_SOURCE_DIR}/tinythread/tinythread.cpp
+	${RCCD_SOURCE_DIR}/cyclops/engine/ModelSpecifics.hpp
+	${RCCD_SOURCE_DIR}/cyclops/engine/ModelSpecifics.h
 	)
 	
 set(CCD_SOURCE_FILES
-
-	${CCD_SOURCE_DIR}/CCD/ccd.cpp)
+		${CCD_SOURCE_DIR}/CCD/ccd.cpp)
 	
 set(DOUBLE_PRECISION true)	
 add_definitions(-DDOUBLE_PRECISION)

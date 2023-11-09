@@ -250,15 +250,17 @@ simulateCyclopsData <- function(nstrata = 200,
 #' @param model  String: Fitted regression model type
 #' @param coverage Logical: report coverage statistics
 #' @param includePenalty   Logical: include regularized regression penalty in computing profile likelihood based confidence intervals
+#' @param computeDevice String: Name of compute device to employ; defaults to \code{"native"} C++ on CPU
 #'
 #' @export
 fitCyclopsSimulation <- function(sim,
                                  useCyclops = TRUE,
                                  model = "logistic",
                                  coverage = TRUE,
-                                 includePenalty = FALSE) {
+                                 includePenalty = FALSE,
+				 computeDevice = "native") {
     if (useCyclops) {
-        .fitCyclopsSimulationUsingCyclops(sim, model, coverage = coverage, includePenalty = includePenalty)
+        .fitCyclopsSimulationUsingCyclops(sim, model, coverage = coverage, includePenalty = includePenalty, computeDevice = computeDevice)
     } else {
         .fitCyclopsSimulationUsingOtherThanCyclops(sim, model, coverage)
     }
@@ -282,7 +284,8 @@ fitCyclopsSimulation <- function(sim,
                                               model = "logistic",
                                               regularized = FALSE,
                                               coverage = TRUE,
-                                              includePenalty = FALSE){
+                                              includePenalty = FALSE,
+					      computeDevice = computeDevice){
     if (!regularized)
         includePenalty = FALSE
     start <- Sys.time()
@@ -349,7 +352,11 @@ fitCyclopsSimulation <- function(sim,
                      signif(cyclopsFit$timeFit,3), attr(cyclopsFit$timeFit,"units"),
                      ")"))
 
-    df <- data.frame(coef = coefCyclops, lbCi95 = lbCi95, ubCi95 = ubCi95)
+    if (coverage) {
+        df <- data.frame(coef = coefCyclops, lbCi95 = lbCi95, ubCi95 = ubCi95)
+    } else {
+        df <- data.frame(coef = coefCyclops)
+    }
     attr(df, "dataPtr") <- dataPtr
     df
 }

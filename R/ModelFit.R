@@ -379,16 +379,16 @@ fitCyclopsModel <- function(cyclopsData,
         || is.null(x$cyclopsInterfacePtr)
         || !inherits(x$cyclopsInterfacePtr, "externalptr")
         || .isRcppPtrNull(x$cyclopsInterfacePtr)
-        || .cyclopsGetComputeDevice(x$cyclopsInterfacePtr) != computeDevice
+        #|| .cyclopsGetComputeDevice(x$cyclopsInterfacePtr) != computeDevice TODO is this necessary?
     ) {
 
         if (testOnly == TRUE) {
             stop("Interface object is not initialized")
         }
 
-        # if (computeDevice != "native") {
-        #     stopifnot(computeDevice %in% listOpenCLDevices())
-        # }
+        if (computeDevice != "native") {
+            stopifnot(computeDevice %in% listGPUDevices())
+        }
 
         # Build interface
         interface <- .cyclopsInitializeModel(x$cyclopsDataPtr, modelType = x$modelType, computeDevice, computeMLE = TRUE)
@@ -532,6 +532,8 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param initialBound          Numeric: Starting trust-region size
 #' @param maxBoundCount         Numeric: Maximum number of tries to decrease initial trust-region size
 #' @param algorithm             String: name of fitting algorithm to employ; default is `ccd`
+#' @param doItAll               Currently unused
+#' @param syncCV                Currently unused
 #'
 #' Todo: Describe convegence types
 #'
@@ -561,7 +563,9 @@ createControl <- function(maxIterations = 1000,
                           selectorType = "auto",
                           initialBound = 2.0,
                           maxBoundCount = 5,
-                          algorithm = "ccd") {
+                          algorithm = "ccd",
+                          doItAll = TRUE,
+                          syncCV = FALSE) {
     validCVNames = c("grid", "auto")
     stopifnot(cvType %in% validCVNames)
 
@@ -594,7 +598,9 @@ createControl <- function(maxIterations = 1000,
                    selectorType = selectorType,
                    initialBound = initialBound,
                    maxBoundCount = maxBoundCount,
-                   algorithm = algorithm),
+                   algorithm = algorithm,
+                   doItAll = doItAll,
+                   syncCV = syncCV),
               class = "cyclopsControl")
 }
 
@@ -752,7 +758,7 @@ getCrossValidationInfo <- function(object) {
                            control$noiseLevel, control$threads, control$seed, control$resetCoefficients,
                            control$startingVariance, control$useKKTSwindle, control$tuneSwindle,
                            control$selectorType, control$initialBound, control$maxBoundCount,
-                           control$algorithm
+                           control$algorithm, control$doItAll, control$syncCV
                           )
         return(control)
     }
@@ -789,6 +795,20 @@ getSEs <- function(object, covariates) {
     ses <- sqrt(diag(solve(fisherInformation)))
     names(ses) <- object$coefficientNames[as.integer(covariates)]
     ses
+}
+
+#' @title Run Bootstrap for Cyclops model parameter
+#'
+#' @param object    A fitted Cyclops model object
+#' @param outFileName     Character: Output file name
+#' @param treatmentId     Character: variable to output
+#' @param replicates      Numeric: number of bootstrap samples
+#'
+#' @export
+runBootstrap <- function(object, outFileName, treatmentId, replicates) {
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
+    bs <- .cyclopsRunBootstrap(object$cyclopsData$cyclopsInterfacePtr, outFileName, treatmentId, replicates)
+    bs
 }
 
 #' @title Confidence intervals for Cyclops model parameters
@@ -917,21 +937,22 @@ getCyclopsProfileLogLikelihood <- function(object,
         while (length(grid) != 0) {
             ll <- fixedGridProfileLogLikelihood(object, parm, grid, includePenalty)
             profile <- bind_rows(profile, ll) %>% arrange(.data$point)
-
-            if (any(is.nan(profile$value))) {
-                if (all(is.nan(profile$value))) {
+            invalid <- is.nan(profile$value) | is.infinite(profile$value)
+            if (any(invalid)) {
+                if (all(invalid)) {
                     warning("Failing to compute likelihood at entire initial grid.")
                     return(NULL)
                 }
 
-                start <- min(which(!is.nan(profile$value)))
-                end <- max(which(!is.nan(profile$value)))
+                start <- min(which(!invalid))
+                end <- max(which(!invalid))
                 if (start == end) {
                     warning("Failing to compute likelihood at entire grid except one. Giving up")
                     return(NULL)
                 }
                 profile <- profile[start:end, ]
-                if (any(is.nan(profile$value))) {
+                invalid <- invalid[start:end]
+                if (any(invalid)) {
                     warning("Failing to compute likelihood in non-extreme regions. Giving up.")
                     return(NULL)
                 }
@@ -1034,6 +1055,7 @@ fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty) {
 #' (by default 2.5% and 97.5%)
 #'
 #' @keywords internal
+#' @export
 aconfint <- function(object, parm, level = 0.95, control,
                      overrideNoRegularization = FALSE, ...) {
     .checkInterface(object$cyclopsData, testOnly = TRUE)

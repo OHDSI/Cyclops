@@ -238,6 +238,8 @@ int ModelData<RealType>::loadMultipleX(
 		index = -1; // new column
 	}
 
+	maxCovariateId = *max_element(covariateIds.begin(), covariateIds.end());
+
 	touchedX = true;
 	return firstColumnIndex;
 }
@@ -367,6 +369,155 @@ int ModelData<RealType>::loadX(
     }
     touchedX = true;
     return index;
+}
+
+template <typename RealType>
+std::vector<std::string> ModelData<RealType>::loadStratTimeEffects(
+        const std::vector<IdType>& oStratumId,
+        const std::vector<IdType>& oRowId,
+        const std::vector<IdType>& oSubjectId,
+        const std::vector<IdType>& timeEffectCovariateIds) {
+
+    int numOfFixedCov = getNumberOfColumns();
+
+    // Valid subjects in current stratum
+    // Subject-to-row by stratum
+    std::vector<vector<IdType>> validSubjects;
+    std::vector<std::unordered_map<IdType,IdType>> subjectToRowByStratum;
+
+    IdType prevStrata = -1;
+    for (size_t i = 0; i < oRowId.size(); ++i) {
+
+        if (oStratumId[i] != prevStrata) {
+            validSubjects.push_back({});
+            subjectToRowByStratum.push_back({});
+        }
+        validSubjects.back().push_back(oSubjectId[i]);
+        subjectToRowByStratum.back()[oSubjectId[i]] = oRowId[i];
+
+        prevStrata = oStratumId[i];
+    }
+
+    // Transpose of X
+    bsccs::shared_ptr<CompressedDataMatrix<RealType>> Xt;
+    Xt = X.transpose(); // TODO figure out formatType of Xt
+
+    // Name for new covariates
+    std::vector<std::pair<IdType, IdType>> timeEffectCovariates; // (stratum, timeEffectCovariateName)
+    std::vector<std::string> timeEffectCovariatesName; // timeEffectCovariateName_stratum
+
+    // Start from the 2nd stratum
+    for (int st = 1; st <= pid.back(); st++) {
+
+        bool skip = true; // Skip this stratum if no subject has time varying cov
+        for (IdType sub : validSubjects[st]) {
+
+            IdType fixedRow = rowIdMap[subjectToRowByStratum[0][sub]]; // mappedRow of sub at 1st stratum
+
+            if (Xt->getColumn(fixedRow).getNumberOfEntries() > 0) { // Loop over existed (time-indept) covariates of sub
+                size_t i = 0, j = 0;
+                while (i < Xt->getColumn(fixedRow).getNumberOfEntries()
+                           && Xt->getCompressedColumnVectorSTL(fixedRow)[i] < numOfFixedCov
+                           && j < timeEffectCovariateIds.size()) {
+
+                    IdType coefIdx = Xt->getCompressedColumnVectorSTL(fixedRow)[i]; // Column index of sub
+                    int timeIdx = getColumnIndexByName(timeEffectCovariateIds[j]); // Column index of time-varying cov
+                    if (coefIdx == timeIdx) {
+                        skip = false; break; // The stratum contains subject with time-varying cov
+                    } else if (coefIdx < timeIdx) {
+                        i++;
+                    } else {
+                        j++;
+                    }
+                }
+            }
+        }
+        if (skip) continue;
+
+        for (IdType sub : validSubjects[st]) {
+
+            IdType fixedRow = rowIdMap[subjectToRowByStratum[0][sub]]; // mappedRow of sub at 1st stratum
+
+            if (Xt->getColumn(fixedRow).getNumberOfEntries() > 0) { // Loop over existed (time-indept) covariates of sub
+                size_t i = 0, j = 0;
+
+                IdType newRow = rowIdMap[subjectToRowByStratum[st][sub]]; // mappedRow of sub at current stratum
+                while (i < Xt->getColumn(fixedRow).getNumberOfEntries()
+                           && Xt->getCompressedColumnVectorSTL(fixedRow)[i] < numOfFixedCov
+                           && j < timeEffectCovariateIds.size()) {
+
+                    IdType coefIdx = Xt->getCompressedColumnVectorSTL(fixedRow)[i]; // Column index of sub
+                    int timeIdx = getColumnIndexByName(timeEffectCovariateIds[j]); // Column index of time-varying cov
+                    auto index = coefIdx; // Column index to append, will be updated below if append to a time-varying coef
+                    bool append = true;
+
+                    if (coefIdx == timeIdx) {
+                        // coefIdx is a time-varying coef, append data, move both pointers
+
+                        if (timeEffectCovariateIdMap.find(timeEffectCovariateIds[j]) != timeEffectCovariateIdMap.end()) {
+                            // The time-varying coefficient was already created at this stratum
+                            index = timeEffectCovariateIdMap[timeEffectCovariateIds[j]];
+                        } else {
+                            // Create a new column for the time-varying coefficient at this stratum
+                            index = getNumberOfColumns();
+                            timeEffectCovariateIdMap[timeEffectCovariateIds[j]] = index;
+                            X.push_back(X.getFormatType(coefIdx));
+                            IdType timeCovId = ++maxCovariateId;
+                            X.getColumn(index).add_label(timeCovId); // TODO return label to user or automatically exclude this column from L1 regularization
+                            timeEffectCovariates.push_back({st+1, timeEffectCovariateIds[j]}); // (stratum, timeEffectCovariateName)
+                            // std::cout << "Create a new column with label [" << timeCovId << "] at stratum [" << st+1 << "] from cov [" << timeEffectCovariateIds[j] << "]\n";
+                            std::ostringstream stream;
+                            stream << "Created a new column with label " << timeCovId
+                                   << " at stratum " << st+1
+                                   << " from cov " << timeEffectCovariateIds[j];
+                            log->writeLine(stream);
+                        }
+
+                        i++;
+                        if (j < timeEffectCovariateIds.size()-1) j++;
+
+                    } else if (coefIdx < timeIdx
+                                   || (coefIdx > timeIdx && j == timeEffectCovariateIds.size()-1)) {
+                        // coefIdx is a time-indept coef, append data, move the pointer to the next coefIdx
+                        i++;
+                    } else {
+                        // Only move the pointer for timeEffectCovariateIds
+                        append = false;
+                        j++;
+                    }
+
+                    if (append) {
+                        FormatType formatType = X.getColumn(coefIdx).getFormatType(); // formatType for getting data
+                        if (formatType == SPARSE || formatType == DENSE) {
+                            // TODO better way to get data from (coefIdx, fixedRow)?
+                            auto it = find(X.getCompressedColumnVectorSTL(coefIdx).begin(), X.getCompressedColumnVectorSTL(coefIdx).end(), fixedRow);
+                            int rowIdx = it - X.getCompressedColumnVectorSTL(coefIdx).begin();
+                            X.getColumn(index).add_data(newRow, X.getDataVectorSTL(coefIdx)[rowIdx]);
+                        } else {
+                            X.getColumn(index).add_data(newRow, static_cast<int>(1));
+                        }
+                    }
+                }
+            }
+        }
+        timeEffectCovariateIdMap.clear(); // clear map for next stratum
+    }
+/*
+    // TODO need to sort mappedRow in ascending order?
+    for (int index = 0; index < getNumberOfColumns(); index++) {
+        X.getColumn(index).sortRows();
+    }
+*/
+    // Sort columns
+    getX().sortColumns(CompressedDataColumn<RealType>::sortNumerically);
+
+    // Sort timeEffectCovariatesName
+    std::sort(timeEffectCovariates.begin(), timeEffectCovariates.end());
+    for (auto p : timeEffectCovariates) {
+        timeEffectCovariatesName.push_back(std::to_string(p.second) + '_' + std::to_string(p.first));
+    }
+
+    return timeEffectCovariatesName;
 }
 
 template <typename RealType>

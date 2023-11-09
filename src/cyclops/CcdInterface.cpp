@@ -171,6 +171,7 @@ void CcdInterface::setDefaultArguments(void) {
 	arguments.doBootstrap = false;
 	arguments.replicates = 100;
 	arguments.reportRawEstimates = false;
+	arguments.reportDifference = false;
 	arguments.modelName = "sccs";
 	arguments.fileFormat = "generic";
 	//arguments.outputFormat = "estimates";
@@ -322,7 +323,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	ccdPool.push_back(ccd);
 
 	for (int i = 1; i < nThreads; ++i) {
-	    ccdPool.push_back(ccd->clone());
+	    ccdPool.push_back(ccd->clone(arguments.computeDevice));
 	}
 
     std::vector<double> lowerPts(indices.size());
@@ -362,6 +363,8 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	        lowerCnts[id] = eval.getEvaluations();
 	    }
 	};
+
+    ccd->getHBeta();
 
     if (nThreads == 1) {
         std::for_each(std::begin(bounds), std::end(bounds),
@@ -427,6 +430,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 		    for (int j = 0; j < J; ++j) {
 		        ccd->setBeta(j, x0s[j]);
 		    }
+		    ccd->setHXBeta();
 		    // DEBUG, TODO Remove?
 // 		    double testMode = ccd->getLogLikelihood();
 // 		    std::ostringstream stream;
@@ -575,7 +579,7 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
     ccdPool.push_back(ccd);
 
     for (int i = 1; i < nThreads; ++i) {
-        ccdPool.push_back(ccd->clone());
+        ccdPool.push_back(ccd->clone(arguments.computeDevice));
     }
 
     if (nThreads == 1) {
@@ -696,21 +700,28 @@ SelectorType CcdInterface::getDefaultSelectorTypeOrOverride(SelectorType selecto
 double CcdInterface::runBoostrap(
 		CyclicCoordinateDescent *ccd,
 		AbstractModelData *modelData,
-		std::vector<double>& savedBeta) {
+		std::vector<double>& savedBeta,
+		std::string& treatmentId) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
 	auto selectorType = getDefaultSelectorTypeOrOverride(
 		arguments.crossValidation.selectorType, modelData->getModelType());
 
-	BootstrapSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
+	vector<int> ids;
+	if (selectorType == SelectorType::BY_ROW) {
+		ids.resize(modelData->getNumberOfRows());
+		std::iota(ids.begin(), ids.end(), 0);
+	}
+	BootstrapSelector selector(arguments.replicates, selectorType == SelectorType::BY_ROW ? ids : modelData->getPidVectorSTL(),
 			selectorType, arguments.seed, logger, error);
 	BootstrapDriver driver(arguments.replicates, modelData, logger, error);
 
 	driver.drive(*ccd, selector, arguments);
 	gettimeofday(&time2, NULL);
 
-	driver.logResults(arguments, savedBeta, ccd->getConditionId());
+//	driver.logResults(arguments, savedBeta, ccd->getConditionId());
+	driver.logHR(arguments, savedBeta, treatmentId);
 	return calculateSeconds(time1, time2);
 }
 

@@ -139,6 +139,8 @@ public:
 		// Do nothing
 	}
 
+	virtual PriorType getPriorType() {return PriorType::NONE;};
+
 	virtual const std::string getDescription() const = 0; // pure virtual
 
 	virtual double logDensity(const DoubleVector& beta, const int index,
@@ -177,6 +179,10 @@ public:
 
 	const std::string getDescription() const {
 		return "None";
+	}
+
+	PriorType getPriorType() {
+		return PriorType::NONE;
 	}
 
     double logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
@@ -262,6 +268,11 @@ public:
 		info << "Laplace(" << lambda << ")";
 		return info.str();
 	}
+
+	PriorType getPriorType() {
+		return PriorType::LAPLACE;
+	}
+
     double logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
         auto x = beta[index];
         auto lambda = getLambda();
@@ -431,6 +442,10 @@ public:
 		std::stringstream info;
 		info << "Normal(" << sigma2Beta << ")";
 		return info.str();
+	}
+
+	PriorType getPriorType() {
+		return PriorType::NORMAL;
 	}
 
 	bool getIsRegularized() const {

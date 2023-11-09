@@ -22,6 +22,7 @@
 #'
 #' @param ftime    Numeric: Observed event (failure) times
 #' @param fstatus  Numeric: Observed event (failure) types
+#' @param cvweights Numeric: Vector of 0/1 (cross-validation) weights for each data row
 #' @param cencode Numeric: Code to denote censored observations (Default is 0)
 #' @param failcode Numeric: Code to denote event of interest (Default is 1)
 #'
@@ -33,8 +34,14 @@
 #' @importFrom survival survfit Surv
 #' @importFrom stats approx
 #' @export
-getFineGrayWeights <- function(ftime, fstatus,
+getFineGrayWeights <- function(ftime, fstatus, cvweights = NULL,
                                cencode = 0, failcode = 1) {
+
+    # Check for cross-validation weights
+    if(is.null(cvweights)) cvweights <- rep(1, length(ftime))
+    if (!all(cvweights %in% c(0,1))) {
+        stop("Only 0/1 weights are currently supported")
+    }
 
     # Check for errors
     if(!cencode %in% unique(fstatus)) stop("cencode must be a valid value from fstatus")
@@ -47,12 +54,12 @@ getFineGrayWeights <- function(ftime, fstatus,
     obj[, 2] <- ifelse(obj[, 2] == failcode, 1, 2 * (1 - cenind)) # Changes competing risks to 2
 
     # Create IPCW here (see original F&G code)
-    u <- do.call('survfit', list(formula = Surv(ftime, cenind) ~ 1,
+    u <- do.call('survfit', list(formula = Surv(ftime, cenind) ~ 1, weights = cvweights,
                                  data = data.frame(ftime, cenind)))
     u <- approx(c(0, u$time, max(u$time) * (1 + 10 * .Machine$double.eps)), c(1, u$surv, 0),
                 xout = ftime * (1 - 100 * .Machine$double.eps), method = 'constant',
                 f = 0, rule = 2)
-    uuu <- u$y
+    uuu <- cvweights * u$y
     return(list(surv = obj,
                 weights = uuu))
 }

@@ -10,6 +10,8 @@
 
 #include "io/BaseInputReader.h"
 
+#define UPCAST_DENSE
+
 namespace bsccs {
 
 class NewCoxInputReader : public BaseInputReader<NewCoxInputReader> {
