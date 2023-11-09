@@ -937,21 +937,22 @@ getCyclopsProfileLogLikelihood <- function(object,
         while (length(grid) != 0) {
             ll <- fixedGridProfileLogLikelihood(object, parm, grid, includePenalty)
             profile <- bind_rows(profile, ll) %>% arrange(.data$point)
-
-            if (any(is.nan(profile$value))) {
-                if (all(is.nan(profile$value))) {
+            invalid <- is.nan(profile$value) | is.infinite(profile$value)
+            if (any(invalid)) {
+                if (all(invalid)) {
                     warning("Failing to compute likelihood at entire initial grid.")
                     return(NULL)
                 }
 
-                start <- min(which(!is.nan(profile$value)))
-                end <- max(which(!is.nan(profile$value)))
+                start <- min(which(!invalid))
+                end <- max(which(!invalid))
                 if (start == end) {
                     warning("Failing to compute likelihood at entire grid except one. Giving up")
                     return(NULL)
                 }
                 profile <- profile[start:end, ]
-                if (any(is.nan(profile$value))) {
+                invalid <- invalid[start:end]
+                if (any(invalid)) {
                     warning("Failing to compute likelihood in non-extreme regions. Giving up.")
                     return(NULL)
                 }
