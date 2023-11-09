@@ -229,7 +229,8 @@ convertToCyclopsData.data.frame <- function(outcomes,
             if (!all(timeEffectMap$timeEffectId %in% 1:ncol(timeEffects))) stop("Invalid timeEffectId for interaction terms.")
             loadNewSqlCyclopsDataTimeInteraction(object = dataPtr,
                                                  covariateId = covariates$covariateId,
-                                                 timeEffectMap = timeEffectMap)
+                                                 timeEffectCovId = timeEffectMap$covariateId,
+                                                 timeEffectTimeId = timeEffectMap$timeEffectId)
         }
     }
 
@@ -392,7 +393,8 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
             if (!all(timeEffectMap$timeEffectId %in% 1:ncol(timeEffects))) stop("Invalid timeEffectId for interaction terms.")
             loadNewSqlCyclopsDataTimeInteraction(object = dataPtr,
                                                  covariateId = covariates$covariateId,
-                                                 timeEffectMap = timeEffectMap)
+                                                 timeEffectCovId = timeEffectMap$covariateId,
+                                                 timeEffectTimeId = timeEffectMap$timeEffectId)
         }
     }
 

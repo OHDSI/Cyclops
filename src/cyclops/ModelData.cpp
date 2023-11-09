@@ -399,21 +399,23 @@ int ModelData<RealType>::loadTimeEffectsDF(
 
 template <typename RealType>
 int ModelData<RealType>::loadTimeInteraction(
-        std::vector<std::pair<int, int>>& timeEffectMap) {
+        const std::vector<int64_t>& oCovariateId,
+        const std::vector<int64_t>& oTimeEffectId) {
 
     int numOfCov = getNumberOfColumns();
     int totalNumOfCov = numOfCov;
 
     // time effect with baseline covariates
-    for (auto t : timeEffectMap) {
+    for (size_t i = 0; i < oCovariateId.size(); i++) {
         // auto sharedPtrToColumnsVector = make_shared<IntVector>(column.getColumnsVector());
-        X.push_back(X.getColumn(t.first).getColumnsVectorPtr(),
-                    X.getColumn(t.first).getDataVectorPtr(),
-                    X.getFormatType(t.first));
+	int covId = getColumnIndexByName(oCovariateId[i]);
+        X.push_back(X.getColumn(covId).getColumnsVectorPtr(),
+                    X.getColumn(covId).getDataVectorPtr(),
+                    X.getFormatType(covId));
         X.getColumn(totalNumOfCov++).convertColumnToDense(getNumberOfRows());
         int index = getNumberOfColumns() - 1;
         X.getColumn(index).add_label(index);
-        mapTimeEffects.addTimeEffectColumn(t.second);
+        mapTimeEffects.addTimeEffectColumn(oTimeEffectId[i]);
     }
     mapTimeEffects.setNumInteraction(totalNumOfCov);
 

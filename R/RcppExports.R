@@ -282,8 +282,8 @@ getTimeVector <- function(object) {
     .Call(`_Cyclops_cyclopsLoadDataTimeEffectsDF`, x, timeEffects)
 }
 
-.loadCyclopsDataTimeInteraction <- function(x, timeEffectMap) {
-    .Call(`_Cyclops_cyclopsLoadDataTimeInteraction`, x, timeEffectMap)
+.loadCyclopsDataTimeInteraction <- function(x, covariateId, timeEffectId) {
+    .Call(`_Cyclops_cyclopsLoadDataTimeInteraction`, x, covariateId, timeEffectId)
 }
 
 .appendSqlCyclopsData <- function(x, oStratumId, oRowId, oY, oTime, cRowId, cCovariateId, cCovariateValue) {

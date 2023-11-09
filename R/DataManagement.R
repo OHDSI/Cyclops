@@ -835,18 +835,29 @@ loadNewSqlCyclopsDataTimeEffectsDF <- function(object,
 #' @keywords internal
 loadNewSqlCyclopsDataTimeInteraction <- function(object,
                                                  covariateId,
-                                                 timeEffectMap) {
+                                                 timeEffectCovId,
+                                                 timeEffectTimeId) {
 
     if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
 
-    if (!all(timeEffectMap$covariateId %in% covariateId)) stop("Invalid covariateId for time effects.")
+    if (!all(timeEffectCovId %in% covariateId)) stop("Invalid covariateId for time effects.")
 
-    timeEffectMap$timeEffectId <- timeEffectMap$timeEffectId - 1 # Cpp start from 0
+    timeEffectTimeId <- timeEffectTimeId - 1 # Cpp start from 0
 
-    index <- .loadCyclopsDataTimeInteraction(object, timeEffectMap)
+    if (!bit64::is.integer64(timeEffectCovId)) {
+        timeEffectCovId <- bit64::as.integer64(timeEffectCovId)
+    }
+
+    if (!bit64::is.integer64(timeEffectTimeId)) {
+        timeEffectTimeId <- bit64::as.integer64(timeEffectTimeId)
+    }
+
+    index <- .loadCyclopsDataTimeInteraction(object,
+                                             timeEffectCovId,
+                                             timeEffectTimeId)
 
     if (!is.null(object$coefficientNames)) {
-        timeEffectName <- paste0("x", timeEffectMap$covariateId, ":time", timeEffectMap$timeEffectId + 1)
+        timeEffectName <- paste0("x", timeEffectCovId, ":time", timeEffectTimeId + 1)
         object$coefficientNames <- append(object$coefficientNames, timeEffectName)
     }
 }

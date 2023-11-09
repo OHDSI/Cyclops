@@ -232,7 +232,8 @@ public:
     ) = 0;
 
     virtual int loadTimeInteraction(
-            std::vector<std::pair<int, int>>& timeEffectMap
+            const std::vector<int64_t>& covariateId,
+            const std::vector<int64_t>& timeEffectId
     ) = 0;
 
     virtual size_t append(
@@ -396,7 +397,8 @@ public:
 	);
 
 	int loadTimeInteraction(
-	        std::vector<std::pair<int, int>>& timeEffectMap
+		const std::vector<int64_t>& covariateId,
+	        const std::vector<int64_t>& timeEffectId
 	);
 
 	const int* getPidVector() const;
