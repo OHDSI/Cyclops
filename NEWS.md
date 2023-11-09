@@ -3,7 +3,7 @@ develop
 
 Changes:
 
-1. none yet
+1. fix some NaN/-Inf inconsistencies with likelihood profiling
 
 Cyclops v3.4.0
 ==============
