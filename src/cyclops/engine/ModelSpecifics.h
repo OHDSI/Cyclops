@@ -15,8 +15,9 @@
 #include <thread>
 #include <complex>
 
-// #define CYCLOPS_DEBUG_TIMING
-// #define CYCLOPS_DEBUG_TIMING_LOW
+//#define CYCLOPS_DEBUG_TIMING
+//#define CYCLOPS_DEBUG_TIMING_GPU_COX
+//#define CYCLOPS_DEBUG_TIMING_LOW
 
 #ifdef CYCLOPS_DEBUG_TIMING
     #include "Timing.h"
@@ -39,6 +40,7 @@
 
 #define Fraction std::complex
 
+
 namespace bsccs {
 
 template <typename RealType>
@@ -55,8 +57,11 @@ protected:
     RealVector hXBeta;
     RealVector offsExpXBeta;
     RealVector denomPid;
+    RealVector denomPid2;
     RealVector numerPid;
     RealVector numerPid2;
+    RealVector numerPid3;
+    RealVector numerPid4;
 
     RealVector hNWeight;
     RealVector hKWeight;
@@ -83,7 +88,7 @@ public:
 			const std::vector<bool>& fixBeta,
 			bool useWeights);
 
-	AbstractModelSpecifics* clone() const;
+	AbstractModelSpecifics* clone(ComputeDeviceArguments computeDevice) const;
 
 	virtual const std::vector<double> getXBeta();
 
@@ -97,7 +102,25 @@ public:
 
 	virtual void computeXBeta(double* beta, bool useWeights);
 
+	// GPU
+
+	virtual void turnOnSyncCV(int foldToCompute) {};
+
+	virtual void turnOffSyncCV(void) {};
+
+	virtual void turnOnStreamCV(int foldToCompute) {};
+
+	virtual bool isGPU() {return false;};
+
+	virtual bool isCUDA() {return false;};
+
+	virtual double getPredictiveLogLikelihood(double* weights, int cvIndex) {return 0;};
+
 	//virtual double getGradientObjective();
+
+	virtual void setPidForAccumulation(const double* weights);
+
+	virtual void getOriginalPid();
 
 	virtual void deviceInitialization();
 
@@ -147,8 +170,11 @@ protected:
 
     using BaseModel::offsExpXBeta;
     using BaseModel::denomPid;
+    using BaseModel::denomPid2;
     using BaseModel::numerPid;
     using BaseModel::numerPid2;
+    using BaseModel::numerPid3;
+    using BaseModel::numerPid4;
 
     // RealVector offsExpXBeta;
     // RealVector denomPid;
@@ -215,10 +241,12 @@ protected:
 	//void setWeights(double* inWeights, bool useCrossValidation);
 	void setWeights(double* inWeights, double *cenWeights, bool useCrossValidation);
 
+	void setWeights(double* inWeights, bool useCrossValidation, int index) {};
+
 	void doSortPid(bool useCrossValidation);
 
 	template <typename AnyRealType>
-	void setPidForAccumulation(const AnyRealType* weights);
+	void setPidForAccumulationImpl(const AnyRealType* weights);
 
 	void setupSparseIndices(const int max);
 
@@ -230,10 +258,36 @@ protected:
 
 	using Storage<RealType>::hNWeight;
 	using Storage<RealType>::hKWeight;
-    using Storage<RealType>::hYWeight; // ESK: Added
+	using Storage<RealType>::hYWeight; // ESK: Added
+	std::vector<double> hYWeightDouble;
+	std::vector<int> hNtoK;
 
-	// std::vector<RealType> hNWeight;
-	// std::vector<RealType> hKWeight;
+	RealVector norm;
+
+//	 std::vector<RealType> hNWeight;
+//	 std::vector<RealType> hKWeight;
+
+	void computeXjY(bool useCrossValidation);
+
+	void computeXjX(bool useCrossValidation);
+
+	void computeNtoKIndices(bool useCrossValidation);
+
+	template <class OutType, class InType>
+	void incrementByGroup(OutType* values, int* groups, int k, InType inc) {
+		values[BaseModel::getGroup(groups, k)] += inc; // TODO delegate to BaseModel (different in tied-models)
+	}
+
+	RealType observationCount(RealType yi) {
+		return BaseModel::observationCount(yi);
+	}
+
+
+	std::vector<double> getGradientObjectives(void) {
+		std::vector<double> result;
+		return result;
+	}
+
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	//	std::vector<double> duration;
@@ -270,11 +324,6 @@ private:
 	template <class IteratorType, class Weights>
 	void updateXBetaImpl(RealType delta, int index);
 
-	template <class OutType, class InType>
-	void incrementByGroup(OutType* values, int* groups, int k, InType inc) {
-	    values[BaseModel::getGroup(groups, k)] += inc; // TODO delegate to BaseModel (different in tied-models)
-	}
-
 	template <typename IteratorTypeOne, class Weights>
 	void dispatchFisherInformation(int indexOne, int indexTwo, double *oinfo, Weights w);
 
@@ -283,12 +332,6 @@ private:
 
 	template<class IteratorType>
 	SparseIterator<RealType> getSubjectSpecificHessianIterator(int index);
-
-	void computeXjY(bool useCrossValidation);
-
-	void computeXjX(bool useCrossValidation);
-
-	void computeNtoKIndices(bool useCrossValidation);
 
 	void initializeMmXt();
 
@@ -301,10 +344,6 @@ private:
 
 	template <class InteratorType>
 	void incrementNormsImpl(int index);
-
-	std::vector<int> hNtoK;
-
-	RealVector norm;
 
 	struct WeightedOperation {
 		const static bool isWeighted = true;
@@ -442,11 +481,15 @@ public:
 
 	const static bool hasTwoNumeratorTerms = true;
 
+	const static bool efron = false;
+
 	const static bool exactCLR = false;
 
     const static bool isTwoWayScan = false; // ESK: Added
 
-    const static bool isSurvivalModel = false; //ESK: Added
+	const static bool isSurvivalModel = false; //ESK: Added
+
+	const static bool isScanByKey = false;
 
     template <class XType, typename RealType>
 	RealType gradientNumeratorContrib(XType x, RealType predictor, RealType xBeta, RealType y) { // TODO Make static again?
@@ -454,8 +497,8 @@ public:
 		return predictor * x;
 	}
 
-    template <typename RealType>
-    RealType logLikeNumeratorContrib(int yi, RealType xBetai) {
+	template <typename RealType>
+	RealType logLikeNumeratorContrib(int yi, RealType xBetai) {
         return yi * xBetai;
 	}
 
@@ -463,6 +506,7 @@ public:
 	static RealType gradientNumerator2Contrib(XType x, RealType predictor) {
 		return predictor * x * x;
 	}
+
 };
 
 //ESK: Create new structure for survival data (added isSurvivalModel & new logLikeNumeratorContrib)
@@ -784,7 +828,7 @@ public:
 			RealType* gradient, RealType* hessian,
 			RealType numer, RealType numer2, RealType denom,
 			RealType nEvents,
-			RealType x, RealType xBeta, RealType y) {
+			RealType x, RealType xBeta, RealType y) { // TODO hacking x to provide numerPid
 
 		const RealType t = numer / denom;
 		const RealType g = nEvents * t; // Always use weights (number of events)
@@ -896,6 +940,101 @@ public:
 
 	template <class IteratorType, class WeightOerationType>
 	static inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
+	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
+	    RealType xBeta, RealType y) {
+
+    	const RealType g = numerator / denominator;
+    	const RealType gradient = weight * g; // Always use weights (number of events)
+
+        const RealType hessian =
+            (IteratorType::isIndicator) ?
+                gradient * (static_cast<RealType>(1.0) - g) :
+                weight * (numerator2 / denominator - g * g);
+
+        return { lhs.real() + gradient, lhs.imag() + hessian };
+    }
+
+	RealType getOffsExpXBeta(const RealType offs, const RealType xBeta) {
+        return std::exp(xBeta);
+	}
+
+	RealType getOffsExpXBeta(const RealType* offs, RealType xBeta, RealType y, int k) {
+		return std::exp(xBeta);
+	}
+
+	RealType logLikeDenominatorContrib(RealType ni, RealType denom) {
+		return ni * std::log(denom);
+	}
+
+	RealType logPredLikeContrib(RealType y, RealType weight, RealType xBeta, RealType denominator) {
+	    return y * weight * (xBeta - std::log(denominator));
+	}
+
+	RealType logPredLikeContrib(RealType ji, RealType weighti, RealType xBetai, const RealType* denoms,
+			const int* groups, int i) {
+		return ji * weighti * (xBetai - std::log(denoms[getGroup(groups, i)]));
+	}
+
+	RealType predictEstimate(RealType xBeta){
+		return xBeta;
+	}
+
+};
+
+template <typename RealType>
+struct EfronConditionalLogisticRegression : public Storage<RealType>, GroupedData, GLMProjection, FixedPid, Survival<RealType> {
+public:
+
+	const static bool efron = true;
+
+    const static bool pooledLR = false;
+
+    typedef typename Storage<RealType>::RealVector RealVector;
+    EfronConditionalLogisticRegression(const RealVector& y, const RealVector& offs)
+        : Storage<RealType>(y, offs) { }
+
+	const static bool precomputeHessian = false; // XjX
+	const static bool likelihoodHasFixedTerms = false;
+
+	RealType logLikeFixedTermsContrib(RealType yi, RealType offseti, RealType logoffseti) {
+        throw new std::logic_error("Not model-specific");
+		return static_cast<RealType>(0);
+	}
+
+	static RealType getDenomNullValue () { return static_cast<RealType>(0); }
+
+	RealType observationCount(RealType yi) {
+		return static_cast<RealType>(yi);
+	}
+
+	template <class IteratorType, class Weights>
+	void incrementGradientAndHessian(
+			const IteratorType& it,
+			Weights false_signature,
+			RealType* gradient, RealType* hessian,
+			RealType numer, RealType numer2, RealType denom,
+			RealType nEvents,
+			RealType x, RealType xBeta, RealType y) { // TODO hacking x, xBeta, y
+
+		const RealType numer3 = x;
+		const RealType numer4 = xBeta;
+		const RealType denom2 = y;
+
+		for (int j = 0; j < nEvents; j++) {
+			RealType n = numer - j / nEvents * numer3;
+			RealType d = denom - j / nEvents * denom2;
+			RealType t = n / d;
+			*gradient += t;
+			if (IteratorType::isIndicator) {
+				*hessian += t * (static_cast<RealType>(1.0) - t);
+			} else {
+				*hessian += (numer2 - j / nEvents * numer4) / d - t * t;
+			}
+		}
+	}
+
+	template <class IteratorType, class WeightOerationType>
+	inline Fraction<RealType> incrementGradientAndHessian(const Fraction<RealType>& lhs,
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 
@@ -1137,6 +1276,8 @@ public:
 
     const static bool isTwoWayScan = false; // ESK: Added
 
+    const static bool isScanByKey = false;
+
 	static RealType getDenomNullValue () { return static_cast<RealType>(0); }
 
 	RealType setIndependentDenominator(RealType expXBeta) {
@@ -1149,7 +1290,7 @@ public:
 		return static_cast<RealType>(yi);
 	}
 
-	template <class IteratorType, class Weights>
+    template <class IteratorType, class Weights>
     inline void incrementGradientAndHessian( // TODO Make static again?
             const IteratorType& it,
             Weights false_signature,
@@ -1240,6 +1381,8 @@ public:
 	const static bool precomputeHessian = false;
 
     const static bool isTwoWayScan = false; // ESK: Added (change this once FINE_GRAY works)
+
+    const static bool isScanByKey = false;
 
     static RealType getDenomNullValue () { return static_cast<RealType>(0); }
 
@@ -1345,6 +1488,16 @@ public:
 	}
 };
 
+template <typename RealType>
+struct TimeVaryingCoxProportionalHazards : public BreslowTiedCoxProportionalHazards<RealType> {
+public:
+    typedef typename Storage<RealType>::RealVector RealVector;
+    TimeVaryingCoxProportionalHazards(const RealVector& y, const RealVector& offs)
+        : BreslowTiedCoxProportionalHazards<RealType>(y, offs) { }
+
+    const static bool isScanByKey = true;
+};
+
 // ESK: Add Fine-Gray structure
 template <typename RealType>
 struct BreslowTiedFineGray: public Storage<RealType>, OrderedWithTiesData, SurvivalProjection, SortedPid, NoFixedLikelihoodTerms, Survival<RealType> {
@@ -1356,6 +1509,8 @@ public:
     const static bool precomputeHessian = false;
 
     const static bool isTwoWayScan = true; // ESK: Added
+
+    const static bool isScanByKey = false;
 
     static RealType getDenomNullValue () { return static_cast<RealType>(0); }
 
@@ -1458,6 +1613,8 @@ public:
 
 	const static bool hasTwoNumeratorTerms = false;
 
+	const static bool efron = false;
+
 	const static bool exactCLR = false;
 
 	const static bool pooledLR = false;
@@ -1465,6 +1622,8 @@ public:
     const static bool isTwoWayScan = false; // ESK: Added
 
     const static bool isSurvivalModel = false; //ESK: Added
+
+    const static bool isScanByKey = false;
 
     static RealType getDenomNullValue () { return static_cast<RealType>(0); }
 
@@ -1728,7 +1887,7 @@ struct TupleXGetterNew {
 
     template <class TupleType>
     inline ReturnType operator()(TupleType& tuple) const {
-        return boost::get<index>(tuple);
+        return std::get<index>(tuple);
     }
 };
 
@@ -1760,7 +1919,7 @@ struct TestNumeratorKernel {
     template <class NumeratorType, class TupleType>
     NumeratorType operator()(const NumeratorType lhs, const TupleType tuple) {
 
-        const auto expXBeta = boost::get<0>(tuple);
+        const auto expXBeta = std::get<0>(tuple);
         const auto x = getX(tuple); //boost::get<1>(tuple);
 
         return {
@@ -1784,8 +1943,8 @@ struct TestGradientKernel {
 
     template <class GradientType, class NumeratorType, class TupleType>
     GradientType operator()(const GradientType lhs, const NumeratorType numerator, const TupleType tuple) {
-        const auto denominator = boost::get<0>(tuple);
-        const auto weight = boost::get<1>(tuple);
+        const auto denominator = std::get<0>(tuple);
+        const auto weight = std::get<1>(tuple);
 
         return BaseModel::template incrementGradientAndHessian<IteratorType,
                                                                WeightType>(

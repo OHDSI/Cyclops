@@ -17,14 +17,14 @@ public:
 	HierarchyGridSearchCrossValidationDriver(
 			const CCDArguments& arguments,
 			loggers::ProgressLoggerPtr _logger,
-			loggers::ErrorHandlerPtr _error,			
+			loggers::ErrorHandlerPtr _error,
 			std::vector<double>* wtsExclude = NULL);
 
 	virtual ~HierarchyGridSearchCrossValidationDriver();
 
 	virtual void resetForOptimal(
 			CyclicCoordinateDescent& ccd,
-			CrossValidationSelector& selector,
+			AbstractSelector& selector,
 			const CCDArguments& arguments);
 
 	virtual void drive(

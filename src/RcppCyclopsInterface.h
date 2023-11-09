@@ -63,8 +63,8 @@ public:
     	return CcdInterface::runCrossValidation(ccd, modelData);
     }
 
-    double runBoostrap(std::vector<double>& savedBeta) {
-    	return CcdInterface::runBoostrap(ccd, modelData, savedBeta);
+    double runBoostrap(std::vector<double>& savedBeta, std::string& treatmentId) {
+    	return CcdInterface::runBoostrap(ccd, modelData, savedBeta, treatmentId);
     }
 
     void logResultsToFile(const std::string& fileName, bool withASE);

@@ -1,19 +1,17 @@
-## Initial submission of major patch update to package
+## Submission of v3.4.0
 
-* fixed likelihood profiling when objective function is non-concave due
-  to floating-point truncation 
-* fixed parsing of 64-bit integer covariate IDs
-* added Jeffrey's prior for single regression coefficient
-
+* fixed use of deprecated `$` function in `dbplyr` using CRAN errors
+    
 ## Test environments
-* local OS X install, R 4.1
+* local OS X install, R 4.3
+* r-devel-valgrind docker container
 * ubuntu 20.04 (via gh-actions: devel and release)
 * win-builder (devel and release)
 
 ## R CMD check results
-* There were no ERRORs or WARNINGs
+* There were no ERRORs or WARNINGs   
 * There is 1 occasional NOTE:
-  checking installed package size ... NOTE
+    checking installed package size ... NOTE
     installed size is 22.5Mb
     sub-directories of 1Mb or more:
       libs 21.7Mb
@@ -25,3 +23,6 @@ availability of C++17 'if (constexpr ...)' should decrease library size substant
 
 ## Downstream dependencies
 * 'EvidenceSynthesis' - checked and works.
+* 'EmpiricalCalibration' - checked and works.
+* 'IterativeHardThresholding' - checked and works.
+* 'BrokenAdaptiveRidge' - checked and works.

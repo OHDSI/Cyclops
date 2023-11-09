@@ -42,11 +42,13 @@ namespace bsccs {
  	{ModelType::LOGISTIC, "lr"},
  	{ModelType::POOLED_LOGISTIC, "plr"},
  	{ModelType::CONDITIONAL_LOGISTIC, "clr"},
+ 	{ModelType::EFRON_CONDITIONAL_LOGISTIC, "clr_efron"},
  	{ModelType::TIED_CONDITIONAL_LOGISTIC, "clr_exact"},
  	{ModelType::CONDITIONAL_POISSON, "cpr"},
  	{ModelType::SELF_CONTROLLED_MODEL, "sccs"},
  	{ModelType::COX, "cox"},
  	{ModelType::COX_RAW, "cox_raw"},
+	{ModelType::TIME_VARYING_COX, "cox_time"},
  	{ModelType::FINE_GRAY, "fgr"},
  };
 
@@ -70,11 +72,13 @@ std::vector<std::string> cyclopsGetRemoveInterceptNames() {
 	using namespace bsccs;
 	std::vector<std::string> names = {
 		modelTypeNames[ModelType::CONDITIONAL_LOGISTIC],
+        modelTypeNames[ModelType::EFRON_CONDITIONAL_LOGISTIC],
 		modelTypeNames[ModelType::TIED_CONDITIONAL_LOGISTIC],
 		modelTypeNames[ModelType::CONDITIONAL_POISSON],
 		modelTypeNames[ModelType::SELF_CONTROLLED_MODEL],
 		modelTypeNames[ModelType::COX],
 		modelTypeNames[ModelType::COX_RAW],
+		modelTypeNames[ModelType::TIME_VARYING_COX],
         modelTypeNames[ModelType::FINE_GRAY]
 	};
 	return names;
@@ -86,6 +90,7 @@ std::vector<std::string> cyclopsGetIsSurvivalNames() {
 	std::vector<std::string> names = {
 		modelTypeNames[ModelType::COX],
 		modelTypeNames[ModelType::COX_RAW],
+		modelTypeNames[ModelType::TIME_VARYING_COX],
         modelTypeNames[ModelType::FINE_GRAY]
 	};
 	return names;
@@ -98,6 +103,7 @@ std::vector<std::string> cyclopsGetUseOffsetNames() {
 		modelTypeNames[ModelType::SELF_CONTROLLED_MODEL],
 		modelTypeNames[ModelType::COX],
 		modelTypeNames[ModelType::COX_RAW],
+		modelTypeNames[ModelType::TIME_VARYING_COX],
         modelTypeNames[ModelType::FINE_GRAY]
 	};
 	return names;
@@ -117,6 +123,20 @@ void cyclopsSetBeta(SEXP inRcppCcdInterface, const std::vector<double>& beta) {
     interface->getCcd().setBeta(beta);
 }
 
+// [[Rcpp::export(.cyclopsGetBeta)]]
+double cyclopsGetBeta(SEXP inRcppCcdInterface, const int index) {
+	using namespace bsccs;
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	return interface->getCcd().getBeta(index);
+}
+
+// [[Rcpp::export(.cyclopsSetStartingBeta)]]
+void cyclopsSetStartingBeta(SEXP inRcppCcdInterface, const std::vector<double>& inStartingBeta) {
+	using namespace bsccs;
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	interface->getCcd().setStartingBeta(inStartingBeta);
+}
+
 // [[Rcpp::export(.cyclopsSetFixedBeta)]]
 void cyclopsSetFixedBeta(SEXP inRcppCcdInterface, int beta, bool fixed) {
     using namespace bsccs;
@@ -124,6 +144,14 @@ void cyclopsSetFixedBeta(SEXP inRcppCcdInterface, int beta, bool fixed) {
 
     interface->getCcd().setFixedBeta(beta - 1, fixed);
 }
+
+// [[Rcpp::export(.cyclopsGetFixedBeta)]]
+bool cyclopsGetFixedBeta(SEXP inRcppCcdInterface, const int index){
+	using namespace bsccs;
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	return interface->getCcd().getFixedBeta(index);
+}
+
 
 // [[Rcpp::export(".cyclopsGetIsRegularized")]]
 bool cyclopsGetIsRegularized(SEXP inRcppCcdInterface, const int index) {
@@ -440,7 +468,7 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
 		bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps,
 		const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance,
         bool useKKTSwindle, int swindleMultipler, const std::string& selectorType, double initialBound,
-        int maxBoundCount, const std::string& algorithm
+        int maxBoundCount, const std::string& algorithm, bool doItAll, bool syncCV
 		) {
 	using namespace bsccs;
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
@@ -453,6 +481,8 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
     args.modeFinding.swindleMultipler = swindleMultipler;
     args.modeFinding.initialBound = initialBound;
     args.modeFinding.maxBoundCount = maxBoundCount;
+    args.modeFinding.doItAll = doItAll;
+
     if (algorithm == "mm") {
         args.modeFinding.algorithmType = AlgorithmType::MM;
     }
@@ -466,6 +496,7 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
 	args.crossValidation.gridSteps = gridSteps;
 	args.crossValidation.startingVariance = startingVariance;
 	args.crossValidation.selectorType = RcppCcdInterface::parseSelectorType(selectorType);
+	args.crossValidation.syncCV = syncCV;
 
 	NoiseLevels noise = RcppCcdInterface::parseNoiseLevel(noiseLevel);
 	args.noiseLevel = noise;
@@ -508,6 +539,32 @@ List cyclopsFitModel(SEXP inRcppCcdInterface) {
 		);
 	RcppCcdInterface::appendRList(list, interface->getResult());
 	return list;
+}
+
+// [[Rcpp::export(".cyclopsRunBootstrap")]]
+List cyclopsRunBootstrap(SEXP inRcppCcdInterface, const std::string& outFileName, std::string& treatmentId, int replicates) {
+    using namespace bsccs;
+
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    interface->getArguments().doBootstrap = true;
+    interface->getArguments().outFileName = outFileName;
+    interface->getArguments().replicates = replicates;
+
+    // Save parameter point-estimates
+    std::vector<double> savedBeta;
+    for (int j = 0; j < interface->getCcd().getBetaSize(); ++j) {
+        savedBeta.push_back(interface->getCcd().getBeta(j));
+    } // TODO Handle above work in interface.runBootstrap
+    double timeUpdate = interface->runBoostrap(savedBeta, treatmentId);
+
+    interface->diagnoseModel(0.0, 0.0);
+
+    List list = List::create(
+        Rcpp::Named("interface")=interface,
+        Rcpp::Named("timeFit")=timeUpdate
+    );
+    RcppCcdInterface::appendRList(list, interface->getResult());
+    return list;
 }
 
 // [[Rcpp::export(".cyclopsLogModel")]]
@@ -623,8 +680,8 @@ void RcppCcdInterface::appendRList(Rcpp::List& list, const Rcpp::List& append) {
 }
 
 void RcppCcdInterface::handleError(const std::string& str) {
-//	Rcpp::stop(str); // TODO Want this to work
-	::Rf_error(str.c_str());
+    Rcpp::stop(str);
+	// ::Rf_error(str.c_str());
 }
 
 bsccs::ConvergenceType RcppCcdInterface::parseConvergenceType(const std::string& convergenceName) {
@@ -947,7 +1004,7 @@ void RcppCcdInterface::initializeModelImpl(
 //  	}
 //  	singlePrior->setVariance(0, arguments.hyperprior);
 
- 	JointPriorPtr prior;
+ 	JointPriorPtr prior = nullptr;
 //  	if (arguments.flatPrior.size() == 0) {
 //  		prior = bsccs::make_shared<FullyExchangeableJointPrior>(singlePrior);
 //  	} else {

@@ -15,6 +15,8 @@
 #include "priors/JointPrior.h"
 #include "io/ProgressLogger.h"
 
+#define EIGEN_PERMANENTLY_DISABLE_STUPID_WARNINGS
+
 #include <Eigen/Dense>
 #include <deque>
 
@@ -65,7 +67,7 @@ public:
 	// 		int* inPid
 	// 	);
 
-	CyclicCoordinateDescent* clone();
+	CyclicCoordinateDescent* clone(ComputeDeviceArguments computeDevice);
 
 	void logResults(const char* fileName, bool withASE);
 
@@ -133,6 +135,8 @@ public:
 //	template <typename T>
 	void setBeta(const std::vector<double>& beta);
 
+	void setStartingBeta(const std::vector<double>& inStartingBeta);
+	
 	void setBeta(int i, double beta);
 
 //	void double getHessianComponent(int i, int j);
@@ -179,6 +183,39 @@ public:
 
 	loggers::ErrorHandler& getErrorHandler() const { return *error; }
 
+// GPU
+	void setWeights(double* iWeights, int syncCVIndex);
+
+	double getPredictiveLogLikelihood(double* weights, int cvIndex);
+
+	std::vector<double> getPredictiveLogLikelihood(std::vector<std::vector<double>>& weightsPool);
+
+	void turnOnSyncCV(int foldToCompute);
+
+	void turnOffSyncCV(void);
+
+	void turnOnStreamCV(int foldToCompute);
+
+	bool GPU() {
+		return usingGPU;
+	}
+
+	std::vector<double> getObjectiveFunctions(int convergenceType);
+
+	std::vector<double> getLogLikelihoods(void);
+
+	std::vector<double> getLogPriors(void);
+
+	std::vector<double> ccdUpdateBetaVec(int index);
+
+	void ccdUpdateBetaVec(std::vector<double>& deltaVec, std::vector<std::pair<int,int>>& indicesToUpdate);
+
+	void getFold(int fold);
+
+	void getHBeta(void);
+
+	void setHXBeta(void);
+
 protected:
 
 	bsccs::unique_ptr<AbstractModelSpecifics> privateModelSpecifics;
@@ -187,7 +224,7 @@ protected:
 	priors::JointPriorPtr jointPrior;
 	const AbstractModelData& hXI;
 
-	CyclicCoordinateDescent(const CyclicCoordinateDescent& copy);
+	CyclicCoordinateDescent(const CyclicCoordinateDescent& copy, ComputeDeviceArguments computeDevice);
 
 	void init(bool offset);
 
@@ -202,12 +239,12 @@ protected:
 	void computeFixedTermsInGradientAndHessian(void);
 
 	void findMode(const int maxIterations, const int convergenceType, const double epsilon,
-               const AlgorithmType algorithmType, const int qQN);
+               const AlgorithmType algorithmType, const int qQN, const bool doItAll);
 
 	template <typename Iterator>
 	void findMode(Iterator begin, Iterator end,
 		const int maxIterations, const int convergenceType, const double epsilon,
-		const AlgorithmType algorithmType, const int qQN);
+		const AlgorithmType algorithmType, const int qQN, const bool doItAll);
 
 	template <typename Container>
 	void computeKktConditions(Container& set);
@@ -282,6 +319,12 @@ protected:
                               int iteration,
                               double* lastObjFunc);
 
+	bool performCheckConvergence(int convergenceType,
+                              double epsilon,
+                              int maxIterations,
+                              int iteration,
+                              std::vector<double>& lastObjFunc);
+
 	double computeConvergenceCriterion(double newObjFxn, double oldObjFxn);
 
 	virtual double computeZhangOlesConvergenceCriterion(void);
@@ -330,6 +373,7 @@ protected:
 
 	typedef std::vector<double> DoubleVector;
 	DoubleVector hBeta;
+	DoubleVector startingBeta;
 
 // 	DoubleVector& hXBeta; // TODO Delegate to ModelSpecifics
 // 	DoubleVector& hXBetaSave; // Delegate
@@ -343,7 +387,7 @@ protected:
 	string conditionId;
 
 	bool computeMLE;
-	int priorType;
+	int priorType = priors::NONE;
 
 	double initialBound;
 
@@ -379,6 +423,21 @@ protected:
 
 	loggers::ProgressLoggerPtr logger;
 	loggers::ErrorHandlerPtr error;
+
+	// GPU items
+	std::vector<DoubleVector> hBetaPool;
+	std::vector<DoubleVector> hDeltaPool;
+	std::vector<std::vector<bool>> fixBetaPool;
+	std::vector<bool> donePool;
+	std::vector<DoubleVector> hWeightsPool; // Make DoubleVector and delegate to ModelSpecifics
+
+	bool usingGPU;
+	bool syncCV = false;
+	int syncCVFolds;
+	bool usingCUDA;
+	bool streamCV = false;
+	int streamCVFolds;
+
 };
 
 double convertVarianceToHyperparameter(double variance);

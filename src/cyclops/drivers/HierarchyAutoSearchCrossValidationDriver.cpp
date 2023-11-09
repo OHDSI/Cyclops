@@ -41,7 +41,7 @@ HierarchyAutoSearchCrossValidationDriver::~HierarchyAutoSearchCrossValidationDri
 
 void HierarchyAutoSearchCrossValidationDriver::resetForOptimal(
 		CyclicCoordinateDescent& ccd,
-		CrossValidationSelector& selector,
+		AbstractSelector& selector,
 		const CCDArguments& arguments) {
 
 	ccd.setWeights(NULL);

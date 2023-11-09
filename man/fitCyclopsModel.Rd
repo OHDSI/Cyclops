@@ -51,9 +51,9 @@ This function performs numerical optimization to fit a Cyclops model data object
 
 Currently supported prior types are:
 \tabular{ll}{
-	\verb{	"none"} \tab Useful for finding MLE \cr
-	\verb{	"laplace"} \tab L_1 regularization \cr
- \verb{  "normal"} \tab L_2 regularization \cr
+\verb{	"none"} \tab Useful for finding MLE \cr
+\verb{	"laplace"} \tab L_1 regularization \cr
+\verb{  "normal"} \tab L_2 regularization \cr
 }
 }
 

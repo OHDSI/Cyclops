@@ -204,6 +204,11 @@ fitCyclopsModel <- function(cyclopsData,
             writeLines(paste("Using cross-validation selector type", control$selectorType))
         }
     }
+
+    if (control$cvRepetitions == "auto") {
+        control$cvRepetitions <- .getNumberOfRepetitions(getNumberOfRows(cyclopsData))
+    }
+
     control <- .setControl(cyclopsData$cyclopsInterfacePtr, control)
     threads <- control$threads
 
@@ -218,6 +223,7 @@ fitCyclopsModel <- function(cyclopsData,
         }
 
         .cyclopsSetBeta(cyclopsData$cyclopsInterfacePtr, startingCoefficients)
+        .cyclopsSetStartingBeta(cyclopsData$cyclopsInterfacePtr, startingCoefficients)
     }
 
     if (!is.null(fixedCoefficients)) {
@@ -338,6 +344,11 @@ fitCyclopsModel <- function(cyclopsData,
     fit$scale <- cyclopsData$scale
     fit$threads <- threads
     fit$seed <- control$seed
+
+    if (prior$useCrossValidation) {
+        fit$cvRepetitions <- control$cvRepetitions
+    }
+
     class(fit) <- "cyclopsFit"
     return(fit)
 }
@@ -382,16 +393,16 @@ fitCyclopsModel <- function(cyclopsData,
         || is.null(x$cyclopsInterfacePtr)
         || !inherits(x$cyclopsInterfacePtr, "externalptr")
         || .isRcppPtrNull(x$cyclopsInterfacePtr)
-        || .cyclopsGetComputeDevice(x$cyclopsInterfacePtr) != computeDevice
+        #|| .cyclopsGetComputeDevice(x$cyclopsInterfacePtr) != computeDevice TODO is this necessary?
     ) {
 
         if (testOnly == TRUE) {
             stop("Interface object is not initialized")
         }
 
-        # if (computeDevice != "native") {
-        #     stopifnot(computeDevice %in% listOpenCLDevices())
-        # }
+        if (computeDevice != "native") {
+            stopifnot(computeDevice %in% listGPUDevices())
+        }
 
         # Build interface
         interface <- .cyclopsInitializeModel(x$cyclopsDataPtr, modelType = x$modelType, computeDevice, computeMLE = TRUE)
@@ -535,6 +546,8 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param initialBound          Numeric: Starting trust-region size
 #' @param maxBoundCount         Numeric: Maximum number of tries to decrease initial trust-region size
 #' @param algorithm             String: name of fitting algorithm to employ; default is `ccd`
+#' @param doItAll               Currently unused
+#' @param syncCV                Currently unused
 #'
 #' Todo: Describe convegence types
 #'
@@ -564,7 +577,9 @@ createControl <- function(maxIterations = 1000,
                           selectorType = "auto",
                           initialBound = 2.0,
                           maxBoundCount = 5,
-                          algorithm = "ccd") {
+                          algorithm = "ccd",
+                          doItAll = TRUE,
+                          syncCV = FALSE) {
     validCVNames = c("grid", "auto")
     stopifnot(cvType %in% validCVNames)
 
@@ -597,7 +612,9 @@ createControl <- function(maxIterations = 1000,
                    selectorType = selectorType,
                    initialBound = initialBound,
                    maxBoundCount = maxBoundCount,
-                   algorithm = algorithm),
+                   algorithm = algorithm,
+                   doItAll = doItAll,
+                   syncCV = syncCV),
               class = "cyclopsControl")
 }
 
@@ -755,7 +772,7 @@ getCrossValidationInfo <- function(object) {
                            control$noiseLevel, control$threads, control$seed, control$resetCoefficients,
                            control$startingVariance, control$useKKTSwindle, control$tuneSwindle,
                            control$selectorType, control$initialBound, control$maxBoundCount,
-                           control$algorithm
+                           control$algorithm, control$doItAll, control$syncCV
                           )
         return(control)
     }
@@ -792,6 +809,20 @@ getSEs <- function(object, covariates) {
     ses <- sqrt(diag(solve(fisherInformation)))
     names(ses) <- object$coefficientNames[as.integer(covariates)]
     ses
+}
+
+#' @title Run Bootstrap for Cyclops model parameter
+#'
+#' @param object    A fitted Cyclops model object
+#' @param outFileName     Character: Output file name
+#' @param treatmentId     Character: variable to output
+#' @param replicates      Numeric: number of bootstrap samples
+#'
+#' @export
+runBootstrap <- function(object, outFileName, treatmentId, replicates) {
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
+    bs <- .cyclopsRunBootstrap(object$cyclopsData$cyclopsInterfacePtr, outFileName, treatmentId, replicates)
+    bs
 }
 
 #' @title Confidence intervals for Cyclops model parameters
@@ -861,6 +892,18 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
     prof
 }
 
+.initAdaptiveProfile <- function(object, parm, bounds, includePenalty) {
+    # If an MLE was found, let's not throw that bit of important information away:
+    if (object$return_flag == "SUCCESS" &&
+        coef(object)[as.character(parm)] > bounds[1] &&
+        coef(object)[as.character(parm)] < bounds[2]) {
+        profile <- tibble(point = coef(object)[as.character(parm)],
+                          value = fixedGridProfileLogLikelihood(object, parm, coef(object)[as.character(parm)], includePenalty)$value)
+    } else {
+        profile <- tibble()
+    }
+}
+
 #' @title Profile likelihood for Cyclops model parameters
 #'
 #' @description
@@ -887,7 +930,7 @@ getCyclopsProfileLogLikelihood <- function(object,
                                            tolerance = 1E-3,
                                            initialGridSize = 10,
                                            includePenalty = TRUE) {
-
+    maxResets <- 10
     if (!xor(is.null(x), is.null(bounds))) {
         stop("Must provide either `x` or `bounds`, but not both.")
     }
@@ -897,42 +940,33 @@ getCyclopsProfileLogLikelihood <- function(object,
         if (length(bounds) != 2 || bounds[1] >= bounds[2]) {
             stop("Must provide bounds[1] < bounds[2]")
         }
-
-        # If an MLE was found, let's not throw that bit of important information away:
-        if (object$return_flag == "SUCCESS" &&
-            coef(object)[as.character(parm)] > bounds[1] &&
-            coef(object)[as.character(parm)] < bounds[2]) {
-            profile <- tibble(point = coef(object)[as.character(parm)],
-                              value = fixedGridProfileLogLikelihood(object, parm, coef(object)[as.character(parm)], includePenalty)$value)
-        } else {
-            profile <- tibble()
-        }
+        profile <- .initAdaptiveProfile(object, parm, bounds, includePenalty)
 
         # Start with sparse grid:
         grid <- seq(bounds[1], bounds[2], length.out = initialGridSize)
 
         # Iterate until stopping criteria met:
         priorMaxMaxError <- Inf
+        resetsPerformed <- 0
         while (length(grid) != 0) {
-
             ll <- fixedGridProfileLogLikelihood(object, parm, grid, includePenalty)
-
             profile <- bind_rows(profile, ll) %>% arrange(.data$point)
-
-            if (any(is.nan(profile$value))) {
-                if (all(is.nan(profile$value))) {
+            invalid <- is.nan(profile$value) | is.infinite(profile$value)
+            if (any(invalid)) {
+                if (all(invalid)) {
                     warning("Failing to compute likelihood at entire initial grid.")
                     return(NULL)
                 }
 
-                start <- min(which(!is.nan(profile$value)))
-                end <- max(which(!is.nan(profile$value)))
+                start <- min(which(!invalid))
+                end <- max(which(!invalid))
                 if (start == end) {
                     warning("Failing to compute likelihood at entire grid except one. Giving up")
                     return(NULL)
                 }
                 profile <- profile[start:end, ]
-                if (any(is.nan(profile$value))) {
+                invalid <- invalid[start:end]
+                if (any(invalid)) {
                     warning("Failing to compute likelihood in non-extreme regions. Giving up.")
                     return(NULL)
                 }
@@ -942,6 +976,16 @@ getCyclopsProfileLogLikelihood <- function(object,
             deltaX <- profile$point[2:nrow(profile)] - profile$point[1:(nrow(profile) - 1)]
             deltaY <- profile$value[2:nrow(profile)] - profile$value[1:(nrow(profile) - 1)]
             slopes <- deltaY / deltaX
+
+            if (resetsPerformed < maxResets && !all(slopes[2:length(slopes)] < slopes[1:(length(slopes)-1)])) {
+                warning("Coefficient drift detected. Resetting Cyclops object and recomputing all likelihood values computed so far.")
+                grid <- profile$point
+                profile <- tibble()
+                interface <- .cyclopsInitializeModel(object$cyclopsData$cyclopsDataPtr, modelType = object$cyclopsData$modelType, "native", computeMLE = TRUE)
+                assign("cyclopsInterfacePtr", interface$interface, object)
+                resetsPerformed <- resetsPerformed + 1
+                next
+            }
 
             # Compute where prior and posterior slopes intersect
             slopes <- c(slopes[1] + (slopes[2] - slopes[3]),
@@ -1025,6 +1069,7 @@ fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty) {
 #' (by default 2.5% and 97.5%)
 #'
 #' @keywords internal
+#' @export
 aconfint <- function(object, parm, level = 0.95, control,
                      overrideNoRegularization = FALSE, ...) {
     .checkInterface(object$cyclopsData, testOnly = TRUE)
@@ -1117,4 +1162,12 @@ convertToGlmnetLambda <- function(variance, nobs) {
 
     graph <-  lapply(0:(nParents - 1), function(n, types) { 0:(nTypes - 1) + n * nTypes }, types = nTypes)
     graph
+}
+
+.getNumberOfRepetitions <- function(nrows) {
+    top <- 1E2
+    factor <- 0.5
+    pmax(pmin(
+        ceiling(top / nrows^(factor))
+        , 10), 1)
 }

@@ -634,8 +634,8 @@ reduce <- function(object, covariates, groupBy, power = 1) {
 #' \code{appendSqlCyclopsData} appends data to an OHDSI data object.
 #'
 #' @details Append data using two tables.  The outcomes table is dense and contains ...  The covariates table is sparse and contains ...
-#' All entries in the outcome table must be sorted in increasing order by {oStratumId, oRowId}.  All entries in the covariate table
-#' must be sorted in increasing order by {cRowId}. Each cRowId value must match exactly one oRowId value.
+#' All entries in the outcome table must be sorted in increasing order by (oStratumId, oRowId).  All entries in the covariate table
+#' must be sorted in increasing order by (cRowId). Each cRowId value must match exactly one oRowId value.
 #'
 #' @param object    OHDSI Cyclops data object to append entries
 #' @param oStratumId    Integer vector (optional): non-unique stratum identifier for each row in outcomes table
@@ -862,6 +862,44 @@ loadNewSqlCyclopsDataTimeInteraction <- function(object,
     }
 }
 
+#' @keywords internal
+loadNewSqlCyclopsDataStratTimeEffects <- function(object,
+                                                  stratumId = NULL,
+                                                  rowId = NULL,
+                                                  subjectId = NULL,
+                                                  timeEffectCovariateId) {
+
+    if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
+
+    if (is.unsorted(stratumId)) {
+        stop("All columns must be sorted first by stratumId (if supplied) and then by rowId")
+    }
+
+    if (!bit64::is.integer64(stratumId)) {
+        stratumId <- bit64::as.integer64(stratumId)
+    }
+
+    if (!bit64::is.integer64(rowId)) {
+        rowId <- bit64::as.integer64(rowId)
+    }
+
+    if (!bit64::is.integer64(subjectId)) {
+        subjectId <- bit64::as.integer64(subjectId)
+    }
+
+    if (!bit64::is.integer64(timeEffectCovariateId)) {
+        timeEffectCovariateId <- bit64::as.integer64(timeEffectCovariateId)
+    }
+
+    timeEffectCovariatesName <- .loadCyclopsDataStratTimeEffects(object,
+                                                                 stratumId,
+                                                                 rowId,
+                                                                 subjectId,
+                                                                 timeEffectCovariateId)
+    if (!is.null(object$coefficientNames)) {
+        object$coefficientNames <- append(object$coefficientNames, timeEffectCovariatesName)
+    }
+}
 
 #' @title finalizeSqlCyclopsData
 #'

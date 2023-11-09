@@ -623,10 +623,25 @@ int cyclopsLoadDataX(Environment x,
                        covariateValue, replace, append, forceSparse);
 }
 
+// [[Rcpp::export(".loadCyclopsDataStratTimeEffects")]]
+std::vector<std::string> cyclopsLoadDataStratTimeEffects(Environment x,
+                                                         const std::vector<double>& stratumId,
+                                                         const std::vector<double>& rowId,
+                                                         const std::vector<double>& subjectId,
+                                                         const std::vector<double>& timeEffectCovariateId) {
+
+    using namespace bsccs;
+    XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
+
+    return data->loadStratTimeEffects(reinterpret_cast<const std::vector<int64_t>&>(stratumId),
+                                      reinterpret_cast<const std::vector<int64_t>&>(rowId),
+                                      reinterpret_cast<const std::vector<int64_t>&>(subjectId),
+                                      reinterpret_cast<const std::vector<int64_t>&>(timeEffectCovariateId));
+}
+
 // [[Rcpp::export(".loadCyclopsDataTimeEffectsDF")]]
 int cyclopsLoadDataTimeEffectsDF(Environment x,
                                  DataFrame timeEffects) {
-
     using namespace bsccs;
     XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
 
@@ -702,7 +717,7 @@ List cyclopsReadFileData(const std::string& fileName, const std::string& modelTy
 
     //const std::vector<double>& y = ptr->getYVectorRef();
     double total = 0.0; //std::accumulate(y.begin(), y.end(), 0.0);
-    // delete reader; // TODO Test
+    delete reader; // TODO Use smart_ptr
 
     double time = timer();
     List list = List::create(

@@ -35,6 +35,7 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #' @param normalize     String: Name of normalization for all non-indicator covariates (possible values: stdev, max, median)
 #' @param quiet         If true, (warning) messages are suppressed.
 #' @param floatingPoint Specified floating-point representation size (32 or 64)
+#' @param timeEffectMap A data frame or ffdf object containing the convariates that have time-varying effects on the outcome
 #'
 #' @details
 #' These columns are expected in the outcome object:
@@ -61,8 +62,8 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'
 #' These columns are expected in the timeEffectMap object:
 #' \tabular{lll}{
-#'   \verb{covariateId}    \tab(integer) \tab A numeric identifier of a time-independent covariate  \cr
-#'   \verb{timeEffectId}  	\tab(integer) \tab TimeEffect ID is used to link a time-independent covariate (x) to a time effect (t) \cr
+#'   \verb{covariateId}    \tab(integer) \tab A numeric identifier of a time-independent covariate (`modelType = 'time_cox'`) or the covariates that have time-varying effects on the outcome (`modelType = 'plr'`)  \cr
+#'   \verb{timeEffectId}  	\tab(integer) \tab TimeEffect ID is used to link a time-independent covariate (x) to a time effect (t) (`modelType = 'plr'`) \cr
 #' }
 #'
 #' @return
@@ -103,6 +104,21 @@ convertToCyclopsData <- function(outcomes,
 
 #' @describeIn convertToCyclopsData Convert data from two \code{data.frame}
 #' @export
+# <<<<<<< HEAD
+# convertToCyclopsData.ffdf <- function(outcomes,
+#                                       covariates,
+#                                       modelType = "lr",
+#                                       addIntercept = TRUE,
+#                                       checkSorting = TRUE,
+#                                       checkRowIds = TRUE,
+#                                       normalize = NULL,
+#                                       quiet = FALSE,
+#                                       floatingPoint = 64){
+#     if ((modelType == "clr" | modelType == "cpr" | modelType == "clr_exact" | modelType == "clr_efron") & addIntercept){
+#         if(!quiet) {
+#             warning("Intercepts are not allowed in conditional models, removing intercept",call.=FALSE)
+#         }
+# =======
 convertToCyclopsData.data.frame <- function(outcomes,
                                             covariates,
                                             modelType = "lr",
@@ -119,6 +135,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
     if ((modelType == "clr" | modelType == "cpr") & addIntercept) {
         if (!quiet)
             warning("Intercepts are not allowed in conditional models, removing intercept", call. = FALSE)
+# >>>>>>> master
         addIntercept = FALSE
     }
     if (modelType == "pr" | modelType == "cpr")
@@ -129,7 +146,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
         outcomes$stratumId <- NULL
         covariates$stratumId <- NULL
     }
-    if ((modelType == "cox" | modelType == "fgr") & !"stratumId" %in% colnames(outcomes)) {
+    if ((modelType == "cox" | modelType == "cox_time" | modelType == "fgr") & !"stratumId" %in% colnames(outcomes)) {
         outcomes$stratumId <- 0
         covariates$stratumId <- 0
     }
@@ -160,18 +177,44 @@ convertToCyclopsData.data.frame <- function(outcomes,
         }
     }
 
-    if (modelType == "cox" | modelType == "fgr") {
+    if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr") {
 
-        if (modelType == "cox" & length(unique(outcomes$y)) > 2) {
+        if ((modelType == "cox" | modelType == "cox_time") & length(unique(outcomes$y)) > 2) {
             stop("Cox model only accepts one outcome type")
         }
-
-        if (!isSorted(outcomes,
-                      c("stratumId", "time", "y", "rowId"),
-                      c(TRUE, FALSE, TRUE, TRUE))) {
-            if (!quiet)
-                writeLines("Sorting outcomes by stratumId, time (descending), y and rowId")
-            outcomes <- outcomes[order(outcomes$stratumId, -outcomes$time, outcomes$y, outcomes$rowId),]
+# <<<<<<< HEAD
+#         if (modelType == "clr" | modelType == "cpr" | modelType == "clr_exact" | modelType == "clr_efron"){
+#             if (!isSorted(outcomes,c("stratumId","rowId"))){
+#                 if(!quiet) {
+#                     writeLines("Sorting outcomes by stratumId and rowId")
+#                 }
+#                 rownames(outcomes) <- NULL #Needs to be null or the ordering of ffdf will fail
+#                 outcomes <- outcomes[ff::ffdforder(outcomes[c("stratumId","rowId")]),]
+#             }
+#             if (!isSorted(covariates,c("covariateId", "stratumId","rowId"))){
+#                 if(!quiet) {
+#                     writeLines("Sorting covariates by covariateId, stratumId and rowId")
+#                 }
+#                 rownames(covariates) <- NULL #Needs to be null or the ordering of ffdf will fail
+#                 covariates <- covariates[ff::ffdforder(covariates[c("covariateId", "stratumId","rowId")]),]
+#             }
+# =======
+        if ("subjectId" %in% colnames(outcomes)) {
+            if (!isSorted(outcomes,
+                          c("stratumId", "time", "y", "subjectId", "rowId"),
+                          c(TRUE, FALSE, TRUE, TRUE, TRUE))) {
+                if (!quiet)
+                    writeLines("Sorting outcomes by stratumId, time (descending), y, subjectId and rowId")
+                outcomes <- outcomes[order(outcomes$stratumId, -outcomes$time, outcomes$y, outcomes$subjectId, outcomes$rowId),]
+            }
+        } else {
+            if (!isSorted(outcomes,
+                          c("stratumId", "time", "y", "rowId"),
+                          c(TRUE, FALSE, TRUE, TRUE))) {
+                if (!quiet)
+                    writeLines("Sorting outcomes by stratumId, time (descending), y and rowId")
+                    outcomes <- outcomes[order(outcomes$stratumId, -outcomes$time, outcomes$y, outcomes$rowId),]
+            }
         }
         if (!"time" %in% colnames(covariates)) {
             covariates$time <- NULL
@@ -206,7 +249,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
                            y = outcomes$y,
                            time = if ("time" %in% colnames(outcomes)) outcomes$time else NULL)
 
-    if (addIntercept & (modelType != "cox" & modelType != "fgr")) {
+    if (addIntercept & (modelType != "cox" & modelType != "cox_time" & modelType != "fgr")) {
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
     }
 
@@ -232,6 +275,15 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                                  timeEffectCovId = timeEffectMap$covariateId,
                                                  timeEffectTimeId = timeEffectMap$timeEffectId)
         }
+    }
+
+    if (modelType == "cox_time" && !is.null(timeEffectMap)) {
+        if (!all(timeEffectMap$covariateId %in% covarNames)) stop("Invalid covariateId for time effects.")
+        loadNewSqlCyclopsDataStratTimeEffects(object = dataPtr,
+					      stratumId = outcomes$stratumId,
+					      rowId = outcomes$rowId,
+					      subjectId = outcomes$subjectId,
+					      timeEffectCovariateId = sort(timeEffectMap$covariateId))
     }
 
     if (modelType == "pr" || modelType == "cpr")
@@ -263,6 +315,20 @@ convertToCyclopsData.data.frame <- function(outcomes,
 
 #' @describeIn convertToCyclopsData Convert data from two \code{Andromeda} tables
 #' @export
+# <<<<<<< HEAD
+# convertToCyclopsData.data.frame <- function(outcomes,
+#                                             covariates,
+#                                             modelType = "lr",
+#                                             addIntercept = TRUE,
+#                                             checkSorting = TRUE,
+#                                             checkRowIds = TRUE,
+#                                             normalize = NULL,
+#                                             quiet = FALSE,
+#                                             floatingPoint = 64){
+#     if ((modelType == "clr" | modelType == "cpr" | modelType == "clr_exact" | modelType == "clr_efron") & addIntercept){
+#         if(!quiet)
+#             warning("Intercepts are not allowed in conditional models, removing intercept",call.=FALSE)
+# =======
 convertToCyclopsData.tbl_dbi <- function(outcomes,
                                          covariates,
                                          modelType = "lr",
@@ -280,23 +346,38 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         if (!quiet) {
             warning("Intercepts are not allowed in conditional models, removing intercept", call. = FALSE)
         }
+# >>>>>>> master
         addIntercept = FALSE
     }
 
     if (modelType == "pr" | modelType == "cpr") {
-        if (any(outcomes$time <= 0)) {
+        if (any(pull(outcomes, .data$time) <= 0)) {
             stop("time cannot be non-positive", call. = FALSE)
         }
     }
 
     providedNoStrata <- !"stratumId" %in% colnames(outcomes)
 
-    if (modelType == "cox" | modelType == "fgr") {
+# <<<<<<< HEAD
+#         if (modelType == "clr" | modelType == "cpr" | modelType == "clr_exact" | modelType == "clr_efron"){
+#             if (!isSorted(outcomes,c("stratumId","rowId"))){
+#                 if(!quiet)
+#                     writeLines("Sorting outcomes by stratumId and rowId")
+#                 outcomes <- outcomes[order(outcomes$stratumId,outcomes$rowId),]
+#             }
+#             if (!isSorted(covariates,c("covariateId", "stratumId","rowId"))){
+#                 if(!quiet)
+#                     writeLines("Sorting covariates by covariateId, stratumId, and rowId")
+#                 covariates <- covariates[order(covariates$covariateId, covariates$stratumId,covariates$rowId),]
+#             }
+# =======
+    if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr") {
         if (providedNoStrata) {
             outcomes <- outcomes %>%
                 mutate(stratumId = 0)
             covariates <- covariates %>%
                 mutate(stratumId = 0)
+# >>>>>>> master
         }
     }
 
@@ -334,9 +415,9 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
             arrange(.data$covariateId, .data$stratumId, .data$rowId)
     }
 
-    if (modelType == "cox" | modelType == "fgr") {
+    if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr") {
 
-        if (modelType == "cox" &
+        if ((modelType == "cox" | modelType == "cox_time") &
             (select(outcomes, .data$y) %>% distinct() %>% count() %>% collect() > 2)) {
             stop("Cox model only accepts one outcome type")
         }
@@ -344,8 +425,13 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
             covariates <- covariates %>%
                 inner_join(select(outcomes, .data$rowId, .data$time, .data$y), by = "rowId")
         }
-        outcomes <- outcomes %>%
-            arrange(.data$stratumId, desc(.data$time), .data$y, .data$rowId)
+        if ("subjectId" %in% colnames(outcomes)) {
+            outcomes <- outcomes %>%
+                arrange(.data$stratumId, desc(.data$time), .data$y, .data$subjectId, .data$rowId)
+        } else {
+            outcomes <- outcomes %>%
+                arrange(.data$stratumId, desc(.data$time), .data$y, .data$rowId)
+	}
         covariates <- covariates %>%
             arrange(.data$covariateId, .data$stratumId, desc(.data$time), .data$y, .data$rowId)
     }
@@ -361,9 +447,9 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                            stratumId = if ("stratumId" %in% colnames(outcomes)) outcomes$stratumId else NULL,
                            rowId = outcomes$rowId,
                            y = outcomes$y,
-                           time = if ("time" %in% colnames(outcomes)) outcomes$time else NULL)
+                           time = if ("time" %in% colnames(outcomes)) (select(outcomes, time) %>% pull()) else NULL)
 
-    if (addIntercept & (modelType != "cox" & modelType != "fgr")) {
+    if (addIntercept & (modelType != "cox" & modelType != "cox_time" & modelType != "fgr")) {
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
     }
 
@@ -381,6 +467,8 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                           loadCovariates,
                           batchSize = 100000) # TODO Pick magic number
 
+
+    # check for time effects in outcome table for pooled logistic regression
     timeEffects <- dplyr::select(outcomes, starts_with("timeEffect"))
     if (ncol(timeEffects) > 0) {
         # load time-dependent covariates (long, including time effects)
@@ -396,6 +484,17 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                                                  timeEffectCovId = timeEffectMap$covariateId,
                                                  timeEffectTimeId = timeEffectMap$timeEffectId)
         }
+    }
+
+    # check for time effects for time-varying Cox
+    if (modelType == "cox_time" && !is.null(timeEffectMap)) {
+        covarNames <- unique(pull(covariates, .data$covariateId))
+        if (!all(timeEffectMap$covariateId %in% covarNames)) stop("Invalid covariateId for time effects.")
+        loadNewSqlCyclopsDataStratTimeEffects(object = dataPtr,
+					      stratumId = outcomes$stratumId,
+					      rowId = outcomes$rowId,
+					      subjectId = outcomes$subjectId,
+					      timeEffectCovariateId = sort(timeEffectMap$covariateId))
     }
 
     if (modelType == "pr" || modelType == "cpr")

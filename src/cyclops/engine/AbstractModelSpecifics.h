@@ -15,6 +15,7 @@
 
 #include "Types.h"
 #include "ModelData.h"
+#include "../CcdInterface.h"
 
 namespace bsccs {
 
@@ -102,7 +103,7 @@ public:
 
 //	static bsccs::shared_ptr<AbstractModelSpecifics> factory(const ModelType modelType, const ModelData& modelData);
 
-	virtual AbstractModelSpecifics* clone() const = 0; // pure virtual
+	virtual AbstractModelSpecifics* clone(ComputeDeviceArguments computeDevice) const = 0; // pure virtual
 
 // 	static bsccs::shared_ptr<AbstractModelSpecifics> factory(const ModelType modelType,
 //                                                            const ModelData& modelData,
@@ -123,6 +124,50 @@ public:
 
 	virtual void axpyXBeta(const double beta, const int j) = 0;
 
+// GPU code
+    virtual bool isGPU() = 0;
+
+    virtual bool isCUDA() = 0;
+
+	virtual void resetBeta() {};
+
+	virtual void turnOnSyncCV(int foldToCompute) = 0;
+
+	virtual void turnOffSyncCV() = 0;
+
+	virtual void turnOnStreamCV(int foldToCompute) = 0;
+
+	bool syncCV = false;
+	int syncCVFolds;
+
+	virtual void setBounds(double initialBound) {};
+
+	virtual void setPriorTypes(std::vector<int>& typeList) {};
+
+	virtual void setPriorParams(std::vector<double>& paramList) {};
+
+	virtual void updateDoneFolds(std::vector<bool>& donePool) {};
+
+	virtual void runCCD(bool useCrossValidation, bool doItAll) {};
+
+	virtual void updateBetaAndDelta(int index, bool useWeights) {};
+
+	virtual void setFold(int fold) {};
+
+	virtual void setHXBeta() {};
+
+	virtual std::vector<double> getBeta() {
+		std::vector<double> blah;
+		blah.push_back(0);
+		return(blah);
+	};
+
+	virtual double getPredictiveLogLikelihood(double* weights, int cvIndex) = 0; // pure virtual
+
+	virtual void setWeights(double* inWeights, bool useCrossValidation, int index) = 0; // pure virtual
+
+    virtual std::vector<double> getGradientObjectives() = 0; // pure virtual
+
 protected:
 
 //     template <class Engine>
@@ -138,8 +183,10 @@ protected:
 
 	int getAlignedLength(int N);
 
+	virtual void setPidForAccumulation(const double *weights) = 0;
+
 	template <typename RealType>
-	void setPidForAccumulation(const RealType *weights);
+	void setPidForAccumulationImpl(const RealType *weights);
 
 	void setupSparseIndices(const int max);
 

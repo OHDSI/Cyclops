@@ -52,7 +52,7 @@ convertToCyclopsData(
 
 \item{modelType}{Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", or "cox"}
 
-\item{timeEffectMap}{A data frame or ffdf object containing the interaction of time-independent covariates with time effects (see below).}
+\item{timeEffectMap}{A data frame or ffdf object containing the convariates that have time-varying effects on the outcome}
 
 \item{addIntercept}{Add an intercept to the model?}
 
@@ -75,30 +75,30 @@ An object of type cyclopsData
 \details{
 These columns are expected in the outcome object:
 \tabular{lll}{
-  \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
-  \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
-  \verb{y}    \tab(real) \tab The outcome variable \cr
-  \verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
-                 \tab        \tab(e.g. number of days) \cr
-  \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
-  \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided \cr
-  \verb{timeEffect1}    \tab(real) \tab (optional) The value of the specified time-dependent covariate, \cr
-                        \tab        \tab the column name should start with timeEffect \cr
-  \verb{timeEffect2}    \tab(real) \tab (optional) The value of the specified time-dependent covariate, \cr
-                        \tab        \tab the column name should start with timeEffect \cr#' }
+\verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
+\verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
+\verb{y}    \tab(real) \tab The outcome variable \cr
+\verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
+\tab        \tab(e.g. number of days) \cr
+\verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
+\verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided \cr
+\verb{timeEffect1}    \tab(real) \tab (optional) The value of the specified time-dependent covariate, \cr
+\tab        \tab the column name should start with timeEffect \cr
+\verb{timeEffect2}    \tab(real) \tab (optional) The value of the specified time-dependent covariate, \cr
+\tab        \tab the column name should start with timeEffect \cr#' }
 
 These columns are expected in the covariates object:
 \tabular{lll}{
-  \verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
-  \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
-  \verb{covariateId}    \tab(integer) \tab A numeric identifier of a covariate  \cr
-  \verb{covariateValue}    \tab(real) \tab The value of the specified covariate \cr
+\verb{stratumId}    \tab(integer) \tab (optional) Stratum ID for conditional regression models \cr
+\verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
+\verb{covariateId}    \tab(integer) \tab A numeric identifier of a covariate  \cr
+\verb{covariateValue}    \tab(real) \tab The value of the specified covariate \cr
 }
 
 These columns are expected in the timeEffectMap object:
 \tabular{lll}{
-  \verb{covariateId}    \tab(integer) \tab A numeric identifier of a time-independent covariate  \cr
-  \verb{timeEffectId}  	\tab(integer) \tab TimeEffect ID is used to link a time-independent covariate (x) to a time effect (t) \cr
+\verb{covariateId}    \tab(integer) \tab A numeric identifier of a time-independent covariate (\code{modelType = 'time_cox'}) or the covariates that have time-varying effects on the outcome (\code{modelType = 'plr'})  \cr
+\verb{timeEffectId}  	\tab(integer) \tab TimeEffect ID is used to link a time-independent covariate (x) to a time effect (t) (\code{modelType = 'plr'}) \cr
 }
 }
 \section{Methods (by class)}{

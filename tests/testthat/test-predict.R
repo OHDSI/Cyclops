@@ -4,6 +4,7 @@ library("Andromeda")
 context("test-predict.R")
 
 test_that("Test predict for Poisson regression", {
+
     sim <- simulateCyclopsData(nstrata = 1, nrows = 10000, ncovars = 2, eCovarsPerRow = 0.5, effectSizeSd = 1,model = "poisson")
     covariates <- sim$covariates
     outcomes <- sim$outcomes
@@ -23,6 +24,7 @@ test_that("Test predict for Poisson regression", {
 })
 
 test_that("Test predict for logistic regression", {
+
     sim <- simulateCyclopsData(nstrata = 1, nrows = 10000, ncovars = 2, eCovarsPerRow = 0.5, effectSizeSd = 1,model = "logistic")
     covariates <- sim$covariates
     outcomes <- sim$outcomes
@@ -42,6 +44,7 @@ test_that("Test predict for logistic regression", {
 })
 
 test_that("Test predict for pr with all-zero betas", {
+
     sim <- simulateCyclopsData(nstrata = 1, nrows = 1000, ncovars = 2, eCovarsPerRow = 0.5, effectSizeSd = 1,model = "poisson")
     covariates <- sim$covariates
     outcomes <- sim$outcomes
@@ -65,6 +68,7 @@ test_that("Test predict for pr with all-zero betas", {
 })
 
 test_that("Test predict for lr with all-zero betas", {
+
     sim <- simulateCyclopsData(nstrata = 1, nrows = 1000, ncovars = 2, eCovarsPerRow = 0.5, effectSizeSd = 1,model = "logistic")
     covariates <- sim$covariates
     outcomes <- sim$outcomes

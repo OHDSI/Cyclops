@@ -25,8 +25,20 @@
     invisible(.Call(`_Cyclops_cyclopsSetBeta`, inRcppCcdInterface, beta))
 }
 
+.cyclopsGetBeta <- function(inRcppCcdInterface, index) {
+    .Call(`_Cyclops_cyclopsGetBeta`, inRcppCcdInterface, index)
+}
+
+.cyclopsSetStartingBeta <- function(inRcppCcdInterface, inStartingBeta) {
+    invisible(.Call(`_Cyclops_cyclopsSetStartingBeta`, inRcppCcdInterface, inStartingBeta))
+}
+
 .cyclopsSetFixedBeta <- function(inRcppCcdInterface, beta, fixed) {
     invisible(.Call(`_Cyclops_cyclopsSetFixedBeta`, inRcppCcdInterface, beta, fixed))
+}
+
+.cyclopsGetFixedBeta <- function(inRcppCcdInterface, index) {
+    .Call(`_Cyclops_cyclopsGetFixedBeta`, inRcppCcdInterface, index)
 }
 
 .cyclopsGetIsRegularized <- function(inRcppCcdInterface, index) {
@@ -81,8 +93,8 @@
     .Call(`_Cyclops_cyclopsPredictModel`, inRcppCcdInterface)
 }
 
-.cyclopsSetControl <- function(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount, algorithm) {
-    invisible(.Call(`_Cyclops_cyclopsSetControl`, inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount, algorithm))
+.cyclopsSetControl <- function(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount, algorithm, doItAll, syncCV) {
+    invisible(.Call(`_Cyclops_cyclopsSetControl`, inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount, algorithm, doItAll, syncCV))
 }
 
 .cyclopsRunCrossValidation <- function(inRcppCcdInterface) {
@@ -93,12 +105,30 @@
     .Call(`_Cyclops_cyclopsFitModel`, inRcppCcdInterface)
 }
 
+.cyclopsRunBootstrap <- function(inRcppCcdInterface, outFileName, treatmentId, replicates) {
+    .Call(`_Cyclops_cyclopsRunBootstrap`, inRcppCcdInterface, outFileName, treatmentId, replicates)
+}
+
 .cyclopsLogModel <- function(inRcppCcdInterface) {
     .Call(`_Cyclops_cyclopsLogModel`, inRcppCcdInterface)
 }
 
 .cyclopsInitializeModel <- function(inModelData, modelType, computeDevice, computeMLE = FALSE) {
     .Call(`_Cyclops_cyclopsInitializeModel`, inModelData, modelType, computeDevice, computeMLE)
+}
+
+#' @title List available GPU devices
+#'
+#' @description
+#' \code{listGPUDevices} list available GPU devices
+#'
+#' @export
+listGPUDevices <- function() {
+    .Call(`_Cyclops_listGPUDevices`)
+}
+
+.getDefaultGPUDevice <- function() {
+    .Call(`_Cyclops_getDefaultGPUDevice`)
 }
 
 .isSorted <- function(dataFrame, indexes, ascending) {
@@ -276,6 +306,10 @@ getTimeVector <- function(object) {
 
 .loadCyclopsDataX <- function(x, bitCovariateId, rowId, covariateValue, replace, append, forceSparse) {
     .Call(`_Cyclops_cyclopsLoadDataX`, x, bitCovariateId, rowId, covariateValue, replace, append, forceSparse)
+}
+
+.loadCyclopsDataStratTimeEffects <- function(x, stratumId, rowId, subjectId, timeEffectCovariateId) {
+    .Call(`_Cyclops_cyclopsLoadDataStratTimeEffects`, x, stratumId, rowId, subjectId, timeEffectCovariateId)
 }
 
 .loadCyclopsDataTimeEffectsDF <- function(x, timeEffects) {

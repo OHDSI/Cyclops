@@ -5,7 +5,7 @@
 #include <vector>
 #include <numeric>
 #include <thread>
-#include <boost/iterator/counting_iterator.hpp>
+// #include <boost/iterator/counting_iterator.hpp>
 
 // #define USE_RCPP_PARALLEL
 #undef USE_RCPP_PARALLEL

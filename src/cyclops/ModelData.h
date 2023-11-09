@@ -33,13 +33,13 @@
 
 namespace bsccs {
 
-// template <class T> void reindexVector(std::vector<T>& vec, std::vector<int> ind) {
-// 	int n = (int) vec.size();
-// 	std::vector<T> temp = vec;
-// 	for(int i = 0; i < n; i++){
-// 		vec[i] = temp[ind[i]];
-// 	}
-// }
+ template <class T> void reindexVector(std::vector<T>& vec, std::vector<int> ind) {
+ 	int n = (int) vec.size();
+ 	std::vector<T> temp = vec;
+ 	for(int i = 0; i < n; i++){
+ 		vec[i] = temp[ind[i]];
+ 	}
+ }
 
 template <typename RealType>
 class MapTimeEffects {
@@ -227,6 +227,7 @@ public:
             const bool forceSparse
     ) = 0;
 
+
     virtual int loadTimeEffectsDF(
             std::vector<std::vector<double>>& timeEffects
     ) = 0;
@@ -234,6 +235,13 @@ public:
     virtual int loadTimeInteraction(
             const std::vector<int64_t>& covariateId,
             const std::vector<int64_t>& timeEffectId
+    ) = 0;
+
+    virtual std::vector<std::string> loadStratTimeEffects(
+            const std::vector<IdType>& oStratumId,
+            const std::vector<IdType>& oRowId,
+            const std::vector<IdType>& oSubjectId,
+            const std::vector<IdType>& timeEffectCovariateId
     ) = 0;
 
     virtual size_t append(
@@ -329,6 +337,14 @@ public:
 
 	virtual ~ModelData();
 
+	AbstractModelData* castToFloat() {
+	    auto* floatModelData = new ModelData<float>(modelType, pid, y, z, offs, log, error);
+
+
+
+	    return floatModelData;
+	}
+
 	const CompressedDataMatrix<RealType>& getX() const {
 	    return X;
 	}
@@ -392,6 +408,7 @@ public:
 		const bool forceSparse
 	);
 
+
 	int loadTimeEffectsDF(
 	        std::vector<std::vector<double>>& timeEffects
 	);
@@ -399,6 +416,13 @@ public:
 	int loadTimeInteraction(
 		const std::vector<int64_t>& covariateId,
 	        const std::vector<int64_t>& timeEffectId
+	);
+
+	std::vector<std::string> loadStratTimeEffects(
+		const std::vector<IdType>& oStratumId,
+		const std::vector<IdType>& oRowId,
+		const std::vector<IdType>& oSubjectId,
+		const std::vector<IdType>& timeEffectCovariateId
 	);
 
 	const int* getPidVector() const;
@@ -734,6 +758,16 @@ public:
 	friend void setNumberPatients(ModelData<double>& modelData, const int cases);
 	friend void setNumberRows(ModelData<double>& modelData, const int nrows);
 
+    friend void push_back_label(ModelData<float>& modeData, const std::string& label);
+    friend void push_back_pid(ModelData<float>& modeData, const int cases);
+    friend void push_back_y(ModelData<float>& modelData, const float value);
+    friend void push_back_nevents(ModelData<float>& modelData, const int num);
+    friend void push_back_z(ModelData<float>& modelData, const float value);
+    friend void push_back_offs(ModelData<float>& modelData, const float value);
+    friend void setConditionId(ModelData<float>& modelData, const std::string& id);
+    friend void setNumberPatients(ModelData<float>& modelData, const int cases);
+    friend void setNumberRows(ModelData<float>& modelData, const int nrows);
+
 protected:
 
     template <typename T, typename F>
@@ -861,6 +895,8 @@ protected:
 	MapTimeEffects<RealType> mapTimeEffects;
 
 	int nTypes;
+	int64_t maxCovariateId;
+	unordered_map<IdType, IdType> timeEffectCovariateIdMap; // (timeEffectCovariateName, index)
 
 private:
 	// Disable copy-constructors and copy-assignment

@@ -29,7 +29,7 @@
 #include "CyclicCoordinateDescent.h"
 #include "ModelData.h"
 
-#include "boost/iterator/counting_iterator.hpp"
+//#include "boost/iterator/counting_iterator.hpp"
 #include "Thread.h"
 
 // #include "io/InputReader.h"
@@ -45,6 +45,7 @@
 // #include "io/BBRInputReader.h"
 // #include "io/OutputWriter.h"
 #include "drivers/CrossValidationSelector.h"
+#include "drivers/WeightBasedSelector.h"
 #include "drivers/GridSearchCrossValidationDriver.h"
 #include "drivers/HierarchyGridSearchCrossValidationDriver.h"
 #include "drivers/AutoSearchCrossValidationDriver.h"
@@ -170,6 +171,7 @@ void CcdInterface::setDefaultArguments(void) {
 	arguments.doBootstrap = false;
 	arguments.replicates = 100;
 	arguments.reportRawEstimates = false;
+	arguments.reportDifference = false;
 	arguments.modelName = "sccs";
 	arguments.fileFormat = "generic";
 	//arguments.outputFormat = "estimates";
@@ -321,7 +323,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	ccdPool.push_back(ccd);
 
 	for (int i = 1; i < nThreads; ++i) {
-	    ccdPool.push_back(ccd->clone());
+	    ccdPool.push_back(ccd->clone(arguments.computeDevice));
 	}
 
     std::vector<double> lowerPts(indices.size());
@@ -362,6 +364,8 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	    }
 	};
 
+    ccd->getHBeta();
+
     if (nThreads == 1) {
         std::for_each(std::begin(bounds), std::end(bounds),
                       [&getBound, ccd](const BoundType bound) {
@@ -369,9 +373,9 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
                       }
                     );
     } else {
-        auto scheduler = TaskScheduler<boost::counting_iterator<int> >(
-            boost::make_counting_iterator(0),
-            boost::make_counting_iterator(static_cast<int>(bounds.size())),
+        auto scheduler = TaskScheduler<IncrementableIterator<size_t>>(
+            IncrementableIterator<size_t>(0), // boost::make_counting_iterator(0),
+            IncrementableIterator<size_t>(bounds.size()), //boost::make_counting_iterator(static_cast<int>(bounds.size())),
             nThreads);
 
         auto oneTask = [&getBound, &scheduler, &ccdPool, &bounds](unsigned long task) {
@@ -426,6 +430,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 		    for (int j = 0; j < J; ++j) {
 		        ccd->setBeta(j, x0s[j]);
 		    }
+		    ccd->setHXBeta();
 		    // DEBUG, TODO Remove?
 // 		    double testMode = ccd->getLogLikelihood();
 // 		    std::ostringstream stream;
@@ -574,7 +579,7 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
     ccdPool.push_back(ccd);
 
     for (int i = 1; i < nThreads; ++i) {
-        ccdPool.push_back(ccd->clone());
+        ccdPool.push_back(ccd->clone(arguments.computeDevice));
     }
 
     if (nThreads == 1) {
@@ -582,8 +587,10 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
             values[i] = evaluate(points[i], ccd);
         }
     } else {
-        auto scheduler = TaskScheduler<boost::counting_iterator<int>>(
-            boost::make_counting_iterator(0), boost::make_counting_iterator(static_cast<int>(points.size())), nThreads);
+        auto scheduler = TaskScheduler<IncrementableIterator<size_t>>(
+            IncrementableIterator<size_t>(0), //boost::make_counting_iterator(0),
+            IncrementableIterator<size_t>(points.size()), //boost::make_counting_iterator(static_cast<int>(points.size())),
+            nThreads);
 
         auto oneTask = [&evaluate, &scheduler, &ccdPool, &points, &values](unsigned long task) {
             values[task] = evaluate(points[task], ccdPool[scheduler.getThreadIndex(task)]);
@@ -693,21 +700,28 @@ SelectorType CcdInterface::getDefaultSelectorTypeOrOverride(SelectorType selecto
 double CcdInterface::runBoostrap(
 		CyclicCoordinateDescent *ccd,
 		AbstractModelData *modelData,
-		std::vector<double>& savedBeta) {
+		std::vector<double>& savedBeta,
+		std::string& treatmentId) {
 	struct timeval time1, time2;
 	gettimeofday(&time1, NULL);
 
 	auto selectorType = getDefaultSelectorTypeOrOverride(
 		arguments.crossValidation.selectorType, modelData->getModelType());
 
-	BootstrapSelector selector(arguments.replicates, modelData->getPidVectorSTL(),
+	vector<int> ids;
+	if (selectorType == SelectorType::BY_ROW) {
+		ids.resize(modelData->getNumberOfRows());
+		std::iota(ids.begin(), ids.end(), 0);
+	}
+	BootstrapSelector selector(arguments.replicates, selectorType == SelectorType::BY_ROW ? ids : modelData->getPidVectorSTL(),
 			selectorType, arguments.seed, logger, error);
 	BootstrapDriver driver(arguments.replicates, modelData, logger, error);
 
 	driver.drive(*ccd, selector, arguments);
 	gettimeofday(&time2, NULL);
 
-	driver.logResults(arguments, savedBeta, ccd->getConditionId());
+//	driver.logResults(arguments, savedBeta, ccd->getConditionId());
+	driver.logHR(arguments, savedBeta, treatmentId);
 	return calculateSeconds(time1, time2);
 }
 
@@ -746,12 +760,32 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, AbstractMo
 		}
 	}
 
-	CrossValidationSelector selector(arguments.crossValidation.fold,
-	 		modelData->getPidVectorSTL(),
-			selectorType, arguments.seed, logger, error,
-			nullptr,
-			(useWeights ? &weights : nullptr)
-			); // TODO ERROR HERE!  NOT ALL MODELS ARE SUBJECT
+	// TODO ADD CODE HERE
+
+	//arguments.crossValidation.fold != -1 ?
+
+	AbstractSelector* ptr;
+	if (arguments.crossValidation.fold != -1) {
+	ptr = new CrossValidationSelector(arguments.crossValidation.fold,
+                             modelData->getPidVectorSTL(),
+                             selectorType, arguments.seed, logger, error,
+                             nullptr,
+                             (useWeights ? &weights : nullptr));
+	} else {
+	ptr =
+
+     new WeightBasedSelector(1,
+                             modelData->getPidVectorSTL(),
+                             selectorType, arguments.seed, logger, error,
+                             nullptr,
+                             &weights);
+	    arguments.crossValidation.foldToCompute = 1;
+	}
+
+	std::unique_ptr<AbstractSelector> selector =
+	    bsccs::unique_ptr<AbstractSelector>(ptr);
+
+	//    std::make_unique_ptr<AbstractSelector>(ptr2);
 
 	AbstractCrossValidationDriver* driver;
 	if (arguments.crossValidation.useAutoSearchCV) {
@@ -768,7 +802,7 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, AbstractMo
 		}
 	}
 
-	driver->drive(*ccd, selector, arguments);
+	driver->drive(*ccd, *selector, arguments);
 
 	gettimeofday(&time2, NULL);
 
@@ -781,7 +815,7 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, AbstractMo
 	        logger->writeLine(stream);
 	    }
 		// Do full fit for optimal parameter
-		driver->resetForOptimal(*ccd, selector, arguments);
+		driver->resetForOptimal(*ccd, *selector, arguments);
 		fitModel(ccd);
 		if (arguments.fitMLEAtMode) {
 			runFitMLEAtMode(ccd);

@@ -12,7 +12,7 @@
 #include <vector>
 #include <map>
 
-#if defined(__GXX_EXPERIMENTAL_CXX0X__) || __cplusplus >= 201103L
+// #if defined(__GXX_EXPERIMENTAL_CXX0X__) || __cplusplus >= 201103L
 // C++11
     #include <memory>
     namespace bsccs {
@@ -20,15 +20,15 @@
         using std::make_shared;
         using std::unique_ptr;
     }
-#else
+// #else
 // C++98 (R build)
-    #include "boost/smart_ptr.hpp"
-    namespace bsccs {
-        using boost::shared_ptr;
-        using boost::make_shared;
-        using boost::unique_ptr;
-    }
-#endif
+//    #include "boost/smart_ptr.hpp"
+//    namespace bsccs {
+//        using boost::shared_ptr;
+//        using boost::make_shared;
+//        using boost::unique_ptr;
+//    }
+// #endif
 
 #ifdef WIN_BUILD
     #include <tr1/unordered_map>
@@ -141,10 +141,12 @@ enum class ModelType {
 	POOLED_LOGISTIC,
 	CONDITIONAL_LOGISTIC,
 	TIED_CONDITIONAL_LOGISTIC,
+	EFRON_CONDITIONAL_LOGISTIC,
 	CONDITIONAL_POISSON,
 	SELF_CONTROLLED_MODEL,
 	COX,
 	COX_RAW,
+	TIME_VARYING_COX,
 	FINE_GRAY, // ESK: Added Fine-Gray
 	SIZE_OF_ENUM // Keep at end
 };

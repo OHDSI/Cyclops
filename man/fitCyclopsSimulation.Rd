@@ -9,7 +9,8 @@ fitCyclopsSimulation(
   useCyclops = TRUE,
   model = "logistic",
   coverage = TRUE,
-  includePenalty = FALSE
+  includePenalty = FALSE,
+  computeDevice = "native"
 )
 }
 \arguments{
@@ -22,6 +23,8 @@ fitCyclopsSimulation(
 \item{coverage}{Logical: report coverage statistics}
 
 \item{includePenalty}{Logical: include regularized regression penalty in computing profile likelihood based confidence intervals}
+
+\item{computeDevice}{String: Name of compute device to employ; defaults to \code{"native"} C++ on CPU}
 }
 \description{
 \code{fitCyclopsSimulation} fits simulated Cyclops data using Cyclops or a standard routine.

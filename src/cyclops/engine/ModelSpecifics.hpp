@@ -19,15 +19,16 @@
 
 #include "Recursions.hpp"
 #include "ParallelLoops.h"
-#include "Ranges.h"
+// #include "Ranges.h"
 
 #ifdef USE_RCPP_PARALLEL
 #include <tbb/combinable.h>
 #include <tbb/parallel_for.h>
 #endif
 
+
 //#include "R.h"
-#include "Rcpp.h" // TODO Remove
+//#include "Rcpp.h" // TODO Remove
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	#include "Timing.h"
@@ -88,6 +89,7 @@ ModelSpecifics<BaseModel,RealType>::ModelSpecifics(const ModelData<RealType>& in
 	{
     	// Do nothing
 	// TODO Memory allocation here
+	// std::cerr << "ctor ModelSpecifics \n";
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto now = bsccs::chrono::system_clock::now();
@@ -99,12 +101,16 @@ ModelSpecifics<BaseModel,RealType>::ModelSpecifics(const ModelData<RealType>& in
 }
 
 template <class BaseModel, typename RealType>
-AbstractModelSpecifics* ModelSpecifics<BaseModel,RealType>::clone() const {
+AbstractModelSpecifics* ModelSpecifics<BaseModel,RealType>::clone(ComputeDeviceArguments computeDevice) const {
 	return new ModelSpecifics<BaseModel,RealType>(modelData);
 }
 
 template <class BaseModel, typename RealType>
 double ModelSpecifics<BaseModel,RealType>::getGradientObjective(bool useCrossValidation) {
+
+#ifdef CYCLOPS_DEBUG_TIMING
+    auto start = bsccs::chrono::steady_clock::now();
+#endif
 
 		auto& xBeta = getXBeta();
 
@@ -118,7 +124,11 @@ double ModelSpecifics<BaseModel,RealType>::getGradientObjective(bool useCrossVal
 				criterion += xBeta[i] * hY[i];
             }
 		}
-
+#ifdef CYCLOPS_DEBUG_TIMING
+    auto end = bsccs::chrono::steady_clock::now();
+    ///////////////////////////"
+    duration["getGradObj       "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
 		return static_cast<double> (criterion);
 	}
 
@@ -139,6 +149,7 @@ void ModelSpecifics<BaseModel,RealType>::printTiming() {
 template <class BaseModel,typename RealType>
 ModelSpecifics<BaseModel,RealType>::~ModelSpecifics() {
 	// TODO Memory release here
+	// std::cerr << "dtor ModelSpecifics \n";
 
 #ifdef CYCLOPS_DEBUG_TIMING
 
@@ -496,7 +507,9 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *c
     if (hYWeight.size() != K) {
         hYWeight.resize(K);
     }
-
+	if (hYWeightDouble.size() != K) {
+		hYWeightDouble.resize(K);
+	}
     if (BaseModel::isTwoWayScan) {
         for (size_t k = 0; k < K; ++k) {
             hYWeight[k] = cenWeights[k];
@@ -507,14 +520,22 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *c
         hNtoK.resize(N + 1);
         int n = 0;
         for (size_t k = 0; k < K;) {
+            while (hKWeight[k] == static_cast<RealType>(0)) {
+                ++k;
+            }
             hNtoK[n] = k;
             int currentPid = hPid[k];
             do {
                 ++k;
-            } while (k < K && currentPid == hPid[k]);
+            } while (k < K && (currentPid == hPid[k] || hKWeight[k] == static_cast<RealType>(0)));
             ++n;
         }
         hNtoK[n] = K;
+
+        for (size_t k = 0; k < K; ++k) {
+            hYWeight[k] = cenWeights[k];
+            hYWeightDouble[k] = cenWeights[k];
+        }
     }
 
 #ifdef DEBUG_COX
@@ -644,6 +665,9 @@ void ModelSpecifics<BaseModel,RealType>::computeFixedTermsInLogLikelihood(bool u
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeFixedTermsInGradientAndHessian(bool useCrossValidation) {
+#ifdef CYCLOPS_DEBUG_TIMING
+    auto start = bsccs::chrono::steady_clock::now();
+#endif
 	if (sortPid()) {
 		doSortPid(useCrossValidation);
 	}
@@ -656,6 +680,12 @@ void ModelSpecifics<BaseModel,RealType>::computeFixedTermsInGradientAndHessian(b
 	if (allocateNtoKIndices()) {
 		computeNtoKIndices(useCrossValidation);
 	}
+#ifdef CYCLOPS_DEBUG_TIMING
+    auto end = bsccs::chrono::steady_clock::now();
+    ///////////////////////////"
+    auto name = "compFixedGH      ";
+    duration[name] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
 }
 
 template <class BaseModel,typename RealType>
@@ -681,7 +711,7 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 			for (size_t i = 0; i < N; i++) {
 				// Weights modified in computeNEvents()
 				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], accDenomPid[i]);
-            }
+			}
 		} else {  // TODO Unnecessary code duplication
 			for (size_t i = 0; i < N; i++) {
 				// Weights modified in computeNEvents()
@@ -708,10 +738,10 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 template <class BaseModel,typename RealType>
 double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* weights) {
 
-    std::vector<double> saveKWeight;
+	std::vector<double> saveKWeight;
 	if (BaseModel::cumulativeGradientAndHessian)	{
 
- 		// saveKWeight = hKWeight; // make copy
+ 	    // saveKWeight = hKWeight; // make copy
 	    if (saveKWeight.size() != K) {
 	        saveKWeight.resize(K);
 	    }
@@ -720,7 +750,7 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 	    }
 
 		setPidForAccumulation(weights);
-		setWeights(weights, nullptr, true); // set new weights // TODO Possible error for gfr
+		setWeights(weights, BaseModel::isTwoWayScan ? hYWeightDouble.data() : nullptr, true); // set new weights // TODO Possible error for gfr
 		computeRemainingStatistics(true); // compute accDenomPid
 	}
 
@@ -738,7 +768,7 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 
 	if (BaseModel::cumulativeGradientAndHessian) {
 		setPidForAccumulation(&saveKWeight[0]);
-	    setWeights(saveKWeight.data(), nullptr, true); // set old weights // TODO Possible eror for gfr
+		setWeights(saveKWeight.data(), BaseModel::isTwoWayScan ? hYWeightDouble.data() : nullptr, true); // set old weights // TODO Possible error for gfr
 		computeRemainingStatistics(true);
 	}
 
@@ -819,6 +849,9 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessian(int index, do
 #endif
 #endif
 
+#ifdef CYCLOPS_DEBUG_TIMING_GPU_COX
+        duration["CPU GH           "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
 }
 
 template <class RealType>
@@ -1292,8 +1325,6 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 // 	    gradient = result.real();
 // 	    hessian = result.imag();
 
-        using RealTypePair = std::pair<RealType, RealType>;
-
 	    IteratorType it(hX, index);
 	    const int end = it.size() - 1;
 
@@ -1434,7 +1465,6 @@ void ModelSpecifics<BaseModel,RealType>::computeThirdDerivativeImpl(int index, d
 #endif
 
     RealType third = static_cast<RealType>(0);
-    RealType hessian = static_cast<RealType>(0);
 
     if (BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 
@@ -1667,13 +1697,20 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index, 
 #endif
 #endif
 
-	if (BaseModel::cumulativeGradientAndHessian) { // cox
+	if (BaseModel::hasNtoKIndices || BaseModel::cumulativeGradientAndHessian) {
+
 		switch (hX.getFormatType(index)) {
 		case INDICATOR : {
 				IndicatorIterator<RealType> itI(*(sparseIndices)[index]);
 				for (; itI; ++itI) { // Only affected entries
 					numerPid[itI.index()] = static_cast<RealType>(0.0);
 				}
+/*
+				zeroVector(numerPid.data(), N);
+				if (BaseModel::efron) {
+					zeroVector(numerPid3.data(), N);
+				}
+*/
 				if (useWeights) {
 				    incrementNumeratorForGradientImpl<IndicatorIterator<RealType>, WeightedOperation>(index);
 				} else {
@@ -1689,6 +1726,16 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index, 
 						numerPid2[itS.index()] = static_cast<RealType>(0.0); // TODO Does this invalid the cache line too much?
 					}
 				}
+/*
+				zeroVector(numerPid.data(), N);
+				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
+					zeroVector(numerPid2.data(), N);
+				}
+				if (BaseModel::efron) {
+					zeroVector(numerPid3.data(), N);
+					zeroVector(numerPid4.data(), N);
+				}
+*/
 				if (useWeights) {
 				    incrementNumeratorForGradientImpl<SparseIterator<RealType>, WeightedOperation>(index);
 				} else {
@@ -1701,6 +1748,12 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index, 
 				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
 					zeroVector(numerPid2.data(), N);
 				}
+/*
+				if (BaseModel::efron) {
+					zeroVector(numerPid3.data(), N);
+					zeroVector(numerPid4.data(), N);
+				}
+*/
 				if (useWeights) {
 				    incrementNumeratorForGradientImpl<DenseIterator<RealType>, WeightedOperation>(index);
 				} else {
@@ -1713,6 +1766,12 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index, 
 				if (BaseModel::hasTwoNumeratorTerms) { // Compile-time switch
 					zeroVector(numerPid2.data(), N);
 				}
+/*
+				if (BaseModel::efron) {
+					zeroVector(numerPid3.data(), N);
+					zeroVector(numerPid4.data(), N);
+				}
+*/
 				if (useWeights) {
 				    incrementNumeratorForGradientImpl<InterceptIterator<RealType>, WeightedOperation>(index);
 				} else {
@@ -1732,6 +1791,9 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index, 
 #endif
 #endif
 
+#ifdef CYCLOPS_DEBUG_TIMING_GPU_COX
+	duration["CPU GH           "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
+#endif
 }
 
 template <class BaseModel,typename RealType> template <class IteratorType, class Weights>
@@ -1744,22 +1806,37 @@ void ModelSpecifics<BaseModel,RealType>::incrementNumeratorForGradientImpl(int i
 #endif
 
 	IteratorType it(hX, index);
-    for (; it; ++it) {
-        const int k = it.index();
-        incrementByGroup(numerPid.data(), hPid, k,
-                         Weights::isWeighted ?
-                             hKWeight[k] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]) :
-                             BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k])
-        );
-        if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {
-            incrementByGroup(numerPid2.data(), hPid, k,
-                             Weights::isWeighted ?
-                                 hKWeight[k] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]) :
-                                 BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k])
-            );
-        }
-    }
-
+	for (; it; ++it) {
+		const int k = it.index();
+		incrementByGroup(numerPid.data(), hPid, k,
+                   Weights::isWeighted ?
+                       hKWeight[k] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]) :
+		               BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k])
+		    );
+		if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {
+			incrementByGroup(numerPid2.data(), hPid, k,
+                    Weights::isWeighted ?
+                        hKWeight[k] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]) :
+                        BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k])
+                );
+		}
+/*
+		if (BaseModel::efron) {
+			incrementByGroup(numerPid3.data(), hPid, k,
+					Weights::isWeighted ?
+						hKWeight[k] * hY[k] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k]) :
+						hY[k] * BaseModel::gradientNumeratorContrib(it.value(), offsExpXBeta[k], hXBeta[k], hY[k])
+				);
+		}
+		if (!IteratorType::isIndicator && BaseModel::efron) {
+			incrementByGroup(numerPid4.data(), hPid, k,
+                    Weights::isWeighted ?
+                        hKWeight[k] * hY[k] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k]) :
+                        hY[k] * BaseModel::gradientNumerator2Contrib(it.value(), offsExpXBeta[k])
+                );
+		}
+*/
+	}
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
 	auto end = bsccs::chrono::steady_clock::now();
@@ -1825,6 +1902,10 @@ void ModelSpecifics<BaseModel,RealType>::updateXBeta(double delta, int index, bo
 	///////////////////////////"
 	duration["updateXBeta      "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
+#endif
+
+#ifdef CYCLOPS_DEBUG_TIMING_GPU_COX
+	duration["CPU GH           "] += bsccs::chrono::duration_cast<chrono::TimingUnits>(end - start).count();
 #endif
 
 }
@@ -1899,19 +1980,7 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
 #endif
 
 	IteratorType it(hX, index);
-// <<<<<<< HEAD
-// 	for (; it; ++it) {
-// 		const int k = it.index();
-// 		hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
-//         // Update denominators as well (denominators include (weight * offsExpXBeta))
-// 		if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
-// 		    RealType oldEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition to forming offExpXBeta
-//             offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k); // Update offsExpXBeta
-// 			RealType newEntry = Weights::isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]; // TODO Delegate condition
-//             incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry)); // Update denominators
-// 		}
-// 	}
-// =======
+
     if (BaseModel::cumulativeGradientAndHessian) { // cox
         for (; it; ++it) {
             const int k = it.index();
@@ -1966,10 +2035,14 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
                 RealType oldEntry = offsExpXBeta[k];
                 RealType newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
                 incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry));
+/*
+                if (BaseModel::efron) {
+                    incrementByGroup(denomPid2.data(), hPid, k, hY[k]*(newEntry - oldEntry)); // Update denominators
+                }
+*/
             }
         }
     }
-// >>>>>>> develop
 
 	computeAccumlatedDenominator(Weights::isWeighted);
 
@@ -1991,7 +2064,11 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatisticsImpl() {
 
     if (BaseModel::likelihoodHasDenominator) {
         fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());
-
+/*
+        if (BaseModel::efron) {
+        	fillVector(denomPid2.data(), N, BaseModel::getDenomNullValue());
+        }
+*/
         if (BaseModel::cumulativeGradientAndHessian) { // cox
             for (size_t k = 0; k < K; ++k) {
                 offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
@@ -2004,6 +2081,11 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatisticsImpl() {
             for (size_t k = 0; k < K; ++k) {
                 offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
                 incrementByGroup(denomPid.data(), hPid, k, offsExpXBeta[k]);
+/*
+                if (BaseModel::efron) {
+                    incrementByGroup(denomPid2.data(), hPid, k, hY[k]*offsExpXBeta[k]); // Update denominators
+                }
+*/
             }
         }
         computeAccumlatedDenominator(Weights::isWeighted);
@@ -2072,6 +2154,7 @@ void ModelSpecifics<BaseModel,RealType>::computeAccumlatedDenominator(bool useWe
     if (BaseModel::likelihoodHasDenominator && //The two switches should ideally be separated
         BaseModel::cumulativeGradientAndHessian) { // Compile-time switch
 
+
         if (accDenomPid.size() != (N + 1)) {
             accDenomPid.resize(N + 1, static_cast<RealType>(0));
         }
@@ -2111,6 +2194,7 @@ void ModelSpecifics<BaseModel,RealType>::computeAccumlatedDenominator(bool useWe
             }
         } // End two-way scan
     }
+
 }
 
 // ESK: This is no longer needed. Incorporated in incrementGradientAndHessian
@@ -2204,9 +2288,19 @@ void ModelSpecifics<BaseModel,RealType>::doSortPid(bool useCrossValidation) {
  */
 }
 
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::getOriginalPid() {
+
+    hPidInternal =  hPidOriginal; // Make copy
+
+}
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::setPidForAccumulation(const double* weights) {
+	setPidForAccumulationImpl(weights);
+}
 
 template <class BaseModel,typename RealType> template <typename AnyRealType>
-void ModelSpecifics<BaseModel,RealType>::setPidForAccumulation(const AnyRealType* weights) {
+void ModelSpecifics<BaseModel,RealType>::setPidForAccumulationImpl(const AnyRealType* weights) {
 
     hPidInternal =  hPidOriginal; // Make copy
     hPid = hPidInternal.data(); // Point to copy
@@ -2326,7 +2420,9 @@ void ModelSpecifics<BaseModel,RealType>::initialize(
     if (allocateXjX()) {
         hXjX.resize(J);
     }
-
+#ifdef CYCLOPS_DEBUG_TIMING_GPU_COX
+	auto start = std::chrono::steady_clock::now();
+#endif
     if (initializeAccumulationVectors()) {
         setPidForAccumulation(static_cast<double*>(nullptr)); // calls setupSparseIndices() before returning
     } else {
@@ -2334,7 +2430,11 @@ void ModelSpecifics<BaseModel,RealType>::initialize(
         // If true, then fill with pointers to CompressedDataColumn and do not delete in destructor
         setupSparseIndices(N); // Need to be recomputed when hPid change!
     }
-
+#ifdef CYCLOPS_DEBUG_TIMING_GPU_COX
+	auto end = std::chrono::steady_clock::now();
+	double timerPid = std::chrono::duration<double>(end - start).count();
+	std::cout << " OVERHEAD CCD setPid:  " << timerPid << " s \n";
+#endif
 
     if (BaseModel:: pooledLR) { // TODO think again
         N = K;
@@ -2346,8 +2446,11 @@ void ModelSpecifics<BaseModel,RealType>::initialize(
     // 	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
     // 	numerPid2 = numerPid + 2 * alignedLength;
     denomPid.resize(alignedLength);
+    denomPid2.resize(alignedLength);
     numerPid.resize(alignedLength);
     numerPid2.resize(alignedLength);
+    numerPid3.resize(alignedLength);
+    numerPid4.resize(alignedLength);
 
     deviceInitialization();
 

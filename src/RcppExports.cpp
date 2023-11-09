@@ -73,6 +73,29 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// cyclopsGetBeta
+double cyclopsGetBeta(SEXP inRcppCcdInterface, const int index);
+RcppExport SEXP _Cyclops_cyclopsGetBeta(SEXP inRcppCcdInterfaceSEXP, SEXP indexSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const int >::type index(indexSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetBeta(inRcppCcdInterface, index));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cyclopsSetStartingBeta
+void cyclopsSetStartingBeta(SEXP inRcppCcdInterface, const std::vector<double>& inStartingBeta);
+RcppExport SEXP _Cyclops_cyclopsSetStartingBeta(SEXP inRcppCcdInterfaceSEXP, SEXP inStartingBetaSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type inStartingBeta(inStartingBetaSEXP);
+    cyclopsSetStartingBeta(inRcppCcdInterface, inStartingBeta);
+    return R_NilValue;
+END_RCPP
+}
 // cyclopsSetFixedBeta
 void cyclopsSetFixedBeta(SEXP inRcppCcdInterface, int beta, bool fixed);
 RcppExport SEXP _Cyclops_cyclopsSetFixedBeta(SEXP inRcppCcdInterfaceSEXP, SEXP betaSEXP, SEXP fixedSEXP) {
@@ -83,6 +106,18 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type fixed(fixedSEXP);
     cyclopsSetFixedBeta(inRcppCcdInterface, beta, fixed);
     return R_NilValue;
+END_RCPP
+}
+// cyclopsGetFixedBeta
+bool cyclopsGetFixedBeta(SEXP inRcppCcdInterface, const int index);
+RcppExport SEXP _Cyclops_cyclopsGetFixedBeta(SEXP inRcppCcdInterfaceSEXP, SEXP indexSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const int >::type index(indexSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetFixedBeta(inRcppCcdInterface, index));
+    return rcpp_result_gen;
 END_RCPP
 }
 // cyclopsGetIsRegularized
@@ -252,8 +287,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsSetControl
-void cyclopsSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance, bool useKKTSwindle, int swindleMultipler, const std::string& selectorType, double initialBound, int maxBoundCount, const std::string& algorithm);
-RcppExport SEXP _Cyclops_cyclopsSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP threadsSEXP, SEXP seedSEXP, SEXP resetCoefficientsSEXP, SEXP startingVarianceSEXP, SEXP useKKTSwindleSEXP, SEXP swindleMultiplerSEXP, SEXP selectorTypeSEXP, SEXP initialBoundSEXP, SEXP maxBoundCountSEXP, SEXP algorithmSEXP) {
+void cyclopsSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance, bool useKKTSwindle, int swindleMultipler, const std::string& selectorType, double initialBound, int maxBoundCount, const std::string& algorithm, bool doItAll, bool syncCV);
+RcppExport SEXP _Cyclops_cyclopsSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP threadsSEXP, SEXP seedSEXP, SEXP resetCoefficientsSEXP, SEXP startingVarianceSEXP, SEXP useKKTSwindleSEXP, SEXP swindleMultiplerSEXP, SEXP selectorTypeSEXP, SEXP initialBoundSEXP, SEXP maxBoundCountSEXP, SEXP algorithmSEXP, SEXP doItAllSEXP, SEXP syncCVSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
@@ -277,7 +312,9 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type initialBound(initialBoundSEXP);
     Rcpp::traits::input_parameter< int >::type maxBoundCount(maxBoundCountSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type algorithm(algorithmSEXP);
-    cyclopsSetControl(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount, algorithm);
+    Rcpp::traits::input_parameter< bool >::type doItAll(doItAllSEXP);
+    Rcpp::traits::input_parameter< bool >::type syncCV(syncCVSEXP);
+    cyclopsSetControl(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount, algorithm, doItAll, syncCV);
     return R_NilValue;
 END_RCPP
 }
@@ -303,6 +340,20 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsRunBootstrap
+List cyclopsRunBootstrap(SEXP inRcppCcdInterface, const std::string& outFileName, std::string& treatmentId, int replicates);
+RcppExport SEXP _Cyclops_cyclopsRunBootstrap(SEXP inRcppCcdInterfaceSEXP, SEXP outFileNameSEXP, SEXP treatmentIdSEXP, SEXP replicatesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type outFileName(outFileNameSEXP);
+    Rcpp::traits::input_parameter< std::string& >::type treatmentId(treatmentIdSEXP);
+    Rcpp::traits::input_parameter< int >::type replicates(replicatesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsRunBootstrap(inRcppCcdInterface, outFileName, treatmentId, replicates));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsLogModel
 List cyclopsLogModel(SEXP inRcppCcdInterface);
 RcppExport SEXP _Cyclops_cyclopsLogModel(SEXP inRcppCcdInterfaceSEXP) {
@@ -325,6 +376,26 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::string& >::type computeDevice(computeDeviceSEXP);
     Rcpp::traits::input_parameter< bool >::type computeMLE(computeMLESEXP);
     rcpp_result_gen = Rcpp::wrap(cyclopsInitializeModel(inModelData, modelType, computeDevice, computeMLE));
+    return rcpp_result_gen;
+END_RCPP
+}
+// listGPUDevices
+Rcpp::CharacterVector listGPUDevices();
+RcppExport SEXP _Cyclops_listGPUDevices() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(listGPUDevices());
+    return rcpp_result_gen;
+END_RCPP
+}
+// getDefaultGPUDevice
+std::string getDefaultGPUDevice();
+RcppExport SEXP _Cyclops_getDefaultGPUDevice() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(getDefaultGPUDevice());
     return rcpp_result_gen;
 END_RCPP
 }
@@ -696,6 +767,21 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsLoadDataStratTimeEffects
+std::vector<std::string> cyclopsLoadDataStratTimeEffects(Environment x, const std::vector<double>& stratumId, const std::vector<double>& rowId, const std::vector<double>& subjectId, const std::vector<double>& timeEffectCovariateId);
+RcppExport SEXP _Cyclops_cyclopsLoadDataStratTimeEffects(SEXP xSEXP, SEXP stratumIdSEXP, SEXP rowIdSEXP, SEXP subjectIdSEXP, SEXP timeEffectCovariateIdSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type stratumId(stratumIdSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type rowId(rowIdSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type subjectId(subjectIdSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type timeEffectCovariateId(timeEffectCovariateIdSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsLoadDataStratTimeEffects(x, stratumId, rowId, subjectId, timeEffectCovariateId));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsLoadDataTimeEffectsDF
 int cyclopsLoadDataTimeEffectsDF(Environment x, DataFrame timeEffects);
 RcppExport SEXP _Cyclops_cyclopsLoadDataTimeEffectsDF(SEXP xSEXP, SEXP timeEffectsSEXP) {
@@ -791,7 +877,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetUseOffsetNames", (DL_FUNC) &_Cyclops_cyclopsGetUseOffsetNames, 0},
     {"_Cyclops_cyclopsGetComputeDevice", (DL_FUNC) &_Cyclops_cyclopsGetComputeDevice, 1},
     {"_Cyclops_cyclopsSetBeta", (DL_FUNC) &_Cyclops_cyclopsSetBeta, 2},
+    {"_Cyclops_cyclopsGetBeta", (DL_FUNC) &_Cyclops_cyclopsGetBeta, 2},
+    {"_Cyclops_cyclopsSetStartingBeta", (DL_FUNC) &_Cyclops_cyclopsSetStartingBeta, 2},
     {"_Cyclops_cyclopsSetFixedBeta", (DL_FUNC) &_Cyclops_cyclopsSetFixedBeta, 3},
+    {"_Cyclops_cyclopsGetFixedBeta", (DL_FUNC) &_Cyclops_cyclopsGetFixedBeta, 2},
     {"_Cyclops_cyclopsGetIsRegularized", (DL_FUNC) &_Cyclops_cyclopsGetIsRegularized, 2},
     {"_Cyclops_cyclopsSetWeights", (DL_FUNC) &_Cyclops_cyclopsSetWeights, 2},
     {"_Cyclops_cyclopsSetCensorWeights", (DL_FUNC) &_Cyclops_cyclopsSetCensorWeights, 2},
@@ -805,11 +894,14 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetProfileLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetProfileLikelihood, 5},
     {"_Cyclops_cyclopsProfileModel", (DL_FUNC) &_Cyclops_cyclopsProfileModel, 6},
     {"_Cyclops_cyclopsPredictModel", (DL_FUNC) &_Cyclops_cyclopsPredictModel, 1},
-    {"_Cyclops_cyclopsSetControl", (DL_FUNC) &_Cyclops_cyclopsSetControl, 21},
+    {"_Cyclops_cyclopsSetControl", (DL_FUNC) &_Cyclops_cyclopsSetControl, 23},
     {"_Cyclops_cyclopsRunCrossValidationl", (DL_FUNC) &_Cyclops_cyclopsRunCrossValidationl, 1},
     {"_Cyclops_cyclopsFitModel", (DL_FUNC) &_Cyclops_cyclopsFitModel, 1},
+    {"_Cyclops_cyclopsRunBootstrap", (DL_FUNC) &_Cyclops_cyclopsRunBootstrap, 4},
     {"_Cyclops_cyclopsLogModel", (DL_FUNC) &_Cyclops_cyclopsLogModel, 1},
     {"_Cyclops_cyclopsInitializeModel", (DL_FUNC) &_Cyclops_cyclopsInitializeModel, 4},
+    {"_Cyclops_listGPUDevices", (DL_FUNC) &_Cyclops_listGPUDevices, 0},
+    {"_Cyclops_getDefaultGPUDevice", (DL_FUNC) &_Cyclops_getDefaultGPUDevice, 0},
     {"_Cyclops_isSorted", (DL_FUNC) &_Cyclops_isSorted, 3},
     {"_Cyclops_isSortedVectorList", (DL_FUNC) &_Cyclops_isSortedVectorList, 2},
     {"_Cyclops_isRcppPtrNull", (DL_FUNC) &_Cyclops_isRcppPtrNull, 1},
@@ -840,6 +932,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsLoadDataY", (DL_FUNC) &_Cyclops_cyclopsLoadDataY, 5},
     {"_Cyclops_cyclopsLoadDataMultipleX", (DL_FUNC) &_Cyclops_cyclopsLoadDataMultipleX, 8},
     {"_Cyclops_cyclopsLoadDataX", (DL_FUNC) &_Cyclops_cyclopsLoadDataX, 7},
+    {"_Cyclops_cyclopsLoadDataStratTimeEffects", (DL_FUNC) &_Cyclops_cyclopsLoadDataStratTimeEffects, 5},
     {"_Cyclops_cyclopsLoadDataTimeEffectsDF", (DL_FUNC) &_Cyclops_cyclopsLoadDataTimeEffectsDF, 2},
     {"_Cyclops_cyclopsLoadDataTimeInteraction", (DL_FUNC) &_Cyclops_cyclopsLoadDataTimeInteraction, 3},
     {"_Cyclops_cyclopsAppendSqlData", (DL_FUNC) &_Cyclops_cyclopsAppendSqlData, 8},

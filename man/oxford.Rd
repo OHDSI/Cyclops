@@ -7,13 +7,13 @@
 \format{
 A data frame with 38 rows and 6 variables:
 \describe{
-  \item{indiv}{patient identifier}
-  \item{event}{number of events in interval}
-  \item{interval}{interval length in days}
-  \item{agegr}{age group}
-  \item{exgr}{exposure group}
-  \item{loginterval}{log interval length}
-  ...
+\item{indiv}{patient identifier}
+\item{event}{number of events in interval}
+\item{interval}{interval length in days}
+\item{agegr}{age group}
+\item{exgr}{exposure group}
+\item{loginterval}{log interval length}
+...
 }
 }
 \usage{
