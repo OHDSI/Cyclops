@@ -532,9 +532,11 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *c
         }
         hNtoK[n] = K;
 
-        for (size_t k = 0; k < K; ++k) {
-            hYWeight[k] = cenWeights[k];
-            hYWeightDouble[k] = cenWeights[k];
+        if (BaseModel::isTwoWayScan) {
+            for (size_t k = 0; k < K; ++k) {
+                hYWeight[k] = cenWeights[k];
+                hYWeightDouble[k] = cenWeights[k];
+            }
         }
     }
 
