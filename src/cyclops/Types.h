@@ -30,17 +30,10 @@
 //    }
 // #endif
 
-#ifdef WIN_BUILD
-    #include <tr1/unordered_map>
-    namespace bsccs {
-        using std::tr1::unordered_map;
-    }
-#else
-    #include <unordered_map>
-    namespace bsccs {
-        using std::unordered_map;
-    }
-#endif
+#include <unordered_map>
+namespace bsccs {
+    using std::unordered_map;
+}
 
 namespace bsccs {
 
