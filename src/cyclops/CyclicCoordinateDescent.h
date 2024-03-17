@@ -74,6 +74,8 @@ public:
 	virtual ~CyclicCoordinateDescent();
 
 	double getLogLikelihood(void);
+	
+	double getLogLikelihoodGradient(int index);
 
 	//double getPredictiveLogLikelihood(double* weights);
 

@@ -1084,7 +1084,7 @@ void CyclicCoordinateDescent::findMode(
 		modelSpecifics.setPriorParams(temp);
 		//modelSpecifics.resetBeta();
 	}
-	
+
 	auto cycle = [this,&lastObjFunc,&lastObjFuncVec,&iteration,algorithmType,&allDelta,&doItAll] {
 /*
 		if (iteration%10==0) {
@@ -1172,7 +1172,7 @@ void CyclicCoordinateDescent::findMode(
 						if (delta != 0.0) {
 							sufficientStatisticsKnown = false;
 							updateSufficientStatistics(delta, index);
-						}	
+						}
 				}
 	    			log(index);
 	    		}
@@ -1380,6 +1380,16 @@ void CyclicCoordinateDescent::findMode(
 /**
  * Computationally heavy functions
  */
+
+double CyclicCoordinateDescent::getLogLikelihoodGradient(int index) {
+
+ 	checkAllLazyFlags();
+
+ 	double gradient, hessian;
+ 	modelSpecifics.computeGradientAndHessian(index, &gradient, &hessian, useCrossValidation);
+
+ 	return gradient;
+ }
 
 void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ogradient,
 		double *ohessian) {

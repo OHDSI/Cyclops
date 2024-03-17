@@ -339,6 +339,21 @@ fitCyclopsModel <- function(cyclopsData,
     return(fit)
 }
 
+# TODO documentation
+#
+#' @export
+cacheCyclopsModelForJava <- function(object) {
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
+    instance <- attr(object, "jniCache")
+
+    if (is.null(instance)) {
+        instance <- .cyclopsCacheForJava(object$cyclopsData$cyclopsInterfacePtr)
+        bit::setattr(object, "jniCache", instance)
+    }
+
+    return(instance)
+}
+
 .checkCovariates <- function(cyclopsData, covariates) {
     if (!is.null(covariates)) {
         saved <- covariates

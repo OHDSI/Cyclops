@@ -151,19 +151,16 @@ protected:
 private:
 
 			AbstractModelData& rcppModelData; // TODO Make const?
-
 	 		AbstractModelData* modelData;
-
-// 	 		ModelData* modelData;
-
 			CyclicCoordinateDescent* ccd;
 			AbstractModelSpecifics* modelSpecifics;
-
 			bsccs::ProfileInformationMap profileMap;
 			Rcpp::List result;
 
 }; // class RcppCcdInterface
 
 } // namespace
+
+bsccs::RcppCcdInterface* getInterface(int instance);
 
 #endif /* CCD_H_ */

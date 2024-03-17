@@ -101,6 +101,10 @@
     .Call(`_Cyclops_cyclopsRunCrossValidationl`, inRcppCcdInterface)
 }
 
+.cyclopsCacheForJava <- function(inRcppCcdInterface) {
+    .Call(`_Cyclops_cyclopsCacheForJava`, inRcppCcdInterface)
+}
+
 .cyclopsFitModel <- function(inRcppCcdInterface) {
     .Call(`_Cyclops_cyclopsFitModel`, inRcppCcdInterface)
 }

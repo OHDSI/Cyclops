@@ -523,6 +523,29 @@ List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface) {
 	return list;
 }
 
+std::vector<XPtr<bsccs::RcppCcdInterface>> instances;
+
+void checkInstanceNumber(int instance) {
+    if (instance < 0 || instance >= instances.size()) {
+        Rcpp::stop("Unknown instance number");
+    }
+}
+
+bsccs::RcppCcdInterface* getInterface(int instance) {
+    checkInstanceNumber(instance);
+    return instances[instance];
+}
+
+// [[Rcpp::export(".cyclopsCacheForJava")]]
+int cyclopsCacheForJava(SEXP inRcppCcdInterface) {
+	using namespace bsccs;
+
+	// TODO check to see if already cached
+	instances.push_back(XPtr<RcppCcdInterface>(inRcppCcdInterface));
+
+	return instances.size() - 1;
+}
+
 // [[Rcpp::export(".cyclopsFitModel")]]
 List cyclopsFitModel(SEXP inRcppCcdInterface) {
 	using namespace bsccs;
