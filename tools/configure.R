@@ -21,6 +21,28 @@ if (getRversion() < "4.2") { # Windoz
     }
 }
 
+##### can find JNI #####
+
+java_home <- Sys.getenv("JAVA_HOME")
+if (length(java_home) == 0) {
+    message("No JAVA_HOME defined; ignoring JNI compilation")
+} else {
+    message("Using JAVA_HOME=", java_home)
+    jni_path = file.path(java_home, "include")
+
+    # modify Makevars.in if CUDA is available
+    # txt[grep("^PKG_LIBS", txt)] <- paste(txt[grep("^PKG_LIBS", txt)], jni_path)
+    txt[grep("^PKG_CPPFLAGS", txt)] <- paste(txt[grep("^PKG_CPPFLAGS", txt)],
+                                             paste0("-I", jni_path),
+                                             paste0("-I", jni_path, "/darwin"))
+    engine_idx <- grep("^OBJECTS.engine", txt)
+    txt[engine_idx+1] <- paste(txt[engine_idx+1],
+                               "cyclops/jni/dr_inference_regression_RegressionJNIWrapper.o",
+                               "cyclops/jni/dr_inference_regression_NewRegressionJNIWrapper.o")
+
+    # TODO Windoz
+}
+
 
 #################### CUDA Toolkit ####################
 
