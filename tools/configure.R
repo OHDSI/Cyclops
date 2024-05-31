@@ -47,7 +47,7 @@ if (length(java_home) == 0) {
 #################### CUDA Toolkit ####################
 
 cuda_home <- system2(command = "find", args = c("/usr/local/", "-maxdepth", "1" ,"-name", "cuda"), stdout  = TRUE)
-if (length(cuda_home)==0) {
+if (TRUE || length(cuda_home)==0) {
     message("no CUDA installation found; only compile host code")
 } else {
     message(paste0("using CUDA_HOME=", cuda_home))
