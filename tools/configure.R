@@ -34,7 +34,8 @@ if (length(java_home) == 0) {
     # txt[grep("^PKG_LIBS", txt)] <- paste(txt[grep("^PKG_LIBS", txt)], jni_path)
     txt[grep("^PKG_CPPFLAGS", txt)] <- paste(txt[grep("^PKG_CPPFLAGS", txt)],
                                              paste0("-I", jni_path),
-                                             paste0("-I", jni_path, "/darwin"))
+                                             paste0("-I", jni_path, "/darwin"), # TODO Make OS-dependent
+                                             paste0("-I", jni_path, "/linux"))
     engine_idx <- grep("^OBJECTS.engine", txt)
     txt[engine_idx+1] <- paste(txt[engine_idx+1],
                                "cyclops/jni/dr_inference_regression_RegressionJNIWrapper.o",
