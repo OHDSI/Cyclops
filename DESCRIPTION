@@ -39,6 +39,7 @@ Imports:
     dplyr,
     methods,
     survival,
+    bit,
     bit64
 LinkingTo: Rcpp,
     RcppEigen (>= 0.3.2),

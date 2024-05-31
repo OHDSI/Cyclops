@@ -339,8 +339,16 @@ fitCyclopsModel <- function(cyclopsData,
     return(fit)
 }
 
-# TODO documentation
-#
+#' @title Place Cyclops model fit object in a persistent cache
+#'
+#' @description
+#' \code{cacheCyclopsModelForJava} places a Cyclops model fit object into a persistent cache,
+#' so that the object may be used across language-barriers.
+#'
+#' @param object    Cyclops model fit object
+#'
+#' @return Integer index of object in persistent cache
+#'
 #' @export
 cacheCyclopsModelForJava <- function(object) {
     .checkInterface(object$cyclopsData, testOnly = TRUE)
