@@ -25,9 +25,9 @@ if (getRversion() < "4.2") { # Windoz
 if (.Platform$OS.type == "unix") {
     java_home <- Sys.getenv("JAVA_HOME")
 } else {
-    system("make tools/jvm-w32")
+    system("make -C tools/jvm-w32")
     java_home <- system("tools/jvm-w32/findjava -s -f", intern = TRUE)
-    # system("make tools/jvm-w32 clean")
+    system("make -C tools/jvm-w32 clean")
 }
 
 if (length(java_home) == 0) {
