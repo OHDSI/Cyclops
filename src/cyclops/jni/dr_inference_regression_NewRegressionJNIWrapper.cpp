@@ -29,7 +29,7 @@ JNIEXPORT void JNICALL Java_dr_inference_regression_NewRegressionJNIWrapper_getL
 
     jsize len = env->GetArrayLength(javaArray);
     jdouble* gradient = env->GetDoubleArrayElements(javaArray, NULL);
-    len = std::min(len, ccd.getBetaSize());
+    len = std::min(static_cast<int>(len), ccd.getBetaSize());
 
     for (int index = 0; index < len; ++index) {
         gradient[index] = ccd.getLogLikelihoodGradient(index);
@@ -94,7 +94,7 @@ JNIEXPORT void JNICALL Java_dr_inference_regression_NewRegressionJNIWrapper_setH
 extern "C"
 JNIEXPORT void JNICALL Java_dr_inference_regression_NewRegressionJNIWrapper_findMode
   (JNIEnv *env, jobject obj, jint instance) {
-    auto& interface = getInterface(instance)->getCcd();
+    // auto& interface = getInterface(instance)->getCcd();
     // interface.fitModel();
     getInterface(instance)->fitModel();
 	// fitModel(interface.ccd, interface.arguments));

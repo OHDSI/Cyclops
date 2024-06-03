@@ -8,7 +8,6 @@ makevars_win_out <- file.path("src", "Makevars.win")
 
 txt <- readLines(makevars_in)
 txt_win <- readLines(makevars_win_in)
-
 if (getRversion() < "4.3") { # macOS / linux
     if (!any(grepl("^CXX_STD", txt))) {
         txt <- c("CXX_STD = CXX11", txt)
@@ -23,15 +22,21 @@ if (getRversion() < "4.2") { # Windoz
 
 ##### can find JNI #####
 
-java_home <- Sys.getenv("JAVA_HOME")
+if (.Platform$OS.type == "unix") {
+    java_home <- Sys.getenv("JAVA_HOME")
+} else {
+    system("tools/jvm-w32")
+    java_home <- system("tools/jvm-w32/findjava -s -f", intern = TRUE)
+}
+
 if (length(java_home) == 0) {
     message("No JAVA_HOME defined; ignoring JNI compilation")
+    stop("no java")
 } else {
     message("Using JAVA_HOME=", java_home)
     jni_path = file.path(java_home, "include")
 
-    # modify Makevars.in if CUDA is available
-    # txt[grep("^PKG_LIBS", txt)] <- paste(txt[grep("^PKG_LIBS", txt)], jni_path)
+    # modify Makevars.in if Java is available
     txt[grep("^PKG_CPPFLAGS", txt)] <- paste(txt[grep("^PKG_CPPFLAGS", txt)],
                                              paste0("-I", jni_path),
                                              paste0("-I", jni_path, "/darwin"), # TODO Make OS-dependent
@@ -40,9 +45,16 @@ if (length(java_home) == 0) {
     txt[engine_idx+1] <- paste(txt[engine_idx+1],
                                "cyclops/jni/dr_inference_regression_RegressionJNIWrapper.o",
                                "cyclops/jni/dr_inference_regression_NewRegressionJNIWrapper.o")
+    # Handle Windows
+    txt_win[grep("^PKG_CPPFLAGS", txt_win)] <- paste(txt_win[grep("^PKG_CPPFLAGS", txt_win)],
+                                             paste0("-I", jni_path),
+                                             paste0("-I", jni_path, "/win32"))
 
-    # TODO Windoz
+    sources_idx <- grep("^SOURCES", txt_win)
+    txt_win[sources_idx + 1] <- paste0(txt_win[sources_idx + 1],
+                                      "\n\t\t\t\t\tcyclops/jni/*.cpp \\")
 }
+
 
 
 #################### CUDA Toolkit ####################
