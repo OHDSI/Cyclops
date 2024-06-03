@@ -25,13 +25,13 @@ if (getRversion() < "4.2") { # Windoz
 if (.Platform$OS.type == "unix") {
     java_home <- Sys.getenv("JAVA_HOME")
 } else {
-    system("tools/jvm-w32")
+    system("make tools/jvm-w32")
     java_home <- system("tools/jvm-w32/findjava -s -f", intern = TRUE)
+    # system("make tools/jvm-w32 clean")
 }
 
 if (length(java_home) == 0) {
     message("No JAVA_HOME defined; ignoring JNI compilation")
-    stop("no java")
 } else {
     message("Using JAVA_HOME=", java_home)
     jni_path = file.path(java_home, "include")

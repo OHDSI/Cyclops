@@ -4,7 +4,7 @@
 # Author: Simon Urbanek
 #         with contributions from Brian Ripley
 
-include $(R_HOME)/etc$(R_ARCH)/Makeconf
+ # $(R_HOME)/etc$(R_ARCH)/Makeconf
 
 TARGETS=findjava.exe
 
@@ -13,9 +13,9 @@ TARGETS=findjava.exe
 all: $(TARGETS)
 
 # detect 64-bit Windows
-ifeq ($(strip $(shell $(R_HOME)/bin/R --slave -e 'cat(.Machine$$sizeof.pointer)')),8)
-JVM64DEF=64
-endif
+# ifeq ($(strip $(shell $(R_HOME)/bin/R --slave -e 'cat(.Machine$$sizeof.pointer)')),8)
+# JVM64DEF=64
+# endif
 
 # compile findjava.exe from source - no magic here, no special libs necessary
 findjava.o: findjava.c
