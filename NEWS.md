@@ -1,10 +1,14 @@
+develop
+==============
+
+1. make `maxRety` a function parameter
+
 Cyclops v3.4.1
 ==============
 
 Changes:
 
 1. fix some NaN/-Inf inconsistencies with likelihood profiling
-2. make `maxRety` a function parameter
 
 Cyclops v3.4.0
 ==============
