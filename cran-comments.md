@@ -1,6 +1,6 @@
-## Submission of v3.4.0
+## Submission of v3.4.1
 
-* fixed use of deprecated `$` function in `dbplyr` using CRAN errors
+* fix some NaN/-Inf inconsistencies with likelihood profiling
     
 ## Test environments
 * local OS X install, R 4.3
