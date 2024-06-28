@@ -965,7 +965,7 @@ getCyclopsProfileLogLikelihood <- function(object,
             deltaY <- profile$value[2:nrow(profile)] - profile$value[1:(nrow(profile) - 1)]
             slopes <- deltaY / deltaX
 
-            if (resetsPerformed < maxRetry && !all(slopes[2:length(slopes)] < slopes[1:(length(slopes)-1)])) {
+            if (resetsPerformed < maxRetry && !all(isTRUE(slopes[2:length(slopes)] < slopes[1:(length(slopes)-1)]))) {
                 warning("Coefficient drift detected. Resetting Cyclops object and recomputing all likelihood values computed so far.")
                 grid <- profile$point
                 profile <- tibble()
