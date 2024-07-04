@@ -546,6 +546,13 @@ int cyclopsCacheForJava(SEXP inRcppCcdInterface) {
 	return instances.size() - 1;
 }
 
+// [[Rcpp::export(".cyclopsClearCacheForJava")]]
+void cyclopsClearCacheForJava() {
+    using namespace bsccs;
+
+    Rcpp::stop("Not yet implemented");
+}
+
 // [[Rcpp::export(".cyclopsFitModel")]]
 List cyclopsFitModel(SEXP inRcppCcdInterface) {
 	using namespace bsccs;

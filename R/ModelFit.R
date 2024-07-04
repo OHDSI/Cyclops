@@ -362,6 +362,11 @@ cacheCyclopsModelForJava <- function(object) {
     return(instance)
 }
 
+#' @export
+clearCyclopsModelCache <- function() {
+
+}
+
 .checkCovariates <- function(cyclopsData, covariates) {
     if (!is.null(covariates)) {
         saved <- covariates

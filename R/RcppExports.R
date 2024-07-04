@@ -105,6 +105,10 @@
     .Call(`_Cyclops_cyclopsCacheForJava`, inRcppCcdInterface)
 }
 
+.cyclopsClearCacheForJava <- function() {
+    invisible(.Call(`_Cyclops_cyclopsClearCacheForJava`))
+}
+
 .cyclopsFitModel <- function(inRcppCcdInterface) {
     .Call(`_Cyclops_cyclopsFitModel`, inRcppCcdInterface)
 }
