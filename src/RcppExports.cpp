@@ -374,6 +374,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsGetLogLikelihoodGradient
+NumericVector cyclopsGetLogLikelihoodGradient(SEXP inRcppCcdInterface);
+RcppExport SEXP _Cyclops_cyclopsGetLogLikelihoodGradient(SEXP inRcppCcdInterfaceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetLogLikelihoodGradient(inRcppCcdInterface));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsLogModel
 List cyclopsLogModel(SEXP inRcppCcdInterface);
 RcppExport SEXP _Cyclops_cyclopsLogModel(SEXP inRcppCcdInterfaceSEXP) {
@@ -895,6 +906,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsClearCacheForJava", (DL_FUNC) &_Cyclops_cyclopsClearCacheForJava, 0},
     {"_Cyclops_cyclopsFitModel", (DL_FUNC) &_Cyclops_cyclopsFitModel, 1},
     {"_Cyclops_cyclopsRunBootstrap", (DL_FUNC) &_Cyclops_cyclopsRunBootstrap, 4},
+    {"_Cyclops_cyclopsGetLogLikelihoodGradient", (DL_FUNC) &_Cyclops_cyclopsGetLogLikelihoodGradient, 1},
     {"_Cyclops_cyclopsLogModel", (DL_FUNC) &_Cyclops_cyclopsLogModel, 1},
     {"_Cyclops_cyclopsInitializeModel", (DL_FUNC) &_Cyclops_cyclopsInitializeModel, 4},
     {"_Cyclops_listGPUDevices", (DL_FUNC) &_Cyclops_listGPUDevices, 0},

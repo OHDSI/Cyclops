@@ -339,6 +339,18 @@ fitCyclopsModel <- function(cyclopsData,
     return(fit)
 }
 
+#' @title Get full path to installed Cyclops library
+#'
+#' @description
+#' \code{cyclopsLibraryFileName} returns the full path to the installed Cyclops .so/.dll file
+#'
+#' @return String
+cyclopsLibraryFileName <- function() {
+    normalizePath(system.file("libs", .Platform$r_arch,
+                              paste0("Cyclops", .Platform$dynlib.ext),
+                              package = "Cyclops"))
+}
+
 #' @title Place Cyclops model fit object in a persistent cache
 #'
 #' @description

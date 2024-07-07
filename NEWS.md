@@ -4,6 +4,7 @@ jni
 Changes:
 
 1. add JNI interface for manipulating Cyclops objects in an across-language persistent cache
+2. add `cyclopsGetLogLikelihoodGradient()`
 
 Cyclops v3.4.1
 ==============

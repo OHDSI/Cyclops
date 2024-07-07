@@ -596,6 +596,28 @@ List cyclopsRunBootstrap(SEXP inRcppCcdInterface, const std::string& outFileName
     return list;
 }
 
+// [[Rcpp::export(".cyclopsGetLogLikelihoodGradient")]]
+NumericVector cyclopsGetLogLikelihoodGradient(SEXP inRcppCcdInterface) {
+    using namespace bsccs;
+
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    auto& ccd = interface->getCcd();
+    auto& data = interface->getModelData();
+
+
+    const auto offset = data.getHasOffsetCovariate();
+    const auto length = ccd.getBetaSize() - offset;
+
+    NumericVector gradient(length);
+
+    for (int i = 0; i < length; ++i) {
+        gradient[i] = ccd.getLogLikelihoodGradient(i + offset);
+    }
+
+    return gradient;
+}
+
 // [[Rcpp::export(".cyclopsLogModel")]]
 List cyclopsLogModel(SEXP inRcppCcdInterface) {
 	using namespace bsccs;
