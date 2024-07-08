@@ -511,6 +511,24 @@ logLik.cyclopsFit <- function(object, ...) {
     out
 }
 
+#' @title Extract gradient
+#'
+#' @description
+#' \code{gradient} returns the current gradient wrt the regression parameters of
+#' the log-likelihood of the fit in a Cyclops model fit object
+#'
+#' @param object    A Cyclops model fit object
+#'
+#' @export
+gradient <- function(object) {
+
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
+    gradient <- .cyclopsGetLogLikelihoodGradient(object$interface)
+    names(gradient) <- names(coef(object))
+
+    return(gradient)
+}
+
 
 #' @method print cyclopsFit
 #' @title Print a Cyclops model fit object

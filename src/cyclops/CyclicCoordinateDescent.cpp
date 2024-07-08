@@ -1386,6 +1386,7 @@ double CyclicCoordinateDescent::getLogLikelihoodGradient(int index) {
  	checkAllLazyFlags();
 
  	double gradient, hessian;
+ 	computeNumeratorForGradient(index);
  	modelSpecifics.computeGradientAndHessian(index, &gradient, &hessian, useCrossValidation);
 
  	return gradient;
