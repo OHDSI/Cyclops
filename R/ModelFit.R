@@ -374,9 +374,15 @@ cacheCyclopsModelForJava <- function(object) {
     return(instance)
 }
 
+#' @title Clear the Cyclops persistent cache
+#'
+#' @description
+#' \code{clearCyclopsModelCache} clears the persistent cache holding
+#' Cyclops model fit objects that may be used across language-barriers.
+#'
 #' @export
 clearCyclopsModelCache <- function() {
-
+    stop("Not yet implemented")
 }
 
 .checkCovariates <- function(cyclopsData, covariates) {

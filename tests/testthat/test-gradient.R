@@ -10,6 +10,8 @@ test_that("gradient", {
     fit <- Cyclops::fitCyclopsModel(data)
 
     gradientAtMode <- gradient(fit)
+
+    expect_equivalent(gradientAtMode, rep(0, length(coef(fit))))
 })
 
 
