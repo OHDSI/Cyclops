@@ -11,7 +11,7 @@ getCyclopsProfileLogLikelihood(
   bounds = NULL,
   tolerance = 0.001,
   initialGridSize = 10,
-  maxRetry = 10,
+  maxResets = 10,
   includePenalty = TRUE
 )
 }
@@ -29,7 +29,8 @@ either a vector of numbers of covariateId names}
 
 \item{initialGridSize}{Initial grid size for adaptive profiling}
 
-\item{maxRetry}{Maximum number of attempts to profile likelihood}
+\item{maxResets}{Maximum allowed number of recomputing the likelihood when coefficient drift is
+detected.}
 
 \item{includePenalty}{Logical: Include regularized covariate penalty in profile}
 }

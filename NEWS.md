@@ -1,7 +1,7 @@
 develop
 ==============
 
-1. make `maxRety` a function parameter
+1. make `maxResets` a function parameter
 
 Cyclops v3.4.1
 ==============

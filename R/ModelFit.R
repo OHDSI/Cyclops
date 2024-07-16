@@ -902,7 +902,8 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 #' @param bounds    Pair of values to bound adaptive profiling
 #' @param tolerance Absolute tolerance allowed for adaptive profiling
 #' @param initialGridSize Initial grid size for adaptive profiling
-#' @param maxRetry  Maximum number of attempts to profile likelihood
+#' @param maxResets Maximum allowed number of recomputing the likelihood when coefficient drift is
+#'                  detected.
 #' @param includePenalty    Logical: Include regularized covariate penalty in profile
 #'
 #' @return
@@ -916,7 +917,7 @@ getCyclopsProfileLogLikelihood <- function(object,
                                            bounds = NULL,
                                            tolerance = 1E-3,
                                            initialGridSize = 10,
-                                           maxRetry = 10,
+                                           maxResets = 10,
                                            includePenalty = TRUE) {
 
     if (!xor(is.null(x), is.null(bounds))) {
@@ -965,7 +966,7 @@ getCyclopsProfileLogLikelihood <- function(object,
             deltaY <- profile$value[2:nrow(profile)] - profile$value[1:(nrow(profile) - 1)]
             slopes <- deltaY / deltaX
 
-            if (resetsPerformed < maxRetry && !all(slopes[2:length(slopes)] < slopes[1:(length(slopes)-1)])) {
+            if (resetsPerformed < maxResets && !all(slopes[2:length(slopes)] < slopes[1:(length(slopes)-1)])) {
                 warning("Coefficient drift detected. Resetting Cyclops object and recomputing all likelihood values computed so far.")
                 grid <- profile$point
                 profile <- tibble()
