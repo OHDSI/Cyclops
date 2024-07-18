@@ -1381,6 +1381,19 @@ void CyclicCoordinateDescent::findMode(
  * Computationally heavy functions
  */
 
+double CyclicCoordinateDescent::getLogPriorGradient(int index) {
+    double gradient = 0.0;
+
+
+    if (jointPrior->getPriorType(index) != priors::PriorType::NONE) {
+        std::ostringstream stream;
+        stream << "getLogPriorGradient is not yet implemented for non-flat priors";
+        error->throwError(stream);
+    }
+
+    return gradient;
+}
+
 double CyclicCoordinateDescent::getLogLikelihoodGradient(int index) {
 
  	checkAllLazyFlags();

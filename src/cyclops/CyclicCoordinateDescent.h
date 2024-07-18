@@ -74,8 +74,10 @@ public:
 	virtual ~CyclicCoordinateDescent();
 
 	double getLogLikelihood(void);
-	
+
 	double getLogLikelihoodGradient(int index);
+
+	double getLogPriorGradient(int index);
 
 	//double getPredictiveLogLikelihood(double* weights);
 
@@ -138,7 +140,7 @@ public:
 	void setBeta(const std::vector<double>& beta);
 
 	void setStartingBeta(const std::vector<double>& inStartingBeta);
-	
+
 	void setBeta(int i, double beta);
 
 //	void double getHessianComponent(int i, int j);

@@ -69,6 +69,9 @@ JNIEXPORT void JNICALL Java_dr_inference_regression_NewRegressionJNIWrapper_getB
 JNIEXPORT jint JNICALL Java_dr_inference_regression_NewRegressionJNIWrapper_getBetaSize
   (JNIEnv *, jobject, jint);
 
+JNIEXPORT jint JNICALL Java_dr_inference_regression_NewRegressionJNIWrapper_hasOffset
+  (JNIEnv *, jobject, jint);
+
 /*
  * Class:     dr_inference_regression_NewRegressionJNIWrapper
  * Method:    getHessian

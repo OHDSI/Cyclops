@@ -245,8 +245,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsGetProfileLikelihood
-DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface, SEXP inCovariate, const std::vector<double> points, int threads, bool includePenalty);
-RcppExport SEXP _Cyclops_cyclopsGetProfileLikelihood(SEXP inRcppCcdInterfaceSEXP, SEXP inCovariateSEXP, SEXP pointsSEXP, SEXP threadsSEXP, SEXP includePenaltySEXP) {
+DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface, SEXP inCovariate, const std::vector<double> points, int threads, bool includePenalty, bool returnDerivatives);
+RcppExport SEXP _Cyclops_cyclopsGetProfileLikelihood(SEXP inRcppCcdInterfaceSEXP, SEXP inCovariateSEXP, SEXP pointsSEXP, SEXP threadsSEXP, SEXP includePenaltySEXP, SEXP returnDerivativesSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -255,7 +255,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::vector<double> >::type points(pointsSEXP);
     Rcpp::traits::input_parameter< int >::type threads(threadsSEXP);
     Rcpp::traits::input_parameter< bool >::type includePenalty(includePenaltySEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsGetProfileLikelihood(inRcppCcdInterface, inCovariate, points, threads, includePenalty));
+    Rcpp::traits::input_parameter< bool >::type returnDerivatives(returnDerivativesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetProfileLikelihood(inRcppCcdInterface, inCovariate, points, threads, includePenalty, returnDerivatives));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -375,13 +376,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsGetLogLikelihoodGradient
-NumericVector cyclopsGetLogLikelihoodGradient(SEXP inRcppCcdInterface);
-RcppExport SEXP _Cyclops_cyclopsGetLogLikelihoodGradient(SEXP inRcppCcdInterfaceSEXP) {
+NumericVector cyclopsGetLogLikelihoodGradient(SEXP inRcppCcdInterface, int index);
+RcppExport SEXP _Cyclops_cyclopsGetLogLikelihoodGradient(SEXP inRcppCcdInterfaceSEXP, SEXP indexSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsGetLogLikelihoodGradient(inRcppCcdInterface));
+    Rcpp::traits::input_parameter< int >::type index(indexSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetLogLikelihoodGradient(inRcppCcdInterface, index));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -897,7 +899,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsSetPrior", (DL_FUNC) &_Cyclops_cyclopsSetPrior, 6},
     {"_Cyclops_cyclopsTestParameterizedPrior", (DL_FUNC) &_Cyclops_cyclopsTestParameterizedPrior, 4},
     {"_Cyclops_cyclopsSetParameterizedPrior", (DL_FUNC) &_Cyclops_cyclopsSetParameterizedPrior, 5},
-    {"_Cyclops_cyclopsGetProfileLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetProfileLikelihood, 5},
+    {"_Cyclops_cyclopsGetProfileLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetProfileLikelihood, 6},
     {"_Cyclops_cyclopsProfileModel", (DL_FUNC) &_Cyclops_cyclopsProfileModel, 6},
     {"_Cyclops_cyclopsPredictModel", (DL_FUNC) &_Cyclops_cyclopsPredictModel, 1},
     {"_Cyclops_cyclopsSetControl", (DL_FUNC) &_Cyclops_cyclopsSetControl, 23},
@@ -906,7 +908,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsClearCacheForJava", (DL_FUNC) &_Cyclops_cyclopsClearCacheForJava, 0},
     {"_Cyclops_cyclopsFitModel", (DL_FUNC) &_Cyclops_cyclopsFitModel, 1},
     {"_Cyclops_cyclopsRunBootstrap", (DL_FUNC) &_Cyclops_cyclopsRunBootstrap, 4},
-    {"_Cyclops_cyclopsGetLogLikelihoodGradient", (DL_FUNC) &_Cyclops_cyclopsGetLogLikelihoodGradient, 1},
+    {"_Cyclops_cyclopsGetLogLikelihoodGradient", (DL_FUNC) &_Cyclops_cyclopsGetLogLikelihoodGradient, 2},
     {"_Cyclops_cyclopsLogModel", (DL_FUNC) &_Cyclops_cyclopsLogModel, 1},
     {"_Cyclops_cyclopsInitializeModel", (DL_FUNC) &_Cyclops_cyclopsInitializeModel, 4},
     {"_Cyclops_listGPUDevices", (DL_FUNC) &_Cyclops_listGPUDevices, 0},

@@ -81,8 +81,8 @@
     invisible(.Call(`_Cyclops_cyclopsSetParameterizedPrior`, inRcppCcdInterface, priorTypeName, priorFunction, startingParameters, excludeNumeric))
 }
 
-.cyclopsGetProfileLikelihood <- function(inRcppCcdInterface, inCovariate, points, threads, includePenalty) {
-    .Call(`_Cyclops_cyclopsGetProfileLikelihood`, inRcppCcdInterface, inCovariate, points, threads, includePenalty)
+.cyclopsGetProfileLikelihood <- function(inRcppCcdInterface, inCovariate, points, threads, includePenalty, returnDerivatives) {
+    .Call(`_Cyclops_cyclopsGetProfileLikelihood`, inRcppCcdInterface, inCovariate, points, threads, includePenalty, returnDerivatives)
 }
 
 .cyclopsProfileModel <- function(inRcppCcdInterface, sexpCovariates, threads, threshold, override, includePenalty) {
@@ -117,8 +117,8 @@
     .Call(`_Cyclops_cyclopsRunBootstrap`, inRcppCcdInterface, outFileName, treatmentId, replicates)
 }
 
-.cyclopsGetLogLikelihoodGradient <- function(inRcppCcdInterface) {
-    .Call(`_Cyclops_cyclopsGetLogLikelihoodGradient`, inRcppCcdInterface)
+.cyclopsGetLogLikelihoodGradient <- function(inRcppCcdInterface, index) {
+    .Call(`_Cyclops_cyclopsGetLogLikelihoodGradient`, inRcppCcdInterface, index)
 }
 
 .cyclopsLogModel <- function(inRcppCcdInterface) {

@@ -942,13 +942,22 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
     prof
 }
 
-.initAdaptiveProfile <- function(object, parm, bounds, includePenalty) {
+.initAdaptiveProfile <- function(object, parm, bounds, includePenalty, returnDerivatives) {
     # If an MLE was found, let's not throw that bit of important information away:
     if (object$return_flag == "SUCCESS" &&
         coef(object)[as.character(parm)] > bounds[1] &&
         coef(object)[as.character(parm)] < bounds[2]) {
-        profile <- tibble(point = coef(object)[as.character(parm)],
-                          value = fixedGridProfileLogLikelihood(object, parm, coef(object)[as.character(parm)], includePenalty)$value)
+        eval <- fixedGridProfileLogLikelihood(object, parm, coef(object)[as.character(parm)], includePenalty,
+                                              returnDerivatives)
+        point <- coef(object)[as.character(parm)]
+        if (returnDerivatives) {
+            profile <- tibble(point = point,
+                              value = eval$value,
+                              derivative = eval$derivative)
+        } else {
+            profile <- tibble(point = point,
+                              value = eval$value)
+        }
     } else {
         profile <- tibble()
     }
@@ -967,6 +976,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 #' @param tolerance Absolute tolerance allowed for adaptive profiling
 #' @param initialGridSize Initial grid size for adaptive profiling
 #' @param includePenalty    Logical: Include regularized covariate penalty in profile
+#' @param returnDerivatives Return derivative of log-likelihood wrt the parameter `param` at each evaluation point
 #'
 #' @return
 #' A data frame containing the profile log likelihood. Returns NULL when the adaptive profiling fails
@@ -979,7 +989,8 @@ getCyclopsProfileLogLikelihood <- function(object,
                                            bounds = NULL,
                                            tolerance = 1E-3,
                                            initialGridSize = 10,
-                                           includePenalty = TRUE) {
+                                           includePenalty = TRUE,
+                                           returnDerivatives = FALSE) {
     maxResets <- 10
     if (!xor(is.null(x), is.null(bounds))) {
         stop("Must provide either `x` or `bounds`, but not both.")
@@ -990,7 +1001,7 @@ getCyclopsProfileLogLikelihood <- function(object,
         if (length(bounds) != 2 || bounds[1] >= bounds[2]) {
             stop("Must provide bounds[1] < bounds[2]")
         }
-        profile <- .initAdaptiveProfile(object, parm, bounds, includePenalty)
+        profile <- .initAdaptiveProfile(object, parm, bounds, includePenalty, returnDerivatives)
 
         # Start with sparse grid:
         grid <- seq(bounds[1], bounds[2], length.out = initialGridSize)
@@ -999,7 +1010,7 @@ getCyclopsProfileLogLikelihood <- function(object,
         priorMaxMaxError <- Inf
         resetsPerformed <- 0
         while (length(grid) != 0) {
-            ll <- fixedGridProfileLogLikelihood(object, parm, grid, includePenalty)
+            ll <- fixedGridProfileLogLikelihood(object, parm, grid, includePenalty, returnDerivatives)
             profile <- bind_rows(profile, ll) %>% arrange(.data$point)
             invalid <- is.nan(profile$value) | is.infinite(profile$value)
             if (any(invalid)) {
@@ -1063,13 +1074,13 @@ getCyclopsProfileLogLikelihood <- function(object,
             grid <- (profile$point[exceed] + profile$point[exceed + 1]) / 2
         }
     } else { # Use x
-        profile <- fixedGridProfileLogLikelihood(object, parm, x, includePenalty)
+        profile <- fixedGridProfileLogLikelihood(object, parm, x, includePenalty, returnDerivatives)
     }
 
     return(profile)
 }
 
-fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty) {
+fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty, returnDerivatives) {
 
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     parm <- .checkCovariates(object$cyclopsData, parm)
@@ -1077,7 +1088,7 @@ fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty) {
 
     if (getNumberOfCovariates(object$cyclopsData) == 1 || length(x) == 1) {
         grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
-                                             threads, includePenalty)
+                                             threads, includePenalty, returnDerivatives)
     } else {
         # Partition sequence
         y <- sort(x)
@@ -1087,9 +1098,9 @@ fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty) {
 
         # Execute: TODO chunk and repeat until ill-conditioned
         gridLower <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, lower,
-                                                  threads, includePenalty)
+                                                  threads, includePenalty, returnDerivatives)
         gridUpper <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, upper,
-                                                  threads, includePenalty)
+                                                  threads, includePenalty, returnDerivatives)
         # Merge
         grid <- rbind(gridLower, gridUpper)
         grid <- grid[order(grid$point),]

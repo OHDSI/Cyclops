@@ -11,7 +11,8 @@ getCyclopsProfileLogLikelihood(
   bounds = NULL,
   tolerance = 0.001,
   initialGridSize = 10,
-  includePenalty = TRUE
+  includePenalty = TRUE,
+  returnDerivatives = FALSE
 )
 }
 \arguments{
@@ -29,6 +30,8 @@ either a vector of numbers of covariateId names}
 \item{initialGridSize}{Initial grid size for adaptive profiling}
 
 \item{includePenalty}{Logical: Include regularized covariate penalty in profile}
+
+\item{returnDerivatives}{Return derivative of log-likelihood wrt the parameter \code{param} at each evaluation point}
 }
 \value{
 A data frame containing the profile log likelihood. Returns NULL when the adaptive profiling fails

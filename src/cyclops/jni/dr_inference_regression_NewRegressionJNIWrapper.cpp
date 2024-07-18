@@ -64,6 +64,14 @@ JNIEXPORT jint JNICALL Java_dr_inference_regression_NewRegressionJNIWrapper_getB
 }
 
 extern "C"
+JNIEXPORT jint JNICALL Java_dr_inference_regression_NewRegressionJNIWrapper_hasOffset
+(JNIEnv *env, jobject obj, jint instance) {
+    return getInterface(instance)->getModelData().getHasOffsetCovariate();
+    // auto& data = interface->getModelData();
+    // const auto offset = data.getHasOffsetCovariate();
+}
+
+extern "C"
 JNIEXPORT void JNICALL Java_dr_inference_regression_NewRegressionJNIWrapper_setBeta__IID
   (JNIEnv *env, jobject obj, jint instance, jint index, jdouble value) {
 	getInterface(instance)->getCcd().setBeta(index, value);
