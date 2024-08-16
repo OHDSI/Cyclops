@@ -58,7 +58,7 @@ if (length(java_home) == 0) {
                                       "\n\t\t\t\t\tcyclops/jni/*.cpp \\")
 }
 
-} // doJNI
+} # doJNI
 
 #################### CUDA Toolkit ####################
 
