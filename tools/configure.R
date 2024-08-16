@@ -22,6 +22,9 @@ if (getRversion() < "4.2") { # Windoz
 
 ##### can find JNI #####
 
+doJni <- TRUE
+if (doJni) {
+
 if (.Platform$OS.type == "unix") {
     java_home <- Sys.getenv("JAVA_HOME")
 } else {
@@ -55,7 +58,7 @@ if (length(java_home) == 0) {
                                       "\n\t\t\t\t\tcyclops/jni/*.cpp \\")
 }
 
-
+} // doJNI
 
 #################### CUDA Toolkit ####################
 
