@@ -12,7 +12,8 @@ getCyclopsProfileLogLikelihood(
   tolerance = 0.001,
   initialGridSize = 10,
   maxResets = 10,
-  includePenalty = TRUE
+  includePenalty = TRUE,
+  optimalWarmStart = TRUE
 )
 }
 \arguments{
@@ -33,6 +34,8 @@ either a vector of numbers of covariateId names}
 detected.}
 
 \item{includePenalty}{Logical: Include regularized covariate penalty in profile}
+
+\item{optimalWarmStart}{Logical: Use optimal warm-starting when parallelizing evaluations}
 }
 \value{
 A data frame containing the profile log likelihood. Returns NULL when the adaptive profiling fails
