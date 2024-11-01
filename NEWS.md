@@ -2,6 +2,7 @@ develop
 ==============
 
 1. make `maxResets` a function parameter
+2. provide optional (`optimalWarmStart = FALSE`) more parallelization when profiling likelihood
 
 Cyclops v3.4.1
 ==============
