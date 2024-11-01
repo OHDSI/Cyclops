@@ -902,7 +902,10 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 #' @param bounds    Pair of values to bound adaptive profiling
 #' @param tolerance Absolute tolerance allowed for adaptive profiling
 #' @param initialGridSize Initial grid size for adaptive profiling
+#' @param maxResets Maximum allowed number of recomputing the likelihood when coefficient drift is
+#'                  detected.
 #' @param includePenalty    Logical: Include regularized covariate penalty in profile
+#' @param optimalWarmStart Logical: Use optimal warm-starting when parallelizing evaluations
 #'
 #' @return
 #' A data frame containing the profile log likelihood. Returns NULL when the adaptive profiling fails
@@ -915,8 +918,10 @@ getCyclopsProfileLogLikelihood <- function(object,
                                            bounds = NULL,
                                            tolerance = 1E-3,
                                            initialGridSize = 10,
-                                           includePenalty = TRUE) {
-    maxResets <- 10
+                                           maxResets = 10,
+                                           includePenalty = TRUE,
+                                           optimalWarmStart = TRUE) {
+
     if (!xor(is.null(x), is.null(bounds))) {
         stop("Must provide either `x` or `bounds`, but not both.")
     }
@@ -935,7 +940,8 @@ getCyclopsProfileLogLikelihood <- function(object,
         priorMaxMaxError <- Inf
         resetsPerformed <- 0
         while (length(grid) != 0) {
-            ll <- fixedGridProfileLogLikelihood(object, parm, grid, includePenalty)
+            ll <- fixedGridProfileLogLikelihood(object, parm, grid, includePenalty,
+                                                optimalWarmStart)
             profile <- bind_rows(profile, ll) %>% arrange(.data$point)
             invalid <- is.nan(profile$value) | is.infinite(profile$value)
             if (any(invalid)) {
@@ -999,19 +1005,25 @@ getCyclopsProfileLogLikelihood <- function(object,
             grid <- (profile$point[exceed] + profile$point[exceed + 1]) / 2
         }
     } else { # Use x
-        profile <- fixedGridProfileLogLikelihood(object, parm, x, includePenalty)
+        profile <- fixedGridProfileLogLikelihood(object, parm, x, includePenalty,
+                                                 optimalWarmStart)
     }
 
     return(profile)
 }
 
-fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty) {
+fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty,
+                                          optimalWarmStart = TRUE) {
 
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     parm <- .checkCovariates(object$cyclopsData, parm)
     threads <- object$threads
 
     if (getNumberOfCovariates(object$cyclopsData) == 1 || length(x) == 1) {
+        grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
+                                             threads, includePenalty)
+    } else if (!optimalWarmStart && length(x) / 2 >= threads) {
+
         grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
                                              threads, includePenalty)
     } else {

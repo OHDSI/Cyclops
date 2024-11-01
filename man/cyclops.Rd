@@ -11,3 +11,33 @@ found in large-scale observational healthcare data.  Implementations focus
 on computational optimization and fine-scale parallelization to yield
 efficient inference in massive datasets.
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/ohdsi/cyclops}
+  \item Report bugs at \url{https://github.com/ohdsi/cyclops/issues}
+}
+
+}
+\author{
+\strong{Maintainer}: Marc A. Suchard \email{msuchard@ucla.edu}
+
+Authors:
+\itemize{
+  \item Martijn J. Schuemie
+  \item Trevor R. Shaddox
+  \item Yuxi Tian
+  \item Jianxiao Yang
+  \item Eric Kawaguchi
+}
+
+Other contributors:
+\itemize{
+  \item Sushil Mittal [contributor]
+  \item Observational Health Data Sciences and Informatics [copyright holder]
+  \item Marcus Geelnard (provided the TinyThread library) [copyright holder, contributor]
+  \item Rutgers University (provided the HParSearch routine) [copyright holder, contributor]
+  \item R Development Core Team (provided the ZeroIn routine) [copyright holder, contributor]
+}
+
+}

@@ -11,7 +11,9 @@ getCyclopsProfileLogLikelihood(
   bounds = NULL,
   tolerance = 0.001,
   initialGridSize = 10,
-  includePenalty = TRUE
+  maxResets = 10,
+  includePenalty = TRUE,
+  optimalWarmStart = TRUE
 )
 }
 \arguments{
@@ -28,7 +30,12 @@ either a vector of numbers of covariateId names}
 
 \item{initialGridSize}{Initial grid size for adaptive profiling}
 
+\item{maxResets}{Maximum allowed number of recomputing the likelihood when coefficient drift is
+detected.}
+
 \item{includePenalty}{Logical: Include regularized covariate penalty in profile}
+
+\item{optimalWarmStart}{Logical: Use optimal warm-starting when parallelizing evaluations}
 }
 \value{
 A data frame containing the profile log likelihood. Returns NULL when the adaptive profiling fails
