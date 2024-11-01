@@ -1,8 +1,9 @@
-develop
+Cyclops v3.5.0
 ==============
 
-1. make `maxResets` a function parameter
-2. provide optional (`optimalWarmStart = FALSE`) more parallelization when profiling likelihood
+1. provide optional (`optimalWarmStart = FALSE`) more parallelization when profiling likelihood
+2. make `maxResets` a function parameter
+3. ensure compatibility with R v4.4
 
 Cyclops v3.4.1
 ==============

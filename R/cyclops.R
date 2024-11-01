@@ -29,7 +29,6 @@
 #' on computational optimization and fine-scale parallelization to yield
 #' efficient inference in massive datasets.
 #'
-#' @docType package
 #' @name cyclops
 #' @import Rcpp Matrix dplyr
 #'
@@ -38,7 +37,7 @@
 #' @importFrom rlang .data
 #'
 #' @useDynLib Cyclops, .registration = TRUE
-NULL
+"_PACKAGE"
 
 .onUnload <- function (libpath) {
   library.dynam.unload("Cyclops", libpath)

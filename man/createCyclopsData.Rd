@@ -54,11 +54,11 @@ createCyclopsData(
 
 \item{type}{Currently undocumented}
 
-\item{dx}{Optional dense \code{"\link{Matrix}"} of covariates}
+\item{dx}{Optional dense \code{"\link[Matrix]{Matrix}"} of covariates}
 
-\item{sx}{Optional sparse \code{"\link{Matrix}"} of covariates}
+\item{sx}{Optional sparse \code{"\link[Matrix]{Matrix}"} of covariates}
 
-\item{ix}{Optional \{0,1\} \code{"\link{Matrix}"} of covariates}
+\item{ix}{Optional \{0,1\} \code{"\link[Matrix]{Matrix}"} of covariates}
 
 \item{model}{Currently undocumented}
 

@@ -63,11 +63,11 @@
 #' @param time
 #' Currently undocumented
 #' @param dx
-#' Optional dense \code{"\link{Matrix}"} of covariates
+#' Optional dense \code{"\link[Matrix]{Matrix}"} of covariates
 #' @param sx
-#' Optional sparse \code{"\link{Matrix}"} of covariates
+#' Optional sparse \code{"\link[Matrix]{Matrix}"} of covariates
 #' @param ix
-#' Optional \{0,1\} \code{"\link{Matrix}"} of covariates
+#' Optional \{0,1\} \code{"\link[Matrix]{Matrix}"} of covariates
 #' @param model
 #' Currently undocumented
 #' @param method
