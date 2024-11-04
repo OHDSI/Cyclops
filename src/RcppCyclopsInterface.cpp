@@ -214,6 +214,39 @@ void cyclopsLogResult(SEXP inRcppCcdInterface, const std::string& fileName, bool
     interface->logResultsToFile(fileName, withASE);
 }
 
+// [[Rcpp::export(".cyclopsGetSchoenfeldResiduals")]]
+Rcpp::DataFrame cyclopsGetSchoenfeldResiduals(SEXP inRcppCcdInterface,
+                                                  const SEXP sexpBitCovariates) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    std::vector<IdType> indices;
+    if (!Rf_isNull(sexpBitCovariates)) {
+        const std::vector<double>& bitCovariates = as<std::vector<double>>(sexpBitCovariates);
+        ProfileVector covariates =  reinterpret_cast<const std::vector<int64_t>&>(bitCovariates); // as<ProfileVector>(sexpCovariates);
+        for (auto it = covariates.begin(); it != covariates.end(); ++it) {
+            size_t index = interface->getModelData().getColumnIndex(*it);
+            indices.push_back(index);
+        }
+    } else {
+        indices.push_back(0);
+    }
+    if (indices.size() != 1) {
+        Rcpp::stop("Not yet implemented");
+    }
+
+    std::vector<double> residuals;
+    std::vector<double> times;
+
+    interface->getCcd().getSchoenfeldResiduals(indices[0],
+                      residuals, times);
+
+    return DataFrame::create(
+        Named("residuals") = residuals,
+        Named("times") = times
+    );
+}
+
 // [[Rcpp::export(".cyclopsGetFisherInformation")]]
 Eigen::MatrixXd cyclopsGetFisherInformation(SEXP inRcppCcdInterface, const SEXP sexpBitCovariates) {
 	using namespace bsccs;

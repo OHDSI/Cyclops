@@ -65,6 +65,10 @@
     invisible(.Call(`_Cyclops_cyclopsLogResult`, inRcppCcdInterface, fileName, withASE))
 }
 
+.cyclopsGetSchoenfeldResiduals <- function(inRcppCcdInterface, sexpBitCovariates) {
+    .Call(`_Cyclops_cyclopsGetSchoenfeldResiduals`, inRcppCcdInterface, sexpBitCovariates)
+}
+
 .cyclopsGetFisherInformation <- function(inRcppCcdInterface, sexpBitCovariates) {
     .Call(`_Cyclops_cyclopsGetFisherInformation`, inRcppCcdInterface, sexpBitCovariates)
 }

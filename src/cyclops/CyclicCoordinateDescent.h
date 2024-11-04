@@ -130,13 +130,17 @@ public:
 
 	std::vector<double> getCensorWeights(); // ESK:
 
+	void getSchoenfeldResiduals(const IdType index,
+                             std::vector<double>& residuals,
+                             std::vector<double>& times);
+
 	void setLogisticRegression(bool idoLR);
 
 //	template <typename T>
 	void setBeta(const std::vector<double>& beta);
 
 	void setStartingBeta(const std::vector<double>& inStartingBeta);
-	
+
 	void setBeta(int i, double beta);
 
 //	void double getHessianComponent(int i, int j);

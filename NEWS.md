@@ -1,3 +1,8 @@
+develop
+==============
+
+1. add Schoenfeld residual output for Cox models
+
 Cyclops v3.5.0
 ==============
 

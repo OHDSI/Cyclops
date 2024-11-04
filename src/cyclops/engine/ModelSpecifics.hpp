@@ -732,6 +732,94 @@ void ModelSpecifics<BaseModel,RealType>::getPredictiveEstimates(double* y, doubl
 	// TODO How to remove code duplication above?
 }
 
+template <class BaseModel, typename RealType> template <class IteratorType, class Weights>
+void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
+                                                                    std::vector<double>& residuals,
+                                                                    std::vector<double>& times,
+                                                                    Weights w) {
+
+    residuals.clear();
+    times.clear();
+    // TODO: only written for accummulive models (Cox, Fine/Grey)
+
+    // std::cerr << "start " << index << "\n";
+
+    // int outcomeIndex = 0;
+
+    // if (sparseIndices[index] == nullptr || sparseIndices[index]->size() > 0) {
+
+        // IteratorType it(sparseIndices[index].get(), N);
+        IteratorType it(hX, index);
+
+        RealType accNumerator  = static_cast<RealType>(0);
+        RealType accDenominator = static_cast<RealType>(0);
+
+        // find start relavent accumulator reset point
+        auto reset = begin(accReset);
+        while( *reset < it.index() ) {
+            ++reset;
+        }
+
+        for (; it; ) {
+            int i = it.index();
+
+            if (*reset <= i) {
+                accNumerator = static_cast<RealType>(0);
+                accDenominator = static_cast<RealType>(0);
+                ++reset;
+            }
+
+            const auto expXBeta = exp(hXBeta[i]);
+
+            accNumerator += expXBeta * it.value();
+            accDenominator += expXBeta;
+
+            // std::cerr << hXBeta[i] << " " << expXBeta << " " << accDenominator << "\n";
+
+            if (hY[i] == 1) {
+                residuals.push_back(it.value() - accNumerator / accDenominator);
+                times.push_back(hOffs[i]);
+                // residuals[outcomeIndex] = it.value() - accNumerator / accDenominator;
+                // ++outcomeIndex;
+            }
+
+            // residuals[i] = it.value() - accNumerator / accDenominator;
+
+            ++it;
+
+            if (IteratorType::isSparse) {
+
+                const int next = it ? it.index() : N;
+                for (++i; i < next; ++i) {
+
+                    if (*reset <= i) {
+                        accNumerator = static_cast<RealType>(0);
+                        accDenominator = static_cast<RealType>(0);
+                        ++reset;
+                    }
+
+                    const auto expXBeta = exp(hXBeta[i]);
+
+                    accDenominator += expXBeta;
+
+                    if (hY[i] == 1) {
+                        residuals.push_back(-accNumerator / accDenominator);
+                        times.push_back(hOffs[i]);
+                        // residuals[outcomeIndex] = -accNumerator / accDenominator;
+                        // ++outcomeIndex;
+                    }
+
+                    // residuals[i] = -accNumerator / accDenominator;
+                }
+            }
+        }
+    // } else {
+    //     // TODO: fill residuals with 0s
+    // }
+
+    // std::cerr << "stop\n";
+}
+
 // TODO The following function is an example of a double-dispatch, rewrite without need for virtual function
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessian(int index, double *ogradient,
@@ -1365,6 +1453,32 @@ void ModelSpecifics<BaseModel,RealType>::computeThirdDerivativeImpl(int index, d
 #endif
 #endif
 }
+
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::computeSchoenfeldResiduals(int indexOne,
+                                                                    std::vector<double>& residuals,
+                                                                    std::vector<double>& times,
+                                                                    bool useWeights) {
+    if (useWeights) {
+        throw new std::logic_error("Weights are not yet implemented in Schoenfeld residual calculations");
+    } else { // no weights
+        switch (hX.getFormatType(indexOne)) {
+        case INDICATOR :
+            getSchoenfeldResidualsImpl<IndicatorIterator<RealType>>(indexOne, residuals, times, weighted);
+            break;
+        case SPARSE :
+            getSchoenfeldResidualsImpl<SparseIterator<RealType>>(indexOne, residuals, times, weighted);
+            break;
+        case DENSE :
+            getSchoenfeldResidualsImpl<DenseIterator<RealType>>(indexOne, residuals, times, weighted);
+            break;
+        case INTERCEPT :
+            getSchoenfeldResidualsImpl<InterceptIterator<RealType>>(indexOne, residuals, times, weighted);
+            break;
+        }
+    }
+}
+
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeFisherInformation(int indexOne, int indexTwo,

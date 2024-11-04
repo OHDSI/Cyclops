@@ -77,6 +77,14 @@ public:
 	virtual void computeFisherInformation(int indexOne, int indexTwo,
 			double *oinfo, bool useWeights) = 0; // pure virtual
 
+	virtual void computeSchoenfeldResiduals(int indexOne,
+                                         std::vector<double>& residuals,
+                                         std::vector<double>& times,
+                                            // double* residuals,
+                                            // double* numerators,
+                                            // double* denominators,
+                                            bool useWeights) = 0; // pure virtual
+
 	virtual void updateXBeta(double realDelta, int index, bool useWeights) = 0; // pure virtual
 
 	virtual void computeXBeta(double* beta, bool useWeights) = 0; // pure virtual

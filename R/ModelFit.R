@@ -897,7 +897,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 #'
 #' @param object    Fitted Cyclops model object
 #' @param parm      Specification of which parameter requires profiling,
-#'                  either a vector of numbers of covariateId names
+#'                  either a vector of numbers or covariateId names
 #' @param x         Vector of values of the parameter
 #' @param bounds    Pair of values to bound adaptive profiling
 #' @param tolerance Absolute tolerance allowed for adaptive profiling
