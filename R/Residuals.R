@@ -27,6 +27,7 @@
 #'                  either a vector of numbers or covariateId names
 #' @param type      Character string indicating the type of residual desires. Possible
 #'                  values are "schoenfeld".
+#' @param ...		Additional parameters for compatibility with S3 parent function
 #'
 #' @importFrom stats residuals
 #'
@@ -42,7 +43,7 @@ residuals.cyclopsFit <- function(object, parm, type = "schoenfeld", ...) {
 
     .checkInterface(object$cyclopsData, testOnly = TRUE)
 
-    res <- .cyclopsGetSchoenfeldResiduals(cyclopsFitRight$interface, NULL)
+    res <- .cyclopsGetSchoenfeldResiduals(object$interface, NULL)
 
     result <- res$residuals
     names(result) <- res$times

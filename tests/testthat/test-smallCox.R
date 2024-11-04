@@ -34,6 +34,21 @@ start, length, event, x1, x2
     tolerance <- 1E-4
     expect_equal(coef(cyclopsFitRight), coef(goldRight), tolerance = tolerance)
 
+    # Test residuals
+
+    goldRes <- residuals(goldCounting, "schoenfeld")[,1]
+    cyclopsRes <- residuals(cyclopsFitRight, "schoenfeld")
+
+    expect_equal(cyclopsRes, goldRes, tolerance = tolerance)
+
+    # cox2.zph(goldCounting, transform = "identity")
+    # residuals2.coxph(goldCounting, type = "scaledsch")
+    #
+    # # rr <- rr * vv * ndead + coef
+    #
+    # hand <- rev(navg) * goldCounting$var[1,1] * sum(event)  + coef(goldCounting)
+    #
+    # expect_equivalent(res2, hand) # scaled
 
     goldStrat <- coxph(Surv(length, event) ~ x1 + strata(x2), test)
 
@@ -42,6 +57,10 @@ start, length, event, x1, x2
                                        modelType = "cox")
     cyclopsFitStrat <- fitCyclopsModel(dataPtrStrat)
     expect_equal(coef(cyclopsFitStrat), coef(goldStrat), tolerance = tolerance)
+
+    goldStratRes <- residuals(goldStrat, "schoenfeld")
+    cyclopsStratRes <- residuals(cyclopsFitStrat, "schoenfeld")
+    # TODO Not yet the same order!!!
 })
 
 
