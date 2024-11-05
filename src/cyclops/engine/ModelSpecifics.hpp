@@ -850,7 +850,6 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
 
                     if (hasScore) {
                         // TODO incr gradient / Hessian
-                        Rcpp::stop("Not yet implemented");
                     }
                 }
             }
