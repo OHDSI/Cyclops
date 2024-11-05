@@ -131,8 +131,10 @@ public:
 	std::vector<double> getCensorWeights(); // ESK:
 
 	void getSchoenfeldResiduals(const IdType index,
-                             std::vector<double>& residuals,
-                             std::vector<double>& times);
+                             std::vector<double>* residuals,
+                             std::vector<double>* times,
+                             std::vector<double>* covariate,
+                             double* score);
 
 	void setLogisticRegression(bool idoLR);
 

@@ -65,6 +65,10 @@
     invisible(.Call(`_Cyclops_cyclopsLogResult`, inRcppCcdInterface, fileName, withASE))
 }
 
+.cyclopsTestProportionality <- function(inRcppCcdInterface, sexpBitCovariates, covariate) {
+    .Call(`_Cyclops_cyclopsTestProportionality`, inRcppCcdInterface, sexpBitCovariates, covariate)
+}
+
 .cyclopsGetSchoenfeldResiduals <- function(inRcppCcdInterface, sexpBitCovariates) {
     .Call(`_Cyclops_cyclopsGetSchoenfeldResiduals`, inRcppCcdInterface, sexpBitCovariates)
 }

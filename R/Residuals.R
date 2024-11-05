@@ -50,3 +50,35 @@ residuals.cyclopsFit <- function(object, parm, type = "schoenfeld", ...) {
 
     return(rev(result))
 }
+
+#' @title Test hazard ratio proportionality assumption
+#'
+#' @description
+#' \code{testProportionality} tests the hazard ratio proportionality assumption
+#' of a Cyclops model fit object
+#'
+#' @param object    A Cyclops model fit object
+#' @param parm      A specification of which parameters require residuals,
+#'                  either a vector of numbers or covariateId names
+#' @param transformedTimes Vector of transformed time
+#'
+#' @export
+testProportionality <- function(object, parm, transformedTimes) {
+
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
+
+    if (object$cyclopsData$modelType != "cox") {
+        stop("Proportionality test for only Cox models are implemented")
+    }
+
+    if (getNumberOfRows(object$cyclopsData) != length(transformedTimes)) {
+        stop("Incorrect 'transformedTime' length")
+    }
+
+    transformedTimes <- transformedTimes[object$cyclopsData$sortOrder]
+    message("TODO: permute transformedTimes")
+
+    res <- .cyclopsTestProportionality(object$interface, NULL, transformedTimes)
+
+    return(res)
+}

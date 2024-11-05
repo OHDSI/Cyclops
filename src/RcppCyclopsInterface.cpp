@@ -214,12 +214,9 @@ void cyclopsLogResult(SEXP inRcppCcdInterface, const std::string& fileName, bool
     interface->logResultsToFile(fileName, withASE);
 }
 
-// [[Rcpp::export(".cyclopsGetSchoenfeldResiduals")]]
-Rcpp::DataFrame cyclopsGetSchoenfeldResiduals(SEXP inRcppCcdInterface,
-                                                  const SEXP sexpBitCovariates) {
-    using namespace bsccs;
-    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+std::vector<bsccs::IdType> getIndices(XPtr<bsccs::RcppCcdInterface>& interface, const SEXP sexpBitCovariates) {
 
+    using namespace bsccs;
     std::vector<IdType> indices;
     if (!Rf_isNull(sexpBitCovariates)) {
         const std::vector<double>& bitCovariates = as<std::vector<double>>(sexpBitCovariates);
@@ -235,11 +232,47 @@ Rcpp::DataFrame cyclopsGetSchoenfeldResiduals(SEXP inRcppCcdInterface,
         Rcpp::stop("Not yet implemented");
     }
 
+    return indices;
+}
+
+// [[Rcpp::export(".cyclopsTestProportionality")]]
+Rcpp::List cyclopsTestProportionality(SEXP inRcppCcdInterface,
+                                      const SEXP sexpBitCovariates,
+                                      std::vector<double>& covariate) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    std::vector<IdType> indices = getIndices(interface, sexpBitCovariates);
+    std::vector<double> residuals;
+    std::vector<double> times;
+
+    std::vector<double> score;
+    score.resize(2);
+    // double score = 0.0;
+
+    interface->getCcd().getSchoenfeldResiduals(indices[0],
+                      &residuals, &times, &covariate, &score[0]);
+
+    return List::create(
+        Named("transformed") = covariate,
+        Named("score") = score,
+        Named("residuals") = residuals,
+        Named("times") = times
+    );
+}
+
+// [[Rcpp::export(".cyclopsGetSchoenfeldResiduals")]]
+Rcpp::DataFrame cyclopsGetSchoenfeldResiduals(SEXP inRcppCcdInterface,
+                                              const SEXP sexpBitCovariates) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    std::vector<IdType> indices = getIndices(interface, sexpBitCovariates);
     std::vector<double> residuals;
     std::vector<double> times;
 
     interface->getCcd().getSchoenfeldResiduals(indices[0],
-                      residuals, times);
+                      &residuals, &times, nullptr, nullptr);
 
     return DataFrame::create(
         Named("residuals") = residuals,

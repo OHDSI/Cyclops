@@ -198,7 +198,8 @@ protected:
 	void computeFisherInformation(int indexOne, int indexTwo, double *oinfo, bool useWeights);
 
 	void computeSchoenfeldResiduals(int indexOne,
-                                 std::vector<double>& residuals, std::vector<double>& times,
+                                 std::vector<double>* residuals, std::vector<double>* times,
+                                 double* covariate, double* score,
                                  // double* residuals, double* numerators, double* denominators,
                                  bool useWeights);
 
@@ -329,8 +330,10 @@ private:
 
 	template <class IteratorType, class Weights>
 	void getSchoenfeldResidualsImpl(int index,
-                                 std::vector<double>& residuals,
-                                 std::vector<double>& times,
+                                 std::vector<double>* residuals,
+                                 std::vector<double>* times,
+                                 double* covariate,
+                                 double* score,
                                  Weights w);
 
 	template<class IteratorType>

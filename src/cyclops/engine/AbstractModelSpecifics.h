@@ -78,8 +78,10 @@ public:
 			double *oinfo, bool useWeights) = 0; // pure virtual
 
 	virtual void computeSchoenfeldResiduals(int indexOne,
-                                         std::vector<double>& residuals,
-                                         std::vector<double>& times,
+                                         std::vector<double>* residuals,
+                                         std::vector<double>* times,
+                                         double* covariate,
+                                         double* score,
                                             // double* residuals,
                                             // double* numerators,
                                             // double* denominators,

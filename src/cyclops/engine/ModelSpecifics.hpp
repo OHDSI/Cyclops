@@ -734,25 +734,39 @@ void ModelSpecifics<BaseModel,RealType>::getPredictiveEstimates(double* y, doubl
 
 template <class BaseModel, typename RealType> template <class IteratorType, class Weights>
 void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
-                                                                    std::vector<double>& residuals,
-                                                                    std::vector<double>& times,
+                                                                    std::vector<double>* residuals,
+                                                                    std::vector<double>* times,
+                                                                    double* covariate,
+                                                                    double* score,
                                                                     Weights w) {
 
-    residuals.clear();
-    times.clear();
+    const bool hasResiduals = residuals != nullptr;
+    const bool hasTimes = times != nullptr;
+    const bool hasScore = covariate != nullptr && score != nullptr;
+
+    if (hasResiduals) {
+        residuals->clear();
+    }
+    if (hasTimes) {
+        times->clear();
+    }
+
+    RealType gradient = static_cast<RealType>(0);
+    RealType hessian = static_cast<RealType>(0);
+
     // TODO: only written for accummulive models (Cox, Fine/Grey)
-
-    // std::cerr << "start " << index << "\n";
-
-    // int outcomeIndex = 0;
 
     // if (sparseIndices[index] == nullptr || sparseIndices[index]->size() > 0) {
 
         // IteratorType it(sparseIndices[index].get(), N);
         IteratorType it(hX, index);
 
-        RealType accNumerator  = static_cast<RealType>(0);
-        RealType accDenominator = static_cast<RealType>(0);
+        RealType resNumerator  = static_cast<RealType>(0);
+        RealType resDenominator = static_cast<RealType>(0);
+
+        RealType scoreNumerator1 = static_cast<RealType>(0);
+        RealType scoreNumerator2 = static_cast<RealType>(0);
+        RealType scoreDenominator = static_cast<RealType>(0);
 
         // find start relavent accumulator reset point
         auto reset = begin(accReset);
@@ -762,28 +776,48 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
 
         for (; it; ) {
             int i = it.index();
+            const RealType x = it.value();
 
             if (*reset <= i) {
-                accNumerator = static_cast<RealType>(0);
-                accDenominator = static_cast<RealType>(0);
+                resNumerator = static_cast<RealType>(0);
+                resDenominator = static_cast<RealType>(0);
+
+                scoreNumerator1 = static_cast<RealType>(0);
+                scoreNumerator2 = static_cast<RealType>(0);
+                scoreDenominator = static_cast<RealType>(0);
+
                 ++reset;
             }
 
-            const auto expXBeta = exp(hXBeta[i]);
+            const auto expXBeta = offsExpXBeta[i]; // std::exp(hXBeta[i]);
 
-            accNumerator += expXBeta * it.value();
-            accDenominator += expXBeta;
+            resNumerator += expXBeta * x;
+            resDenominator += expXBeta;
 
-            // std::cerr << hXBeta[i] << " " << expXBeta << " " << accDenominator << "\n";
-
-            if (hY[i] == 1) {
-                residuals.push_back(it.value() - accNumerator / accDenominator);
-                times.push_back(hOffs[i]);
-                // residuals[outcomeIndex] = it.value() - accNumerator / accDenominator;
-                // ++outcomeIndex;
+            if (hY[i] == 1 && hasResiduals) {
+                residuals->push_back(it.value() - resNumerator / resDenominator);
+                if (hasTimes) {
+                    times->push_back(hOffs[i]);
+                }
             }
 
-            // residuals[i] = it.value() - accNumerator / accDenominator;
+            if (hasScore) {
+
+                const auto xt = x * covariate[i];
+                const auto numerator1 = expXBeta * xt;
+                const auto numerator2 = expXBeta * xt * xt;
+
+                scoreNumerator1 += numerator1;
+                scoreNumerator2 += numerator2;
+
+                const auto t = scoreNumerator1 / resDenominator;
+                gradient += hNWeight[i] * t;
+                hessian += hNWeight[i] * (scoreNumerator2 / resDenominator - t * t);
+
+                if (hY[i] == 1) {
+                    gradient -= xt;
+                }
+            }
 
             ++it;
 
@@ -793,31 +827,42 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
                 for (++i; i < next; ++i) {
 
                     if (*reset <= i) {
-                        accNumerator = static_cast<RealType>(0);
-                        accDenominator = static_cast<RealType>(0);
+                        resNumerator = static_cast<RealType>(0);
+                        resDenominator = static_cast<RealType>(0);
+
+                        scoreNumerator1 = static_cast<RealType>(0);
+                        scoreNumerator2 = static_cast<RealType>(0);
+                        scoreDenominator = static_cast<RealType>(0);
+
                         ++reset;
                     }
 
-                    const auto expXBeta = exp(hXBeta[i]);
+                    const auto expXBeta = offsExpXBeta[i]; // std::exp(hXBeta[i]);
 
-                    accDenominator += expXBeta;
+                    resDenominator += expXBeta;
 
-                    if (hY[i] == 1) {
-                        residuals.push_back(-accNumerator / accDenominator);
-                        times.push_back(hOffs[i]);
-                        // residuals[outcomeIndex] = -accNumerator / accDenominator;
-                        // ++outcomeIndex;
+                    if (hY[i] == 1 && hasResiduals) {
+                        residuals->push_back(-resNumerator / resDenominator);
+                        if (hasTimes) {
+                            times->push_back(hOffs[i]);
+                        }
                     }
 
-                    // residuals[i] = -accNumerator / accDenominator;
+                    if (hasScore) {
+                        // TODO incr gradient / Hessian
+                        Rcpp::stop("Not yet implemented");
+                    }
                 }
             }
         }
-    // } else {
-    //     // TODO: fill residuals with 0s
-    // }
 
-    // std::cerr << "stop\n";
+    if (hasScore) {
+        score[0] = static_cast<double>(gradient);
+        score[1] = static_cast<double>(hessian);
+        // *score = static_cast<double>(gradient / hessian);
+        std::cerr << "score = " << gradient << " / " << hessian << "\n";
+        // std::cerr << "hess2 = " << hess2 << " or " <<  static_cast<RealType>(2.0) * hXjX[index] << "\n";
+    }
 }
 
 // TODO The following function is an example of a double-dispatch, rewrite without need for virtual function
@@ -1301,6 +1346,8 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 		hessian += static_cast<RealType>(2.0) * hXjX[index];
 	}
 
+	std::cerr << "hessian = " << hessian << " @ " << index << "\n";
+
  	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian);
 
@@ -1456,24 +1503,26 @@ void ModelSpecifics<BaseModel,RealType>::computeThirdDerivativeImpl(int index, d
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeSchoenfeldResiduals(int indexOne,
-                                                                    std::vector<double>& residuals,
-                                                                    std::vector<double>& times,
+                                                                    std::vector<double>* residuals,
+                                                                    std::vector<double>* otimes,
+                                                                    double* covariate,
+                                                                    double* score,
                                                                     bool useWeights) {
     if (useWeights) {
         throw new std::logic_error("Weights are not yet implemented in Schoenfeld residual calculations");
     } else { // no weights
         switch (hX.getFormatType(indexOne)) {
         case INDICATOR :
-            getSchoenfeldResidualsImpl<IndicatorIterator<RealType>>(indexOne, residuals, times, weighted);
+            getSchoenfeldResidualsImpl<IndicatorIterator<RealType>>(indexOne, residuals, otimes, covariate, score, weighted);
             break;
         case SPARSE :
-            getSchoenfeldResidualsImpl<SparseIterator<RealType>>(indexOne, residuals, times, weighted);
+            getSchoenfeldResidualsImpl<SparseIterator<RealType>>(indexOne, residuals, otimes, covariate, score, weighted);
             break;
         case DENSE :
-            getSchoenfeldResidualsImpl<DenseIterator<RealType>>(indexOne, residuals, times, weighted);
+            getSchoenfeldResidualsImpl<DenseIterator<RealType>>(indexOne, residuals, otimes, covariate, score, weighted);
             break;
         case INTERCEPT :
-            getSchoenfeldResidualsImpl<InterceptIterator<RealType>>(indexOne, residuals, times, weighted);
+            getSchoenfeldResidualsImpl<InterceptIterator<RealType>>(indexOne, residuals, otimes, covariate, score, weighted);
             break;
         }
     }
