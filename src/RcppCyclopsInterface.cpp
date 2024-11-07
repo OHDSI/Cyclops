@@ -246,16 +246,27 @@ Rcpp::List cyclopsTestProportionality(SEXP inRcppCcdInterface,
     std::vector<double> residuals;
     std::vector<double> times;
 
-    std::vector<double> score;
-    score.resize(2);
-    // double score = 0.0;
+    const int nCovariates = 1; // TODO generalize for multiple covariates
+    const int dim = nCovariates + 1;
+    std::vector<double> score(dim * (dim + 1));
 
     interface->getCcd().getSchoenfeldResiduals(indices[0],
                       &residuals, &times, &covariate, &score[0]);
 
+    std::vector<double> gradient(dim);
+    std::vector<double> hessian(dim * dim);
+
+    for (int i = 0; i < dim; ++i) {
+        gradient[i] = score[i];
+        for (int j = 0; j < dim; ++j) {
+            hessian[i * dim + j] = score[dim + i * dim + j];
+        }
+    }
+
     return List::create(
-        Named("transformed") = covariate,
-        Named("score") = score,
+        Named("weights") = covariate,
+        Named("gradient") = gradient,
+        Named("hessian") = hessian,
         Named("residuals") = residuals,
         Named("times") = times
     );

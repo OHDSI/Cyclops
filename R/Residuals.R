@@ -32,16 +32,20 @@
 #' @importFrom stats residuals
 #'
 #' @export
-residuals.cyclopsFit <- function(object, parm, type = "schoenfeld", ...) {
-    modelType <- object$cyclopsData$modelType
-    if (modelType != "cox") {
-        stop("Residuals for only Cox models are implemented")
-    }
-    if (type != "schoenfeld") {
-        stop("Only Schoenfeld residuals are implemented")
-    }
+residuals.cyclopsFit <- function(object, parm = NULL, type = "schoenfeld", ...) {
 
     .checkInterface(object$cyclopsData, testOnly = TRUE)
+
+    if (object$cyclopsData$modelType != "cox") {
+        stop("Residuals for only Cox models are currently implemented")
+    }
+    if (type != "schoenfeld") {
+        stop("Only Schoenfeld residuals are currently implemented")
+    }
+
+    if (getNumberOfCovariates(object$cyclopsData) != 1) {
+        warning("Only single-covariate models are currently implemented") # TODO change to stop
+    }
 
     res <- .cyclopsGetSchoenfeldResiduals(object$interface, NULL)
 
@@ -63,22 +67,60 @@ residuals.cyclopsFit <- function(object, parm, type = "schoenfeld", ...) {
 #' @param transformedTimes Vector of transformed time
 #'
 #' @export
-testProportionality <- function(object, parm, transformedTimes) {
+testProportionality <- function(object, parm = NULL, transformedTimes) {
 
     .checkInterface(object$cyclopsData, testOnly = TRUE)
 
     if (object$cyclopsData$modelType != "cox") {
-        stop("Proportionality test for only Cox models are implemented")
+        stop("Proportionality test for only Cox models are currently implemented")
     }
+
+    nCovariates <- getNumberOfCovariates(object$cyclopsData)
+    if (nCovariates != 1) {
+        warning("Only single-covariate models are currently implemented") # TODO change to stop
+    }
+
 
     if (getNumberOfRows(object$cyclopsData) != length(transformedTimes)) {
         stop("Incorrect 'transformedTime' length")
     }
 
+    # transformedTimes <- transformedTimes - mean(transformedTimes)
     transformedTimes <- transformedTimes[object$cyclopsData$sortOrder]
-    message("TODO: permute transformedTimes")
 
     res <- .cyclopsTestProportionality(object$interface, NULL, transformedTimes)
+    nCovariates <- 1 # TODO Remove
+    res$hessian <- matrix(res$hessian, nrow = (nCovariates + 1))
+
+    if (any(abs(res$gradient[1:nCovariates]) > 1E-5)) {
+        stop("Internal state of Cyclops 'object' is not at its mode")
+    }
+
+    u <- c(rep(0, nCovariates), res$gradient[nCovariates + 1])
+    test <- drop(solve(res$hessian, u) %*% u)
+    df <- 1
+
+    tbl <- cbind(test, df, pchisq(test, df, lower.tail = FALSE))
+
+    names <- as.character(getCovariateIds(object$cyclopsData)[1])
+    if (!is.null(object$cyclopsData$coefficientNames)) {
+        names <- object$coefficientNames[1]
+    }
+
+    dimnames(tbl) <- list(names, c("chisq", "df", "p"))
+    res$table <- tbl
+
+    class(res) <- "cyclopsZph"
 
     return(res)
+}
+
+#' @method print cyclopsZph
+#' @importFrom stats printCoefmat
+#'
+#' @export
+print.cyclopsZph <- function(x, digits = max(options()$digits - 4, 3),
+                             signif.stars = FALSE, ...) {
+    invisible(printCoefmat(x$table, digits=digits, signif.stars=signif.stars,
+                           P.values=TRUE, has.Pvalue=TRUE, ...))
 }

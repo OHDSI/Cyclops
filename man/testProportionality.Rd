@@ -4,7 +4,7 @@
 \alias{testProportionality}
 \title{Test hazard ratio proportionality assumption}
 \usage{
-testProportionality(object, parm, transformedTimes)
+testProportionality(object, parm = NULL, transformedTimes)
 }
 \arguments{
 \item{object}{A Cyclops model fit object}

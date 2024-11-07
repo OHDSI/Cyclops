@@ -732,6 +732,13 @@ void ModelSpecifics<BaseModel,RealType>::getPredictiveEstimates(double* y, doubl
 	// TODO How to remove code duplication above?
 }
 
+
+template <class RealType>
+void makeDenseCrossProduct(const CompressedDataMatrix<RealType>& x,
+                                                int index1, int index2) {
+
+}
+
 template <class BaseModel, typename RealType> template <class IteratorType, class Weights>
 void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
                                                                     std::vector<double>* residuals,
@@ -742,7 +749,7 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
 
     const bool hasResiduals = residuals != nullptr;
     const bool hasTimes = times != nullptr;
-    const bool hasScore = covariate != nullptr && score != nullptr;
+    const bool hasScore = score != nullptr && covariate != nullptr;
 
     if (hasResiduals) {
         residuals->clear();
@@ -751,14 +758,16 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
         times->clear();
     }
 
-    RealType gradient = static_cast<RealType>(0);
-    RealType hessian = static_cast<RealType>(0);
+    RealType uGradient = static_cast<RealType>(0); // unweighted
+    RealType uHessian = static_cast<RealType>(0);
+
+    RealType wGradient = static_cast<RealType>(0); // weighted
+    RealType wHessian = static_cast<RealType>(0);
+
+    RealType xHessian = static_cast<RealType>(0);
 
     // TODO: only written for accummulive models (Cox, Fine/Grey)
 
-    // if (sparseIndices[index] == nullptr || sparseIndices[index]->size() > 0) {
-
-        // IteratorType it(sparseIndices[index].get(), N);
         IteratorType it(hX, index);
 
         RealType resNumerator  = static_cast<RealType>(0);
@@ -802,21 +811,32 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
             }
 
             if (hasScore) {
+                const auto weight = covariate[i];
+                // MAS does not believe reweighing is correct, but is matching cox.zph
 
-                const auto xt = x * covariate[i];
-                const auto numerator1 = expXBeta * xt;
-                const auto numerator2 = expXBeta * xt * xt;
+                // const auto xt = x * covariate[i];
+                // MAS believes covariate should be adjusted
+                const auto numerator1 = expXBeta * x; // TODO not xt?
+                const auto numerator2 = expXBeta * x * x; // TODO not xt?
+
+                if (hY[i] == 1) {
+                    uGradient += x;
+                    wGradient += x * weight; // TODO not xt and no weight?
+                }
 
                 scoreNumerator1 += numerator1;
                 scoreNumerator2 += numerator2;
 
                 const auto t = scoreNumerator1 / resDenominator;
-                gradient += hNWeight[i] * t;
-                hessian += hNWeight[i] * (scoreNumerator2 / resDenominator - t * t);
+                const auto gradient = hNWeight[i] * t;
+                const auto hessian = hNWeight[i] * (scoreNumerator2 / resDenominator - t * t);
 
-                if (hY[i] == 1) {
-                    gradient -= xt;
-                }
+                uGradient -= gradient;
+                wGradient -= gradient * weight;
+
+                uHessian += hessian;
+                wHessian += hessian * weight * weight;
+                xHessian += hessian * weight;
             }
 
             ++it;
@@ -849,17 +869,47 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
                     }
 
                     if (hasScore) {
-                        // TODO incr gradient / Hessian
+                        const auto weight = covariate[i];
+                        // MAS does not believe reweighing is correct, but is matching cox.zph
+
+                        // const auto xt = x * covariate[i];
+                        // MAS believes covariate should be adjusted
+                        const auto numerator1 = expXBeta * x; // TODO not xt?
+                        const auto numerator2 = expXBeta * x * x; // TODO not xt?
+
+                        if (hY[i] == 1) {
+                            uGradient += x;
+                            wGradient += x * weight; // TODO not xt and no weight?
+                        }
+
+                        scoreNumerator1 += numerator1;
+                        scoreNumerator2 += numerator2;
+
+                        const auto t = scoreNumerator1 / resDenominator;
+                        const auto gradient = hNWeight[i] * t;
+                        const auto hessian = hNWeight[i] * (scoreNumerator2 / resDenominator - t * t);
+
+                        uGradient -= gradient;
+                        wGradient -= gradient * weight;
+
+                        uHessian += hessian;
+                        wHessian += hessian * weight * weight;
                     }
                 }
             }
         }
 
     if (hasScore) {
-        score[0] = static_cast<double>(gradient);
-        score[1] = static_cast<double>(hessian);
+        score[0] = static_cast<double>(uGradient);
+        score[1] = static_cast<double>(wGradient);
+
+        score[2] = static_cast<double>(uHessian);
+        score[3] = static_cast<double>(xHessian);
+        score[4] = static_cast<double>(xHessian);
+        score[5] = static_cast<double>(wHessian);
+
         // *score = static_cast<double>(gradient / hessian);
-        std::cerr << "score = " << gradient << " / " << hessian << "\n";
+        // std::cerr << "score = " << wGradient << " / " << wHessian << "\n";
         // std::cerr << "hess2 = " << hess2 << " or " <<  static_cast<RealType>(2.0) * hXjX[index] << "\n";
     }
 }
@@ -1344,8 +1394,6 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	if (BaseModel::precomputeHessian) { // Compile-time switch
 		hessian += static_cast<RealType>(2.0) * hXjX[index];
 	}
-
-	std::cerr << "hessian = " << hessian << " @ " << index << "\n";
 
  	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian);

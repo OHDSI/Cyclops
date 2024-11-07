@@ -4,7 +4,7 @@
 \alias{residuals.cyclopsFit}
 \title{Model residuals}
 \usage{
-\method{residuals}{cyclopsFit}(object, parm, type = "schoenfeld", ...)
+\method{residuals}{cyclopsFit}(object, parm = NULL, type = "schoenfeld", ...)
 }
 \arguments{
 \item{object}{A Cyclops model fit object}
