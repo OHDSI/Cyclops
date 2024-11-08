@@ -80,6 +80,7 @@ public:
 	virtual void computeSchoenfeldResiduals(int indexOne,
                                          std::vector<double>* residuals,
                                          std::vector<double>* times,
+                                         std::vector<int>* strata,
                                          double* covariate,
                                          double* score,
                                             // double* residuals,

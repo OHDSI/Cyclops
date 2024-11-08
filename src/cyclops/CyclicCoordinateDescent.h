@@ -133,6 +133,7 @@ public:
 	void getSchoenfeldResiduals(const IdType index,
                              std::vector<double>* residuals,
                              std::vector<double>* times,
+                             std::vector<int>* strata,
                              std::vector<double>* covariate,
                              double* score);
 

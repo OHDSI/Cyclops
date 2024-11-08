@@ -1818,6 +1818,7 @@ void CyclicCoordinateDescent::turnOffSyncCV() {
 void CyclicCoordinateDescent::getSchoenfeldResiduals(const IdType index,
                                                      std::vector<double>* residuals,
                                                      std::vector<double>* times,
+                                                     std::vector<int>* strata,
                                                      std::vector<double>* covariate,
                                                      double* score
                                                      ) {
@@ -1831,6 +1832,7 @@ void CyclicCoordinateDescent::getSchoenfeldResiduals(const IdType index,
 
     modelSpecifics.computeSchoenfeldResiduals(index,
                                               residuals, times,
+                                              strata,
                                               covariate != nullptr ? &(*covariate)[0] : nullptr,
                                               score,
                                               false);

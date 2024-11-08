@@ -199,6 +199,7 @@ protected:
 
 	void computeSchoenfeldResiduals(int indexOne,
                                  std::vector<double>* residuals, std::vector<double>* times,
+                                 std::vector<int>* strata,
                                  double* covariate, double* score,
                                  // double* residuals, double* numerators, double* denominators,
                                  bool useWeights);
@@ -332,6 +333,7 @@ private:
 	void getSchoenfeldResidualsImpl(int index,
                                  std::vector<double>* residuals,
                                  std::vector<double>* times,
+                                 std::vector<int>* strata,
                                  double* covariate,
                                  double* score,
                                  Weights w);

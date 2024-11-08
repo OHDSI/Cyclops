@@ -743,14 +743,12 @@ template <class BaseModel, typename RealType> template <class IteratorType, clas
 void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
                                                                     std::vector<double>* residuals,
                                                                     std::vector<double>* times,
-                                                                    std::vector<int>* strata,
                                                                     double* covariate,
                                                                     double* score,
                                                                     Weights w) {
 
     const bool hasResiduals = residuals != nullptr;
     const bool hasTimes = times != nullptr;
-    const bool hasStrata = strata != nullptr;
     const bool hasScore = score != nullptr && covariate != nullptr;
 
     if (hasResiduals) {
@@ -758,9 +756,6 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
     }
     if (hasTimes) {
         times->clear();
-    }
-    if (hasStrata) {
-        strata->clear();
     }
 
     RealType uGradient = static_cast<RealType>(0); // unweighted
@@ -808,15 +803,10 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
             resNumerator += expXBeta * x;
             resDenominator += expXBeta;
 
-            if (hY[i] == 1 ) {
-                if (hasResiduals) {
-                    residuals->push_back(it.value() - resNumerator / resDenominator);
-                }
+            if (hY[i] == 1 && hasResiduals) {
+                residuals->push_back(it.value() - resNumerator / resDenominator);
                 if (hasTimes) {
                     times->push_back(hOffs[i]);
-                }
-                if (hasStrata) {
-                    strata->push_back(hPidOriginal[i]);
                 }
             }
 
@@ -871,15 +861,10 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
 
                     resDenominator += expXBeta;
 
-                    if (hY[i] == 1) {
-                        if (hasResiduals) {
-                            residuals->push_back(-resNumerator / resDenominator);
-                        }
+                    if (hY[i] == 1 && hasResiduals) {
+                        residuals->push_back(-resNumerator / resDenominator);
                         if (hasTimes) {
                             times->push_back(hOffs[i]);
-                        }
-                        if (hasStrata) {
-                            strata->push_back(hPidOriginal[i]);
                         }
                     }
 
@@ -916,15 +901,12 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
 
     if (hasScore) {
         score[0] = static_cast<double>(uGradient);
-        score[1] = static_cast<double>(wGradient);
-
-        score[2] = static_cast<double>(uHessian);
-        score[3] = static_cast<double>(xHessian);
+        score[1] = static_cast<double>(uHessian);
+        score[2] = static_cast<double>(wGradient);
+        score[3] = static_cast<double>(wHessian);
         score[4] = static_cast<double>(xHessian);
-        score[5] = static_cast<double>(wHessian);
-
         // *score = static_cast<double>(gradient / hessian);
-        // std::cerr << "score = " << wGradient << " / " << wHessian << "\n";
+        std::cerr << "score = " << wGradient << " / " << wHessian << "\n";
         // std::cerr << "hess2 = " << hess2 << " or " <<  static_cast<RealType>(2.0) * hXjX[index] << "\n";
     }
 }
@@ -1102,7 +1084,7 @@ void ModelSpecifics<BaseModel,RealType>::computeMMGradientAndHessianImpl(int ind
     *ogradient = static_cast<double>(gradient);
     *ohessian = static_cast<double>(hessian);
 
-    // std::cerr << index << " " << gradient << " " << hessian << std::endl;
+    std::cerr << index << " " << gradient << " " << hessian << std::endl;
 
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifdef CYCLOPS_DEBUG_TIMING_LOW
@@ -1410,6 +1392,9 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 		hessian += static_cast<RealType>(2.0) * hXjX[index];
 	}
 
+	std::cerr << "gradient = " << gradient << " @ " << index << "\n";
+	std::cerr << "hessian = " << hessian << " @ " << index << "\n";
+
  	*ogradient = static_cast<double>(gradient);
 	*ohessian = static_cast<double>(hessian);
 
@@ -1567,7 +1552,6 @@ template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeSchoenfeldResiduals(int indexOne,
                                                                     std::vector<double>* residuals,
                                                                     std::vector<double>* otimes,
-                                                                    std::vector<int>* strata,
                                                                     double* covariate,
                                                                     double* score,
                                                                     bool useWeights) {
@@ -1576,16 +1560,16 @@ void ModelSpecifics<BaseModel,RealType>::computeSchoenfeldResiduals(int indexOne
     } else { // no weights
         switch (hX.getFormatType(indexOne)) {
         case INDICATOR :
-            getSchoenfeldResidualsImpl<IndicatorIterator<RealType>>(indexOne, residuals, otimes, strata, covariate, score, weighted);
+            getSchoenfeldResidualsImpl<IndicatorIterator<RealType>>(indexOne, residuals, otimes, covariate, score, weighted);
             break;
         case SPARSE :
-            getSchoenfeldResidualsImpl<SparseIterator<RealType>>(indexOne, residuals, otimes, strata, covariate, score, weighted);
+            getSchoenfeldResidualsImpl<SparseIterator<RealType>>(indexOne, residuals, otimes, covariate, score, weighted);
             break;
         case DENSE :
-            getSchoenfeldResidualsImpl<DenseIterator<RealType>>(indexOne, residuals, otimes, strata, covariate, score, weighted);
+            getSchoenfeldResidualsImpl<DenseIterator<RealType>>(indexOne, residuals, otimes, covariate, score, weighted);
             break;
         case INTERCEPT :
-            getSchoenfeldResidualsImpl<InterceptIterator<RealType>>(indexOne, residuals, otimes, strata, covariate, score, weighted);
+            getSchoenfeldResidualsImpl<InterceptIterator<RealType>>(indexOne, residuals, otimes, covariate, score, weighted);
             break;
         }
     }

@@ -245,13 +245,14 @@ Rcpp::List cyclopsTestProportionality(SEXP inRcppCcdInterface,
     std::vector<IdType> indices = getIndices(interface, sexpBitCovariates);
     std::vector<double> residuals;
     std::vector<double> times;
+    std::vector<int> strata;
 
     const int nCovariates = 1; // TODO generalize for multiple covariates
     const int dim = nCovariates + 1;
     std::vector<double> score(dim * (dim + 1));
 
     interface->getCcd().getSchoenfeldResiduals(indices[0],
-                      &residuals, &times, &covariate, &score[0]);
+                      &residuals, &times, &strata, &covariate, &score[0]);
 
     std::vector<double> gradient(dim);
     std::vector<double> hessian(dim * dim);
@@ -281,13 +282,15 @@ Rcpp::DataFrame cyclopsGetSchoenfeldResiduals(SEXP inRcppCcdInterface,
     std::vector<IdType> indices = getIndices(interface, sexpBitCovariates);
     std::vector<double> residuals;
     std::vector<double> times;
+    std::vector<int> strata;
 
     interface->getCcd().getSchoenfeldResiduals(indices[0],
-                      &residuals, &times, nullptr, nullptr);
+                      &residuals, &times, &strata, nullptr, nullptr);
 
     return DataFrame::create(
         Named("residuals") = residuals,
-        Named("times") = times
+        Named("times") = times,
+        Named("strata") = strata
     );
 }
 

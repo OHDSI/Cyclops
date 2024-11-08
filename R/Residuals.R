@@ -49,10 +49,18 @@ residuals.cyclopsFit <- function(object, parm = NULL, type = "schoenfeld", ...) 
 
     res <- .cyclopsGetSchoenfeldResiduals(object$interface, NULL)
 
+    res <- res[order(res$strata, res$times),]
+
     result <- res$residuals
     names(result) <- res$times
 
-    return(rev(result))
+    tbl <- table(res$strata)
+    if (dim(tbl) > 1) {
+        names(tbl) <- paste0("strata=", names(tbl))
+        attr(result, "strata") <- tbl
+    }
+
+    return(result)
 }
 
 #' @title Test hazard ratio proportionality assumption
