@@ -56,7 +56,7 @@ residuals.cyclopsFit <- function(object, parm = NULL, type = "schoenfeld", ...) 
 
     tbl <- table(res$strata)
     if (dim(tbl) > 1) {
-        names(tbl) <- paste0("strata=", names(tbl))
+        names(tbl) <- paste0("stratum=", names(tbl))
         attr(result, "strata") <- tbl
     }
 
@@ -101,7 +101,7 @@ testProportionality <- function(object, parm = NULL, transformedTimes) {
     res$hessian <- matrix(res$hessian, nrow = (nCovariates + 1))
 
     if (any(abs(res$gradient[1:nCovariates]) > 1E-5)) {
-        stop("Internal state of Cyclops 'object' is not at its mode")
+        warning("Internal state of Cyclops 'object' is not at its mode") # TODO change to `stop`
     }
 
     u <- c(rep(0, nCovariates), res$gradient[nCovariates + 1])

@@ -46,3 +46,58 @@ test_that("Check Schoenfeld residuals and PH test, with strata", {
 
     expect_equal(ctest$table, gtest$table)
 })
+
+test_that("Check Schoenfeld residuals and PH test, with sparse covariates", {
+    test <- read.table(header=T, sep = ",", text = "
+start, length, event, x1, x2
+0, 4,  1,0,0
+0, 3,  1,2,0
+0, 3,  0,0,1
+0, 2,  1,0,1
+0, 2,  1,1,1
+0, 1,  0,1,0
+0, 1,  1,1,0
+")
+
+    gfit <- coxph(Surv(length, event) ~ x1, test, ties = "breslow")
+    gres <- residuals(gfit, "schoenfeld")
+    gtest <- cox.zph(gfit, transform = "identity", global = FALSE)
+
+
+    data <- createCyclopsData(Surv(length, event) ~ x1,
+                              # sparseFormula = ~ x1,
+                              data = test, modelType = "cox")
+
+    cfit <- fitCyclopsModel(data)
+    cres <- residuals(cfit, "schoenfeld") # TODO broken (and not even sparse yet)
+
+    ttimes <- test$length - mean(test$length[test$event == 1])
+    ctest <- testProportionality(cfit, parm = NULL, transformedTimes = ttimes)
+
+
+    expect_equivalent(cres, gres)
+})
+
+test_that("Check Schoenfeld residuals and PH test, with sparse covariates", {
+    test <- read.table(header=T, sep = ",", text = "
+start, length, event, x1, x2
+0, 4,  1,0,0
+0, 3,  1,2,0
+0, 3,  0,0,1
+0, 2,  1,0,1
+0, 2,  1,1,1
+0, 1,  0,1,0
+0, 1,  1,1,0
+")
+
+    gfit <- coxph(Surv(length, event) ~ x1 + strata(x2), test, ties = "breslow")
+    gres <- residuals(gfit, "schoenfeld")
+
+    data <- createCyclopsData(Surv(length, event) ~ x1+ strata(x2),
+                                    # sparseFormula = ~ x1,
+                                    data = test, modelType = "cox")
+
+    cfit <- fitCyclopsModel(data)
+    cres <- residuals(cfit, "schoenfeld") # TODO broken (and not even sparse yet)
+    expect_equivalent(cres, gres)
+})

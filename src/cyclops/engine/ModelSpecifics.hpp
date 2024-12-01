@@ -765,159 +765,173 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
 
     RealType uGradient = static_cast<RealType>(0); // unweighted
     RealType uHessian = static_cast<RealType>(0);
-
     RealType wGradient = static_cast<RealType>(0); // weighted
     RealType wHessian = static_cast<RealType>(0);
-
     RealType xHessian = static_cast<RealType>(0);
 
     // TODO: only written for accummulive models (Cox, Fine/Grey)
 
-        IteratorType it(hX, index);
+	IteratorType it(hX, index);
 
-        RealType resNumerator  = static_cast<RealType>(0);
-        RealType resDenominator = static_cast<RealType>(0);
+	RealType resNumerator  = static_cast<RealType>(0);
+	RealType resDenominator = static_cast<RealType>(0);
+	RealType scoreNumerator1 = static_cast<RealType>(0);
+	RealType scoreNumerator2 = static_cast<RealType>(0);
+	RealType scoreDenominator = static_cast<RealType>(0);
 
-        RealType scoreNumerator1 = static_cast<RealType>(0);
-        RealType scoreNumerator2 = static_cast<RealType>(0);
-        RealType scoreDenominator = static_cast<RealType>(0);
+	// find start relavent accumulator reset point
+	auto reset = begin(accReset);
+	while( *reset < it.index() ) {
+		++reset;
+	}
 
-        // find start relavent accumulator reset point
-        auto reset = begin(accReset);
-        while( *reset < it.index() ) {
-            ++reset;
-        }
+	auto processRow = [&](int i, RealType x) {
 
-        for (; it; ) {
-            int i = it.index();
-            const RealType x = it.value();
+	    std::cerr << "row " << i;
 
-            if (*reset <= i) {
-                resNumerator = static_cast<RealType>(0);
-                resDenominator = static_cast<RealType>(0);
+		if (*reset <= i) {
 
-                scoreNumerator1 = static_cast<RealType>(0);
-                scoreNumerator2 = static_cast<RealType>(0);
-                scoreDenominator = static_cast<RealType>(0);
+		    std::cerr << " reset ";
 
-                ++reset;
-            }
+			resNumerator = static_cast<RealType>(0);
+			resDenominator = static_cast<RealType>(0);
+			scoreNumerator1 = static_cast<RealType>(0);
+			scoreNumerator2 = static_cast<RealType>(0);
+			scoreDenominator = static_cast<RealType>(0);
 
-            const auto expXBeta = offsExpXBeta[i]; // std::exp(hXBeta[i]);
+			++reset;
+		}
 
-            resNumerator += expXBeta * x;
-            resDenominator += expXBeta;
+		const auto expXBeta = offsExpXBeta[i]; // std::exp(hXBeta[i]);
 
-            if (hY[i] == 1 ) {
-                if (hasResiduals) {
-                    residuals->push_back(it.value() - resNumerator / resDenominator);
-                }
-                if (hasTimes) {
-                    times->push_back(hOffs[i]);
-                }
-                if (hasStrata) {
-                    strata->push_back(hPidOriginal[i]);
-                }
-            }
+		resNumerator += expXBeta * x;
+		resDenominator += expXBeta;
 
-            if (hasScore) {
-                const auto weight = covariate[i];
-                // MAS does not believe reweighing is correct, but is matching cox.zph
+		if (hY[i] == 1 ) {
+		    std::cerr << " " << x << " for " << resNumerator << " / " << resDenominator;
+			if (hasResiduals) {
+			    const auto residual = x - resNumerator / resDenominator;
+				residuals->push_back(residual);
+			}
+			if (hasTimes) {
+				times->push_back(hOffs[i]);
+			}
+			if (hasStrata) {
+				strata->push_back(hPidOriginal[i]);
+			}
+		}
 
-                // const auto xt = x * covariate[i];
-                // MAS believes covariate should be adjusted
-                const auto numerator1 = expXBeta * x; // TODO not xt?
-                const auto numerator2 = expXBeta * x * x; // TODO not xt?
+		if (hasScore) {
+			const auto weight = covariate[i];
+			// MAS does not believe reweighing is correct, but is matching cox.zph
 
-                if (hY[i] == 1) {
-                    uGradient += x;
-                    wGradient += x * weight; // TODO not xt and no weight?
-                }
+			// const auto xt = x * covariate[i];
+			// MAS believes covariate should be adjusted
+			const auto numerator1 = expXBeta * x; // TODO not xt?
+			const auto numerator2 = expXBeta * x * x; // TODO not xt?
 
-                scoreNumerator1 += numerator1;
-                scoreNumerator2 += numerator2;
+			if (hY[i] == 1) {
+				uGradient += x;
+				wGradient += x * weight; // TODO not xt and no weight?
+			}
 
-                const auto t = scoreNumerator1 / resDenominator;
-                const auto gradient = hNWeight[i] * t;
-                const auto hessian = hNWeight[i] * (scoreNumerator2 / resDenominator - t * t);
+			scoreNumerator1 += numerator1;
+			scoreNumerator2 += numerator2;
 
-                uGradient -= gradient;
-                wGradient -= gradient * weight;
+			const auto t = scoreNumerator1 / resDenominator;
+			const auto gradient = hNWeight[i] * t;
+			const auto hessian = hNWeight[i] * (scoreNumerator2 / resDenominator - t * t);
 
-                uHessian += hessian;
-                wHessian += hessian * weight * weight;
-                xHessian += hessian * weight;
-            }
+			uGradient -= gradient;
+			wGradient -= gradient * weight;
 
-            ++it;
+			uHessian += hessian;
+			wHessian += hessian * weight * weight;
+			xHessian += hessian * weight;
+		}
 
-            if (IteratorType::isSparse) {
+		std::cerr << "\n";
+	};
 
-                const int next = it ? it.index() : N;
-                for (++i; i < next; ++i) {
+	// main loop
+	for (; it; ) {
 
-                    if (*reset <= i) {
-                        resNumerator = static_cast<RealType>(0);
-                        resDenominator = static_cast<RealType>(0);
+		int i = it.index();
+		const RealType x = it.value();
 
-                        scoreNumerator1 = static_cast<RealType>(0);
-                        scoreNumerator2 = static_cast<RealType>(0);
-                        scoreDenominator = static_cast<RealType>(0);
+		processRow(i, x);
 
-                        ++reset;
-                    }
+		++it;
 
-                    const auto expXBeta = offsExpXBeta[i]; // std::exp(hXBeta[i]);
+		if (IteratorType::isSparse) {
 
-                    resDenominator += expXBeta;
+			const int next = it ? it.index() : N;
+			for (++i; i < next; ++i) {
 
-                    if (hY[i] == 1) {
-                        if (hasResiduals) {
-                            residuals->push_back(-resNumerator / resDenominator);
-                        }
-                        if (hasTimes) {
-                            times->push_back(hOffs[i]);
-                        }
-                        if (hasStrata) {
-                            strata->push_back(hPidOriginal[i]);
-                        }
-                    }
+				processRow(i, static_cast<RealType>(0));
 
-                    if (hasScore) {
-                        const auto weight = covariate[i];
-                        // MAS does not believe reweighing is correct, but is matching cox.zph
-
-                        // const auto xt = x * covariate[i];
-                        // MAS believes covariate should be adjusted
-                        const auto numerator1 = expXBeta * x; // TODO not xt?
-                        const auto numerator2 = expXBeta * x * x; // TODO not xt?
-
-                        if (hY[i] == 1) {
-                            uGradient += x;
-                            wGradient += x * weight; // TODO not xt and no weight?
-                        }
-
-                        scoreNumerator1 += numerator1;
-                        scoreNumerator2 += numerator2;
-
-                        const auto t = scoreNumerator1 / resDenominator;
-                        const auto gradient = hNWeight[i] * t;
-                        const auto hessian = hNWeight[i] * (scoreNumerator2 / resDenominator - t * t);
-
-                        uGradient -= gradient;
-                        wGradient -= gradient * weight;
-
-                        uHessian += hessian;
-                        wHessian += hessian * weight * weight;
-                    }
-                }
-            }
-        }
+// 				if (*reset <= i) {
+// 					resNumerator = static_cast<RealType>(0);
+// 					resDenominator = static_cast<RealType>(0);
+//
+// 					scoreNumerator1 = static_cast<RealType>(0);
+// 					scoreNumerator2 = static_cast<RealType>(0);
+// 					scoreDenominator = static_cast<RealType>(0);
+//
+// 					++reset;
+// 				}
+//
+// 				const auto expXBeta = offsExpXBeta[i]; // std::exp(hXBeta[i]);
+//
+// 				resDenominator += expXBeta;
+//
+// 				if (hY[i] == 1) {
+// 					if (hasResiduals) {
+// 						residuals->push_back(-resNumerator / resDenominator);
+// 					}
+// 					if (hasTimes) {
+// 						times->push_back(hOffs[i]);
+// 					}
+// 					if (hasStrata) {
+// 						strata->push_back(hPidOriginal[i]);
+// 					}
+// 				}
+//
+// 				if (hasScore) {
+// 					const auto weight = covariate[i];
+// 					// MAS does not believe reweighing is correct, but is matching cox.zph
+//
+// 					// const auto xt = x * covariate[i];
+// 					// MAS believes covariate should be adjusted
+// 					const auto numerator1 = expXBeta * x; // TODO not xt?
+// 					const auto numerator2 = expXBeta * x * x; // TODO not xt?
+//
+// 					if (hY[i] == 1) {
+// 						uGradient += x;
+// 						wGradient += x * weight; // TODO not xt and no weight?
+// 					}
+//
+// 					scoreNumerator1 += numerator1;
+// 					scoreNumerator2 += numerator2;
+//
+// 					const auto t = scoreNumerator1 / resDenominator;
+// 					const auto gradient = hNWeight[i] * t;
+// 					const auto hessian = hNWeight[i] * (scoreNumerator2 / resDenominator - t * t);
+//
+// 					uGradient -= gradient;
+// 					wGradient -= gradient * weight;
+//
+// 					uHessian += hessian;
+// 					wHessian += hessian * weight * weight;
+// 				}
+			}
+		}
+	}
 
     if (hasScore) {
+
         score[0] = static_cast<double>(uGradient);
         score[1] = static_cast<double>(wGradient);
-
         score[2] = static_cast<double>(uHessian);
         score[3] = static_cast<double>(xHessian);
         score[4] = static_cast<double>(xHessian);
