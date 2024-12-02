@@ -1,9 +1,11 @@
-## Submission of v3.4.1
+## Submission of v3.5.0
 
-* fix some NaN/-Inf inconsistencies with likelihood profiling
+* provide optional (`optimalWarmStart = FALSE`) more parallelization when profiling likelihood
+* make `maxResets` a function parameter
+* ensure compatibility with R v4.4
     
 ## Test environments
-* local OS X install, R 4.3
+* local OS X install, R 4.2 / 4.4
 * r-devel-valgrind docker container
 * ubuntu 20.04 (via gh-actions: devel and release)
 * win-builder (devel and release)
