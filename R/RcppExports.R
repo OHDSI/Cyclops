@@ -125,6 +125,10 @@
     .Call(`_Cyclops_cyclopsInitializeModel`, inModelData, modelType, computeDevice, computeMLE)
 }
 
+.cyclopsGetLogLikelihoodHessianDiagonal <- function(inRcppCcdInterface, sexpCovariates) {
+    .Call(`_Cyclops_cyclopsGetLogLikelihoodHessianDiagonal`, inRcppCcdInterface, sexpCovariates)
+}
+
 #' @title List available GPU devices
 #'
 #' @description

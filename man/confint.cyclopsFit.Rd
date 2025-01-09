@@ -11,6 +11,7 @@
   overrideNoRegularization = FALSE,
   includePenalty = TRUE,
   rescale = FALSE,
+  maximumCurvature = -0.001,
   ...
 )
 }
@@ -27,6 +28,8 @@ either a vector of numbers of covariateId names}
 \item{includePenalty}{Logical: Include regularized covariate penalty in profile}
 
 \item{rescale}{Boolean: rescale coefficients for unnormalized covariate values}
+
+\item{maximumCurvature}{Numeric: maximum curvature of log-likelihood profile required to compute CI}
 
 \item{...}{Additional argument(s) for methods}
 }

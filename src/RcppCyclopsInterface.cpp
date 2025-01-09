@@ -744,6 +744,55 @@ List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, cons
 	return list;
 }
 
+// // [[Rcpp::export(".cyclopsGetLogLikelihoodGradient")]]
+// NumericVector cyclopsGetLogLikelihoodGradient(SEXP inRcppCcdInterface, int index) {
+//     using namespace bsccs;
+//
+//     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+//
+//     auto& ccd = interface->getCcd();
+//     auto& data = interface->getModelData();
+//
+//     // const auto offset = data.getHasOffsetCovariate();
+//     const int offset = 0;
+//
+//     return ccd.getLogLikelihoodGradient(index + offset);
+// }
+
+// [[Rcpp::export(".cyclopsGetLogLikelihoodHessianDiagonal")]]
+NumericVector cyclopsGetLogLikelihoodHessianDiagonal(SEXP inRcppCcdInterface, SEXP sexpCovariates) {
+    using namespace bsccs;
+
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    NumericVector diagonals;
+
+    if (!Rf_isNull(sexpCovariates)) {
+
+        auto& ccd = interface->getCcd();
+        auto& data = interface->getModelData();
+
+        const std::vector<double>& bitCovariates = as<std::vector<double>>(sexpCovariates);
+        ProfileVector covariates = reinterpret_cast<const std::vector<int64_t>&>(bitCovariates);
+
+        for (ProfileVector::const_iterator it = covariates.begin();
+             it != covariates.end(); ++it) {
+
+            int index = data.getColumnIndexByName(*it);
+
+            if (index == -1) {
+                std::stringstream error;
+                error << "Variable " << *it << " not found.";
+                interface->handleError(error.str());
+            } else {
+                diagonals.push_back(-ccd.getHessianDiagonal(index));
+            }
+        }
+    }
+
+    return diagonals;
+}
+
 namespace bsccs {
 
 void RcppCcdInterface::appendRList(Rcpp::List& list, const Rcpp::List& append) {

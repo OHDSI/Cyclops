@@ -825,6 +825,7 @@ runBootstrap <- function(object, outFileName, treatmentId, replicates) {
 #' @param overrideNoRegularization   Logical: Enable confidence interval estimation for regularized parameters
 #' @param includePenalty    Logical: Include regularized covariate penalty in profile
 #' @param rescale   Boolean: rescale coefficients for unnormalized covariate values
+#' @param maximumCurvature Numeric: maximum curvature of log-likelihood profile required to compute CI
 #' @param ... Additional argument(s) for methods
 #'
 #' @return
@@ -838,7 +839,9 @@ runBootstrap <- function(object, outFileName, treatmentId, replicates) {
 confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
                                overrideNoRegularization = FALSE,
                                includePenalty = TRUE,
-                               rescale = FALSE, ...) {
+                               rescale = FALSE,
+                               maximumCurvature = -1E-3,
+                               ...) {
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     #.setControl(object$cyclopsData$cyclopsInterfacePtr, control)
 
@@ -853,6 +856,12 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
         if (any(object$fixedCoefficients[as.integer(parm)])) {
             stop("Cannot estimate confidence interval for a fixed coefficient")
         }
+    }
+
+    hessianDiagonal <- .cyclopsGetLogLikelihoodHessianDiagonal(object$cyclopsData$cyclopsInterfacePtr,
+                                                               parm)
+    if (any(hessianDiagonal > maximumCurvature)) {
+        stop("Cannot estimate confidence interval for a monotonic log-likelihood function")
     }
 
     prof <- .cyclopsProfileModel(object$cyclopsData$cyclopsInterfacePtr, parm,

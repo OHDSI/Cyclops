@@ -404,6 +404,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsGetLogLikelihoodHessianDiagonal
+NumericVector cyclopsGetLogLikelihoodHessianDiagonal(SEXP inRcppCcdInterface, SEXP sexpCovariates);
+RcppExport SEXP _Cyclops_cyclopsGetLogLikelihoodHessianDiagonal(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type sexpCovariates(sexpCovariatesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetLogLikelihoodHessianDiagonal(inRcppCcdInterface, sexpCovariates));
+    return rcpp_result_gen;
+END_RCPP
+}
 // listGPUDevices
 Rcpp::CharacterVector listGPUDevices();
 RcppExport SEXP _Cyclops_listGPUDevices() {
@@ -902,6 +914,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsRunBootstrap", (DL_FUNC) &_Cyclops_cyclopsRunBootstrap, 4},
     {"_Cyclops_cyclopsLogModel", (DL_FUNC) &_Cyclops_cyclopsLogModel, 1},
     {"_Cyclops_cyclopsInitializeModel", (DL_FUNC) &_Cyclops_cyclopsInitializeModel, 4},
+    {"_Cyclops_cyclopsGetLogLikelihoodHessianDiagonal", (DL_FUNC) &_Cyclops_cyclopsGetLogLikelihoodHessianDiagonal, 2},
     {"_Cyclops_listGPUDevices", (DL_FUNC) &_Cyclops_listGPUDevices, 0},
     {"_Cyclops_getDefaultGPUDevice", (DL_FUNC) &_Cyclops_getDefaultGPUDevice, 0},
     {"_Cyclops_isSorted", (DL_FUNC) &_Cyclops_isSorted, 3},
