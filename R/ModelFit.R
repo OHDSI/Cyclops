@@ -845,6 +845,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     #.setControl(object$cyclopsData$cyclopsInterfacePtr, control)
 
+    savedParm <- parm
     parm <- .checkCovariates(object$cyclopsData, parm)
     if (level < 0.01 || level > 0.99) {
         stop("level must be between 0 and 1")
@@ -861,13 +862,19 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
     hessianDiagonal <- .cyclopsGetLogLikelihoodHessianDiagonal(object$cyclopsData$cyclopsInterfacePtr,
                                                                parm)
     if (any(hessianDiagonal > maximumCurvature)) {
-        stop("Cannot estimate confidence interval for a monotonic log-likelihood function")
-    }
+        warning("Cannot estimate confidence interval for a monotonic log-likelihood function")
 
-    prof <- .cyclopsProfileModel(object$cyclopsData$cyclopsInterfacePtr, parm,
-                                 threads, threshold,
-                                 overrideNoRegularization,
-                                 includePenalty)
+        prof <- data.frame(covariates = savedParm,
+                           lower = rep(NA, length(parm)),
+                           upper = rep(NA, length(parm)),
+                           evaluations = rep(NA, length(parm)))
+    } else {
+
+        prof <- .cyclopsProfileModel(object$cyclopsData$cyclopsInterfacePtr, parm,
+                                     threads, threshold,
+                                     overrideNoRegularization,
+                                     includePenalty)
+    }
 
     indices <- match(parm, getCovariateIds(object$cyclopsData))
 

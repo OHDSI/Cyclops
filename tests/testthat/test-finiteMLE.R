@@ -25,7 +25,7 @@ test_that("Check for infinite MLE in Cox example with no outcomes in one treatme
     cyclopsData <- createCyclopsData(Surv(time, outcome) ~ exposure, data = data, modelType = "cox")
     expect_warning(fit <- fitCyclopsModel(cyclopsData), regexp =".*coefficient may be infinite.*")
 
-    expect_error(ci <- confint(fit, parm = "exposureTRUE", level = 0.9))
+    expect_warning(ci <- confint(fit, parm = "exposureTRUE", level = 0.9))
     ci <- confint(fit, parm = "exposureTRUE", level = 0.9, maximumCurvature = 0)
     expect_true(is.na(ci[2]))
 })
