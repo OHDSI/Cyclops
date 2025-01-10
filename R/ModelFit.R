@@ -864,7 +864,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
     if (any(hessianDiagonal > maximumCurvature)) {
         warning("Cannot estimate confidence interval for a monotonic log-likelihood function")
 
-        prof <- data.frame(covariates = savedParm,
+        prof <- data.frame(covariate = savedParm,
                            lower = rep(NA, length(parm)),
                            upper = rep(NA, length(parm)),
                            evaluations = rep(NA, length(parm)))
