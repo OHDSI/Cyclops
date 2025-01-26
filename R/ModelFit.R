@@ -1124,6 +1124,9 @@ vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, .
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     .setControl(object$cyclopsData$cyclopsInterfacePtr, control)
     fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsData$cyclopsInterfacePtr, NULL)
+    if (.cyclopsGetHasOffset(object$cyclopsData)) {
+        fisherInformation <- fisherInformation[2:nrow(fisherInformation), 2:ncol(fisherInformation)]
+    }
     vcov <- solve(fisherInformation)
     if (!is.null(object$coefficientNames)) {
         rownames(vcov) <- object$coefficientNames

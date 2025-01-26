@@ -3,6 +3,7 @@ develop
 
 1. add Schoenfeld residual output for Cox models
 2. check for negative curvature before computing CIs
+3. fix `vcov` when model has an offset
 
 Cyclops v3.5.0
 ==============
