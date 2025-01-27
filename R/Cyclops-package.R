@@ -1,5 +1,5 @@
 #' @keywords internal
-"_PACKAGE"
+NULL # "_PACKAGE"
 
 ## usethis namespace: start
 ## usethis namespace: end
