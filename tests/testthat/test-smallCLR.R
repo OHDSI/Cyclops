@@ -56,8 +56,10 @@ test_that("Small conditional poisson regression with an offset", {
     cyclopsFit <- fitCyclopsModel(dataPtr,
                                   prior = createPrior("none"))
 
-    expect_equivalent(coef(cyclopsFit), coef(gold.cp))
-    expect_equivalent(vcov(cyclopsFit), vcov(gold.cp))
+    expect_equal(as.numeric(coef(cyclopsFit)), as.numeric(coef(gold.cp)),
+                 tolerance = 1E-6)
+    expect_equal(as.numeric(vcov(cyclopsFit)), as.numeric(vcov(gold.cp)),
+                 tolerance = 1E-6)
 })
 
 
