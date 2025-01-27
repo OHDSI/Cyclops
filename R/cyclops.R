@@ -37,7 +37,7 @@
 #' @importFrom rlang .data
 #'
 #' @useDynLib Cyclops, .registration = TRUE
-"_PACKAGE"
+# "_PACKAGE"
 
 .onUnload <- function (libpath) {
   library.dynam.unload("Cyclops", libpath)

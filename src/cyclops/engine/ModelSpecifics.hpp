@@ -787,11 +787,11 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
 
 	auto processRow = [&](int i, RealType x) {
 
-	    std::cerr << "row " << i;
+	    // std::cerr << "row " << i;
 
 		if (*reset <= i) {
 
-		    std::cerr << " reset ";
+		    // std::cerr << " reset ";
 
 			resNumerator = static_cast<RealType>(0);
 			resDenominator = static_cast<RealType>(0);
@@ -808,7 +808,7 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
 		resDenominator += expXBeta;
 
 		if (hY[i] == 1 ) {
-		    std::cerr << " " << x << " for " << resNumerator << " / " << resDenominator;
+		    // std::cerr << " " << x << " for " << resNumerator << " / " << resDenominator;
 			if (hasResiduals) {
 			    const auto residual = x - resNumerator / resDenominator;
 				residuals->push_back(residual);
@@ -850,7 +850,7 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
 			xHessian += hessian * weight;
 		}
 
-		std::cerr << "\n";
+		// std::cerr << "\n";
 	};
 
 	// main loop
