@@ -311,6 +311,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsSetConvergenceType
+void cyclopsSetConvergenceType(SEXP inRcppCcdInterface, const std::string& convergenceType);
+RcppExport SEXP _Cyclops_cyclopsSetConvergenceType(SEXP inRcppCcdInterfaceSEXP, SEXP convergenceTypeSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type convergenceType(convergenceTypeSEXP);
+    cyclopsSetConvergenceType(inRcppCcdInterface, convergenceType);
+    return R_NilValue;
+END_RCPP
+}
+// cyclopsGetConvergenceType
+int cyclopsGetConvergenceType(SEXP inRcppCcdInterface);
+RcppExport SEXP _Cyclops_cyclopsGetConvergenceType(SEXP inRcppCcdInterfaceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetConvergenceType(inRcppCcdInterface));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsSetControl
 void cyclopsSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance, bool useKKTSwindle, int swindleMultipler, const std::string& selectorType, double initialBound, int maxBoundCount, const std::string& algorithm, bool doItAll, bool syncCV);
 RcppExport SEXP _Cyclops_cyclopsSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP threadsSEXP, SEXP seedSEXP, SEXP resetCoefficientsSEXP, SEXP startingVarianceSEXP, SEXP useKKTSwindleSEXP, SEXP swindleMultiplerSEXP, SEXP selectorTypeSEXP, SEXP initialBoundSEXP, SEXP maxBoundCountSEXP, SEXP algorithmSEXP, SEXP doItAllSEXP, SEXP syncCVSEXP) {
@@ -908,6 +930,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetProfileLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetProfileLikelihood, 5},
     {"_Cyclops_cyclopsProfileModel", (DL_FUNC) &_Cyclops_cyclopsProfileModel, 6},
     {"_Cyclops_cyclopsPredictModel", (DL_FUNC) &_Cyclops_cyclopsPredictModel, 1},
+    {"_Cyclops_cyclopsSetConvergenceType", (DL_FUNC) &_Cyclops_cyclopsSetConvergenceType, 2},
+    {"_Cyclops_cyclopsGetConvergenceType", (DL_FUNC) &_Cyclops_cyclopsGetConvergenceType, 1},
     {"_Cyclops_cyclopsSetControl", (DL_FUNC) &_Cyclops_cyclopsSetControl, 23},
     {"_Cyclops_cyclopsRunCrossValidationl", (DL_FUNC) &_Cyclops_cyclopsRunCrossValidationl, 1},
     {"_Cyclops_cyclopsFitModel", (DL_FUNC) &_Cyclops_cyclopsFitModel, 1},

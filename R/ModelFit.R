@@ -861,14 +861,27 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 
     hessianDiagonal <- .cyclopsGetLogLikelihoodHessianDiagonal(object$cyclopsData$cyclopsInterfacePtr,
                                                                parm)
-    if (any(hessianDiagonal > maximumCurvature)) {
-        warning("Cannot estimate confidence interval for a monotonic log-likelihood function")
 
-        prof <- data.frame(covariate = savedParm,
-                           lower = rep(NA, length(parm)),
-                           upper = rep(NA, length(parm)),
-                           evaluations = rep(NA, length(parm)))
-    } else {
+    convergenceType <- .cyclopsGetConvergenceType(object$cyclopsData$cyclopsInterfacePtr)
+    prof <- NULL
+    if (convergenceType != 1 && any(hessianDiagonal >= maximumCurvature)) {
+
+        .cyclopsSetConvergenceType(object$interface, "lange")
+        newFit <- .cyclopsFitModel(cyclopsData$cyclopsInterfacePtr)
+        newHessianDiagonal <- .cyclopsGetLogLikelihoodHessianDiagonal(object$cyclopsData$cyclopsInterfacePtr,
+                                                                      parm)
+
+        if (any(newHessianDiagonal > 0)) {
+            warning("Cannot estimate confidence interval for positive-curvature log-likelihood function")
+
+            prof <- data.frame(covariate = savedParm,
+                               lower = rep(NA, length(parm)),
+                               upper = rep(NA, length(parm)),
+                               evaluations = rep(NA, length(parm)))
+        }
+    }
+
+    if (is.null(prof)) {
 
         prof <- .cyclopsProfileModel(object$cyclopsData$cyclopsInterfacePtr, parm,
                                      threads, threshold,

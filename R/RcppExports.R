@@ -101,6 +101,14 @@
     .Call(`_Cyclops_cyclopsPredictModel`, inRcppCcdInterface)
 }
 
+.cyclopsSetConvergenceType <- function(inRcppCcdInterface, convergenceType) {
+    invisible(.Call(`_Cyclops_cyclopsSetConvergenceType`, inRcppCcdInterface, convergenceType))
+}
+
+.cyclopsGetConvergenceType <- function(inRcppCcdInterface) {
+    .Call(`_Cyclops_cyclopsGetConvergenceType`, inRcppCcdInterface)
+}
+
 .cyclopsSetControl <- function(inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount, algorithm, doItAll, syncCV) {
     invisible(.Call(`_Cyclops_cyclopsSetControl`, inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount, algorithm, doItAll, syncCV))
 }

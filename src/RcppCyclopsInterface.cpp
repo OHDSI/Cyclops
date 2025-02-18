@@ -540,6 +540,25 @@ List cyclopsPredictModel(SEXP inRcppCcdInterface) {
 	return list;
 }
 
+// [[Rcpp::export(".cyclopsSetConvergenceType")]]
+void cyclopsSetConvergenceType(SEXP inRcppCcdInterface, const std::string& convergenceType) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    // Convergence control
+    CCDArguments& args = interface->getArguments();
+    args.modeFinding.convergenceType = RcppCcdInterface::parseConvergenceType(convergenceType);
+}
+
+
+// [[Rcpp::export(".cyclopsGetConvergenceType")]]
+int cyclopsGetConvergenceType(SEXP inRcppCcdInterface) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    // Convergence control
+    CCDArguments& args = interface->getArguments();
+    return args.modeFinding.convergenceType;
+}
+
 
 // [[Rcpp::export(".cyclopsSetControl")]]
 void cyclopsSetControl(SEXP inRcppCcdInterface,
