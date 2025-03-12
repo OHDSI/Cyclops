@@ -5,6 +5,7 @@ develop
 2. check for negative curvature before computing CIs
    a. change to "lange"-convergence when needed
 3. fix `vcov` when model has an offset
+4. fix profiling when in bad initial state
 
 Cyclops v3.5.0
 ==============
