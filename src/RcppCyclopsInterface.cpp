@@ -205,6 +205,14 @@ double cyclopsGetLogLikelihood(SEXP inRcppCcdInterface) {
 	return interface->getCcd().getLogLikelihood();
 }
 
+// [[Rcpp::export(".cyclopsMakeDirty")]]
+void cyclopsMakeDirty(SEXP inRcppCcdInterface) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    interface->getCcd().makeDirty();
+}
+
 
 // [[Rcpp::export(".cyclopsLogResults")]]
 void cyclopsLogResult(SEXP inRcppCcdInterface, const std::string& fileName, bool withASE) {

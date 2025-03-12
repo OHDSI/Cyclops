@@ -177,6 +177,16 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsMakeDirty
+void cyclopsMakeDirty(SEXP inRcppCcdInterface);
+RcppExport SEXP _Cyclops_cyclopsMakeDirty(SEXP inRcppCcdInterfaceSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    cyclopsMakeDirty(inRcppCcdInterface);
+    return R_NilValue;
+END_RCPP
+}
 // cyclopsLogResult
 void cyclopsLogResult(SEXP inRcppCcdInterface, const std::string& fileName, bool withASE);
 RcppExport SEXP _Cyclops_cyclopsLogResult(SEXP inRcppCcdInterfaceSEXP, SEXP fileNameSEXP, SEXP withASESEXP) {
@@ -920,6 +930,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsSetCensorWeights", (DL_FUNC) &_Cyclops_cyclopsSetCensorWeights, 2},
     {"_Cyclops_cyclopsGetNewPredictiveLogLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetNewPredictiveLogLikelihood, 2},
     {"_Cyclops_cyclopsGetLogLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetLogLikelihood, 1},
+    {"_Cyclops_cyclopsMakeDirty", (DL_FUNC) &_Cyclops_cyclopsMakeDirty, 1},
     {"_Cyclops_cyclopsLogResult", (DL_FUNC) &_Cyclops_cyclopsLogResult, 3},
     {"_Cyclops_cyclopsTestProportionality", (DL_FUNC) &_Cyclops_cyclopsTestProportionality, 3},
     {"_Cyclops_cyclopsGetSchoenfeldResiduals", (DL_FUNC) &_Cyclops_cyclopsGetSchoenfeldResiduals, 2},

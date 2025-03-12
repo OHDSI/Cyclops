@@ -61,6 +61,10 @@
     .Call(`_Cyclops_cyclopsGetLogLikelihood`, inRcppCcdInterface)
 }
 
+.cyclopsMakeDirty <- function(inRcppCcdInterface) {
+    invisible(.Call(`_Cyclops_cyclopsMakeDirty`, inRcppCcdInterface))
+}
+
 .cyclopsLogResults <- function(inRcppCcdInterface, fileName, withASE) {
     invisible(.Call(`_Cyclops_cyclopsLogResult`, inRcppCcdInterface, fileName, withASE))
 }

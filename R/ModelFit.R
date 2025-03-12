@@ -955,6 +955,13 @@ getCyclopsProfileLogLikelihood <- function(object,
         stop("Must provide either `x` or `bounds`, but not both.")
     }
 
+    logLik <- .cyclopsGetLogLikelihood(object$interface)
+    if (is.na(logLik)) {
+        object <- fitCyclopsModel(
+            object$cyclopsData,
+            fixedCoefficients = rep(TRUE, getNumberOfCovariates(object$cyclopsData)))
+    }
+
     if (!is.null(bounds)) { # Adaptive profiling using recursive calls
 
         if (length(bounds) != 2 || bounds[1] >= bounds[2]) {
