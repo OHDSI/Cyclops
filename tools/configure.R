@@ -33,7 +33,7 @@ if (.Platform$OS.type == "unix") {
     system("make -C tools/jvm-w32 clean")
 }
 
-if (length(java_home) == 0) {
+if (nchar(java_home) == 0) {
     message("No JAVA_HOME defined; ignoring JNI compilation")
 } else {
     message("Using JAVA_HOME=", java_home)
@@ -63,7 +63,7 @@ if (length(java_home) == 0) {
 #################### CUDA Toolkit ####################
 
 cuda_home <- system2(command = "find", args = c("/usr/local/", "-maxdepth", "1" ,"-name", "cuda"), stdout  = TRUE)
-if (TRUE || length(cuda_home)==0) { # By default, no CUDA build
+if (TRUE || nchar(cuda_home)==0) { # By default, no CUDA build
     message("no CUDA installation found; only compile host code")
 } else {
     message(paste0("using CUDA_HOME=", cuda_home))
@@ -72,7 +72,7 @@ if (TRUE || length(cuda_home)==0) { # By default, no CUDA build
 
     # whether this is the 64 bit linux version of CUDA
     cu_libdir <- system2(command = "find", args = c(paste0(cuda_home ,"/lib64")), stdout  = TRUE)
-    if (length(cu_libdir) == 0) {
+    if (nchar(cu_libdir) == 0) {
         cu_libdir <- paste0(cuda_home ,"/lib")
     }
 
