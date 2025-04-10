@@ -1,8 +1,11 @@
-## Submission of v3.5.0
+## Submission of v3.5.1
 
-* provide optional (`optimalWarmStart = FALSE`) more parallelization when profiling likelihood
-* make `maxResets` a function parameter
-* ensure compatibility with R v4.4
+Minor bug patches:
+* check for negative curvature before computing CIs
+   a. change to "lange"-convergence when needed
+* fix `vcov` when model has an offset
+* fix profiling when in bad initial state
+* sort output of `predict` for compatibility with `Andromeda:duckbd`
     
 ## Test environments
 * local OS X install, R 4.2 / 4.4
