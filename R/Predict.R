@@ -68,27 +68,36 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
             # Optimized for Andromeda
             if (nrow(coefficients) == 0) {
                 if ("time" %in% colnames(newOutcomes)) {
-                    prediction <- data.frame(rowId = newOutcomes %>% select(.data$rowId) %>% pull(),
-                                             time = newOutcomes %>% select(.data$time) %>% pull())
+                    prediction <- newOutcomes %>%
+                        select("rowId", "time") %>%
+                        collect()
                 } else {
-                    prediction <- data.frame(rowId = newOutcomes %>% select(.data$rowId) %>% pull())
+                    prediction <- newOutcomes %>%
+                        select("rowId") %>%
+                        collect()
                 }
-                prediction$value <- intercept
+                prediction <- prediction %>%
+                    mutate(value = intercept)
             } else {
                 prediction <- inner_join(newCovariates,
                                          coefficients, by = "covariateId", copy = TRUE)
 
-                prediction <- prediction %>% mutate(value = .data$covariateValue * .data$beta) %>%
-                    group_by(.data$rowId) %>% summarize(value = sum(.data$value, na.rm = TRUE))
+                prediction <- prediction %>%
+                    mutate(value = .data$covariateValue * .data$beta) %>%
+                    group_by(.data$rowId) %>%
+                    summarize(value = sum(.data$value, na.rm = TRUE))
 
                 prediction <- left_join(newOutcomes,
-                                         prediction, by = "rowId") %>% collect()
+                                         prediction, by = "rowId") %>%
+                    collect()
 
                 prediction$value[is.na(prediction$value)] <- 0
                 prediction$value <- prediction$value + intercept
             }
+            prediction <- prediction %>%
+                arrange(.data$rowId)
         } else {
-            # Not using ff
+            # Not using Andromeda
             if (nrow(coefficients) == 0) {
                 prediction <- newOutcomes
                 prediction$value <- intercept
