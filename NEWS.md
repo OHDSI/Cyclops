@@ -2,10 +2,15 @@ develop
 ==============
 
 1. add Schoenfeld residual output for Cox models
-2. check for negative curvature before computing CIs
+
+Cyclops v3.5.1
+==============
+
+1. check for negative curvature before computing CIs
    a. change to "lange"-convergence when needed
-3. fix `vcov` when model has an offset
-4. fix profiling when in bad initial state
+2. fix `vcov` when model has an offset
+3. fix profiling when in bad initial state
+4. sort output of `predict` for compatibility with `Andromeda:duckbd`
 
 Cyclops v3.5.0
 ==============
