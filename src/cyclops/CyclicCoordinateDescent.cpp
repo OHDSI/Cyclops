@@ -1084,8 +1084,8 @@ void CyclicCoordinateDescent::findMode(
 		modelSpecifics.setPriorParams(temp);
 		//modelSpecifics.resetBeta();
 	}
-	
-	auto cycle = [this,&lastObjFunc,&lastObjFuncVec,&iteration,algorithmType,&allDelta,&doItAll] {
+
+	auto cycle = [this,&iteration,algorithmType,&allDelta,&doItAll] {
 /*
 		if (iteration%10==0) {
 			std::cout<<"iteration " << iteration << " ";
@@ -1172,7 +1172,7 @@ void CyclicCoordinateDescent::findMode(
 						if (delta != 0.0) {
 							sufficientStatisticsKnown = false;
 							updateSufficientStatistics(delta, index);
-						}	
+						}
 				}
 	    			log(index);
 	    		}
@@ -1813,6 +1813,29 @@ void CyclicCoordinateDescent::turnOnSyncCV(int foldToCompute) {
 void CyclicCoordinateDescent::turnOffSyncCV() {
 	syncCV = false;
 	modelSpecifics.turnOffSyncCV();
+}
+
+void CyclicCoordinateDescent::getSchoenfeldResiduals(const IdType index,
+                                                     std::vector<double>* residuals,
+                                                     std::vector<double>* times,
+                                                     std::vector<int>* strata,
+                                                     std::vector<double>* covariate,
+                                                     double* score
+                                                     ) {
+
+    checkAllLazyFlags();
+
+    // double* ptrCovariate = nullptr;
+    // if (covariate != nullptr) {
+    //     ptrCovariate = &(*covariate)[0];
+    // }
+
+    modelSpecifics.computeSchoenfeldResiduals(index,
+                                              residuals, times,
+                                              strata,
+                                              covariate != nullptr ? &(*covariate)[0] : nullptr,
+                                              score,
+                                              false);
 }
 
 std::vector<double> CyclicCoordinateDescent::getPredictiveLogLikelihood(std::vector<std::vector<double>>& weightsPool) {

@@ -177,6 +177,16 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsMakeDirty
+void cyclopsMakeDirty(SEXP inRcppCcdInterface);
+RcppExport SEXP _Cyclops_cyclopsMakeDirty(SEXP inRcppCcdInterfaceSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    cyclopsMakeDirty(inRcppCcdInterface);
+    return R_NilValue;
+END_RCPP
+}
 // cyclopsLogResult
 void cyclopsLogResult(SEXP inRcppCcdInterface, const std::string& fileName, bool withASE);
 RcppExport SEXP _Cyclops_cyclopsLogResult(SEXP inRcppCcdInterfaceSEXP, SEXP fileNameSEXP, SEXP withASESEXP) {
@@ -187,6 +197,31 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type withASE(withASESEXP);
     cyclopsLogResult(inRcppCcdInterface, fileName, withASE);
     return R_NilValue;
+END_RCPP
+}
+// cyclopsTestProportionality
+Rcpp::List cyclopsTestProportionality(SEXP inRcppCcdInterface, const SEXP sexpBitCovariates, std::vector<double>& covariate);
+RcppExport SEXP _Cyclops_cyclopsTestProportionality(SEXP inRcppCcdInterfaceSEXP, SEXP sexpBitCovariatesSEXP, SEXP covariateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const SEXP >::type sexpBitCovariates(sexpBitCovariatesSEXP);
+    Rcpp::traits::input_parameter< std::vector<double>& >::type covariate(covariateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsTestProportionality(inRcppCcdInterface, sexpBitCovariates, covariate));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cyclopsGetSchoenfeldResiduals
+Rcpp::DataFrame cyclopsGetSchoenfeldResiduals(SEXP inRcppCcdInterface, const SEXP sexpBitCovariates);
+RcppExport SEXP _Cyclops_cyclopsGetSchoenfeldResiduals(SEXP inRcppCcdInterfaceSEXP, SEXP sexpBitCovariatesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const SEXP >::type sexpBitCovariates(sexpBitCovariatesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetSchoenfeldResiduals(inRcppCcdInterface, sexpBitCovariates));
+    return rcpp_result_gen;
 END_RCPP
 }
 // cyclopsGetFisherInformation
@@ -286,6 +321,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsSetConvergenceType
+void cyclopsSetConvergenceType(SEXP inRcppCcdInterface, const std::string& convergenceType);
+RcppExport SEXP _Cyclops_cyclopsSetConvergenceType(SEXP inRcppCcdInterfaceSEXP, SEXP convergenceTypeSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type convergenceType(convergenceTypeSEXP);
+    cyclopsSetConvergenceType(inRcppCcdInterface, convergenceType);
+    return R_NilValue;
+END_RCPP
+}
+// cyclopsGetConvergenceType
+int cyclopsGetConvergenceType(SEXP inRcppCcdInterface);
+RcppExport SEXP _Cyclops_cyclopsGetConvergenceType(SEXP inRcppCcdInterfaceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetConvergenceType(inRcppCcdInterface));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsSetControl
 void cyclopsSetControl(SEXP inRcppCcdInterface, int maxIterations, double tolerance, const std::string& convergenceType, bool useAutoSearch, int fold, int foldToCompute, double lowerLimit, double upperLimit, int gridSteps, const std::string& noiseLevel, int threads, int seed, bool resetCoefficients, double startingVariance, bool useKKTSwindle, int swindleMultipler, const std::string& selectorType, double initialBound, int maxBoundCount, const std::string& algorithm, bool doItAll, bool syncCV);
 RcppExport SEXP _Cyclops_cyclopsSetControl(SEXP inRcppCcdInterfaceSEXP, SEXP maxIterationsSEXP, SEXP toleranceSEXP, SEXP convergenceTypeSEXP, SEXP useAutoSearchSEXP, SEXP foldSEXP, SEXP foldToComputeSEXP, SEXP lowerLimitSEXP, SEXP upperLimitSEXP, SEXP gridStepsSEXP, SEXP noiseLevelSEXP, SEXP threadsSEXP, SEXP seedSEXP, SEXP resetCoefficientsSEXP, SEXP startingVarianceSEXP, SEXP useKKTSwindleSEXP, SEXP swindleMultiplerSEXP, SEXP selectorTypeSEXP, SEXP initialBoundSEXP, SEXP maxBoundCountSEXP, SEXP algorithmSEXP, SEXP doItAllSEXP, SEXP syncCVSEXP) {
@@ -376,6 +433,18 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::string& >::type computeDevice(computeDeviceSEXP);
     Rcpp::traits::input_parameter< bool >::type computeMLE(computeMLESEXP);
     rcpp_result_gen = Rcpp::wrap(cyclopsInitializeModel(inModelData, modelType, computeDevice, computeMLE));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cyclopsGetLogLikelihoodHessianDiagonal
+NumericVector cyclopsGetLogLikelihoodHessianDiagonal(SEXP inRcppCcdInterface, SEXP sexpCovariates);
+RcppExport SEXP _Cyclops_cyclopsGetLogLikelihoodHessianDiagonal(SEXP inRcppCcdInterfaceSEXP, SEXP sexpCovariatesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type sexpCovariates(sexpCovariatesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetLogLikelihoodHessianDiagonal(inRcppCcdInterface, sexpCovariates));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -861,7 +930,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsSetCensorWeights", (DL_FUNC) &_Cyclops_cyclopsSetCensorWeights, 2},
     {"_Cyclops_cyclopsGetNewPredictiveLogLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetNewPredictiveLogLikelihood, 2},
     {"_Cyclops_cyclopsGetLogLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetLogLikelihood, 1},
+    {"_Cyclops_cyclopsMakeDirty", (DL_FUNC) &_Cyclops_cyclopsMakeDirty, 1},
     {"_Cyclops_cyclopsLogResult", (DL_FUNC) &_Cyclops_cyclopsLogResult, 3},
+    {"_Cyclops_cyclopsTestProportionality", (DL_FUNC) &_Cyclops_cyclopsTestProportionality, 3},
+    {"_Cyclops_cyclopsGetSchoenfeldResiduals", (DL_FUNC) &_Cyclops_cyclopsGetSchoenfeldResiduals, 2},
     {"_Cyclops_cyclopsGetFisherInformation", (DL_FUNC) &_Cyclops_cyclopsGetFisherInformation, 2},
     {"_Cyclops_cyclopsSetPrior", (DL_FUNC) &_Cyclops_cyclopsSetPrior, 6},
     {"_Cyclops_cyclopsTestParameterizedPrior", (DL_FUNC) &_Cyclops_cyclopsTestParameterizedPrior, 4},
@@ -869,12 +941,15 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetProfileLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetProfileLikelihood, 5},
     {"_Cyclops_cyclopsProfileModel", (DL_FUNC) &_Cyclops_cyclopsProfileModel, 6},
     {"_Cyclops_cyclopsPredictModel", (DL_FUNC) &_Cyclops_cyclopsPredictModel, 1},
+    {"_Cyclops_cyclopsSetConvergenceType", (DL_FUNC) &_Cyclops_cyclopsSetConvergenceType, 2},
+    {"_Cyclops_cyclopsGetConvergenceType", (DL_FUNC) &_Cyclops_cyclopsGetConvergenceType, 1},
     {"_Cyclops_cyclopsSetControl", (DL_FUNC) &_Cyclops_cyclopsSetControl, 23},
     {"_Cyclops_cyclopsRunCrossValidationl", (DL_FUNC) &_Cyclops_cyclopsRunCrossValidationl, 1},
     {"_Cyclops_cyclopsFitModel", (DL_FUNC) &_Cyclops_cyclopsFitModel, 1},
     {"_Cyclops_cyclopsRunBootstrap", (DL_FUNC) &_Cyclops_cyclopsRunBootstrap, 4},
     {"_Cyclops_cyclopsLogModel", (DL_FUNC) &_Cyclops_cyclopsLogModel, 1},
     {"_Cyclops_cyclopsInitializeModel", (DL_FUNC) &_Cyclops_cyclopsInitializeModel, 4},
+    {"_Cyclops_cyclopsGetLogLikelihoodHessianDiagonal", (DL_FUNC) &_Cyclops_cyclopsGetLogLikelihoodHessianDiagonal, 2},
     {"_Cyclops_listGPUDevices", (DL_FUNC) &_Cyclops_listGPUDevices, 0},
     {"_Cyclops_getDefaultGPUDevice", (DL_FUNC) &_Cyclops_getDefaultGPUDevice, 0},
     {"_Cyclops_isSorted", (DL_FUNC) &_Cyclops_isSorted, 3},

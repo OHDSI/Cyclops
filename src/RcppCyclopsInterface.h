@@ -110,10 +110,9 @@ public:
     static NoiseLevels parseNoiseLevel(const std::string& noiseName);
   	static SelectorType parseSelectorType(const std::string& selectorName);
   	static NormalizationType parseNormalizationType(const std::string& normalizationName);
+  	static void handleError(const std::string& str);
 
 protected:
-
-		static void handleError(const std::string& str);
 
     priors::JointPriorPtr makePrior(
             const std::vector<std::string>& priorName,

@@ -20,7 +20,7 @@ getCyclopsProfileLogLikelihood(
 \item{object}{Fitted Cyclops model object}
 
 \item{parm}{Specification of which parameter requires profiling,
-either a vector of numbers of covariateId names}
+either a vector of numbers or covariateId names}
 
 \item{x}{Vector of values of the parameter}
 

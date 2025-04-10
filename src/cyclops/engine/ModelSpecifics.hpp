@@ -732,6 +732,217 @@ void ModelSpecifics<BaseModel,RealType>::getPredictiveEstimates(double* y, doubl
 	// TODO How to remove code duplication above?
 }
 
+
+template <class RealType>
+void makeDenseCrossProduct(const CompressedDataMatrix<RealType>& x,
+                                                int index1, int index2) {
+
+}
+
+template <class BaseModel, typename RealType> template <class IteratorType, class Weights>
+void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
+                                                                    std::vector<double>* residuals,
+                                                                    std::vector<double>* times,
+                                                                    std::vector<int>* strata,
+                                                                    double* covariate,
+                                                                    double* score,
+                                                                    Weights w) {
+
+    const bool hasResiduals = residuals != nullptr;
+    const bool hasTimes = times != nullptr;
+    const bool hasStrata = strata != nullptr;
+    const bool hasScore = score != nullptr && covariate != nullptr;
+
+    if (hasResiduals) {
+        residuals->clear();
+    }
+    if (hasTimes) {
+        times->clear();
+    }
+    if (hasStrata) {
+        strata->clear();
+    }
+
+    RealType uGradient = static_cast<RealType>(0); // unweighted
+    RealType uHessian = static_cast<RealType>(0);
+    RealType wGradient = static_cast<RealType>(0); // weighted
+    RealType wHessian = static_cast<RealType>(0);
+    RealType xHessian = static_cast<RealType>(0);
+
+    // TODO: only written for accummulive models (Cox, Fine/Grey)
+
+	IteratorType it(hX, index);
+
+	RealType resNumerator  = static_cast<RealType>(0);
+	RealType resDenominator = static_cast<RealType>(0);
+	RealType scoreNumerator1 = static_cast<RealType>(0);
+	RealType scoreNumerator2 = static_cast<RealType>(0);
+	RealType scoreDenominator = static_cast<RealType>(0);
+
+	// find start relavent accumulator reset point
+	auto reset = begin(accReset);
+	while( *reset < it.index() ) {
+		++reset;
+	}
+
+	auto processRow = [&](int i, RealType x) {
+
+	    // std::cerr << "row " << i;
+
+		if (*reset <= i) {
+
+		    // std::cerr << " reset ";
+
+			resNumerator = static_cast<RealType>(0);
+			resDenominator = static_cast<RealType>(0);
+			scoreNumerator1 = static_cast<RealType>(0);
+			scoreNumerator2 = static_cast<RealType>(0);
+			scoreDenominator = static_cast<RealType>(0);
+
+			++reset;
+		}
+
+		const auto expXBeta = offsExpXBeta[i]; // std::exp(hXBeta[i]);
+
+		resNumerator += expXBeta * x;
+		resDenominator += expXBeta;
+
+		if (hY[i] == 1 ) {
+		    // std::cerr << " " << x << " for " << resNumerator << " / " << resDenominator;
+			if (hasResiduals) {
+			    const auto residual = x - resNumerator / resDenominator;
+				residuals->push_back(residual);
+			}
+			if (hasTimes) {
+				times->push_back(hOffs[i]);
+			}
+			if (hasStrata) {
+				strata->push_back(hPidOriginal[i]);
+			}
+		}
+
+		if (hasScore) {
+			const auto weight = covariate[i];
+			// MAS does not believe reweighing is correct, but is matching cox.zph
+
+			// const auto xt = x * covariate[i];
+			// MAS believes covariate should be adjusted
+			const auto numerator1 = expXBeta * x; // TODO not xt?
+			const auto numerator2 = expXBeta * x * x; // TODO not xt?
+
+			if (hY[i] == 1) {
+				uGradient += x;
+				wGradient += x * weight; // TODO not xt and no weight?
+			}
+
+			scoreNumerator1 += numerator1;
+			scoreNumerator2 += numerator2;
+
+			const auto t = scoreNumerator1 / resDenominator;
+			const auto gradient = hNWeight[i] * t;
+			const auto hessian = hNWeight[i] * (scoreNumerator2 / resDenominator - t * t);
+
+			uGradient -= gradient;
+			wGradient -= gradient * weight;
+
+			uHessian += hessian;
+			wHessian += hessian * weight * weight;
+			xHessian += hessian * weight;
+		}
+
+		// std::cerr << "\n";
+	};
+
+	// main loop
+	for (; it; ) {
+
+		int i = it.index();
+		const RealType x = it.value();
+
+		processRow(i, x);
+
+		++it;
+
+		if (IteratorType::isSparse) {
+
+			const int next = it ? it.index() : N;
+			for (++i; i < next; ++i) {
+
+				processRow(i, static_cast<RealType>(0));
+
+// 				if (*reset <= i) {
+// 					resNumerator = static_cast<RealType>(0);
+// 					resDenominator = static_cast<RealType>(0);
+//
+// 					scoreNumerator1 = static_cast<RealType>(0);
+// 					scoreNumerator2 = static_cast<RealType>(0);
+// 					scoreDenominator = static_cast<RealType>(0);
+//
+// 					++reset;
+// 				}
+//
+// 				const auto expXBeta = offsExpXBeta[i]; // std::exp(hXBeta[i]);
+//
+// 				resDenominator += expXBeta;
+//
+// 				if (hY[i] == 1) {
+// 					if (hasResiduals) {
+// 						residuals->push_back(-resNumerator / resDenominator);
+// 					}
+// 					if (hasTimes) {
+// 						times->push_back(hOffs[i]);
+// 					}
+// 					if (hasStrata) {
+// 						strata->push_back(hPidOriginal[i]);
+// 					}
+// 				}
+//
+// 				if (hasScore) {
+// 					const auto weight = covariate[i];
+// 					// MAS does not believe reweighing is correct, but is matching cox.zph
+//
+// 					// const auto xt = x * covariate[i];
+// 					// MAS believes covariate should be adjusted
+// 					const auto numerator1 = expXBeta * x; // TODO not xt?
+// 					const auto numerator2 = expXBeta * x * x; // TODO not xt?
+//
+// 					if (hY[i] == 1) {
+// 						uGradient += x;
+// 						wGradient += x * weight; // TODO not xt and no weight?
+// 					}
+//
+// 					scoreNumerator1 += numerator1;
+// 					scoreNumerator2 += numerator2;
+//
+// 					const auto t = scoreNumerator1 / resDenominator;
+// 					const auto gradient = hNWeight[i] * t;
+// 					const auto hessian = hNWeight[i] * (scoreNumerator2 / resDenominator - t * t);
+//
+// 					uGradient -= gradient;
+// 					wGradient -= gradient * weight;
+//
+// 					uHessian += hessian;
+// 					wHessian += hessian * weight * weight;
+// 				}
+			}
+		}
+	}
+
+    if (hasScore) {
+
+        score[0] = static_cast<double>(uGradient);
+        score[1] = static_cast<double>(wGradient);
+        score[2] = static_cast<double>(uHessian);
+        score[3] = static_cast<double>(xHessian);
+        score[4] = static_cast<double>(xHessian);
+        score[5] = static_cast<double>(wHessian);
+
+        // *score = static_cast<double>(gradient / hessian);
+        // std::cerr << "score = " << wGradient << " / " << wHessian << "\n";
+        // std::cerr << "hess2 = " << hess2 << " or " <<  static_cast<RealType>(2.0) * hXjX[index] << "\n";
+    }
+}
+
 // TODO The following function is an example of a double-dispatch, rewrite without need for virtual function
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessian(int index, double *ogradient,
@@ -1365,6 +1576,35 @@ void ModelSpecifics<BaseModel,RealType>::computeThirdDerivativeImpl(int index, d
 #endif
 #endif
 }
+
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::computeSchoenfeldResiduals(int indexOne,
+                                                                    std::vector<double>* residuals,
+                                                                    std::vector<double>* otimes,
+                                                                    std::vector<int>* strata,
+                                                                    double* covariate,
+                                                                    double* score,
+                                                                    bool useWeights) {
+    if (useWeights) {
+        throw new std::logic_error("Weights are not yet implemented in Schoenfeld residual calculations");
+    } else { // no weights
+        switch (hX.getFormatType(indexOne)) {
+        case INDICATOR :
+            getSchoenfeldResidualsImpl<IndicatorIterator<RealType>>(indexOne, residuals, otimes, strata, covariate, score, weighted);
+            break;
+        case SPARSE :
+            getSchoenfeldResidualsImpl<SparseIterator<RealType>>(indexOne, residuals, otimes, strata, covariate, score, weighted);
+            break;
+        case DENSE :
+            getSchoenfeldResidualsImpl<DenseIterator<RealType>>(indexOne, residuals, otimes, strata, covariate, score, weighted);
+            break;
+        case INTERCEPT :
+            getSchoenfeldResidualsImpl<InterceptIterator<RealType>>(indexOne, residuals, otimes, strata, covariate, score, weighted);
+            break;
+        }
+    }
+}
+
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeFisherInformation(int indexOne, int indexTwo,

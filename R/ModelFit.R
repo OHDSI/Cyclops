@@ -825,6 +825,7 @@ runBootstrap <- function(object, outFileName, treatmentId, replicates) {
 #' @param overrideNoRegularization   Logical: Enable confidence interval estimation for regularized parameters
 #' @param includePenalty    Logical: Include regularized covariate penalty in profile
 #' @param rescale   Boolean: rescale coefficients for unnormalized covariate values
+#' @param maximumCurvature Numeric: maximum curvature of log-likelihood profile required to compute CI
 #' @param ... Additional argument(s) for methods
 #'
 #' @return
@@ -838,10 +839,13 @@ runBootstrap <- function(object, outFileName, treatmentId, replicates) {
 confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
                                overrideNoRegularization = FALSE,
                                includePenalty = TRUE,
-                               rescale = FALSE, ...) {
+                               rescale = FALSE,
+                               maximumCurvature = -1E-3,
+                               ...) {
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     #.setControl(object$cyclopsData$cyclopsInterfacePtr, control)
 
+    savedParm <- parm
     parm <- .checkCovariates(object$cyclopsData, parm)
     if (level < 0.01 || level > 0.99) {
         stop("level must be between 0 and 1")
@@ -855,10 +859,35 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
         }
     }
 
-    prof <- .cyclopsProfileModel(object$cyclopsData$cyclopsInterfacePtr, parm,
-                                 threads, threshold,
-                                 overrideNoRegularization,
-                                 includePenalty)
+    hessianDiagonal <- .cyclopsGetLogLikelihoodHessianDiagonal(object$cyclopsData$cyclopsInterfacePtr,
+                                                               parm)
+
+    convergenceType <- .cyclopsGetConvergenceType(object$cyclopsData$cyclopsInterfacePtr)
+    prof <- NULL
+    if (convergenceType != 1 && any(hessianDiagonal >= maximumCurvature)) {
+
+        .cyclopsSetConvergenceType(object$interface, "lange")
+        newFit <- .cyclopsFitModel(cyclopsData$cyclopsInterfacePtr)
+        newHessianDiagonal <- .cyclopsGetLogLikelihoodHessianDiagonal(object$cyclopsData$cyclopsInterfacePtr,
+                                                                      parm)
+
+        if (any(newHessianDiagonal > 0)) {
+            warning("Cannot estimate confidence interval for positive-curvature log-likelihood function")
+
+            prof <- data.frame(covariate = savedParm,
+                               lower = rep(NA, length(parm)),
+                               upper = rep(NA, length(parm)),
+                               evaluations = rep(NA, length(parm)))
+        }
+    }
+
+    if (is.null(prof)) {
+
+        prof <- .cyclopsProfileModel(object$cyclopsData$cyclopsInterfacePtr, parm,
+                                     threads, threshold,
+                                     overrideNoRegularization,
+                                     includePenalty)
+    }
 
     indices <- match(parm, getCovariateIds(object$cyclopsData))
 
@@ -897,7 +926,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 #'
 #' @param object    Fitted Cyclops model object
 #' @param parm      Specification of which parameter requires profiling,
-#'                  either a vector of numbers of covariateId names
+#'                  either a vector of numbers or covariateId names
 #' @param x         Vector of values of the parameter
 #' @param bounds    Pair of values to bound adaptive profiling
 #' @param tolerance Absolute tolerance allowed for adaptive profiling
@@ -924,6 +953,13 @@ getCyclopsProfileLogLikelihood <- function(object,
 
     if (!xor(is.null(x), is.null(bounds))) {
         stop("Must provide either `x` or `bounds`, but not both.")
+    }
+
+    logLik <- .cyclopsGetLogLikelihood(object$interface)
+    if (is.na(logLik)) {
+        object <- fitCyclopsModel(
+            object$cyclopsData,
+            fixedCoefficients = rep(TRUE, getNumberOfCovariates(object$cyclopsData)))
     }
 
     if (!is.null(bounds)) { # Adaptive profiling using recursive calls
@@ -1108,6 +1144,9 @@ vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, .
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     .setControl(object$cyclopsData$cyclopsInterfacePtr, control)
     fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsData$cyclopsInterfacePtr, NULL)
+    if (.cyclopsGetHasOffset(object$cyclopsData)) {
+        fisherInformation <- fisherInformation[2:nrow(fisherInformation), 2:ncol(fisherInformation)]
+    }
     vcov <- solve(fisherInformation)
     if (!is.null(object$coefficientNames)) {
         rownames(vcov) <- object$coefficientNames

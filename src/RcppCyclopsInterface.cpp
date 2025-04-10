@@ -205,6 +205,14 @@ double cyclopsGetLogLikelihood(SEXP inRcppCcdInterface) {
 	return interface->getCcd().getLogLikelihood();
 }
 
+// [[Rcpp::export(".cyclopsMakeDirty")]]
+void cyclopsMakeDirty(SEXP inRcppCcdInterface) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    interface->getCcd().makeDirty();
+}
+
 
 // [[Rcpp::export(".cyclopsLogResults")]]
 void cyclopsLogResult(SEXP inRcppCcdInterface, const std::string& fileName, bool withASE) {
@@ -212,6 +220,86 @@ void cyclopsLogResult(SEXP inRcppCcdInterface, const std::string& fileName, bool
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
     interface->logResultsToFile(fileName, withASE);
+}
+
+std::vector<bsccs::IdType> getIndices(XPtr<bsccs::RcppCcdInterface>& interface, const SEXP sexpBitCovariates) {
+
+    using namespace bsccs;
+    std::vector<IdType> indices;
+    if (!Rf_isNull(sexpBitCovariates)) {
+        const std::vector<double>& bitCovariates = as<std::vector<double>>(sexpBitCovariates);
+        ProfileVector covariates =  reinterpret_cast<const std::vector<int64_t>&>(bitCovariates); // as<ProfileVector>(sexpCovariates);
+        for (auto it = covariates.begin(); it != covariates.end(); ++it) {
+            size_t index = interface->getModelData().getColumnIndex(*it);
+            indices.push_back(index);
+        }
+    } else {
+        indices.push_back(0);
+    }
+    if (indices.size() != 1) {
+        Rcpp::stop("Not yet implemented");
+    }
+
+    return indices;
+}
+
+// [[Rcpp::export(".cyclopsTestProportionality")]]
+Rcpp::List cyclopsTestProportionality(SEXP inRcppCcdInterface,
+                                      const SEXP sexpBitCovariates,
+                                      std::vector<double>& covariate) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    std::vector<IdType> indices = getIndices(interface, sexpBitCovariates);
+    std::vector<double> residuals;
+    std::vector<double> times;
+    std::vector<int> strata;
+
+    const int nCovariates = 1; // TODO generalize for multiple covariates
+    const int dim = nCovariates + 1;
+    std::vector<double> score(dim * (dim + 1));
+
+    interface->getCcd().getSchoenfeldResiduals(indices[0],
+                      &residuals, &times, &strata, &covariate, &score[0]);
+
+    std::vector<double> gradient(dim);
+    std::vector<double> hessian(dim * dim);
+
+    for (int i = 0; i < dim; ++i) {
+        gradient[i] = score[i];
+        for (int j = 0; j < dim; ++j) {
+            hessian[i * dim + j] = score[dim + i * dim + j];
+        }
+    }
+
+    return List::create(
+        Named("weights") = covariate,
+        Named("gradient") = gradient,
+        Named("hessian") = hessian,
+        Named("residuals") = residuals,
+        Named("times") = times
+    );
+}
+
+// [[Rcpp::export(".cyclopsGetSchoenfeldResiduals")]]
+Rcpp::DataFrame cyclopsGetSchoenfeldResiduals(SEXP inRcppCcdInterface,
+                                              const SEXP sexpBitCovariates) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    std::vector<IdType> indices = getIndices(interface, sexpBitCovariates);
+    std::vector<double> residuals;
+    std::vector<double> times;
+    std::vector<int> strata;
+
+    interface->getCcd().getSchoenfeldResiduals(indices[0],
+                      &residuals, &times, &strata, nullptr, nullptr);
+
+    return DataFrame::create(
+        Named("residuals") = residuals,
+        Named("times") = times,
+        Named("strata") = strata
+    );
 }
 
 // [[Rcpp::export(".cyclopsGetFisherInformation")]]
@@ -460,6 +548,25 @@ List cyclopsPredictModel(SEXP inRcppCcdInterface) {
 	return list;
 }
 
+// [[Rcpp::export(".cyclopsSetConvergenceType")]]
+void cyclopsSetConvergenceType(SEXP inRcppCcdInterface, const std::string& convergenceType) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    // Convergence control
+    CCDArguments& args = interface->getArguments();
+    args.modeFinding.convergenceType = RcppCcdInterface::parseConvergenceType(convergenceType);
+}
+
+
+// [[Rcpp::export(".cyclopsGetConvergenceType")]]
+int cyclopsGetConvergenceType(SEXP inRcppCcdInterface) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    // Convergence control
+    CCDArguments& args = interface->getArguments();
+    return args.modeFinding.convergenceType;
+}
+
 
 // [[Rcpp::export(".cyclopsSetControl")]]
 void cyclopsSetControl(SEXP inRcppCcdInterface,
@@ -662,6 +769,55 @@ List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, cons
 			Rcpp::Named("timeInit") = timeInit
 		);
 	return list;
+}
+
+// // [[Rcpp::export(".cyclopsGetLogLikelihoodGradient")]]
+// NumericVector cyclopsGetLogLikelihoodGradient(SEXP inRcppCcdInterface, int index) {
+//     using namespace bsccs;
+//
+//     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+//
+//     auto& ccd = interface->getCcd();
+//     auto& data = interface->getModelData();
+//
+//     // const auto offset = data.getHasOffsetCovariate();
+//     const int offset = 0;
+//
+//     return ccd.getLogLikelihoodGradient(index + offset);
+// }
+
+// [[Rcpp::export(".cyclopsGetLogLikelihoodHessianDiagonal")]]
+NumericVector cyclopsGetLogLikelihoodHessianDiagonal(SEXP inRcppCcdInterface, SEXP sexpCovariates) {
+    using namespace bsccs;
+
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    NumericVector diagonals;
+
+    if (!Rf_isNull(sexpCovariates)) {
+
+        auto& ccd = interface->getCcd();
+        auto& data = interface->getModelData();
+
+        const std::vector<double>& bitCovariates = as<std::vector<double>>(sexpCovariates);
+        ProfileVector covariates = reinterpret_cast<const std::vector<int64_t>&>(bitCovariates);
+
+        for (ProfileVector::const_iterator it = covariates.begin();
+             it != covariates.end(); ++it) {
+
+            int index = data.getColumnIndexByName(*it);
+
+            if (index == -1) {
+                std::stringstream error;
+                error << "Variable " << *it << " not found.";
+                interface->handleError(error.str());
+            } else {
+                diagonals.push_back(-ccd.getHessianDiagonal(index));
+            }
+        }
+    }
+
+    return diagonals;
 }
 
 namespace bsccs {

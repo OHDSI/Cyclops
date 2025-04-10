@@ -197,6 +197,13 @@ protected:
 
 	void computeFisherInformation(int indexOne, int indexTwo, double *oinfo, bool useWeights);
 
+	void computeSchoenfeldResiduals(int indexOne,
+                                 std::vector<double>* residuals, std::vector<double>* times,
+                                 std::vector<int>* strata,
+                                 double* covariate, double* score,
+                                 // double* residuals, double* numerators, double* denominators,
+                                 bool useWeights);
+
 	void updateXBeta(double delta, int index, bool useWeights);
 
 	void computeRemainingStatistics(bool useWeights);
@@ -321,6 +328,15 @@ private:
 
 	template <class IteratorTypeOne, class IteratorTypeTwo, class Weights>
 	void computeFisherInformationImpl(int indexOne, int indexTwo, double *oinfo, Weights w);
+
+	template <class IteratorType, class Weights>
+	void getSchoenfeldResidualsImpl(int index,
+                                 std::vector<double>* residuals,
+                                 std::vector<double>* times,
+                                 std::vector<int>* strata,
+                                 double* covariate,
+                                 double* score,
+                                 Weights w);
 
 	template<class IteratorType>
 	SparseIterator<RealType> getSubjectSpecificHessianIterator(int index);
@@ -1260,7 +1276,7 @@ public:
 		return static_cast<RealType>(yi);
 	}
 
-    template <class IteratorType, class Weights>		
+    template <class IteratorType, class Weights>
     inline void incrementGradientAndHessian( // TODO Make static again?
             const IteratorType& it,
             Weights false_signature,

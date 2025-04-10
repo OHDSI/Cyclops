@@ -2,6 +2,8 @@
 % Please edit documentation in R/cyclops.R
 \docType{package}
 \name{cyclops}
+\alias{Cyclops}
+\alias{Cyclops-package}
 \alias{cyclops}
 \title{Cyclops: Cyclic coordinate descent for logistic, Poisson and survival analysis}
 \description{
