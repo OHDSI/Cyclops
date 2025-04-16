@@ -237,6 +237,25 @@ fitCyclopsModel <- function(cyclopsData,
         }
     }
 
+    if (.cyclopsGetHasIntercept(cyclopsData) &&
+        is.null(prior$fitHook) &&
+        is.null(startingCoefficients)) {
+        yMean <- mean(getYVector(cyclopsData))
+        if (cyclopsData$modelType == "lr") {
+            interceptValue <- log(yMean / (1 - yMean))
+        } else if (cyclopsData$modelType == "pr") {
+            interceptValue <- log(yMean)
+        } else if (cyclopsData$modelType == "ls") {
+            interceptValue <- yMean
+        }
+        betas <- c(interceptValue, rep(0.0, getNumberOfCovariates(cyclopsData) - 1))
+        if (.cyclopsGetHasOffset(cyclopsData)) {
+            betas <- c(1.0, betas)
+        }
+        .cyclopsSetBeta(cyclopsData$cyclopsInterfacePtr, betas)
+        .cyclopsSetStartingBeta(cyclopsData$cyclopsInterfacePtr, betas)
+    }
+
     # Handle weights
 
     weightsUnsorted <- TRUE
