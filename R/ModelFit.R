@@ -886,7 +886,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
     if (convergenceType != 1 && any(hessianDiagonal >= maximumCurvature)) {
 
         .cyclopsSetConvergenceType(object$interface, "lange")
-        newFit <- .cyclopsFitModel(cyclopsData$cyclopsInterfacePtr)
+        newFit <- .cyclopsFitModel(object$cyclopsData$cyclopsInterfacePtr)
         newHessianDiagonal <- .cyclopsGetLogLikelihoodHessianDiagonal(object$cyclopsData$cyclopsInterfacePtr,
                                                                       parm)
 
