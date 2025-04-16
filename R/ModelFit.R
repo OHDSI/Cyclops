@@ -253,6 +253,7 @@ fitCyclopsModel <- function(cyclopsData,
             betas <- c(1.0, betas)
         }
         .cyclopsSetBeta(cyclopsData$cyclopsInterfacePtr, betas)
+        .cyclopsSetStartingBeta(cyclopsData$cyclopsInterfacePtr, betas)
     }
 
     # Handle weights
