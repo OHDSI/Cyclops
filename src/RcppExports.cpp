@@ -237,17 +237,18 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsSetPrior
-void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& priorTypeName, const std::vector<double>& variance, SEXP excludeNumeric, SEXP sexpGraph, Rcpp::List sexpNeighborhood);
-RcppExport SEXP _Cyclops_cyclopsSetPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP varianceSEXP, SEXP excludeNumericSEXP, SEXP sexpGraphSEXP, SEXP sexpNeighborhoodSEXP) {
+void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& priorTypeName, const std::vector<double>& variance, const std::vector<double>& exponent, SEXP excludeNumeric, SEXP sexpGraph, Rcpp::List sexpNeighborhood);
+RcppExport SEXP _Cyclops_cyclopsSetPrior(SEXP inRcppCcdInterfaceSEXP, SEXP priorTypeNameSEXP, SEXP varianceSEXP, SEXP exponentSEXP, SEXP excludeNumericSEXP, SEXP sexpGraphSEXP, SEXP sexpNeighborhoodSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
     Rcpp::traits::input_parameter< const std::vector<std::string>& >::type priorTypeName(priorTypeNameSEXP);
     Rcpp::traits::input_parameter< const std::vector<double>& >::type variance(varianceSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type exponent(exponentSEXP);
     Rcpp::traits::input_parameter< SEXP >::type excludeNumeric(excludeNumericSEXP);
     Rcpp::traits::input_parameter< SEXP >::type sexpGraph(sexpGraphSEXP);
     Rcpp::traits::input_parameter< Rcpp::List >::type sexpNeighborhood(sexpNeighborhoodSEXP);
-    cyclopsSetPrior(inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph, sexpNeighborhood);
+    cyclopsSetPrior(inRcppCcdInterface, priorTypeName, variance, exponent, excludeNumeric, sexpGraph, sexpNeighborhood);
     return R_NilValue;
 END_RCPP
 }
@@ -935,7 +936,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsTestProportionality", (DL_FUNC) &_Cyclops_cyclopsTestProportionality, 3},
     {"_Cyclops_cyclopsGetSchoenfeldResiduals", (DL_FUNC) &_Cyclops_cyclopsGetSchoenfeldResiduals, 2},
     {"_Cyclops_cyclopsGetFisherInformation", (DL_FUNC) &_Cyclops_cyclopsGetFisherInformation, 2},
-    {"_Cyclops_cyclopsSetPrior", (DL_FUNC) &_Cyclops_cyclopsSetPrior, 6},
+    {"_Cyclops_cyclopsSetPrior", (DL_FUNC) &_Cyclops_cyclopsSetPrior, 7},
     {"_Cyclops_cyclopsTestParameterizedPrior", (DL_FUNC) &_Cyclops_cyclopsTestParameterizedPrior, 4},
     {"_Cyclops_cyclopsSetParameterizedPrior", (DL_FUNC) &_Cyclops_cyclopsSetParameterizedPrior, 5},
     {"_Cyclops_cyclopsGetProfileLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetProfileLikelihood, 5},

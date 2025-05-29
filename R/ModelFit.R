@@ -185,7 +185,7 @@ fitCyclopsModel <- function(cyclopsData,
             }
         }
 
-        .cyclopsSetPrior(cyclopsData$cyclopsInterfacePtr, prior$priorType, prior$variance,
+        .cyclopsSetPrior(cyclopsData$cyclopsInterfacePtr, prior$priorType, prior$variance, prior$exponent,
                          prior$exclude, graph, neighborhood)
     }
 
@@ -653,12 +653,13 @@ createControl <- function(maxIterations = 1000,
 #' @export
 createPrior <- function(priorType,
                         variance = 1,
+                        exponent = 1,
                         exclude = c(),
                         graph = NULL,
                         neighborhood = NULL,
                         useCrossValidation = FALSE,
                         forceIntercept = FALSE) {
-    validNames = c("none", "laplace","normal", "barupdate", "hierarchical", "jeffreys")
+    validNames = c("none", "laplace","normal", "barupdate", "hierarchical", "jeffreys", "bridge")
     stopifnot(priorType %in% validNames)
     if (!is.null(exclude)) {
         if (!inherits(exclude, "character") &&
@@ -690,7 +691,8 @@ createPrior <- function(priorType,
             stop(cat("Unable to parse neighborhood covariates:"), allNames)
         }
     }
-    structure(list(priorType = priorType, variance = variance, exclude = exclude,
+    structure(list(priorType = priorType, variance = variance, exponent = exponent,
+                   exclude = exclude,
                    graph = graph,
                    neighborhood = neighborhood,
                    useCrossValidation = useCrossValidation, forceIntercept = forceIntercept),

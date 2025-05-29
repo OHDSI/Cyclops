@@ -251,7 +251,7 @@ namespace bsccs {
 	    (gh.second + (1.0 / sigma2Beta));
 	}
 
-   PriorPtr CovariatePrior::makePrior(PriorType priorType, double variance) {
+   PriorPtr CovariatePrior::makePrior(PriorType priorType, double variance, double exponent) {
         PriorPtr prior;
         switch (priorType) {
             case NONE :
@@ -268,6 +268,9 @@ namespace bsccs {
                 break;
             case JEFFREYS :
                 prior = bsccs::make_shared<JeffreysPrior>();
+                break;
+            case BRIDGE:
+                prior = bsccs::make_shared<BridgePrior>(variance, exponent);
                 break;
             default : break;
         }

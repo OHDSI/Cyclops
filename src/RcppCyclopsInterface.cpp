@@ -346,7 +346,7 @@ Eigen::MatrixXd cyclopsGetFisherInformation(SEXP inRcppCcdInterface, const SEXP 
 
 // [[Rcpp::export(".cyclopsSetPrior")]]
 void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& priorTypeName,
-        const std::vector<double>& variance, SEXP excludeNumeric, SEXP sexpGraph,
+        const std::vector<double>& variance, const std::vector<double>& exponent, SEXP excludeNumeric, SEXP sexpGraph,
         Rcpp::List sexpNeighborhood) {
 	using namespace bsccs;
 
@@ -383,7 +383,7 @@ void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& pr
  		}
  	}
 
-    interface->setPrior(priorTypeName, variance, exclude, map, neighborhood);
+    interface->setPrior(priorTypeName, variance, exponent, exclude, map, neighborhood);
 }
 
 #include "priors/PriorFunction.h"
@@ -885,6 +885,8 @@ bsccs::priors::PriorType RcppCcdInterface::parsePriorType(const std::string& pri
 	    priorType = BAR_UPDATE;
 	} else if (priorName == "jeffreys") {
 	    priorType = JEFFREYS;
+	} else if (priorName == "bridge") {
+	    priorType = BRIDGE;
 	} else {
  		handleError("Invalid prior type.");
  	}
@@ -991,15 +993,15 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
 }
 
 void RcppCcdInterface::setPrior(const std::vector<std::string>& basePriorName, const std::vector<double>& baseVariance,
-		const ProfileVector& flatPrior, const HierarchicalChildMap& map, const NeighborhoodMap& neighborhood) {
+                                const std::vector<double>& exponent, const ProfileVector& flatPrior, const HierarchicalChildMap& map, const NeighborhoodMap& neighborhood) {
 	using namespace bsccs::priors;
 
-	JointPriorPtr prior = makePrior(basePriorName, baseVariance, flatPrior, map, neighborhood);
+	JointPriorPtr prior = makePrior(basePriorName, baseVariance, exponent, flatPrior, map, neighborhood);
 	ccd->setPrior(prior);
 }
 
 priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>& basePriorName, const std::vector<double>& baseVariance,
-		const ProfileVector& flatPrior, const HierarchicalChildMap& hierarchyMap, const NeighborhoodMap& neighborhood) {
+                                                  const std::vector<double>& exponent, const ProfileVector& flatPrior, const HierarchicalChildMap& hierarchyMap, const NeighborhoodMap& neighborhood) {
 	using namespace bsccs::priors;
 
     const size_t length = modelData->getNumberOfCovariates();
@@ -1010,7 +1012,7 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
         && basePriorName.size() == length
         && baseVariance.size() == length) {
 
-        auto first = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[0]), baseVariance[0]);
+        auto first = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[0]), baseVariance[0], exponent[0]);
         auto prior = bsccs::make_shared<MixtureJointPrior>(first, length);
 
         for (size_t i = 1; i < length; ++i) {
@@ -1023,7 +1025,7 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
         return prior;
     }
 
-    PriorPtr singlePrior = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[0]), baseVariance[0]);
+    PriorPtr singlePrior = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[0]), baseVariance[0], exponent[0]);
     // singlePrior->setVariance(0, baseVariance[0]);
 
     JointPriorPtr prior;

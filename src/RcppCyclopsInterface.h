@@ -92,6 +92,7 @@ public:
 	void setPrior(
 				const std::vector<std::string>& basePriorName,
 				const std::vector<double>& baseVariance,
+				const std::vector<double>& exponent,
 				const ProfileVector& flatPrior,
 				const HierarchicalChildMap& map,
 				const NeighborhoodMap& neighborhood);
@@ -122,6 +123,7 @@ protected:
 		priors::JointPriorPtr makePrior(
 				const std::vector<std::string>& basePriorName,
 				const std::vector<double>& baseVariance,
+				const std::vector<double>& exponent,
 				const ProfileVector& flatPrior,
 				const HierarchicalChildMap& map,
 				const NeighborhoodMap& neighborhood);

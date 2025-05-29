@@ -156,7 +156,7 @@ public:
 
 	virtual std::vector<VariancePtr> getVarianceParameters() const = 0 ; // pure virtual
 
-	static PriorPtr makePrior(PriorType priorType, double variance);
+	static PriorPtr makePrior(PriorType priorType, double variance, double exponent = 1.0);
 
 	static VariancePtr makeVariance(double variance) {
 	    return bsccs::make_shared<double>(variance);
@@ -425,6 +425,7 @@ class NormalPrior : public CovariatePrior {
 public:
 
 	NormalPrior(double variance) : CovariatePrior(), variance(makeVariance(variance)) {
+
      //NormalPrior(makeVariance(variance)) { // Not with gcc 4.6.3
 		// Do nothing
 	}
@@ -634,6 +635,123 @@ private:
     VariancePtr variance2;
     NeighborList neighborList;
 };
+
+class BridgePrior : public CovariatePrior {
+public:
+    BridgePrior(double variance, double exponent)
+        : CovariatePrior(), variance(makeVariance(variance)), alpha(exponent) {
+        // Do nothing
+        }
+
+    BridgePrior(VariancePtr ptr, double exponent)
+        : CovariatePrior(), variance(ptr), alpha(exponent) {
+        // Do nothing
+        }
+
+    virtual ~BridgePrior() {
+        // Do nothing
+        }
+
+    const std::string getDescription() const {
+        double lambda = getLambda();
+        std::stringstream info;
+        info << "Bridge(" << lambda << ", " << alpha << ")";
+        return info.str();
+        }
+
+    PriorType getPriorType() {
+        return PriorType::BRIDGE;
+        }
+
+    double logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
+        double x = std::abs(beta[index]);
+        double lambda = getLambda();
+        double normConst = std::log(alpha) + (1.0 / alpha) * std::log(lambda) - std::log(2.0) - std::lgamma(1.0 / alpha);
+        return normConst - lambda * std::pow(x, alpha);
+    }
+
+    bool getIsRegularized() const {
+        return true;
+        }
+
+    bool getSupportsKktSwindle() const {
+        return false;
+        }
+
+    double getKktBoundary() const {
+        double lambda = getLambda();
+        return lambda;
+        }
+
+    double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const {
+        double epsilon = 1e-8;
+        double beta = betaVector[index];
+        double grad = gh.first;
+        double hess = gh.second;
+
+        double lambda = getLambda();
+        double signBeta = sign(beta);
+        double delta = 0.0;
+
+        // Handle beta == 0 case carefully
+        if (beta == 0.0) {
+            // Use directional derivatives and decide if a non-zero update is beneficial
+            double neg_penalty_grad = lambda * alpha * std::pow(epsilon, alpha - 1); // epsilon > 0 small
+            double neg_update = - (grad - neg_penalty_grad) / hess;
+
+            double pos_penalty_grad = lambda * alpha * std::pow(epsilon, alpha - 1);
+            double pos_update = - (grad + pos_penalty_grad) / hess;
+
+            if (neg_update < 0) {
+                delta = neg_update;
+            } else if (pos_update > 0) {
+                delta = pos_update;
+            } else {
+                delta = 0.0;
+            }
+        } else {
+            // Use full penalty gradient
+            double penaltyGrad = lambda * alpha * std::pow(std::abs(beta), alpha - 1) * signBeta;
+            delta = - (grad + penaltyGrad) / hess;
+
+            // Ensure that beta + delta doesn't cross zero (preserve sign)
+            if (sign(beta + delta) != signBeta) {
+                delta = -beta;
+            }
+        }
+
+        return delta;
+    }
+
+
+    std::vector<VariancePtr> getVarianceParameters() const {
+        auto tmp = std::vector<VariancePtr>();
+        tmp.push_back(variance);
+        return tmp;
+    }
+
+protected:
+    double convertVarianceToHyperparameter(double value) const {
+        return std::sqrt(2.0 / value);  // Same as Laplace
+        }
+
+    double convertHyperparameterToVariance(double value) const {
+        return 2.0 / (value * value);
+        }
+
+    double getLambda() const {
+        return convertVarianceToHyperparameter(variance.get());
+        }
+
+    int sign(double x) const {
+        if (x == 0.0) return 0;
+        return x < 0.0 ? -1 : 1;
+        }
+
+private:
+    VariancePtr variance;
+    double alpha; // Bridge exponent
+    };
 
 } /* namespace priors */
 } /* namespace bsccs */
