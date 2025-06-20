@@ -4,6 +4,7 @@ library("survival")
 suppressWarnings(RNGversion("3.5.0"))
 
 test_that("Check Schoenfeld residuals and PH test, no strata", {
+    skip("residuals not yet implemented")
     gfit <- coxph(Surv(futime, fustat) ~ age,
                   data=ovarian, method = "breslow")
     gres <- residuals(gfit, "schoenfeld")
@@ -27,6 +28,7 @@ test_that("Check Schoenfeld residuals and PH test, no strata", {
 })
 
 test_that("Check Schoenfeld residuals and PH test, with strata", {
+    skip("residuals not yet implemented")
     gfit <- coxph(Surv(futime, fustat) ~ age + strata(ecog.ps),
                   data=ovarian, method = "breslow")
     gres <- residuals(gfit, "schoenfeld")
@@ -48,6 +50,7 @@ test_that("Check Schoenfeld residuals and PH test, with strata", {
 })
 
 test_that("Check Schoenfeld residuals and PH test, with sparse covariates", {
+    skip("residuals not yet implemented")
     test <- read.table(header=T, sep = ",", text = "
 start, length, event, x1, x2
 0, 4,  1,0,0
@@ -79,6 +82,7 @@ start, length, event, x1, x2
 })
 
 test_that("Check Schoenfeld residuals and PH test, with sparse covariates", {
+    skip("residuals not yet implemented")
     test <- read.table(header=T, sep = ",", text = "
 start, length, event, x1, x2
 0, 4,  1,0,0

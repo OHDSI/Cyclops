@@ -39,7 +39,6 @@ detected.}
 \item{optimalWarmStart}{Logical: Use optimal warm-starting when parallelizing evaluations}
 
 \item{returnDerivatives}{Return derivative of log-likelihood wrt the parameter \code{param} at each evaluation point}
-
 }
 \value{
 A data frame containing the profile log likelihood. Returns NULL when the adaptive profiling fails

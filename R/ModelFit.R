@@ -990,7 +990,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
     prof
 }
 
-.initAdaptiveProfile <- function(object, parm, bounds, includePenalty, returnDerivatives) {
+.initAdaptiveProfile <- function(object, parm, bounds, includePenalty, optimalWarmStart, returnDerivatives) {
     # If an MLE was found, let's not throw that bit of important information away:
     if (object$return_flag == "SUCCESS" &&
         coef(object)[as.character(parm)] > bounds[1] &&
@@ -1141,7 +1141,7 @@ getCyclopsProfileLogLikelihood <- function(object,
 }
 
 fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty,
-                                          optimalWarmStart = TRUE, returnDerivative) {
+                                          optimalWarmStart = TRUE, returnDerivatives = FALSE) {
 
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     parm <- .checkCovariates(object$cyclopsData, parm)
