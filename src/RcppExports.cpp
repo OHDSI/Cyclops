@@ -280,8 +280,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsGetProfileLikelihood
-DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface, SEXP inCovariate, const std::vector<double> points, int threads, bool includePenalty);
-RcppExport SEXP _Cyclops_cyclopsGetProfileLikelihood(SEXP inRcppCcdInterfaceSEXP, SEXP inCovariateSEXP, SEXP pointsSEXP, SEXP threadsSEXP, SEXP includePenaltySEXP) {
+DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface, SEXP inCovariate, const std::vector<double> points, int threads, bool includePenalty, bool returnDerivatives);
+RcppExport SEXP _Cyclops_cyclopsGetProfileLikelihood(SEXP inRcppCcdInterfaceSEXP, SEXP inCovariateSEXP, SEXP pointsSEXP, SEXP threadsSEXP, SEXP includePenaltySEXP, SEXP returnDerivativesSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -290,7 +290,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::vector<double> >::type points(pointsSEXP);
     Rcpp::traits::input_parameter< int >::type threads(threadsSEXP);
     Rcpp::traits::input_parameter< bool >::type includePenalty(includePenaltySEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsGetProfileLikelihood(inRcppCcdInterface, inCovariate, points, threads, includePenalty));
+    Rcpp::traits::input_parameter< bool >::type returnDerivatives(returnDerivativesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetProfileLikelihood(inRcppCcdInterface, inCovariate, points, threads, includePenalty, returnDerivatives));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -386,6 +387,26 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsCacheForJava
+int cyclopsCacheForJava(SEXP inRcppCcdInterface);
+RcppExport SEXP _Cyclops_cyclopsCacheForJava(SEXP inRcppCcdInterfaceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsCacheForJava(inRcppCcdInterface));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cyclopsClearCacheForJava
+void cyclopsClearCacheForJava();
+RcppExport SEXP _Cyclops_cyclopsClearCacheForJava() {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    cyclopsClearCacheForJava();
+    return R_NilValue;
+END_RCPP
+}
 // cyclopsFitModel
 List cyclopsFitModel(SEXP inRcppCcdInterface);
 RcppExport SEXP _Cyclops_cyclopsFitModel(SEXP inRcppCcdInterfaceSEXP) {
@@ -408,6 +429,18 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< std::string& >::type treatmentId(treatmentIdSEXP);
     Rcpp::traits::input_parameter< int >::type replicates(replicatesSEXP);
     rcpp_result_gen = Rcpp::wrap(cyclopsRunBootstrap(inRcppCcdInterface, outFileName, treatmentId, replicates));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cyclopsGetLogLikelihoodGradient
+NumericVector cyclopsGetLogLikelihoodGradient(SEXP inRcppCcdInterface, int index);
+RcppExport SEXP _Cyclops_cyclopsGetLogLikelihoodGradient(SEXP inRcppCcdInterfaceSEXP, SEXP indexSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< int >::type index(indexSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetLogLikelihoodGradient(inRcppCcdInterface, index));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -938,15 +971,18 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsSetPrior", (DL_FUNC) &_Cyclops_cyclopsSetPrior, 6},
     {"_Cyclops_cyclopsTestParameterizedPrior", (DL_FUNC) &_Cyclops_cyclopsTestParameterizedPrior, 4},
     {"_Cyclops_cyclopsSetParameterizedPrior", (DL_FUNC) &_Cyclops_cyclopsSetParameterizedPrior, 5},
-    {"_Cyclops_cyclopsGetProfileLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetProfileLikelihood, 5},
+    {"_Cyclops_cyclopsGetProfileLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetProfileLikelihood, 6},
     {"_Cyclops_cyclopsProfileModel", (DL_FUNC) &_Cyclops_cyclopsProfileModel, 6},
     {"_Cyclops_cyclopsPredictModel", (DL_FUNC) &_Cyclops_cyclopsPredictModel, 1},
     {"_Cyclops_cyclopsSetConvergenceType", (DL_FUNC) &_Cyclops_cyclopsSetConvergenceType, 2},
     {"_Cyclops_cyclopsGetConvergenceType", (DL_FUNC) &_Cyclops_cyclopsGetConvergenceType, 1},
     {"_Cyclops_cyclopsSetControl", (DL_FUNC) &_Cyclops_cyclopsSetControl, 23},
     {"_Cyclops_cyclopsRunCrossValidationl", (DL_FUNC) &_Cyclops_cyclopsRunCrossValidationl, 1},
+    {"_Cyclops_cyclopsCacheForJava", (DL_FUNC) &_Cyclops_cyclopsCacheForJava, 1},
+    {"_Cyclops_cyclopsClearCacheForJava", (DL_FUNC) &_Cyclops_cyclopsClearCacheForJava, 0},
     {"_Cyclops_cyclopsFitModel", (DL_FUNC) &_Cyclops_cyclopsFitModel, 1},
     {"_Cyclops_cyclopsRunBootstrap", (DL_FUNC) &_Cyclops_cyclopsRunBootstrap, 4},
+    {"_Cyclops_cyclopsGetLogLikelihoodGradient", (DL_FUNC) &_Cyclops_cyclopsGetLogLikelihoodGradient, 2},
     {"_Cyclops_cyclopsLogModel", (DL_FUNC) &_Cyclops_cyclopsLogModel, 1},
     {"_Cyclops_cyclopsInitializeModel", (DL_FUNC) &_Cyclops_cyclopsInitializeModel, 4},
     {"_Cyclops_cyclopsGetLogLikelihoodHessianDiagonal", (DL_FUNC) &_Cyclops_cyclopsGetLogLikelihoodHessianDiagonal, 2},

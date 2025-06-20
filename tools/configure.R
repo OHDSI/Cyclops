@@ -8,7 +8,6 @@ makevars_win_out <- file.path("src", "Makevars.win")
 
 txt <- readLines(makevars_in)
 txt_win <- readLines(makevars_win_in)
-
 if (getRversion() < "4.3") { # macOS / linux
     if (!any(grepl("^CXX_STD", txt))) {
         txt <- c("CXX_STD = CXX11", txt)
@@ -21,11 +20,50 @@ if (getRversion() < "4.2") { # Windoz
     }
 }
 
+##### can find JNI #####
+
+doJni <- FALSE
+if (doJni) {
+
+if (.Platform$OS.type == "unix") {
+    java_home <- Sys.getenv("JAVA_HOME")
+} else {
+    system("make -C tools/jvm-w32")
+    java_home <- system("tools/jvm-w32/findjava -s -f", intern = TRUE)
+    system("make -C tools/jvm-w32 clean")
+}
+
+if (nchar(java_home) == 0) {
+    message("No JAVA_HOME defined; ignoring JNI compilation")
+} else {
+    message("Using JAVA_HOME=", java_home)
+    jni_path = file.path(java_home, "include")
+
+    # modify Makevars.in if Java is available
+    txt[grep("^PKG_CPPFLAGS", txt)] <- paste(txt[grep("^PKG_CPPFLAGS", txt)],
+                                             paste0("-I", jni_path),
+                                             paste0("-I", jni_path, "/darwin"), # TODO Make OS-dependent
+                                             paste0("-I", jni_path, "/linux"))
+    engine_idx <- grep("^OBJECTS.engine", txt)
+    txt[engine_idx+1] <- paste(txt[engine_idx+1],
+                               "cyclops/jni/dr_inference_regression_RegressionJNIWrapper.o",
+                               "cyclops/jni/dr_inference_regression_NewRegressionJNIWrapper.o")
+    # Handle Windows
+    txt_win[grep("^PKG_CPPFLAGS", txt_win)] <- paste(txt_win[grep("^PKG_CPPFLAGS", txt_win)],
+                                             paste0("-I", jni_path),
+                                             paste0("-I", jni_path, "/win32"))
+
+    sources_idx <- grep("^SOURCES", txt_win)
+    txt_win[sources_idx + 1] <- paste0(txt_win[sources_idx + 1],
+                                      "\n\t\t\t\t\tcyclops/jni/*.cpp \\")
+}
+
+} # doJNI
 
 #################### CUDA Toolkit ####################
 
 cuda_home <- system2(command = "find", args = c("/usr/local/", "-maxdepth", "1" ,"-name", "cuda"), stdout  = TRUE)
-if (TRUE || length(cuda_home)==0) { # By default, no CUDA build
+if (TRUE || nchar(cuda_home)==0) { # By default, no CUDA build
     message("no CUDA installation found; only compile host code")
 } else {
     message(paste0("using CUDA_HOME=", cuda_home))
@@ -34,7 +72,7 @@ if (TRUE || length(cuda_home)==0) { # By default, no CUDA build
 
     # whether this is the 64 bit linux version of CUDA
     cu_libdir <- system2(command = "find", args = c(paste0(cuda_home ,"/lib64")), stdout  = TRUE)
-    if (length(cu_libdir) == 0) {
+    if (nchar(cu_libdir) == 0) {
         cu_libdir <- paste0(cuda_home ,"/lib")
     }
 

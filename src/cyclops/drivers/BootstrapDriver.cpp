@@ -78,23 +78,22 @@ void BootstrapDriver::logResults(const CCDArguments& arguments) {
     error->throwError(stream);
 }
 
-std::string BootstrapDriver::logResultsToString(const CCDArguments& arguments) {
-
-    string sep(","); // TODO Make option
-
-    ostream outLog;
-    for (int j = 0; j < J; ++j) {
-        outLog << modelData->getColumnLabel(j) <<
-            sep;
-
-        ostream_iterator<double> output(outLog, sep.c_str());
-        copy(estimates[j]->begin(), estimates[j]->end(), output);
-        outLog << endl;
-    }
-
-    return outLog.str();
-}
-
+// std::string BootstrapDriver::logResultsToString(const CCDArguments& arguments) {
+//
+//     string sep(","); // TODO Make option
+//
+//     ostream outLog;
+//     for (int j = 0; j < J; ++j) {
+//         outLog << modelData->getColumnLabel(j) <<
+//             sep;
+//
+//         ostream_iterator<double> output(outLog, sep.c_str());
+//         copy(estimates[j]->begin(), estimates[j]->end(), output);
+//         outLog << endl;
+//     }
+//
+//     return outLog.c_str();
+// }
 
 void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<double>& savedBeta, std::string conditionId) {
 

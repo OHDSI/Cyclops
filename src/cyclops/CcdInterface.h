@@ -188,6 +188,7 @@ public:
             const IdType covariate,
             const std::vector<double>& points,
             std::vector<double>& values,
+            std::vector<double>* derivatives,
             int threads,
             bool includePenalty);
 

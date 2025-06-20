@@ -13,7 +13,8 @@ getCyclopsProfileLogLikelihood(
   initialGridSize = 10,
   maxResets = 10,
   includePenalty = TRUE,
-  optimalWarmStart = TRUE
+  optimalWarmStart = TRUE,
+  returnDerivatives = FALSE
 )
 }
 \arguments{
@@ -36,6 +37,9 @@ detected.}
 \item{includePenalty}{Logical: Include regularized covariate penalty in profile}
 
 \item{optimalWarmStart}{Logical: Use optimal warm-starting when parallelizing evaluations}
+
+\item{returnDerivatives}{Return derivative of log-likelihood wrt the parameter \code{param} at each evaluation point}
+
 }
 \value{
 A data frame containing the profile log likelihood. Returns NULL when the adaptive profiling fails

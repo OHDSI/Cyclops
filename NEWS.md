@@ -1,11 +1,17 @@
 develop
 ==============
 
+Changes:
+s
 1. add Schoenfeld residual output for Cox models (still under development)
 2. resurrect boot-strapping (still under development)
+3. add JNI interface for manipulating Cyclops objects in an across-language persistent cache
+4. add `cyclopsGetLogLikelihoodGradient()`
 
 Cyclops v3.5.1
 ==============
+
+Changes:
 
 1. check for negative curvature before computing CIs
    a. change to "lange"-convergence when needed
@@ -15,6 +21,8 @@ Cyclops v3.5.1
 
 Cyclops v3.5.0
 ==============
+
+Changes:
 
 1. provide optional (`optimalWarmStart = FALSE`) more parallelization when profiling likelihood
 2. make `maxResets` a function parameter

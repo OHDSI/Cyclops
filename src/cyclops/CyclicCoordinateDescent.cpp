@@ -1093,7 +1093,11 @@ void CyclicCoordinateDescent::findMode(
 		//modelSpecifics.resetBeta();
 	}
 
+// <<<<<<< HEAD
 	auto cycle = [this,&iteration,algorithmType,&allDelta,&doItAll] {
+// =======
+// 	auto cycle = [this,&lastObjFunc,&lastObjFuncVec,&iteration,algorithmType,&allDelta,&doItAll] {
+// >>>>>>> jni
 /*
 		if (iteration%10==0) {
 			std::cout<<"iteration " << iteration << " ";
@@ -1388,6 +1392,30 @@ void CyclicCoordinateDescent::findMode(
 /**
  * Computationally heavy functions
  */
+
+double CyclicCoordinateDescent::getLogPriorGradient(int index) {
+    double gradient = 0.0;
+
+
+    if (jointPrior->getPriorType(index) != priors::PriorType::NONE) {
+        std::ostringstream stream;
+        stream << "getLogPriorGradient is not yet implemented for non-flat priors";
+        error->throwError(stream);
+    }
+
+    return gradient;
+}
+
+double CyclicCoordinateDescent::getLogLikelihoodGradient(int index) {
+
+ 	checkAllLazyFlags();
+
+ 	double gradient, hessian;
+ 	computeNumeratorForGradient(index);
+ 	modelSpecifics.computeGradientAndHessian(index, &gradient, &hessian, useCrossValidation);
+
+ 	return gradient;
+ }
 
 void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ogradient,
 		double *ohessian) {

@@ -97,6 +97,28 @@ start, length, event, x1, x2
     expect_equal(coef(fit)["x1"], argMax)
 })
 
+test_that("Check adapative profiling likelihood with derivative information", {
+    test <- read.table(header=T, sep = ",", text = "
+start, length, event, x1, x2
+0, 4,  1,0,0
+0, 3.5,1,2,0
+0, 3,  0,0,1
+0, 2.5,1,0,1
+0, 2,  1,1,1
+0, 1.5,0,1,0
+0, 1,  1,1,0
+")
+    data <- createCyclopsData(Surv(length, event) ~ x1 + x2, data = test,
+                              modelType = "cox")
+    fit <- fitCyclopsModel(data)
+
+    out <- getCyclopsProfileLogLikelihood(fit, "x1", bounds = c(0, 2), initialGridSize = 10,
+                                          returnDerivatives = TRUE)
+
+    argMax <- out[which(out$value == max(out$value)), ]
+    expect_equal(0.0, argMax$derivative, tolerance = 1E-4)
+})
+
 test_that("Check adapative profiling likelihood, other covariate is perfect predictor", {
 	skip("Needs debugging") # DEVELOP
     test <- read.table(header=T, sep = ",", text = "

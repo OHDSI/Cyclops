@@ -75,6 +75,10 @@ public:
 
 	double getLogLikelihood(void);
 
+	double getLogLikelihoodGradient(int index);
+
+	double getLogPriorGradient(int index);
+
 	//double getPredictiveLogLikelihood(double* weights);
 
 	double getNewPredictiveLogLikelihood(double* weights);

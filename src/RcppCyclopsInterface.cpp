@@ -480,7 +480,8 @@ void cyclopsSetParameterizedPrior(SEXP inRcppCcdInterface,
 DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface,
                                  SEXP inCovariate,
                                  const std::vector<double> points,
-                                 int threads, bool includePenalty) {
+                                 int threads, bool includePenalty,
+                                 bool returnDerivatives) {
     using namespace bsccs;
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
@@ -490,12 +491,27 @@ DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface,
     //const IdType covariate = as<IdType>(inCovariate);
 
     std::vector<double> values(points.size());
-    interface->evaluateProfileModel(covariate, points, values, threads, includePenalty);
 
-    return DataFrame::create(
-        Rcpp::Named("point") = points,
-        Rcpp::Named("value") = values
-    );
+    if (!returnDerivatives) {
+        interface->evaluateProfileModel(covariate, points, values, nullptr, threads, includePenalty);
+
+        return DataFrame::create(
+            Rcpp::Named("point") = points,
+            Rcpp::Named("value") = values
+        );
+
+    } else {
+
+        std::vector<double> derivatives(points.size());
+
+        interface->evaluateProfileModel(covariate, points, values, &derivatives, threads, includePenalty);
+
+        return DataFrame::create(
+            Rcpp::Named("point") = points,
+            Rcpp::Named("value") = values,
+            Rcpp::Named("derivative") = derivatives
+        );
+    }
 }
 
 // [[Rcpp::export(".cyclopsProfileModel")]]
@@ -630,6 +646,36 @@ List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface) {
 	return list;
 }
 
+std::vector<XPtr<bsccs::RcppCcdInterface>> instances;
+
+void checkInstanceNumber(int instance) {
+    if (instance < 0 || instance >= instances.size()) {
+        Rcpp::stop("Unknown instance number");
+    }
+}
+
+bsccs::RcppCcdInterface* getInterface(int instance) {
+    checkInstanceNumber(instance);
+    return instances[instance];
+}
+
+// [[Rcpp::export(".cyclopsCacheForJava")]]
+int cyclopsCacheForJava(SEXP inRcppCcdInterface) {
+	using namespace bsccs;
+
+	// TODO check to see if already cached
+	instances.push_back(XPtr<RcppCcdInterface>(inRcppCcdInterface));
+
+	return instances.size() - 1;
+}
+
+// [[Rcpp::export(".cyclopsClearCacheForJava")]]
+void cyclopsClearCacheForJava() {
+    using namespace bsccs;
+
+    Rcpp::stop("Not yet implemented");
+}
+
 // [[Rcpp::export(".cyclopsFitModel")]]
 List cyclopsFitModel(SEXP inRcppCcdInterface) {
 	using namespace bsccs;
@@ -672,6 +718,43 @@ List cyclopsRunBootstrap(SEXP inRcppCcdInterface, const std::string& outFileName
     RcppCcdInterface::appendRList(list, interface->getResult());
     return list;
 }
+
+// [[Rcpp::export(".cyclopsGetLogLikelihoodGradient")]]
+NumericVector cyclopsGetLogLikelihoodGradient(SEXP inRcppCcdInterface, int index) {
+    using namespace bsccs;
+
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    auto& ccd = interface->getCcd();
+    // auto& data = interface->getModelData();
+
+    // const auto offset = data.getHasOffsetCovariate();
+    const int offset = 0;
+
+    return ccd.getLogLikelihoodGradient(index + offset);
+}
+
+// // [[Rcpp::export(".cyclopsGetLogLikelihoodGradient")]]
+// NumericVector cyclopsGetLogLikelihoodGradient(SEXP inRcppCcdInterface) {
+//     using namespace bsccs;
+//
+//     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+//
+//     auto& ccd = interface->getCcd();
+//     auto& data = interface->getModelData();
+//
+//
+//     const auto offset = data.getHasOffsetCovariate();
+//     const auto length = ccd.getBetaSize() - offset;
+//
+//     NumericVector gradient(length);
+//
+//     for (int i = 0; i < length; ++i) {
+//         gradient[i] = ccd.getLogLikelihoodGradient(i + offset);
+//     }
+//
+//     return gradient;
+// }
 
 // [[Rcpp::export(".cyclopsLogModel")]]
 List cyclopsLogModel(SEXP inRcppCcdInterface) {

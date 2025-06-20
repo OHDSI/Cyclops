@@ -250,6 +250,14 @@ struct OptimizationProfile {
 		return y;
 	}
 
+	double derivative() {
+	    double d = ccd.getLogLikelihoodGradient(index);
+	    if (includePenalty) {
+	        d += ccd.getLogPriorGradient(index);
+	    }
+	    return d;
+	}
+
 	double getMaximum() {
 		return threshold;
 	}
@@ -533,6 +541,7 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
                                           const IdType covariate,
                                           const std::vector<double>& points,
                                           std::vector<double>& values,
+                                          std::vector<double>* derivatives,
                                           int inThreads,
                                           bool includePenalty) {
 
@@ -563,13 +572,18 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
         x0s[j] = ccd->getBeta(j);
     }
 
-    auto evaluate = [this, index, includePenalty](const double point,
+    bool doDerivative = derivatives != nullptr;
+
+    auto evaluate = [this, index, includePenalty, doDerivative](const double point,
                                                   CyclicCoordinateDescent* ccd) {
 
         OptimizationProfile eval(*ccd, arguments, index,
                                  0.0, 0.0, includePenalty);
 
-        return eval.objective(point);
+        double objective = eval.objective(point);
+        double derivative = doDerivative ? eval.derivative() : 0.0;
+
+        return std::pair<double,double>(objective, derivative);
     };
 
     ccd->makeDirty(); // Reset internal memory
@@ -584,7 +598,11 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
 
     if (nThreads == 1) {
         for (int i = 0; i < points.size(); ++i) {
-            values[i] = evaluate(points[i], ccd);
+            auto pair = evaluate(points[i], ccd);
+            values[i] = pair.first;
+            if (doDerivative) {
+                (*derivatives)[i] = pair.second;
+            }
         }
     } else {
         auto scheduler = TaskScheduler<IncrementableIterator<size_t>>(
@@ -592,8 +610,12 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
             IncrementableIterator<size_t>(points.size()), //boost::make_counting_iterator(static_cast<int>(points.size())),
             nThreads);
 
-        auto oneTask = [&evaluate, &scheduler, &ccdPool, &points, &values](unsigned long task) {
-            values[task] = evaluate(points[task], ccdPool[scheduler.getThreadIndex(task)]);
+        auto oneTask = [&evaluate, &scheduler, &ccdPool, &points, &values, &derivatives, doDerivative](unsigned long task) {
+            auto pair = evaluate(points[task], ccdPool[scheduler.getThreadIndex(task)]);
+            values[task] = pair.first;
+            if (doDerivative) {
+                (*derivatives)[task] = pair.second;
+            }
         };
 
         // Run all tasks in parallel

@@ -358,6 +358,52 @@ fitCyclopsModel <- function(cyclopsData,
     return(fit)
 }
 
+#' @title Get full path to installed Cyclops library
+#'
+#' @description
+#' \code{cyclopsLibraryFileName} returns the full path to the installed Cyclops .so/.dll file
+#'
+#' @return String
+cyclopsLibraryFileName <- function() {
+    normalizePath(system.file("libs", .Platform$r_arch,
+                              paste0("Cyclops", .Platform$dynlib.ext),
+                              package = "Cyclops"))
+}
+
+#' @title Place Cyclops model fit object in a persistent cache
+#'
+#' @description
+#' \code{cacheCyclopsModelForJava} places a Cyclops model fit object into a persistent cache,
+#' so that the object may be used across language-barriers.
+#'
+#' @param object    Cyclops model fit object
+#'
+#' @return Integer index of object in persistent cache
+#'
+#' @export
+cacheCyclopsModelForJava <- function(object) {
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
+    instance <- attr(object, "jniCache")
+
+    if (is.null(instance)) {
+        instance <- .cyclopsCacheForJava(object$cyclopsData$cyclopsInterfacePtr)
+        bit::setattr(object, "jniCache", instance)
+    }
+
+    return(instance)
+}
+
+#' @title Clear the Cyclops persistent cache
+#'
+#' @description
+#' \code{clearCyclopsModelCache} clears the persistent cache holding
+#' Cyclops model fit objects that may be used across language-barriers.
+#'
+#' @export
+clearCyclopsModelCache <- function() {
+    stop("Not yet implemented")
+}
+
 .checkCovariates <- function(cyclopsData, covariates) {
     if (!is.null(covariates)) {
         saved <- covariates
@@ -488,6 +534,24 @@ logLik.cyclopsFit <- function(object, ...) {
     attr(out, 'nobs') <- getNumberOfRows(object$cyclopsData)
     class(out) <- 'logLik'
     out
+}
+
+#' @title Extract gradient
+#'
+#' @description
+#' \code{gradient} returns the current gradient wrt the regression parameters of
+#' the log-likelihood of the fit in a Cyclops model fit object
+#'
+#' @param object    A Cyclops model fit object
+#'
+#' @export
+gradient <- function(object) {
+
+    .checkInterface(object$cyclopsData, testOnly = TRUE)
+    gradient <- .cyclopsGetLogLikelihoodGradient(object$interface)
+    names(gradient) <- names(coef(object))
+
+    return(gradient)
 }
 
 
@@ -926,13 +990,22 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
     prof
 }
 
-.initAdaptiveProfile <- function(object, parm, bounds, includePenalty) {
+.initAdaptiveProfile <- function(object, parm, bounds, includePenalty, returnDerivatives) {
     # If an MLE was found, let's not throw that bit of important information away:
     if (object$return_flag == "SUCCESS" &&
         coef(object)[as.character(parm)] > bounds[1] &&
         coef(object)[as.character(parm)] < bounds[2]) {
-        profile <- tibble(point = coef(object)[as.character(parm)],
-                          value = fixedGridProfileLogLikelihood(object, parm, coef(object)[as.character(parm)], includePenalty)$value)
+        eval <- fixedGridProfileLogLikelihood(object, parm, coef(object)[as.character(parm)], includePenalty,
+        									  optimalWarmStart, returnDerivatives)
+        point <- coef(object)[as.character(parm)]
+        if (returnDerivatives) {
+            profile <- tibble(point = point,
+                              value = eval$value,
+                              derivative = eval$derivative)
+        } else {
+            profile <- tibble(point = point,
+                              value = eval$value)
+        }
     } else {
         profile <- tibble()
     }
@@ -954,6 +1027,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 #'                  detected.
 #' @param includePenalty    Logical: Include regularized covariate penalty in profile
 #' @param optimalWarmStart Logical: Use optimal warm-starting when parallelizing evaluations
+#' @param returnDerivatives Return derivative of log-likelihood wrt the parameter `param` at each evaluation point
 #'
 #' @return
 #' A data frame containing the profile log likelihood. Returns NULL when the adaptive profiling fails
@@ -968,7 +1042,8 @@ getCyclopsProfileLogLikelihood <- function(object,
                                            initialGridSize = 10,
                                            maxResets = 10,
                                            includePenalty = TRUE,
-                                           optimalWarmStart = TRUE) {
+                                           optimalWarmStart = TRUE,
+                                           returnDerivatives = FALSE) {
 
     if (!xor(is.null(x), is.null(bounds))) {
         stop("Must provide either `x` or `bounds`, but not both.")
@@ -986,7 +1061,7 @@ getCyclopsProfileLogLikelihood <- function(object,
         if (length(bounds) != 2 || bounds[1] >= bounds[2]) {
             stop("Must provide bounds[1] < bounds[2]")
         }
-        profile <- .initAdaptiveProfile(object, parm, bounds, includePenalty)
+        profile <- .initAdaptiveProfile(object, parm, bounds, includePenalty, returnDerivatives)
 
         # Start with sparse grid:
         grid <- seq(bounds[1], bounds[2], length.out = initialGridSize)
@@ -995,8 +1070,7 @@ getCyclopsProfileLogLikelihood <- function(object,
         priorMaxMaxError <- Inf
         resetsPerformed <- 0
         while (length(grid) != 0) {
-            ll <- fixedGridProfileLogLikelihood(object, parm, grid, includePenalty,
-                                                optimalWarmStart)
+            ll <- fixedGridProfileLogLikelihood(object, parm, grid, includePenalty, optimalWarmStart, returnDerivatives)
             profile <- bind_rows(profile, ll) %>% arrange(.data$point)
             invalid <- is.nan(profile$value) | is.infinite(profile$value)
             if (any(invalid)) {
@@ -1060,15 +1134,14 @@ getCyclopsProfileLogLikelihood <- function(object,
             grid <- (profile$point[exceed] + profile$point[exceed + 1]) / 2
         }
     } else { # Use x
-        profile <- fixedGridProfileLogLikelihood(object, parm, x, includePenalty,
-                                                 optimalWarmStart)
+        profile <- fixedGridProfileLogLikelihood(object, parm, x, includePenalty, optimalWarmStart, returnDerivatives)
     }
 
     return(profile)
 }
 
 fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty,
-                                          optimalWarmStart = TRUE) {
+                                          optimalWarmStart = TRUE, returnDerivative) {
 
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     parm <- .checkCovariates(object$cyclopsData, parm)
@@ -1076,11 +1149,10 @@ fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty,
 
     if (getNumberOfCovariates(object$cyclopsData) == 1 || length(x) == 1) {
         grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
-                                             threads, includePenalty)
+                                             threads, includePenalty, returnDerivatives)
     } else if (!optimalWarmStart && length(x) / 2 >= threads) {
-
         grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
-                                             threads, includePenalty)
+                                             threads, includePenalty, returnDerivatives)
     } else {
         # Partition sequence
         y <- sort(x)
@@ -1090,9 +1162,9 @@ fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty,
 
         # Execute: TODO chunk and repeat until ill-conditioned
         gridLower <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, lower,
-                                                  threads, includePenalty)
+                                                  threads, includePenalty, returnDerivatives)
         gridUpper <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, upper,
-                                                  threads, includePenalty)
+                                                  threads, includePenalty, returnDerivatives)
         # Merge
         grid <- rbind(gridLower, gridUpper)
         grid <- grid[order(grid$point),]

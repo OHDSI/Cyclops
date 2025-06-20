@@ -55,8 +55,10 @@ public:
     double evaluateProfileModel(const IdType covariate,
                                 const std::vector<double>& points,
                                 std::vector<double>& values,
+                                std::vector<double>* derivatives,
                                 int threads, bool includePenalty) {
-        return CcdInterface::evaluateProfileModel(ccd, modelData, covariate, points, values, threads, includePenalty);
+        return CcdInterface::evaluateProfileModel(ccd, modelData, covariate, points, values,
+                                                  derivatives, threads, includePenalty);
     }
 
     double runCrossValidation() {
@@ -150,19 +152,16 @@ protected:
 private:
 
 			AbstractModelData& rcppModelData; // TODO Make const?
-
 	 		AbstractModelData* modelData;
-
-// 	 		ModelData* modelData;
-
 			CyclicCoordinateDescent* ccd;
 			AbstractModelSpecifics* modelSpecifics;
-
 			bsccs::ProfileInformationMap profileMap;
 			Rcpp::List result;
 
 }; // class RcppCcdInterface
 
 } // namespace
+
+bsccs::RcppCcdInterface* getInterface(int instance);
 
 #endif /* CCD_H_ */
