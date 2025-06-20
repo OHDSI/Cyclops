@@ -1,7 +1,8 @@
 develop
 ==============
 
-1. add Schoenfeld residual output for Cox models
+1. add Schoenfeld residual output for Cox models (still under development)
+2. resurrect boot-strapping (still under development)
 
 Cyclops v3.5.1
 ==============

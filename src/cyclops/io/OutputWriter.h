@@ -278,6 +278,9 @@ public:
 		out.addMetaKey("cross_validation").addMetaValue(
 		    ccd.getCrossValidationInfo()
 		);
+		out.addMetaKey("boot_strap").addMetaValue(
+		    ccd.getBootStrapInfo()
+		);
 
 		for (ExtraInformationVector::const_iterator it = extraInfoVector.begin();
 			it != extraInfoVector.end(); ++it) {

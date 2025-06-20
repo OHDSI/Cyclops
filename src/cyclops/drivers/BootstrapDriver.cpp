@@ -55,7 +55,7 @@ void BootstrapDriver::drive(
 	for (int step = 0; step < replicates; step++) {
 		selector.permute();
 		selector.getWeights(0, weights);
-		ccd.setWeights(&weights[0]);
+		ccd.setWeights(&weights[0]); // TODO ERROR FOR BS WITH WEIGHTS?
 
         std::ostringstream stream;
 		stream << std::endl << "Running replicate #" << (step + 1);
@@ -68,6 +68,8 @@ void BootstrapDriver::drive(
 			estimates[j]->push_back(ccd.getBeta(j));
 		}
 	}
+
+	ccd.setBootStrapInfo("hello");
 }
 
 void BootstrapDriver::logResults(const CCDArguments& arguments) {
@@ -76,14 +78,50 @@ void BootstrapDriver::logResults(const CCDArguments& arguments) {
     error->throwError(stream);
 }
 
+std::string BootstrapDriver::logResultsToString(const CCDArguments& arguments) {
+
+    string sep(","); // TODO Make option
+
+    ostream outLog;
+    for (int j = 0; j < J; ++j) {
+        outLog << modelData->getColumnLabel(j) <<
+            sep;
+
+        ostream_iterator<double> output(outLog, sep.c_str());
+        copy(estimates[j]->begin(), estimates[j]->end(), output);
+        outLog << endl;
+    }
+
+    return outLog.str();
+}
+
+
 void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<double>& savedBeta, std::string conditionId) {
 
-	ofstream outLog(arguments.outFileName.c_str());
-	if (!outLog) {
+    ofstream outLog(arguments.outFileName.c_str());
+    if (!outLog) {
         std::ostringstream stream;
-		stream << "Unable to open log file: " << arguments.bsFileName;
-		error->throwError(stream);
-	}
+        stream << "Unable to open log file: " << arguments.bsFileName;
+        error->throwError(stream);
+    }
+
+    logResultsImpl(outLog, arguments, savedBeta, conditionId);
+
+    outLog.close();
+}
+
+void BootstrapDriver::logResultsImpl(
+        ostream& outLog,
+        const CCDArguments& arguments, std::vector<double>& savedBeta, std::string conditionId) {
+
+// void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<double>& savedBeta, std::string conditionId) {
+//
+// 	ofstream outLog(arguments.outFileName.c_str());
+// 	if (!outLog) {
+//         std::ostringstream stream;
+// 		stream << "Unable to open log file: " << arguments.bsFileName;
+// 		error->throwError(stream);
+// 	}
 
 	string sep(","); // TODO Make option
 
@@ -128,7 +166,7 @@ void BootstrapDriver::logResults(const CCDArguments& arguments, std::vector<doub
 			outLog << std::sqrt(var) << sep << mean << sep << lower << sep << upper << sep << prob0 << endl;
 		}
 	}
-	outLog.close();
+	// outLog.close();
 }
 
 void BootstrapDriver::logHR(const CCDArguments& arguments, std::vector<double>& savedBeta, std::string treatmentId) {

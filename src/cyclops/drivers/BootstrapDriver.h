@@ -42,6 +42,8 @@ public:
 	void logHR(const CCDArguments& arguments, std::vector<double>& savedBeta, std::string treatmentId);
 
 private:
+    void logResultsImpl(ostream& outLog, const CCDArguments& arguments, std::vector<double>& savedBeta, std::string conditionId);
+
 	const int replicates;
 	AbstractModelData* modelData;
 	const int J;

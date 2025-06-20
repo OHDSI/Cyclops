@@ -316,6 +316,28 @@ test_that("Large Cox regression with weighting",{
     expect_equivalent(coef(fitCyclops), coef(fitCoxph), tolerance = tolerance)
 })
 
+test_that("Large Cox with weights and bootstrapping", {
+    set.seed(123)
+    sim <- simulateCyclopsData(nstrata=1000,
+                               ncovars=10,
+                               nrows=10000,
+                               effectSizeSd=0.5,
+                               eCovarsPerRow=2,
+                               model="survival")
+    sim$outcomes$weights <- 1/sim$outcomes$rr
+
+    # Cyclops
+    cyclopsData <- convertToCyclopsData(outcomes = sim$outcomes,
+                                        covariates = sim$covariates,
+                                        modelType = "cox")
+    fitCyclops <- fitCyclopsModel(cyclopsData = cyclopsData)
+
+    bs <- runBootstrap(fitCyclops, outFileName = "out.txt", treatmentId = "1", replicates = 1000)
+    result <- read.csv("out.txt")
+    result
+})
+
+
 
 # # currently broken
 # test_that("Small conditional logistic regression with weighting", {

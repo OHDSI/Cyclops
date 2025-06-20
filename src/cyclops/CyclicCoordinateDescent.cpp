@@ -186,6 +186,14 @@ string CyclicCoordinateDescent::getCrossValidationInfo() const {
     return crossValidationInfo;
 }
 
+void CyclicCoordinateDescent::setBootStrapInfo(string info) {
+    bootStrapInfo = info;
+}
+
+string CyclicCoordinateDescent::getBootStrapInfo() const {
+    return bootStrapInfo;
+}
+
 void CyclicCoordinateDescent::setPrior(priors::JointPriorPtr newPrior) {
     jointPrior = newPrior;
 }

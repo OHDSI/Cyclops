@@ -158,6 +158,10 @@ public:
 
 	void setCrossValidationInfo(string info);
 
+	string getBootStrapInfo() const;
+
+	void setBootStrapInfo(string info);
+
 	string getConditionId() const {
 		return conditionId;
 	}
@@ -427,6 +431,7 @@ protected:
 	SetBetaContainer setBetaList;
 
 	string crossValidationInfo;
+	string bootStrapInfo;
 
 	loggers::ProgressLoggerPtr logger;
 	loggers::ErrorHandlerPtr error;
