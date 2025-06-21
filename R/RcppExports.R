@@ -137,8 +137,8 @@
     .Call(`_Cyclops_cyclopsRunBootstrap`, inRcppCcdInterface, outFileName, treatmentId, replicates)
 }
 
-.cyclopsGetLogLikelihoodGradient <- function(inRcppCcdInterface, index) {
-    .Call(`_Cyclops_cyclopsGetLogLikelihoodGradient`, inRcppCcdInterface, index)
+.cyclopsGetLogLikelihoodGradient <- function(inRcppCcdInterface) {
+    .Call(`_Cyclops_cyclopsGetLogLikelihoodGradient`, inRcppCcdInterface)
 }
 
 .cyclopsLogModel <- function(inRcppCcdInterface) {

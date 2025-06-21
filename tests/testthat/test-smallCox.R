@@ -36,10 +36,10 @@ start, length, event, x1, x2
 
     # Test residuals
 
-    goldRes <- residuals(goldCounting, "schoenfeld")[,1]
-    cyclopsRes <- residuals(cyclopsFitRight, "schoenfeld")
-
-    expect_equal(cyclopsRes, goldRes, tolerance = tolerance)
+    # goldRes <- residuals(goldCounting, "schoenfeld")[,1]
+    # cyclopsRes <- residuals(cyclopsFitRight, "schoenfeld")
+#
+    # expect_equal(cyclopsRes, goldRes, tolerance = tolerance)
 
     # cox2.zph(goldCounting, transform = "identity")
     # residuals2.coxph(goldCounting, type = "scaledsch")

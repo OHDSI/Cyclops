@@ -1061,7 +1061,7 @@ getCyclopsProfileLogLikelihood <- function(object,
         if (length(bounds) != 2 || bounds[1] >= bounds[2]) {
             stop("Must provide bounds[1] < bounds[2]")
         }
-        profile <- .initAdaptiveProfile(object, parm, bounds, includePenalty, returnDerivatives)
+        profile <- .initAdaptiveProfile(object, parm, bounds, includePenalty, optimalWarmStart, returnDerivatives)
 
         # Start with sparse grid:
         grid <- seq(bounds[1], bounds[2], length.out = initialGridSize)

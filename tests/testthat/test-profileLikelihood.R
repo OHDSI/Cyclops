@@ -115,8 +115,11 @@ start, length, event, x1, x2
     out <- getCyclopsProfileLogLikelihood(fit, "x1", bounds = c(0, 2), initialGridSize = 10,
                                           returnDerivatives = TRUE)
 
-    argMax <- out[which(out$value == max(out$value)), ]
+    pt <- which(out$value == max(out$value))
+    argMax <- out[pt, ]
     expect_equal(0.0, argMax$derivative, tolerance = 1E-4)
+    increasing <- out[pt - 1, ]
+    expect_gt(increasing$derivative, 0.0)
 })
 
 test_that("Check adapative profiling likelihood, other covariate is perfect predictor", {

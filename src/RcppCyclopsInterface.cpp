@@ -719,42 +719,42 @@ List cyclopsRunBootstrap(SEXP inRcppCcdInterface, const std::string& outFileName
     return list;
 }
 
-// [[Rcpp::export(".cyclopsGetLogLikelihoodGradient")]]
-NumericVector cyclopsGetLogLikelihoodGradient(SEXP inRcppCcdInterface, int index) {
-    using namespace bsccs;
-
-    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
-
-    auto& ccd = interface->getCcd();
-    // auto& data = interface->getModelData();
-
-    // const auto offset = data.getHasOffsetCovariate();
-    const int offset = 0;
-
-    return ccd.getLogLikelihoodGradient(index + offset);
-}
-
 // // [[Rcpp::export(".cyclopsGetLogLikelihoodGradient")]]
-// NumericVector cyclopsGetLogLikelihoodGradient(SEXP inRcppCcdInterface) {
+// NumericVector cyclopsGetLogLikelihoodGradient(SEXP inRcppCcdInterface, int index) {
 //     using namespace bsccs;
 //
 //     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 //
 //     auto& ccd = interface->getCcd();
-//     auto& data = interface->getModelData();
+//     // auto& data = interface->getModelData();
 //
+//     // const auto offset = data.getHasOffsetCovariate();
+//     const int offset = 0;
 //
-//     const auto offset = data.getHasOffsetCovariate();
-//     const auto length = ccd.getBetaSize() - offset;
-//
-//     NumericVector gradient(length);
-//
-//     for (int i = 0; i < length; ++i) {
-//         gradient[i] = ccd.getLogLikelihoodGradient(i + offset);
-//     }
-//
-//     return gradient;
+//     return ccd.getLogLikelihoodGradient(index + offset);
 // }
+
+// [[Rcpp::export(".cyclopsGetLogLikelihoodGradient")]]
+NumericVector cyclopsGetLogLikelihoodGradient(SEXP inRcppCcdInterface) {
+    using namespace bsccs;
+
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    auto& ccd = interface->getCcd();
+    auto& data = interface->getModelData();
+
+
+    const auto offset = data.getHasOffsetCovariate();
+    const auto length = ccd.getBetaSize() - offset;
+
+    NumericVector gradient(length);
+
+    for (int i = 0; i < length; ++i) {
+        gradient[i] = ccd.getLogLikelihoodGradient(i + offset);
+    }
+
+    return gradient;
+}
 
 // [[Rcpp::export(".cyclopsLogModel")]]
 List cyclopsLogModel(SEXP inRcppCcdInterface) {

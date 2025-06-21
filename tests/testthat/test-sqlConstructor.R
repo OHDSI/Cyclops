@@ -60,10 +60,12 @@ test_that("Test constructor and append", {
     expect_equal(getNumberOfStrata(dataPtr), 9)
     expect_equal(getNumberOfCovariates(dataPtr), 5)
 
-    cyclopsFit <- fitCyclopsModel(dataPtr, control = createControl(noiseLevel = "silent"))
+    cyclopsFit <- fitCyclopsModel(dataPtr, control = createControl(noiseLevel = "silent"),
+                                  startingCoefficients = rep(0, 5))
 
     dataPtrF <- createCyclopsData(counts ~ outcome + treatment, modelType = "pr")
-    cyclopsFitF <- fitCyclopsModel(dataPtrF, control = createControl(noiseLevel = "silent"))
+    cyclopsFitF <- fitCyclopsModel(dataPtrF, control = createControl(noiseLevel = "silent"),
+                                   startingCoefficients = rep(0, 5))
     expect_equivalent(coef(cyclopsFit), coef(cyclopsFitF)) # Have different coefficient names
 
     # Test chucked append
