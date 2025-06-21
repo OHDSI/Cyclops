@@ -601,7 +601,7 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
             auto pair = evaluate(points[i], ccd);
             values[i] = pair.first;
             if (doDerivative) {
-                (*derivatives)[i] = -pair.second;
+                (*derivatives)[i] = pair.second;
             }
         }
     } else {
