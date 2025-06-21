@@ -329,7 +329,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     }
 
     if (modelType == "pr" | modelType == "cpr") {
-        if (any(pull(outcomes, .data$time) <= 0)) {
+        if (any(pull(outcomes, time) <= 0)) {
             stop("time cannot be non-positive", call. = FALSE)
         }
     }
@@ -396,12 +396,12 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr") {
 
         if ((modelType == "cox" | modelType == "cox_time") &
-            (select(outcomes, .data$y) %>% distinct() %>% count() %>% collect() > 2)) {
+            (select(outcomes, "y") %>% distinct() %>% count() %>% collect() > 2)) {
             stop("Cox model only accepts one outcome type")
         }
         if (!"time" %in% colnames(covariates)) {
             covariates <- covariates %>%
-                inner_join(select(outcomes, .data$rowId, .data$time, .data$y), by = "rowId")
+                inner_join(select(outcomes, .data$rowId, "time", "y"), by = "rowId")
         }
         if ("subjectId" %in% colnames(outcomes)) {
             outcomes <- outcomes %>%
@@ -473,8 +473,8 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     } else {
         if (modelType == "fgr") {
             dataPtr$censorWeights <- getFineGrayWeights(
-                outcomes %>% pull(.data$time),
-                outcomes %>% pull(.data$y)
+                outcomes %>% pull("time"),
+                outcomes %>% pull("y")
             )$weights
             writeLines("Generating censoring weights")
         } else {

@@ -24,7 +24,6 @@ test_that("gradient", {
     h0 <- Cyclops:::.cyclopsGetLogLikelihood(fit$interface)
     central <- (fit$log_likelihood - h0) / (2 * eps)
 
-
     expect_equivalent(grad[1], central, tolerance = 1E-3)
 })
 
