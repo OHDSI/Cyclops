@@ -1414,7 +1414,7 @@ double CyclicCoordinateDescent::getLogLikelihoodGradient(int index) {
  	computeNumeratorForGradient(index);
  	modelSpecifics.computeGradientAndHessian(index, &gradient, &hessian, useCrossValidation);
 
- 	return gradient;
+ 	return -gradient;
  }
 
 void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ogradient,
