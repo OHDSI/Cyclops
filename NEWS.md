@@ -1,3 +1,8 @@
+Cyclops v3.5.2
+==============
+
+1. fix cyclic dependency with `SelfControlledCaseSeries` in a test-unit
+
 Cyclops v3.5.1
 ==============
 
