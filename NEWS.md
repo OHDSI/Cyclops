@@ -2,11 +2,23 @@ develop
 ==============
 
 Changes:
-s
+
 1. add Schoenfeld residual output for Cox models (still under development)
-2. resurrect boot-strapping (still under development)
-3. add JNI interface for manipulating Cyclops objects in an across-language persistent cache
-4. add `cyclopsGetLogLikelihoodGradient()`
+
+Cyclops v3.6.0
+==============
+
+Changes:
+
+1. resurrect boot-strapping
+2. add JNI interface for manipulating Cyclops objects in an across-language persistent cache
+3. add `cyclopsGetLogLikelihoodGradient()`
+
+Cyclops v3.5.2
+==============
+
+1. fix cyclic dependency with `SelfControlledCaseSeries` in a test-unit
+
 
 Cyclops v3.5.1
 ==============

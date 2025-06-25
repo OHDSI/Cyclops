@@ -2,6 +2,7 @@
 
 Minor version upgrade:
 * enables high-performance bootstrapping for all models
+* implement high-performance gradients
    
 ## Test environments
 * local OS X install, R 4.2 / 4.4 / 4.5
@@ -27,3 +28,4 @@ availability of C++17 'if (constexpr ...)' should decrease library size substant
 * 'EmpiricalCalibration' - checked and works.
 * 'IterativeHardThresholding' - checked and works.
 * 'BrokenAdaptiveRidge' - checked and works.
+* 'SelfControlledCaseSeries' - checked and works.
