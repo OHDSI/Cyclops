@@ -186,12 +186,20 @@ string CyclicCoordinateDescent::getCrossValidationInfo() const {
     return crossValidationInfo;
 }
 
-void CyclicCoordinateDescent::setBootStrapInfo(string info) {
-    bootStrapInfo = info;
+// void CyclicCoordinateDescent::setBootStrapInfo(string info) {
+//     bootStrapInfo = info;
+// }
+//
+// string CyclicCoordinateDescent::getBootStrapInfo() const {
+//     return bootStrapInfo;
+// }
+
+void CyclicCoordinateDescent::setBootStrapInfo(const std::vector<double>& info) {
+    bootStrapInfoVector = info;
 }
 
-string CyclicCoordinateDescent::getBootStrapInfo() const {
-    return bootStrapInfo;
+const std::vector<double>& CyclicCoordinateDescent::getBootStrapInfo() const {
+    return bootStrapInfoVector;
 }
 
 void CyclicCoordinateDescent::setPrior(priors::JointPriorPtr newPrior) {

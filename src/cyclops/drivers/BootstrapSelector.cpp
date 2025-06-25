@@ -20,25 +20,27 @@ BootstrapSelector::BootstrapSelector(
 		long inSeed,
 	    loggers::ProgressLoggerPtr _logger,
 		loggers::ErrorHandlerPtr _error,
-		std::vector<real>* wtsExclude) : AbstractSelector(inIds, inType, inSeed, _logger, _error) {
+		std::vector<real>* wtsExclude,
+		std::vector<double>* wtsOriginal) : AbstractSelector(inIds, inType, inSeed, _logger, _error) {
 
     std::ostringstream stream;
 	stream << "Performing bootstrap estimation with " << replicates
 		<< " replicates [seed = " << seed << "]";
 	logger->writeLine(stream);
 
-	if(wtsExclude){
+	if (wtsExclude) {
 		for(size_t i = 0; i < wtsExclude->size(); i++){
 			if(wtsExclude->at(i) == 0){
 				indicesIncluded.push_back(i);
 			}
 		}
-	}
-	else{
+	} else{
 		for(size_t i = 0; i < N; i++){
 			indicesIncluded.push_back(i);
 		}
 	}
+
+	weightsOriginal = wtsOriginal;
 
 	permute();
 }
@@ -86,6 +88,9 @@ void BootstrapSelector::getWeights(int batch, std::vector<double>& weights) {
 		for (size_t k = 0; k < K; k++) {
 			int count = selectedSet.count(ids.at(k));
 			weights[k] = static_cast<real>(count);
+			if (weightsOriginal != nullptr) {
+				weights[k] *= static_cast<real>(weightsOriginal->at(k)); // TODO Added bootstrap weights
+			}
 		}
 /*
 	} else {

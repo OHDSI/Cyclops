@@ -162,9 +162,13 @@ public:
 
 	void setCrossValidationInfo(string info);
 
-	string getBootStrapInfo() const;
+	// string getBootStrapInfo() const;
+	//
+	// void setBootStrapInfo(string info);
 
-	void setBootStrapInfo(string info);
+	const std::vector<double>& getBootStrapInfo() const;
+
+	void setBootStrapInfo(const std::vector<double>& info);
 
 	string getConditionId() const {
 		return conditionId;
@@ -436,6 +440,7 @@ protected:
 
 	string crossValidationInfo;
 	string bootStrapInfo;
+	std::vector<double> bootStrapInfoVector;
 
 	loggers::ProgressLoggerPtr logger;
 	loggers::ErrorHandlerPtr error;

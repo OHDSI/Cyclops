@@ -735,8 +735,21 @@ double CcdInterface::runBoostrap(
 		ids.resize(modelData->getNumberOfRows());
 		std::iota(ids.begin(), ids.end(), 0);
 	}
+
+	// Get possible weights
+	std::vector<double> weights = ccd->getWeights();
+
+	bool useWeights = false;
+	for (auto& w : weights) {
+		if (w != 1.0) {
+			useWeights = true;
+			break;
+		}
+	}
+
 	BootstrapSelector selector(arguments.replicates, selectorType == SelectorType::BY_ROW ? ids : modelData->getPidVectorSTL(),
-			selectorType, arguments.seed, logger, error);
+			selectorType, arguments.seed, logger, error,
+			nullptr, (useWeights ? &weights : nullptr));
 	BootstrapDriver driver(arguments.replicates, modelData, logger, error);
 
 	driver.drive(*ccd, selector, arguments);

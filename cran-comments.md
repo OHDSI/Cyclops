@@ -1,16 +1,12 @@
-## Submission of v3.5.1
+## Submission of v3.6.0
 
-Minor bug patches:
-* check for negative curvature before computing CIs
-   a. change to "lange"-convergence when needed
-* fix `vcov` when model has an offset
-* fix profiling when in bad initial state
-* sort output of `predict` for compatibility with `Andromeda:duckbd`
-    
+Minor version upgrade:
+* enables high-performance bootstrapping for all models
+   
 ## Test environments
-* local OS X install, R 4.2 / 4.4
+* local OS X install, R 4.2 / 4.4 / 4.5
 * r-devel-valgrind docker container
-* ubuntu 20.04 (via gh-actions: devel and release)
+* ubuntu 24.04 (via gh-actions: devel and release)
 * win-builder (devel and release)
 
 ## R CMD check results

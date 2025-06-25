@@ -713,7 +713,8 @@ List cyclopsRunBootstrap(SEXP inRcppCcdInterface, const std::string& outFileName
 
     List list = List::create(
         Rcpp::Named("interface")=interface,
-        Rcpp::Named("timeFit")=timeUpdate
+        Rcpp::Named("timeFit")=timeUpdate,
+        Rcpp::Named("samples")=interface->getCcd().getBootStrapInfo()
     );
     RcppCcdInterface::appendRList(list, interface->getResult());
     return list;

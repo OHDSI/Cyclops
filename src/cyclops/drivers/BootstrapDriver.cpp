@@ -44,6 +44,18 @@ BootstrapDriver::~BootstrapDriver() {
 	}
 }
 
+std::vector<double> BootstrapDriver::flattenEstimates() {
+
+    std::vector<double> flat;
+    for (int j = 0; j < J; ++j) {
+        for (int i = 0; i < replicates; ++i) {
+            flat.push_back(estimates[j]->at(i));
+        }
+    }
+
+    return flat;
+}
+
 void BootstrapDriver::drive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
@@ -69,7 +81,7 @@ void BootstrapDriver::drive(
 		}
 	}
 
-	ccd.setBootStrapInfo("hello");
+	ccd.setBootStrapInfo(flattenEstimates());
 }
 
 void BootstrapDriver::logResults(const CCDArguments& arguments) {
@@ -172,6 +184,10 @@ void BootstrapDriver::logHR(const CCDArguments& arguments, std::vector<double>& 
 
 	int tId = 0;
 	while (modelData->getColumnLabel(tId) != treatmentId) tId++;
+
+	if (arguments.outFileName.length() < 1) {
+	    return;
+	}
 
 	ofstream outLog(arguments.outFileName.c_str());
 	if (!outLog) {

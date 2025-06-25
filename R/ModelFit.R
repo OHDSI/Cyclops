@@ -880,18 +880,32 @@ getSEs <- function(object, covariates) {
     ses
 }
 
-#' @title Run Bootstrap for Cyclops model parameter
+#' @title Run bootstrap for Cyclops model parameters
 #'
-#' @param object    A fitted Cyclops model object
-#' @param outFileName     Character: Output file name
-#' @param treatmentId     Character: variable to output
+#' @param object          A fitted Cyclops model object
 #' @param replicates      Numeric: number of bootstrap samples
+#' @param ciCoverage      Numeric (0-1): coverage proportion for bootstrap confidence intervals
 #'
 #' @export
-runBootstrap <- function(object, outFileName, treatmentId, replicates) {
+runBootstrap <- function(object, outFileName, treatmentId, replicates, ciCoverage = 0.95) {
     .checkInterface(object$cyclopsData, testOnly = TRUE)
-    bs <- .cyclopsRunBootstrap(object$cyclopsData$cyclopsInterfacePtr, outFileName, treatmentId, replicates)
-    bs
+    bs <- .cyclopsRunBootstrap(object$cyclopsData$cyclopsInterfacePtr, "", "1", replicates) # TODO Remove unneeded arguments
+
+    bs$samples <- matrix(bs$samples, nrow = replicates)
+    colnames(bs$samples) <- names(coef(object))
+    bs$samples <- as_tibble(bs$samples)
+
+    epsilon <- 1 - ciCoverage
+
+    bs$summary <- data.frame(
+        original = coef(object),
+        bias = sapply(bs$samples, mean) - coef(object),
+        std_err = sapply(bs$samples, function(x) { sqrt(var(x)) }),
+        bpi_lower = sapply(bs$samples, quantile, probs = epsilon / 2),
+        bpi_upper = sapply(bs$samples, quantile, probs = 1 - epsilon / 2)
+    )
+
+    return(bs)
 }
 
 #' @title Confidence intervals for Cyclops model parameters

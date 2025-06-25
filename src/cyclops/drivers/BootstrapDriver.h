@@ -42,6 +42,9 @@ public:
 	void logHR(const CCDArguments& arguments, std::vector<double>& savedBeta, std::string treatmentId);
 
 private:
+
+    std::vector<double> flattenEstimates();
+
     void logResultsImpl(ostream& outLog, const CCDArguments& arguments, std::vector<double>& savedBeta, std::string conditionId);
 
 	const int replicates;

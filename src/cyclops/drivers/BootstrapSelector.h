@@ -23,7 +23,8 @@ public:
 			long inSeed,
     	    loggers::ProgressLoggerPtr _logger,
 	    	loggers::ErrorHandlerPtr _error,
-			std::vector<real>* wtsExclude = NULL);
+			std::vector<double>* wtsExclude,
+			std::vector<double>* weightsOriginal);
 
 	virtual ~BootstrapSelector();
 
@@ -38,6 +39,7 @@ public:
 private:
 	std::multiset<int> selectedSet;
 	std::vector<int> indicesIncluded;
+	std::vector<double>* weightsOriginal;
 };
 
 } // namespace
