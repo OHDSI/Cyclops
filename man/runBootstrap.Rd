@@ -2,19 +2,17 @@
 % Please edit documentation in R/ModelFit.R
 \name{runBootstrap}
 \alias{runBootstrap}
-\title{Run Bootstrap for Cyclops model parameter}
+\title{Run bootstrap for Cyclops model parameters}
 \usage{
-runBootstrap(object, outFileName, treatmentId, replicates)
+runBootstrap(object, replicates, ciCoverage = 0.95)
 }
 \arguments{
 \item{object}{A fitted Cyclops model object}
 
-\item{outFileName}{Character: Output file name}
-
-\item{treatmentId}{Character: variable to output}
-
 \item{replicates}{Numeric: number of bootstrap samples}
+
+\item{ciCoverage}{Numeric (0-1): coverage proportion for bootstrap confidence intervals}
 }
 \description{
-Run Bootstrap for Cyclops model parameter
+Run bootstrap for Cyclops model parameters
 }
