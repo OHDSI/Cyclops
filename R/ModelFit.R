@@ -891,7 +891,12 @@ runBootstrap <- function(object, replicates, ciCoverage = 0.95) {
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     bs <- .cyclopsRunBootstrap(object$cyclopsData$cyclopsInterfacePtr, "", "1", replicates) # TODO Remove unneeded arguments
 
+    if (.cyclopsGetHasOffset(object$cyclopsData)) {
+        bs$samples <- bs$samples[(replicates + 1):length(bs$samples)]
+    }
+
     bs$samples <- matrix(bs$samples, nrow = replicates)
+
     colnames(bs$samples) <- names(coef(object))
     bs$samples <- as_tibble(bs$samples)
 

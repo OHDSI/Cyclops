@@ -51,6 +51,35 @@ test_that("Small Poisson bootstrap examples with and without weights", {
     expect_gt(mean(abs(cb$summary$bias - wcb$summary$bias)), 0.01) # Difference estimates with and without weights
 })
 
+test_that("Small Poisson bootstrap examples with an offset", {
+    dobson <- data.frame(
+        counts = c(18,17,15,20,10,20,25,13,12),
+        outcome2 = c(0,1,0,0,1,0,0,1,0),
+        outcome3 = c(0,0,1,0,0,1,0,0,1),
+        treatment2 = c(0,0,0,1,1,1,0,0,0),
+        treatment3 = c(0,0,0,0,0,0,1,1,1),
+        offset = c(1,1,1,1,1,1,1,1,1)
+    )
+
+    set.seed(123)
+    cdo <- createCyclopsData(counts ~ outcome2 + outcome3 + treatment2 + treatment3 + offset(offset),
+                            data = dobson, modelType = "pr")
+    cfo <- fitCyclopsModel(cdo, prior = createPrior("normal", exclude = "(Intercept)"),
+                          control = createControl(seed = 123))
+    cbo <- runBootstrap(cfo, replicates = 4999)
+
+    set.seed(123)
+    cdn <- createCyclopsData(counts ~ outcome2 + outcome3 + treatment2 + treatment3,
+                             data = dobson, modelType = "pr")
+    cfn <- fitCyclopsModel(cdn, prior = createPrior("normal", exclude = "(Intercept)"),
+                           control = createControl(seed = 123))
+    cbn <- runBootstrap(cfn, replicates = 4999)
+
+    expect_equal(cbo$summary$original + c(1,0,0,0,0), cbn$summary$original, tolerance = 1E-4)
+
+    expect_equal(cbo$summary$bpi_lower + c(1,0,0,0,0), cbn$summary$bpi_lower, tolerance = 1E-4)
+})
+
 # test_that("Large Cox with weights and bootstrapping", {
 #     set.seed(123)
 #     sim <- simulateCyclopsData(nstrata=1000,
