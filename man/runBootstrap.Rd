@@ -4,7 +4,7 @@
 \alias{runBootstrap}
 \title{Run bootstrap for Cyclops model parameters}
 \usage{
-runBootstrap(object, replicates, ciCoverage = 0.95)
+runBootstrap(object, replicates, ciCoverage = 0.95, na.rm = FALSE)
 }
 \arguments{
 \item{object}{A fitted Cyclops model object}
@@ -12,6 +12,8 @@ runBootstrap(object, replicates, ciCoverage = 0.95)
 \item{replicates}{Numeric: number of bootstrap samples}
 
 \item{ciCoverage}{Numeric (0-1): coverage proportion for bootstrap confidence intervals}
+
+\item{na.rm}{Logical: strip out bootstrap replicates with NA values (most likely without a finite estimate)}
 }
 \description{
 Run bootstrap for Cyclops model parameters

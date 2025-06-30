@@ -1,5 +1,20 @@
 library("testthat")
 library("boot")
+library("Cyclops")
+library("survival")
+
+test_that("Small conditional logistic regression bootstrap", {
+    set.seed(123)
+    dataPtr <- createCyclopsData(case ~ spontaneous + induced + strata(stratum),
+                                 data = infert,
+                                 modelType = "clr")
+
+    cyclopsFit <- fitCyclopsModel(dataPtr, prior = createPrior("none"))
+
+    bs <- runBootstrap(cyclopsFit, replicates = 4999)
+    expect_lt(abs(mean(bs$summary$bias)), 0.001)
+    # Error: abs(mean(bs$summary$bias)) is not strictly less than 0.001. Difference: 0.0808
+})
 
 test_that("Small Poisson bootstrap examples with and without weights", {
 
@@ -102,9 +117,9 @@ test_that("Small Poisson bootstrap examples with an offset", {
 # })
 
 # empinf(bb)
-# 
+#
 # mat <- matrix(nrow = Cyclops::getNumberOfRows(cd))
-# 
+#
 # boot.out <- list(
 #     t = as.matrix(cb$samples),
 #     sim = "ordinary",
@@ -114,5 +129,32 @@ test_that("Small Poisson bootstrap examples with an offset", {
 #     data = matrix(nrow = Cyclops::getNumberOfRows(cd)), # bb$data
 #     strata = rep(1, Cyclops::getNumberOfRows(cd)) # bb$strata
 # )
-# 
+#
 # boot.ci(boot.out, index = 1L, type = "bca")
+
+test_that("bootstrap option for na.rm", {
+    test <- read.table(header=T, sep = ",", text = "
+start, length, event, x1, x2
+0, 4,  1,0,0
+0, 3,  1,2,0
+0, 3,  0,0,1
+0, 2,  1,0,1
+0, 2,  1,1,1
+0, 1,  0,1,0
+0, 1,  1,1,0
+")
+    test <- rbind(data.frame(test, index = 1:7), data.frame(test, index = 1:7))
+
+    set.seed(123)
+
+    cyclopsData <- createCyclopsData(Surv(length, event) ~ x1 + strata(x2),
+                                     data = test,
+                                     modelType = "cox")
+
+    fit <- fitCyclopsModel(cyclopsData, weights = rep(c(0,1), 7))
+    expect_error(bootstrap <- runBootstrap(fit, replicates = 4999), "missing values and NaN")
+
+    fit <- fitCyclopsModel(cyclopsData, weights = rep(c(0,1), 7))
+    bootstrap <- runBootstrap(fit, replicates = 4999, na.rm = TRUE)
+    expect_lt(nrow(bootstrap$samples), 4999)
+})

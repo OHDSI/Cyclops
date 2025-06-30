@@ -885,9 +885,10 @@ getSEs <- function(object, covariates) {
 #' @param object          A fitted Cyclops model object
 #' @param replicates      Numeric: number of bootstrap samples
 #' @param ciCoverage      Numeric (0-1): coverage proportion for bootstrap confidence intervals
+#' @param na.rm           Logical: strip out bootstrap replicates with NA values (most likely without a finite estimate)
 #'
 #' @export
-runBootstrap <- function(object, replicates, ciCoverage = 0.95) {
+runBootstrap <- function(object, replicates, ciCoverage = 0.95, na.rm = FALSE) {
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     bs <- .cyclopsRunBootstrap(object$cyclopsData$cyclopsInterfacePtr, "", "1", replicates) # TODO Remove unneeded arguments
 
@@ -899,6 +900,10 @@ runBootstrap <- function(object, replicates, ciCoverage = 0.95) {
 
     colnames(bs$samples) <- names(coef(object))
     bs$samples <- as_tibble(bs$samples)
+
+    if (na.rm) {
+        bs$samples <- bs$samples |> tidyr::drop_na()
+    }
 
     epsilon <- 1 - ciCoverage
 
