@@ -100,3 +100,19 @@ test_that("Small Poisson bootstrap examples with an offset", {
 #     result <- read.csv("out.txt")
 #     result
 # })
+
+# empinf(bb)
+# 
+# mat <- matrix(nrow = Cyclops::getNumberOfRows(cd))
+# 
+# boot.out <- list(
+#     t = as.matrix(cb$samples),
+#     sim = "ordinary",
+#     stype = "i",
+#     R = nrow(cb$samples),
+#     t0 = coef(cf),
+#     data = matrix(nrow = Cyclops::getNumberOfRows(cd)), # bb$data
+#     strata = rep(1, Cyclops::getNumberOfRows(cd)) # bb$strata
+# )
+# 
+# boot.ci(boot.out, index = 1L, type = "bca")
