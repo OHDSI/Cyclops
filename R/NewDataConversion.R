@@ -363,7 +363,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         covariateRowIds <- covariates %>%
             distinct(.data$rowId) %>%
             pull()
-        outcomeRowIds <- select(outcomes, .data$rowId) %>%
+        outcomeRowIds <- select(outcomes, rowId) %>%
             pull()
         mapping <- match(covariateRowIds, outcomeRowIds)
         if (any(is.na(mapping))) {

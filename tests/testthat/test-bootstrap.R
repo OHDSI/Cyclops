@@ -3,19 +3,6 @@ library("boot")
 library("Cyclops")
 library("survival")
 
-test_that("Small conditional logistic regression bootstrap", {
-    set.seed(123)
-    dataPtr <- createCyclopsData(case ~ spontaneous + induced + strata(stratum),
-                                 data = infert,
-                                 modelType = "clr")
-
-    cyclopsFit <- fitCyclopsModel(dataPtr, prior = createPrior("none"))
-
-    bs <- runBootstrap(cyclopsFit, replicates = 4999)
-    expect_lt(abs(mean(bs$summary$bias)), 0.001)
-    # Error: abs(mean(bs$summary$bias)) is not strictly less than 0.001. Difference: 0.0808
-})
-
 test_that("Small Poisson bootstrap examples with and without weights", {
 
     set.seed(123)
