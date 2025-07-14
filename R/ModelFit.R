@@ -978,7 +978,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
         newHessianDiagonal <- .cyclopsGetLogLikelihoodHessianDiagonal(object$cyclopsData$cyclopsInterfacePtr,
                                                                       parm)
 
-        if (any(newHessianDiagonal > 0)) {
+        if (isTRUE(any(newHessianDiagonal > 0))) {
             warning("Cannot estimate confidence interval for positive-curvature log-likelihood function")
 
             prof <- data.frame(covariate = savedParm,
