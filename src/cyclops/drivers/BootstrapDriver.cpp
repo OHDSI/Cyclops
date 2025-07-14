@@ -64,6 +64,8 @@ void BootstrapDriver::drive(
 	// TODO Make sure that selector is type-of BootstrapSelector
 	std::vector<double> weights;
 
+    // TODO parallelize this loop using multiple threads (see example in cross-validation)
+    // TODO via a pool of CCD, but call selector.permute() in series to keep same PRNG stream
 	for (int step = 0; step < replicates; step++) {
 		selector.permute();
 		selector.getWeights(0, weights);
