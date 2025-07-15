@@ -155,9 +155,9 @@ convertToDf <- function(sim, ncovars) {
     mat <- matrix(0, nrow = nrow(sim$outcomes), ncol = ncovars)
 
     invisible(mapply(function(rowId, covariateId, covariateValue) {
-        mat[rowId, covariateId] <<- covariateValue
-    },
-    sim$covariates$rowId, sim$covariates$covariateId, sim$covariates$covariateValue))
+            mat[rowId, covariateId] <<- covariateValue
+        },
+        sim$covariates$rowId, sim$covariates$covariateId, sim$covariates$covariateValue))
 
     df <- as.data.frame(mat)
     outcomes <- sim$outcomes[order(sim$outcomes$rowId),]
@@ -166,6 +166,10 @@ convertToDf <- function(sim, ncovars) {
 
     if (!is.null(outcomes$weights)) {
         df$weights <- outcomes$weights
+    }
+
+    if (!is.null(outcomes$time)) {
+        df$time <- outcomes$time
     }
 
     return(df)
@@ -217,6 +221,57 @@ test_that("Large logistic bootstrap with and without weights", {
     bbYesWeights <- boot(convertToDf(sim, 4),
                          function(d, f) {
                              coef(glm(y ~ V1 + V2 + V3 + V4, family = "binomial", weights = d[f, "weights"], data = d[f,]))
+                         },
+                         R = 1999)
+
+    bbYesStdError <- sqrt(apply(bbYesWeights$t, 2L, var))
+    expect_equal(bsYesWeights$summary$std_err, bbYesStdError, tolerance = 0.01)
+
+    expect_equivalent(bsYesWeights$summary[,c("bpi_lower", "bpi_upper")],
+                      getAllPercentileIntervals(bbYesWeights),
+                      tolerance = 0.05)
+})
+
+test_that("Large Poisson bootstrap with and without weights", {
+    set.seed(123)
+    sim <- simulateCyclopsData(nstrata=100,
+                               ncovars=4,
+                               nrows=1000,
+                               effectSizeSd=0.5,
+                               eCovarsPerRow=2,
+                               model="poisson")
+    cyclopsData <- convertToCyclopsData(outcomes = sim$outcomes,
+                                        covariates = sim$covariates,
+                                        modelType = "pr")
+    fitCyclopsNoWeights <- fitCyclopsModel(cyclopsData = cyclopsData)
+    bsNoWeights <- runBootstrap(fitCyclopsNoWeights, replicates = 1999)
+
+    bbNoWeights <- boot(convertToDf(sim, 4),
+                        function(d, f) {
+                            coef(glm(y ~ V1 + V2 + V3 + V4, offset = log(time),
+                                     family = "poisson", data = d[f,]))
+                        },
+                        R = 1999)
+
+    bbNoStdError <- sqrt(apply(bbNoWeights$t, 2L, var))
+    expect_equal(bsNoWeights$summary$std_err, bbNoStdError, tolerance = 0.01)
+
+    expect_equivalent(bsNoWeights$summary[,c("bpi_lower", "bpi_upper")],
+                      getAllPercentileIntervals(bbNoWeights),
+                      tolerance = 0.05)
+
+    sim$outcomes$weights <- rep(c(0.1,0.9), nrow(sim$outcomes) / 2)
+
+    cyclopsData <- convertToCyclopsData(outcomes = sim$outcomes,
+                                        covariates = sim$covariates,
+                                        modelType = "pr")
+    fitCyclopsYesWeights <- fitCyclopsModel(cyclopsData = cyclopsData)
+    bsYesWeights <- runBootstrap(fitCyclopsYesWeights, replicates = 1999)
+
+    bbYesWeights <- boot(convertToDf(sim, 4),
+                         function(d, f) {
+                             coef(glm(y ~ V1 + V2 + V3 + V4, offset = log(d[f, "time"]),
+                                      family = "poisson", weights = d[f, "weights"], data = d[f,]))
                          },
                          R = 1999)
 
