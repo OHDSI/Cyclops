@@ -197,11 +197,14 @@ test_that("Large logistic bootstrap with and without weights", {
     fitCyclopsNoWeights <- fitCyclopsModel(cyclopsData = cyclopsData)
     bsNoWeights <- runBootstrap(fitCyclopsNoWeights, replicates = 999)
 
-    bbNoWeights <- boot(convertToDf(sim, 4),
+    df <- convertToDf(sim, 4)
+
+    bbNoWeights <- boot(df,
                         function(d, f) {
                             coef(glm(y ~ V1 + V2 + V3 + V4, family = "binomial", data = d[f,]))
                         },
                         R = 999)
+    rm(df)
 
     bbNoStdError <- sqrt(apply(bbNoWeights$t, 2L, var))
     expect_equal(bsNoWeights$summary$std_err, bbNoStdError, tolerance = 0.01)
@@ -218,11 +221,13 @@ test_that("Large logistic bootstrap with and without weights", {
     fitCyclopsYesWeights <- fitCyclopsModel(cyclopsData = cyclopsData)
     bsYesWeights <- runBootstrap(fitCyclopsYesWeights, replicates = 1999)
 
-    bbYesWeights <- boot(convertToDf(sim, 4),
+    df <- convertToDf(sim, 4)
+    bbYesWeights <- boot(df,
                          function(d, f) {
                              coef(glm(y ~ V1 + V2 + V3 + V4, family = "binomial", weights = d[f, "weights"], data = d[f,]))
                          },
                          R = 1999)
+    rm(df)
 
     bbYesStdError <- sqrt(apply(bbYesWeights$t, 2L, var))
     expect_equal(bsYesWeights$summary$std_err, bbYesStdError, tolerance = 0.01)
@@ -246,12 +251,14 @@ test_that("Large Poisson bootstrap with and without weights", {
     fitCyclopsNoWeights <- fitCyclopsModel(cyclopsData = cyclopsData)
     bsNoWeights <- runBootstrap(fitCyclopsNoWeights, replicates = 1999)
 
-    bbNoWeights <- boot(convertToDf(sim, 4),
+    df <- convertToDf(sim, 4)
+    bbNoWeights <- boot(df,
                         function(d, f) {
                             coef(glm(y ~ V1 + V2 + V3 + V4, offset = log(time),
                                      family = "poisson", data = d[f,]))
                         },
                         R = 1999)
+    rm(df)
 
     bbNoStdError <- sqrt(apply(bbNoWeights$t, 2L, var))
     expect_equal(bsNoWeights$summary$std_err, bbNoStdError, tolerance = 0.01)
@@ -268,12 +275,14 @@ test_that("Large Poisson bootstrap with and without weights", {
     fitCyclopsYesWeights <- fitCyclopsModel(cyclopsData = cyclopsData)
     bsYesWeights <- runBootstrap(fitCyclopsYesWeights, replicates = 1999)
 
-    bbYesWeights <- boot(convertToDf(sim, 4),
+    df <- convertToDf(sim, 4)
+    bbYesWeights <- boot(df,
                          function(d, f) {
                              coef(glm(y ~ V1 + V2 + V3 + V4, offset = log(d[f, "time"]),
                                       family = "poisson", weights = d[f, "weights"], data = d[f,]))
                          },
                          R = 1999)
+    rm(df)
 
     bbYesStdError <- sqrt(apply(bbYesWeights$t, 2L, var))
     expect_equal(bsYesWeights$summary$std_err, bbYesStdError, tolerance = 0.01)
