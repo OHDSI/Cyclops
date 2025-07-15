@@ -201,6 +201,7 @@ test_that("Large logistic bootstrap with and without weights", {
 
     bbNoWeights <- boot(df,
                         function(d, f) {
+                            gc()
                             coef(glm(y ~ V1 + V2 + V3 + V4, family = "binomial", data = d[f,]))
                         },
                         R = 999)
@@ -224,6 +225,7 @@ test_that("Large logistic bootstrap with and without weights", {
     df <- convertToDf(sim, 4)
     bbYesWeights <- boot(df,
                          function(d, f) {
+                             gc()
                              coef(glm(y ~ V1 + V2 + V3 + V4, family = "binomial", weights = d[f, "weights"], data = d[f,]))
                          },
                          R = 1999)
@@ -254,6 +256,7 @@ test_that("Large Poisson bootstrap with and without weights", {
     df <- convertToDf(sim, 4)
     bbNoWeights <- boot(df,
                         function(d, f) {
+                            gc()
                             coef(glm(y ~ V1 + V2 + V3 + V4, offset = log(time),
                                      family = "poisson", data = d[f,]))
                         },
@@ -278,6 +281,7 @@ test_that("Large Poisson bootstrap with and without weights", {
     df <- convertToDf(sim, 4)
     bbYesWeights <- boot(df,
                          function(d, f) {
+                             gc()
                              coef(glm(y ~ V1 + V2 + V3 + V4, offset = log(d[f, "time"]),
                                       family = "poisson", weights = d[f, "weights"], data = d[f,]))
                          },
