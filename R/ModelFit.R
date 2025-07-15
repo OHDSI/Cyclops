@@ -902,7 +902,7 @@ runBootstrap <- function(object, replicates, ciCoverage = 0.95, na.rm = FALSE) {
     bs$samples <- as_tibble(bs$samples)
 
     if (na.rm) {
-        bs$samples <- bs$samples |> tidyr::drop_na()
+        bs$samples <- bs$samples %>% tidyr::drop_na()
     }
 
     epsilon <- 1 - ciCoverage
