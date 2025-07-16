@@ -1,7 +1,57 @@
 library("testthat")
 library("boot")
+library("rsample")
 library("Cyclops")
 library("survival")
+
+## helper functions
+
+convertToDf <- function(sim, ncovars) {
+
+    if (ncovars < max(sim$covariates$covariateId)) {
+        stop("Too few covariates")
+    }
+
+    mat <- matrix(0, nrow = nrow(sim$outcomes), ncol = ncovars)
+
+    invisible(mapply(function(rowId, covariateId, covariateValue) {
+        mat[rowId, covariateId] <<- covariateValue
+    },
+    sim$covariates$rowId, sim$covariates$covariateId, sim$covariates$covariateValue))
+
+    df <- as.data.frame(mat)
+    outcomes <- sim$outcomes[order(sim$outcomes$rowId),]
+    df$y <- outcomes$y
+    df$stratumId <- outcomes$stratumId
+
+    if (!is.null(outcomes$weights)) {
+        df$weights <- outcomes$weights
+    }
+
+    if (!is.null(outcomes$time)) {
+        df$time <- outcomes$time
+    }
+
+    return(df)
+}
+
+getAllPercentileIntervals <- function(bb) {
+    result <- t(apply(bb, 2L, quantile, c(0.025, 0.975)))
+    colnames(result) <- c("bpi_lower", "bpi_upper")
+    as.data.frame(result)
+}
+
+bootstrap <- function(df, func, R) {
+
+    replicates <- rsample::bootstraps(df, times = R)
+
+    betas <- lapply(replicates$splits, func) %>%
+        bind_rows()
+
+    return(betas)
+}
+
+## End helper functions
 
 test_that("Small Poisson bootstrap examples with and without weights", {
 
@@ -146,51 +196,6 @@ start, length, event, x1, x2
     expect_lt(nrow(bootstrap$samples), 4999)
 })
 
-convertToDf <- function(sim, ncovars) {
-
-    if (ncovars < max(sim$covariates$covariateId)) {
-        stop("Too few covariates")
-    }
-
-    mat <- matrix(0, nrow = nrow(sim$outcomes), ncol = ncovars)
-
-    invisible(mapply(function(rowId, covariateId, covariateValue) {
-            mat[rowId, covariateId] <<- covariateValue
-        },
-        sim$covariates$rowId, sim$covariates$covariateId, sim$covariates$covariateValue))
-
-    df <- as.data.frame(mat)
-    outcomes <- sim$outcomes[order(sim$outcomes$rowId),]
-    df$y <- outcomes$y
-    df$stratumId <- outcomes$stratumId
-
-    if (!is.null(outcomes$weights)) {
-        df$weights <- outcomes$weights
-    }
-
-    if (!is.null(outcomes$time)) {
-        df$time <- outcomes$time
-    }
-
-    return(df)
-}
-
-getAllPercentileIntervals <- function(bb) {
-    result <- t(apply(bb, 2L, quantile, c(0.025, 0.975)))
-    colnames(result) <- c("bpi_lower", "bpi_upper")
-    as.data.frame(result)
-}
-
-bootstrap <- function(df, func, R) {
-
-    replicates <- rsample::bootstraps(df, times = R)
-
-    betas <- lapply(replicates$splits, func) %>%
-        bind_rows()
-
-    return(betas)
-}
-
 test_that("Large logistic bootstrap with and without weights", {
     set.seed(123)
     sim <- simulateCyclopsData(nstrata=100,
@@ -292,6 +297,63 @@ test_that("Large Poisson bootstrap with and without weights", {
                        family = "poisson", weights = data$weights, data = data)
             coef(fit)
         }, R = 1999)
+
+    bbYesStdError <- sqrt(apply(bbYesWeights, 2L, var))
+    expect_equivalent(bsYesWeights$summary$std_err, bbYesStdError, tolerance = 0.01)
+
+    expect_equivalent(bsYesWeights$summary[,c("bpi_lower", "bpi_upper")],
+                      getAllPercentileIntervals(bbYesWeights),
+                      tolerance = 0.05)
+})
+
+test_that("Large Cox bootstrap with and without weights", {
+    set.seed(123)
+    sim <- simulateCyclopsData(nstrata=100,
+                               ncovars=4,
+                               nrows=1000,
+                               effectSizeSd=0.5,
+                               eCovarsPerRow=2,
+                               model="survival")
+    sim$outcomes$stratumId <- NULL
+    sim$covariates$stratumId <- NULL
+    cyclopsData <- convertToCyclopsData(outcomes = sim$outcomes,
+                                        covariates = sim$covariates,
+                                        modelType = "cox")
+    fitCyclopsNoWeights <- fitCyclopsModel(cyclopsData = cyclopsData)
+    bsNoWeights <- runBootstrap(fitCyclopsNoWeights, replicates = 2999)
+
+    bbNoWeights <- bootstrap(
+        convertToDf(sim, 4),
+        function(split) {
+            data <- rsample::analysis(split)
+            fit <- coxph(Surv(time, y) ~ V1 + V2 + V3 + V4,
+                         data = data)
+            coef(fit)
+        }, R = 2999)
+
+    bbNoStdError <- sqrt(apply(bbNoWeights, 2L, var))
+    expect_equivalent(bsNoWeights$summary$std_err, bbNoStdError, tolerance = 0.01)
+
+    expect_equivalent(bsNoWeights$summary[,c("bpi_lower", "bpi_upper")],
+                      getAllPercentileIntervals(bbNoWeights),
+                      tolerance = 0.05)
+
+    sim$outcomes$weights <- rep(c(0.1,0.9), nrow(sim$outcomes) / 2)
+
+    cyclopsData <- convertToCyclopsData(outcomes = sim$outcomes,
+                                        covariates = sim$covariates,
+                                        modelType = "cox")
+    fitCyclops <- fitCyclopsModel(cyclopsData = cyclopsData)
+    bsYesWeights <- runBootstrap(fitCyclops, replicates = 3999)
+
+    bbYesWeights <- bootstrap(
+        convertToDf(sim, 4),
+        function(split) {
+            data <- rsample::analysis(split)
+            fit <- coxph(Surv(time, y) ~ V1 + V2 + V3 + V4,
+                         weights = data$weights, data = data)
+            coef(fit)
+        }, R = 3999)
 
     bbYesStdError <- sqrt(apply(bbYesWeights, 2L, var))
     expect_equivalent(bsYesWeights$summary$std_err, bbYesStdError, tolerance = 0.01)
