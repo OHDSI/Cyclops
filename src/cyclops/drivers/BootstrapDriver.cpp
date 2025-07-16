@@ -15,6 +15,7 @@
 
 #include "BootstrapDriver.h"
 #include "AbstractSelector.h"
+#include "Thread.h"
 
 namespace bsccs {
 
@@ -57,34 +58,121 @@ std::vector<double> BootstrapDriver::flattenEstimates() {
 }
 
 void BootstrapDriver::drive(
-		CyclicCoordinateDescent& ccd,
-		AbstractSelector& selector,
-		const CCDArguments& arguments) {
+        CyclicCoordinateDescent& ccd,
+        AbstractSelector& selector,
+        const CCDArguments& allArguments) {
 
-	// TODO Make sure that selector is type-of BootstrapSelector
-	std::vector<double> weights;
+    // Start of new multi-thread set-up
+    int nThreads = (allArguments.threads == -1) ?
+        bsccs::thread::hardware_concurrency() :
+        allArguments.threads;
 
-    // TODO parallelize this loop using multiple threads (see example in cross-validation)
-    // TODO via a pool of CCD, but call selector.permute() in series to keep same PRNG stream
-	for (int step = 0; step < replicates; step++) {
-		selector.permute();
-		selector.getWeights(0, weights);
-		ccd.setWeights(&weights[0]); // TODO ERROR FOR BS WITH WEIGHTS?
+    if (nThreads < 1) {
+        nThreads = 1;
+    }
 
-        std::ostringstream stream;
-		stream << std::endl << "Running replicate #" << (step + 1);
-		logger->writeLine(stream);
-		// Run CCD using a warm start
-		ccd.update(arguments.modeFinding);
+    std::ostringstream stream2;
+    stream2 << "Using " << nThreads << " thread(s)";
+    logger->writeLine(stream2);
 
-		// Store point estimates
-		for (int j = 0; j < J; ++j) {
-			estimates[j]->push_back(ccd.getBeta(j));
-		}
-	}
+    std::vector<CyclicCoordinateDescent*> ccdPool;
+    std::vector<AbstractSelector*> selectorPool;
 
-	ccd.setBootStrapInfo(flattenEstimates());
+    ccdPool.push_back(&ccd);
+    selectorPool.push_back(&selector);
+
+    for (int i = 1; i < nThreads; ++i) {
+        ccdPool.push_back(ccd.clone(allArguments.computeDevice));
+        selectorPool.push_back(selector.clone());
+    }
+
+    // Check of poor allocation
+    bool allocationError = false;
+    for (auto element : ccdPool) {
+        if (element == nullptr) {
+            allocationError = true;
+        }
+    }
+
+    for (auto element : selectorPool) {
+        if (element == nullptr) {
+            allocationError = true;
+            }
+    }
+
+    if (allocationError) {
+        std::ostringstream errorStream;
+        errorStream << "Memory allocation error in multi-threaded cross validation driver";
+        error->throwError(errorStream);
+        }
+    // End of multi-thread set-up
+
+    // Delegate to auto or grid loop
+    doBootstrap(ccd, selector, allArguments, nThreads, ccdPool, selectorPool);
+
+    // Clean up
+    for (int i = 1; i < nThreads; ++i) {
+        delete ccdPool[i];
+        delete selectorPool[i];
+    }
+
+    ccd.setBootStrapInfo(flattenEstimates());
 }
+
+void BootstrapDriver::doBootstrap(
+        CyclicCoordinateDescent& ccd,
+        AbstractSelector& selector,
+        const CCDArguments& allArguments,
+        int nThreads,
+        std::vector<CyclicCoordinateDescent*>& ccdPool,
+        std::vector<AbstractSelector*>& selectorPool) {
+
+    // selector.permute() in series to keep same PRNG stream
+    std::vector<std::vector<double>> weightsPool(replicates);
+    for (int i = 0; i < replicates; ++i) {
+        selector.permute();
+        selector.getWeights(0, weightsPool[i]);}
+
+    // one task
+    auto scheduler = TaskScheduler<IncrementableIterator<size_t>>(
+        IncrementableIterator<size_t>(0),
+        IncrementableIterator<size_t>(replicates),
+        nThreads);
+
+    auto oneTask = [&](int task) {
+
+        const auto uniqueId = scheduler.getThreadIndex(task);
+        auto ccdTask = ccdPool[uniqueId];
+        auto selectorTask = selectorPool[uniqueId];
+
+        // for loop to parallelize
+        ccdTask->setWeights(&weightsPool[task][0]);
+        std::ostringstream stream;
+        stream << "\nRunning replicate #" << (task + 1);
+        logger->writeLine(stream);
+
+        ccdTask->update(allArguments.modeFinding);
+
+        // store results without race-conditions
+        std::lock_guard<std::mutex> lock(estimatesMutex);
+        for (int j = 0; j < J; ++j) {
+            estimates[j]->push_back(ccdTask->getBeta(j));
+        }
+    };
+
+
+    // execute all tasks in parallel
+    if (nThreads > 1) {
+        ccd.getProgressLogger().setConcurrent(true);
+        }
+    scheduler.execute(oneTask);
+    if (nThreads > 1) {
+        ccd.getProgressLogger().setConcurrent(false);
+        ccd.getProgressLogger().flush();
+        }
+    }
+
+
 
 void BootstrapDriver::logResults(const CCDArguments& arguments) {
     std::ostringstream stream;

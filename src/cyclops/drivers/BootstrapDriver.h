@@ -31,9 +31,9 @@ public:
 	virtual ~BootstrapDriver();
 
 	virtual void drive(
-			CyclicCoordinateDescent& ccd,
-			AbstractSelector& selector,
-			const CCDArguments& arguments);
+	        CyclicCoordinateDescent& ccd,
+	        AbstractSelector& selector,
+	        const CCDArguments& allArguments);
 
 	virtual void logResults(const CCDArguments& arguments);
 
@@ -41,8 +41,18 @@ public:
 
 	void logHR(const CCDArguments& arguments, std::vector<double>& savedBeta, std::string treatmentId);
 
-private:
+protected:
+    void doBootstrap(
+            CyclicCoordinateDescent& ccd,
+            AbstractSelector& selector,
+            const CCDArguments& allArguments,
+            int nThreads,
+            std::vector<CyclicCoordinateDescent*>& ccdPool,
+            std::vector<AbstractSelector*>& selectorPool);
 
+    std::mutex estimateMutex;
+
+private:
     std::vector<double> flattenEstimates();
 
     void logResultsImpl(ostream& outLog, const CCDArguments& arguments, std::vector<double>& savedBeta, std::string conditionId);
@@ -51,6 +61,8 @@ private:
 	AbstractModelData* modelData;
 	const int J;
 	rarray estimates;
+	std::mutex estimatesMutex;
+
 };
 
 } // namespace
