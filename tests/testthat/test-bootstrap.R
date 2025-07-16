@@ -201,11 +201,10 @@ test_that("Large logistic bootstrap with and without weights", {
 
     bbNoWeights <- boot(df,
                         function(d, f) {
-                            gc()
-                            coef(glm(y ~ V1 + V2 + V3 + V4, family = "binomial", data = d[f,]))
+                            dataSlice <- d[f,]
+                            coef(glm(y ~ V1 + V2 + V3 + V4, family = "binomial", data = dataSlice))
                         },
                         R = 999)
-    rm(df)
 
     bbNoStdError <- sqrt(apply(bbNoWeights$t, 2L, var))
     expect_equal(bsNoWeights$summary$std_err, bbNoStdError, tolerance = 0.01)
@@ -225,11 +224,10 @@ test_that("Large logistic bootstrap with and without weights", {
     df <- convertToDf(sim, 4)
     bbYesWeights <- boot(df,
                          function(d, f) {
-                             gc()
-                             coef(glm(y ~ V1 + V2 + V3 + V4, family = "binomial", weights = d[f, "weights"], data = d[f,]))
+                             dataSlice <- d[f,]
+                             coef(glm(y ~ V1 + V2 + V3 + V4, family = "binomial", weights = dataSlice$weights, data = dataSlice))
                          },
                          R = 1999)
-    rm(df)
 
     bbYesStdError <- sqrt(apply(bbYesWeights$t, 2L, var))
     expect_equal(bsYesWeights$summary$std_err, bbYesStdError, tolerance = 0.01)
