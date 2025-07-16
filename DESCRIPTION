@@ -54,7 +54,8 @@ Suggests:
     microbenchmark,
     cmprsk,
     boot,
-    rsample
+    rsample,
+    purrr
 NeedsCompilation: yes
 RoxygenNote: 7.3.2
 Roxygen: list(markdown = TRUE)

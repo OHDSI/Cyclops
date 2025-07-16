@@ -202,7 +202,7 @@ test_that("Large logistic bootstrap with and without weights", {
 
     boot_models <-
         boots %>%
-        mutate(betas = map(splits, function(split) {
+        mutate(betas = purrr::map(splits, function(split) {
             dataSlice <- rsample::analysis(split)
             fit <- glm(y ~ V1 + V2 + V3 + V4, family = "binomial", data = dataSlice)
             as.data.frame(t(coef(fit)))
