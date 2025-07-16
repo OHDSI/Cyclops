@@ -176,11 +176,19 @@ convertToDf <- function(sim, ncovars) {
 }
 
 getAllPercentileIntervals <- function(bb) {
-    as.data.frame(
-        t(sapply(1:length(bb$t0), function(idx) {
-            tmp <- boot.ci(bb, index = idx, type = "perc")
-            tmp$percent[4:5]
-        })))
+    result <- t(apply(bb, 2L, quantile, c(0.025, 0.975)))
+    colnames(result) <- c("bpi_lower", "bpi_upper")
+    as.data.frame(result)
+}
+
+bootstrap <- function(df, func, R) {
+
+    replicates <- rsample::bootstraps(df, times = R)
+
+    betas <- lapply(replicates$splits, func) %>%
+        bind_rows()
+
+    return(betas)
 }
 
 test_that("Large logistic bootstrap with and without weights", {
@@ -197,24 +205,21 @@ test_that("Large logistic bootstrap with and without weights", {
     fitCyclopsNoWeights <- fitCyclopsModel(cyclopsData = cyclopsData)
     bsNoWeights <- runBootstrap(fitCyclopsNoWeights, replicates = 1999)
 
-    df <- convertToDf(sim, 4)
-    boots <- rsample::bootstraps(df, times = 1999)
-
-    boot_models <-
-        boots %>%
-        mutate(betas = purrr::map(splits, function(split) {
-            dataSlice <- rsample::analysis(split)
-            fit <- glm(y ~ V1 + V2 + V3 + V4, family = "binomial", data = dataSlice)
-            as.data.frame(t(coef(fit)))
-        }))
-    bbNoWeights <- bind_rows(boot_models$betas)
+    bbNoWeights <- bootstrap(
+        convertToDf(sim, 4),
+        function(split) {
+            data <- rsample::analysis(split)
+            fit <- glm(y ~ V1 + V2 + V3 + V4,
+                       family = "binomial", data = data)
+            coef(fit)
+        }, R = 1999)
 
     bbNoStdError <- sqrt(apply(bbNoWeights, 2L, var))
     expect_equivalent(bsNoWeights$summary$std_err, bbNoStdError, tolerance = 0.01)
 
-    # expect_equivalent(bsNoWeights$summary[,c("bpi_lower", "bpi_upper")],
-    #                   getAllPercentileIntervals(bbNoWeights),
-    #                   tolerance = 0.05)
+    expect_equivalent(bsNoWeights$summary[,c("bpi_lower", "bpi_upper")],
+                      getAllPercentileIntervals(bbNoWeights),
+                      tolerance = 0.05)
 
     sim$outcomes$weights <- rep(c(0.1,0.9), nrow(sim$outcomes) / 2)
 
@@ -224,20 +229,21 @@ test_that("Large logistic bootstrap with and without weights", {
     fitCyclopsYesWeights <- fitCyclopsModel(cyclopsData = cyclopsData)
     bsYesWeights <- runBootstrap(fitCyclopsYesWeights, replicates = 1999)
 
-    # df <- convertToDf(sim, 4)
-    # bbYesWeights <- boot(df,
-    #                      function(d, f) {
-    #                          dataSlice <- d[f,]
-    #                          coef(glm(y ~ V1 + V2 + V3 + V4, family = "binomial", weights = dataSlice$weights, data = dataSlice))
-    #                      },
-    #                      R = 1999)
-    #
-    # bbYesStdError <- sqrt(apply(bbYesWeights$t, 2L, var))
-    # expect_equal(bsYesWeights$summary$std_err, bbYesStdError, tolerance = 0.01)
-    #
-    # expect_equivalent(bsYesWeights$summary[,c("bpi_lower", "bpi_upper")],
-    #                   getAllPercentileIntervals(bbYesWeights),
-    #                   tolerance = 0.05)
+    bbYesWeights <- bootstrap(convertToDf(sim, 4),
+        function(split) {
+            data <- rsample::analysis(split)
+            suppressWarnings(
+                fit <- glm(y ~ V1 + V2 + V3 + V4, weights = data$weights,
+                           family = "binomial", data = data))
+            coef(fit)
+        }, R = 1999)
+
+    bbYesStdError <- sqrt(apply(bbYesWeights, 2L, var))
+    expect_equivalent(bsYesWeights$summary$std_err, bbYesStdError, tolerance = 0.01)
+
+    expect_equivalent(bsYesWeights$summary[,c("bpi_lower", "bpi_upper")],
+                      getAllPercentileIntervals(bbYesWeights),
+                      tolerance = 0.05)
 })
 
 test_that("Large Poisson bootstrap with and without weights", {
@@ -254,22 +260,21 @@ test_that("Large Poisson bootstrap with and without weights", {
     fitCyclopsNoWeights <- fitCyclopsModel(cyclopsData = cyclopsData)
     bsNoWeights <- runBootstrap(fitCyclopsNoWeights, replicates = 1999)
 
-    df <- convertToDf(sim, 4)
-    # bbNoWeights <- boot(df,
-    #                     function(d, f) {
-    #                         gc()
-    #                         coef(glm(y ~ V1 + V2 + V3 + V4, offset = log(time),
-    #                                  family = "poisson", data = d[f,]))
-    #                     },
-    #                     R = 1999)
-    # rm(df)
-    #
-    # bbNoStdError <- sqrt(apply(bbNoWeights$t, 2L, var))
-    # expect_equal(bsNoWeights$summary$std_err, bbNoStdError, tolerance = 0.01)
-    #
-    # expect_equivalent(bsNoWeights$summary[,c("bpi_lower", "bpi_upper")],
-    #                   getAllPercentileIntervals(bbNoWeights),
-    #                   tolerance = 0.05)
+    bbNoWeights <- bootstrap(
+        convertToDf(sim, 4),
+        function(split) {
+            data <- rsample::analysis(split)
+            fit <- glm(y ~ V1 + V2 + V3 + V4, offset = log(time),
+                       family = "poisson", data = data)
+            coef(fit)
+        }, R = 1999)
+
+    bbNoStdError <- sqrt(apply(bbNoWeights, 2L, var))
+    expect_equivalent(bsNoWeights$summary$std_err, bbNoStdError, tolerance = 0.01)
+
+    expect_equivalent(bsNoWeights$summary[,c("bpi_lower", "bpi_upper")],
+                      getAllPercentileIntervals(bbNoWeights),
+                      tolerance = 0.05)
 
     sim$outcomes$weights <- rep(c(0.1,0.9), nrow(sim$outcomes) / 2)
 
@@ -279,20 +284,19 @@ test_that("Large Poisson bootstrap with and without weights", {
     fitCyclopsYesWeights <- fitCyclopsModel(cyclopsData = cyclopsData)
     bsYesWeights <- runBootstrap(fitCyclopsYesWeights, replicates = 1999)
 
-    df <- convertToDf(sim, 4)
-    # bbYesWeights <- boot(df,
-    #                      function(d, f) {
-    #                          gc()
-    #                          coef(glm(y ~ V1 + V2 + V3 + V4, offset = log(d[f, "time"]),
-    #                                   family = "poisson", weights = d[f, "weights"], data = d[f,]))
-    #                      },
-    #                      R = 1999)
-    # rm(df)
-    #
-    # bbYesStdError <- sqrt(apply(bbYesWeights$t, 2L, var))
-    # expect_equal(bsYesWeights$summary$std_err, bbYesStdError, tolerance = 0.01)
-    #
-    # expect_equivalent(bsYesWeights$summary[,c("bpi_lower", "bpi_upper")],
-    #                   getAllPercentileIntervals(bbYesWeights),
-    #                   tolerance = 0.05)
+    bbYesWeights <- bootstrap(
+        convertToDf(sim, 4),
+        function(split) {
+            data <- rsample::analysis(split)
+            fit <- glm(y ~ V1 + V2 + V3 + V4, offset = log(time),
+                       family = "poisson", weights = data$weights, data = data)
+            coef(fit)
+        }, R = 1999)
+
+    bbYesStdError <- sqrt(apply(bbYesWeights, 2L, var))
+    expect_equivalent(bsYesWeights$summary$std_err, bbYesStdError, tolerance = 0.01)
+
+    expect_equivalent(bsYesWeights$summary[,c("bpi_lower", "bpi_upper")],
+                      getAllPercentileIntervals(bbYesWeights),
+                      tolerance = 0.05)
 })
