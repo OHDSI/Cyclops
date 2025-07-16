@@ -320,7 +320,7 @@ test_that("Large Cox bootstrap with and without weights", {
                                         covariates = sim$covariates,
                                         modelType = "cox")
     fitCyclopsNoWeights <- fitCyclopsModel(cyclopsData = cyclopsData)
-    bsNoWeights <- runBootstrap(fitCyclopsNoWeights, replicates = 2999)
+    bsNoWeights <- runBootstrap(fitCyclopsNoWeights, replicates = 3999)
 
     bbNoWeights <- bootstrap(
         convertToDf(sim, 4),
@@ -329,7 +329,7 @@ test_that("Large Cox bootstrap with and without weights", {
             fit <- coxph(Surv(time, y) ~ V1 + V2 + V3 + V4,
                          data = data)
             coef(fit)
-        }, R = 2999)
+        }, R = 3999)
 
     bbNoStdError <- sqrt(apply(bbNoWeights, 2L, var))
     expect_equivalent(bsNoWeights$summary$std_err, bbNoStdError, tolerance = 0.01)

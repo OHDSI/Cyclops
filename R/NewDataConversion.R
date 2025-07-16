@@ -401,7 +401,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         }
         if (!"time" %in% colnames(covariates)) {
             covariates <- covariates %>%
-                inner_join(select(outcomes, .data$rowId, "time", "y"), by = "rowId")
+                inner_join(select(outcomes, "rowId", "time", "y"), by = "rowId")
         }
         if ("subjectId" %in% colnames(outcomes)) {
             outcomes <- outcomes %>%
