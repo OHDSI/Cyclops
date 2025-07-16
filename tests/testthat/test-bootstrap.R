@@ -195,10 +195,10 @@ test_that("Large logistic bootstrap with and without weights", {
                                         covariates = sim$covariates,
                                         modelType = "lr")
     fitCyclopsNoWeights <- fitCyclopsModel(cyclopsData = cyclopsData)
-    bsNoWeights <- runBootstrap(fitCyclopsNoWeights, replicates = 999)
+    bsNoWeights <- runBootstrap(fitCyclopsNoWeights, replicates = 1999)
 
     df <- convertToDf(sim, 4)
-    boots <- rsample::bootstraps(df, times = 999)
+    boots <- rsample::bootstraps(df, times = 1999)
 
     boot_models <-
         boots %>%
