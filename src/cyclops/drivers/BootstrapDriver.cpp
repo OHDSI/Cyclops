@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <cmath>
 #include <sstream>
+#include <mutex>
 
 #include "BootstrapDriver.h"
 #include "AbstractSelector.h"
@@ -143,7 +144,6 @@ void BootstrapDriver::doBootstrap(
 
         const auto uniqueId = scheduler.getThreadIndex(task);
         auto ccdTask = ccdPool[uniqueId];
-        auto selectorTask = selectorPool[uniqueId];
 
         // for loop to parallelize
         ccdTask->setWeights(&weightsPool[task][0]);
