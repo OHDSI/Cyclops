@@ -22,7 +22,7 @@ if (getRversion() < "4.2") { # Windoz
 
 ##### can find JNI #####
 
-doJni <- FALSE
+doJni <- TRUE
 if (doJni) {
 
 if (.Platform$OS.type == "unix") {
