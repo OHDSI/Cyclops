@@ -1,10 +1,3 @@
-develop
-==============
-
-Changes:
-
-1. add Schoenfeld residual output for Cox models (still under development)
-
 Cyclops v3.6.0
 ==============
 
