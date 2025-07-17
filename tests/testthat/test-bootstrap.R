@@ -55,6 +55,8 @@ bootstrap <- function(df, func, R) {
 
 test_that("Small Poisson bootstrap examples with and without weights", {
 
+    skip_on_cran("Bootstrapping takes too long")
+
     set.seed(123)
 
     dobson <- data.frame(
@@ -104,6 +106,9 @@ test_that("Small Poisson bootstrap examples with and without weights", {
 })
 
 test_that("Small Poisson bootstrap examples with an offset", {
+
+    skip_on_cran("Bootstrapping takes too long")
+
     dobson <- data.frame(
         counts = c(18,17,15,20,10,20,25,13,12),
         outcome2 = c(0,1,0,0,1,0,0,1,0),
@@ -132,31 +137,7 @@ test_that("Small Poisson bootstrap examples with an offset", {
     expect_equal(cbo$summary$bpi_lower + c(1,0,0,0,0), cbn$summary$bpi_lower, tolerance = 1E-4)
 })
 
-# test_that("Large Cox with weights and bootstrapping", {
-#     set.seed(123)
-#     sim <- simulateCyclopsData(nstrata=1000,
-#                                ncovars=10,
-#                                nrows=10000,
-#                                effectSizeSd=0.5,
-#                                eCovarsPerRow=2,
-#                                model="survival")
-#     sim$outcomes$weights <- 1/sim$outcomes$rr
-#
-#     # Cyclops
-#     cyclopsData <- convertToCyclopsData(outcomes = sim$outcomes,
-#                                         covariates = sim$covariates,
-#                                         modelType = "cox")
-#     fitCyclops <- fitCyclopsModel(cyclopsData = cyclopsData)
-#
-#     bs <- runBootstrap(fitCyclops, outFileName = "out.txt", treatmentId = "1", replicates = 100)
-#     result <- read.csv("out.txt")
-#     result
-# })
 
-# empinf(bb)
-#
-# mat <- matrix(nrow = Cyclops::getNumberOfRows(cd))
-#
 # boot.out <- list(
 #     t = as.matrix(cb$samples),
 #     sim = "ordinary",
@@ -197,6 +178,9 @@ start, length, event, x1, x2
 })
 
 test_that("Large logistic bootstrap with and without weights", {
+
+    skip_on_cran("Bootstrapping takes too long")
+
     set.seed(123)
     sim <- simulateCyclopsData(nstrata=100,
                                ncovars=4,
@@ -252,6 +236,9 @@ test_that("Large logistic bootstrap with and without weights", {
 })
 
 test_that("Large Poisson bootstrap with and without weights", {
+
+    skip_on_cran("Bootstrapping takes too long")
+
     set.seed(123)
     sim <- simulateCyclopsData(nstrata=100,
                                ncovars=4,
@@ -307,6 +294,9 @@ test_that("Large Poisson bootstrap with and without weights", {
 })
 
 test_that("Large Cox bootstrap with and without weights", {
+
+    skip_on_cran("Bootstrapping takes too long")
+
     set.seed(123)
     sim <- simulateCyclopsData(nstrata=100,
                                ncovars=4,
