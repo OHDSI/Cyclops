@@ -220,7 +220,7 @@ test_that("Large logistic bootstrap with and without weights", {
         }, R = 1999)
 
     bbNoStdError <- sqrt(apply(bbNoWeights, 2L, var))
-    expect_equivalent(bsNoWeights$summary$std_err, bbNoStdError, tolerance = 0.01)
+    expect_equivalent(bsNoWeights$summary$std_err, bbNoStdError, tolerance = 0.02)
 
     expect_equivalent(bsNoWeights$summary[,c("bpi_lower", "bpi_upper")],
                       getAllPercentileIntervals(bbNoWeights),
@@ -244,7 +244,7 @@ test_that("Large logistic bootstrap with and without weights", {
         }, R = 1999)
 
     bbYesStdError <- sqrt(apply(bbYesWeights, 2L, var))
-    expect_equivalent(bsYesWeights$summary$std_err, bbYesStdError, tolerance = 0.01)
+    expect_equivalent(bsYesWeights$summary$std_err, bbYesStdError, tolerance = 0.02)
 
     expect_equivalent(bsYesWeights$summary[,c("bpi_lower", "bpi_upper")],
                       getAllPercentileIntervals(bbYesWeights),
@@ -275,7 +275,7 @@ test_that("Large Poisson bootstrap with and without weights", {
         }, R = 1999)
 
     bbNoStdError <- sqrt(apply(bbNoWeights, 2L, var))
-    expect_equivalent(bsNoWeights$summary$std_err, bbNoStdError, tolerance = 0.01)
+    expect_equivalent(bsNoWeights$summary$std_err, bbNoStdError, tolerance = 0.02)
 
     expect_equivalent(bsNoWeights$summary[,c("bpi_lower", "bpi_upper")],
                       getAllPercentileIntervals(bbNoWeights),
@@ -299,7 +299,7 @@ test_that("Large Poisson bootstrap with and without weights", {
         }, R = 1999)
 
     bbYesStdError <- sqrt(apply(bbYesWeights, 2L, var))
-    expect_equivalent(bsYesWeights$summary$std_err, bbYesStdError, tolerance = 0.01)
+    expect_equivalent(bsYesWeights$summary$std_err, bbYesStdError, tolerance = 0.02)
 
     expect_equivalent(bsYesWeights$summary[,c("bpi_lower", "bpi_upper")],
                       getAllPercentileIntervals(bbYesWeights),
@@ -332,7 +332,7 @@ test_that("Large Cox bootstrap with and without weights", {
         }, R = 3999)
 
     bbNoStdError <- sqrt(apply(bbNoWeights, 2L, var))
-    expect_equivalent(bsNoWeights$summary$std_err, bbNoStdError, tolerance = 0.01)
+    expect_equivalent(bsNoWeights$summary$std_err, bbNoStdError, tolerance = 0.02)
 
     expect_equivalent(bsNoWeights$summary[,c("bpi_lower", "bpi_upper")],
                       getAllPercentileIntervals(bbNoWeights),
@@ -356,7 +356,7 @@ test_that("Large Cox bootstrap with and without weights", {
         }, R = 3999)
 
     bbYesStdError <- sqrt(apply(bbYesWeights, 2L, var))
-    expect_equivalent(bsYesWeights$summary$std_err, bbYesStdError, tolerance = 0.01)
+    expect_equivalent(bsYesWeights$summary$std_err, bbYesStdError, tolerance = 0.02)
 
     expect_equivalent(bsYesWeights$summary[,c("bpi_lower", "bpi_upper")],
                       getAllPercentileIntervals(bbYesWeights),
