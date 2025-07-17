@@ -35,7 +35,7 @@ Imports:
     rlang,
     Matrix,
     Rcpp (>= 0.12.12),
-    Andromeda (<= 0.6.7),
+    Andromeda,
     dplyr,
     methods,
     survival,
