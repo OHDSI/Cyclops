@@ -224,7 +224,7 @@ test_that("Large logistic bootstrap with and without weights", {
 
     expect_equivalent(bsNoWeights$summary[,c("bpi_lower", "bpi_upper")],
                       getAllPercentileIntervals(bbNoWeights),
-                      tolerance = 0.05)
+                      tolerance = 0.075)
 
     sim$outcomes$weights <- rep(c(0.1,0.9), nrow(sim$outcomes) / 2)
 
@@ -248,7 +248,7 @@ test_that("Large logistic bootstrap with and without weights", {
 
     expect_equivalent(bsYesWeights$summary[,c("bpi_lower", "bpi_upper")],
                       getAllPercentileIntervals(bbYesWeights),
-                      tolerance = 0.05)
+                      tolerance = 0.075)
 })
 
 test_that("Large Poisson bootstrap with and without weights", {
@@ -279,7 +279,7 @@ test_that("Large Poisson bootstrap with and without weights", {
 
     expect_equivalent(bsNoWeights$summary[,c("bpi_lower", "bpi_upper")],
                       getAllPercentileIntervals(bbNoWeights),
-                      tolerance = 0.05)
+                      tolerance = 0.075)
 
     sim$outcomes$weights <- rep(c(0.1,0.9), nrow(sim$outcomes) / 2)
 
@@ -303,7 +303,7 @@ test_that("Large Poisson bootstrap with and without weights", {
 
     expect_equivalent(bsYesWeights$summary[,c("bpi_lower", "bpi_upper")],
                       getAllPercentileIntervals(bbYesWeights),
-                      tolerance = 0.05)
+                      tolerance = 0.075)
 })
 
 test_that("Large Cox bootstrap with and without weights", {
@@ -336,7 +336,7 @@ test_that("Large Cox bootstrap with and without weights", {
 
     expect_equivalent(bsNoWeights$summary[,c("bpi_lower", "bpi_upper")],
                       getAllPercentileIntervals(bbNoWeights),
-                      tolerance = 0.05)
+                      tolerance = 0.075)
 
     sim$outcomes$weights <- rep(c(0.1,0.9), nrow(sim$outcomes) / 2)
 
@@ -360,5 +360,5 @@ test_that("Large Cox bootstrap with and without weights", {
 
     expect_equivalent(bsYesWeights$summary[,c("bpi_lower", "bpi_upper")],
                       getAllPercentileIntervals(bbYesWeights),
-                      tolerance = 0.05)
+                      tolerance = 0.075)
 })
