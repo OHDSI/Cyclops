@@ -59,5 +59,3 @@ NeedsCompilation: yes
 RoxygenNote: 7.3.2
 Roxygen: list(markdown = TRUE)
 Encoding: UTF-8
-Remotes:
-    ohdsi/Andromeda@2dd0c3a
