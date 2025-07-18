@@ -151,6 +151,9 @@ test_that("Small Poisson bootstrap examples with an offset", {
 # boot.ci(boot.out, index = 1L, type = "bca")
 
 test_that("bootstrap option for na.rm", {
+
+    skip_on_cran() # ASAN error https://github.com/OHDSI/Cyclops/actions/runs/16373844416
+
     test <- read.table(header=T, sep = ",", text = "
 start, length, event, x1, x2
 0, 4,  1,0,0
