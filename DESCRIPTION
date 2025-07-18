@@ -43,8 +43,7 @@ Imports:
     bit,
     bit64
 LinkingTo: Rcpp,
-    RcppEigen (>= 0.3.2),
-    RcppParallel
+    RcppEigen (>= 0.3.2)
 Suggests:
     testthat,
     readr,
