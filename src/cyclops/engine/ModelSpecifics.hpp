@@ -28,7 +28,7 @@
 
 
 //#include "R.h"
-//#include "Rcpp.h" // TODO Remove
+#include "Rcpp.h" // TODO Remove
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	#include "Timing.h"
@@ -2290,17 +2290,20 @@ void ModelSpecifics<BaseModel,RealType>::setPidForAccumulationImpl(const AnyReal
     size_t index = 0;
 
     if (weights != nullptr) {
-        fprintf(stderr, "K = %d:", K);
+        // fprintf(stderr, "K = %d:", K);
+        Rcpp::Rcerr << "K = " << K;
     }
 
     while(weights != nullptr && weights[index] == 0.0 && index < K) {
-        fprintf(stderr, " %d", index);
+        // fprintf(stderr, " %d", index);
+        Rcpp::Rcerr << " " << index;
         hPid[index] = ignore;
         index++;
     }
 
     if (weights != nullptr) {
-        fprintf(stderr, "\n");
+        // fprintf(stderr, "\n");
+        Rcpp::Rcerr << "\n";
     }
 
     // TODO What happens when all weights[index] == 0.0?  does index get too large for next reads?
