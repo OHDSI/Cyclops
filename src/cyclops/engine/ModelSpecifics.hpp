@@ -2288,10 +2288,22 @@ void ModelSpecifics<BaseModel,RealType>::setPidForAccumulationImpl(const AnyReal
 
     // Find first non-zero weight
     size_t index = 0;
+
+    if (weights != nullptr) {
+        fprintf(stderr, "K = %d:", K);
+    }
+
     while(weights != nullptr && weights[index] == 0.0 && index < K) {
+        fprintf(stderr, " %d", index);
         hPid[index] = ignore;
         index++;
     }
+
+    if (weights != nullptr) {
+        fprintf(stderr, "\n");
+    }
+
+    // TODO What happens when all weights[index] == 0.0?  does index get too large for next reads?
 
     int lastPid = hPid[index];
     AnyRealType lastTime = hOffs[index];
