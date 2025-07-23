@@ -16,8 +16,6 @@
 #include "BootstrapDriver.h"
 #include "AbstractSelector.h"
 
-#include "Rcpp.h" # TODO Remove
-
 namespace bsccs {
 
 using std::ostream_iterator;
@@ -71,7 +69,6 @@ void BootstrapDriver::drive(
 	for (int step = 0; step < replicates; step++) {
 		selector.permute();
 		selector.getWeights(0, weights);
-		Rcpp::Rcerr << "weight len = " << weights.size() << "\n";
 		ccd.setWeights(&weights[0]); // TODO ERROR FOR BS WITH WEIGHTS?
 
         std::ostringstream stream;
