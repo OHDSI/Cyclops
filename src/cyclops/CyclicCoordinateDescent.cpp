@@ -1018,6 +1018,18 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
     return done;
 }
 
+bool allZeroWeights(std::vector<double>& weights) {
+    if (weights.size() == 0) {
+        return false;
+    } else {
+        for (size_t i = 0; i < weights.size(); ++i) {
+            if (weights[i] > 0.0) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
 
 void CyclicCoordinateDescent::findMode(
 		int maxIterations,
@@ -1031,6 +1043,16 @@ void CyclicCoordinateDescent::findMode(
 	    std::ostringstream stream;
 		stream << "Unknown convergence criterion: " << convergenceType;
 		error->throwError(stream);
+	}
+
+	if (allZeroWeights(hWeights)) {
+	    if (noiseLevel > SILENT) {
+	        std::ostringstream stream;
+	        stream << "All 0.0 weights";
+	        logger->writeLine(stream);
+	    }
+	    lastReturnFlag = ILLCONDITIONED;
+	    return;
 	}
 
 	if (!validWeights || hXI.getTouchedY() // || hXI.getTouchedX()
