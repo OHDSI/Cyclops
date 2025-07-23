@@ -55,7 +55,7 @@ bootstrap <- function(df, func, R) {
 
 test_that("Small Poisson bootstrap examples with and without weights", {
 
-    skip_on_cran()
+    # skip_on_cran()
 
     set.seed(123)
 
@@ -107,7 +107,7 @@ test_that("Small Poisson bootstrap examples with and without weights", {
 
 test_that("Small Poisson bootstrap examples with an offset", {
 
-    skip_on_cran()
+    # skip_on_cran()
 
     dobson <- data.frame(
         counts = c(18,17,15,20,10,20,25,13,12),
@@ -182,7 +182,7 @@ start, length, event, x1, x2
 
 test_that("Large logistic bootstrap with and without weights", {
 
-    skip_on_cran()
+    # skip_on_cran()
 
     set.seed(123)
     sim <- simulateCyclopsData(nstrata=100,
@@ -240,7 +240,7 @@ test_that("Large logistic bootstrap with and without weights", {
 
 test_that("Large Poisson bootstrap with and without weights", {
 
-    skip_on_cran()
+    # skip_on_cran()
 
     set.seed(123)
     sim <- simulateCyclopsData(nstrata=100,
@@ -298,7 +298,7 @@ test_that("Large Poisson bootstrap with and without weights", {
 
 test_that("Large Cox bootstrap with and without weights", {
 
-    skip_on_cran()
+    # skip_on_cran()
 
     set.seed(123)
     sim <- simulateCyclopsData(nstrata=100,
