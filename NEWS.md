@@ -1,3 +1,10 @@
+develop
+==============
+
+Changes:
+
+1. fix `covariate` type in `confint()` output 
+
 Cyclops v3.6.0
 ==============
 
