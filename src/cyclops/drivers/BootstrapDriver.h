@@ -50,8 +50,6 @@ protected:
             std::vector<CyclicCoordinateDescent*>& ccdPool,
             std::vector<AbstractSelector*>& selectorPool);
 
-    std::mutex estimateMutex;
-
 private:
     std::vector<double> flattenEstimates();
 
@@ -61,8 +59,6 @@ private:
 	AbstractModelData* modelData;
 	const int J;
 	rarray estimates;
-	std::mutex estimatesMutex;
-
 };
 
 } // namespace

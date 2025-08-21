@@ -33,13 +33,15 @@ public:
 	virtual void getWeights(int batch, std::vector<double>& weights);
 
 	virtual void getComplement(std::vector<double>& weights);
-	
+
 	AbstractSelector* clone() const;
+
+	virtual void advance(int permutationCount);
 
 private:
 	std::multiset<int> selectedSet;
 	std::vector<int> indicesIncluded;
-	std::vector<double>* weightsOriginal;
+	const std::vector<double>* weightsOriginal;
 };
 
 } // namespace

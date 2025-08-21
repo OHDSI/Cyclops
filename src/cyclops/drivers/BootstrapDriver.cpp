@@ -12,11 +12,12 @@
 #include <cstdlib>
 #include <cmath>
 #include <sstream>
-#include <mutex>
 
 #include "BootstrapDriver.h"
 #include "AbstractSelector.h"
 #include "Thread.h"
+
+#include "Timer.h"
 
 namespace bsccs {
 
@@ -128,11 +129,56 @@ void BootstrapDriver::doBootstrap(
         std::vector<CyclicCoordinateDescent*>& ccdPool,
         std::vector<AbstractSelector*>& selectorPool) {
 
+    const bool serialPrng = false;
+
+    // Timer timer1;
+
     // selector.permute() in series to keep same PRNG stream
     std::vector<std::vector<double>> weightsPool(replicates);
-    for (int i = 0; i < replicates; ++i) {
-        selector.permute();
-        selector.getWeights(0, weightsPool[i]);}
+    if (serialPrng) {
+        for (int i = 0; i < replicates; ++i) {
+            selector.permute();
+            selector.getWeights(0, weightsPool[i]);
+        }
+    }
+
+    // auto sch = TaskScheduler<IncrementableIterator<size_t>>(
+    //     IncrementableIterator<size_t>(0),
+    //     IncrementableIterator<size_t>(replicates),
+    //     nThreads);
+    //
+    // std::vector<int> starts = sch.getThreadStarts();
+    //
+    // std::cerr << "starts: " << starts[0];
+    // for (int i = 1; i < nThreads; ++i) {
+    //     std::cerr << " " << starts[i];
+    // }
+    // std::cerr << "\n";
+    //
+    // auto ot = [&](int task) {
+    //     const auto uniqueId = sch.getThreadIndex(task);
+    //     auto selector = selectorPool[uniqueId];
+    //
+    //     if (task == starts[uniqueId]) {
+    //         std::cerr << "start at " << task << "\n";
+    //         selector->advance(task);
+    //     }
+    //
+    //     selector->permute();
+    //     selector->getWeights(0, weightsPool[task]);
+    //
+    // };
+    //
+    // sch.execute(ot);
+
+    // std::cerr << "A: " << timer1() << "\n";
+
+    // allocate results so cache-lines do not collabore each other
+    std::vector<double> storage(J * replicates);
+    // std::vector<std::vector<double>> storage(nThreads);
+    // for (int i = 0; i < nThreads; ++i) {
+    //     storage[i].resize(J * replicates); // TODO fix
+    // }
 
     // one task
     auto scheduler = TaskScheduler<IncrementableIterator<size_t>>(
@@ -140,13 +186,30 @@ void BootstrapDriver::doBootstrap(
         IncrementableIterator<size_t>(replicates),
         nThreads);
 
+    const auto starts = scheduler.getThreadStarts();
+
     auto oneTask = [&](int task) {
 
         const auto uniqueId = scheduler.getThreadIndex(task);
         auto ccdTask = ccdPool[uniqueId];
 
         // for loop to parallelize
+
+        if (!serialPrng) {
+
+            auto selector = selectorPool[uniqueId];
+
+            if (task == starts[uniqueId]) {
+                // std::cerr << "start at " << task << "\n";
+                selector->advance(task);
+            }
+
+            selector->permute();
+            selector->getWeights(0, weightsPool[task]);
+        }
+
         ccdTask->setWeights(&weightsPool[task][0]);
+
         std::ostringstream stream;
         stream << "\nRunning replicate #" << (task + 1);
         logger->writeLine(stream);
@@ -154,25 +217,43 @@ void BootstrapDriver::doBootstrap(
         ccdTask->update(allArguments.modeFinding);
 
         // store results without race-conditions
-        std::lock_guard<std::mutex> lock(estimatesMutex);
+        // std::lock_guard<std::mutex> lock(estimatesMutex);
+
+        // auto& result = storage[uniqueId];
+
         for (int j = 0; j < J; ++j) {
-            estimates[j]->push_back(ccdTask->getBeta(j));
+            // estimates[j]->push_back(ccdTask->getBeta(j));
+            storage[task * J + j] = ccdTask->getBeta(j);
+            // result[task * J + j] = ccdTask->getBeta(j);
         }
     };
 
+    // Timer timer2;
 
     // execute all tasks in parallel
     if (nThreads > 1) {
         ccd.getProgressLogger().setConcurrent(true);
-        }
+    }
+
     scheduler.execute(oneTask);
+
     if (nThreads > 1) {
         ccd.getProgressLogger().setConcurrent(false);
         ccd.getProgressLogger().flush();
-        }
     }
 
+    // std::cerr << "B: " << timer2() << "\n";
 
+    // transpose results
+    for (int i = 0; i < replicates; ++i) {
+        for (int j = 0; j < J; ++j) {
+            estimates[j]->push_back(
+                    // storage[0][i * J + j]
+                    storage[i * J + j]
+            );
+        }
+    }
+}
 
 void BootstrapDriver::logResults(const CCDArguments& arguments) {
     std::ostringstream stream;

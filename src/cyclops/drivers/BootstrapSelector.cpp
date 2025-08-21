@@ -53,6 +53,12 @@ AbstractSelector* BootstrapSelector::clone() const {
 	return new BootstrapSelector(*this);
 }
 
+void BootstrapSelector::advance(int permutationCount) {
+    size_t count = indicesIncluded.size() * permutationCount;
+    prng.discard(count);
+    // std::cerr << "discarding " << count << " draws\n";
+}
+
 void BootstrapSelector::permute() {
 	selectedSet.clear();
 

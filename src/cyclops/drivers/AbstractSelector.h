@@ -35,15 +35,17 @@ public:
 	virtual ~AbstractSelector();
 
 	virtual void permute() = 0; // pure virtual
-	
+
 	// TODO
 	virtual void reseed() { /* std::cerr << "RESEED" << std::endl;*/ } // Do nothing by default
 
 	virtual void getWeights(int batch, std::vector<double>& weights) = 0; // pure virtual
 
 	virtual void getComplement(std::vector<double>& weights) = 0; // pure virtual
-	
+
 	virtual AbstractSelector* clone() const = 0; // pure virtual
+
+	virtual void advance(int permutationCount) { } // Do nothing by default
 
 protected:
 	const std::vector<int> ids;
@@ -53,10 +55,10 @@ protected:
 	size_t N;
 	bool deterministic;
 	std::mt19937 prng;
-	
-	
+
+
     loggers::ProgressLoggerPtr logger;
-	loggers::ErrorHandlerPtr error;	
+	loggers::ErrorHandlerPtr error;
 };
 
 } // namespace
