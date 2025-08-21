@@ -85,6 +85,15 @@ struct TaskScheduler {
 
 	int getThreadCount() const { return nThreads; }
 
+    std::vector<int> getThreadStarts() const {
+        std::vector<int> starts(nThreads);
+        for (int i = 0; i < nThreads; ++i) {
+            starts[i] = i * chunkSize;
+        }
+
+        return starts;
+    }
+
 private:
 
 #ifdef USE_TTHREAD
