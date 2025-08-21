@@ -55,8 +55,23 @@ AbstractSelector* BootstrapSelector::clone() const {
 
 void BootstrapSelector::advance(int permutationCount) {
     size_t count = indicesIncluded.size() * permutationCount;
-    prng.discard(count);
-    // std::cerr << "discarding " << count << " draws\n";
+
+    const bool exact = true; // inexact is a bit faster, but uniform() can call prng() more than once
+
+    if (exact) {
+        std::uniform_int_distribution<int> uniform(0, indicesIncluded.size() - 1);
+        for (size_t i = 0; i < count; ++i) {
+            uniform(prng);
+        }
+    } else {
+        prng.discard(count);
+    }
+    value += count;
+}
+
+void BootstrapSelector::report() {
+    std::cerr << "report: " << value << "\n";
+    std::cerr << "value: " << prng() << "\n";
 }
 
 void BootstrapSelector::permute() {
@@ -68,6 +83,7 @@ void BootstrapSelector::permute() {
 	    std::uniform_int_distribution<int> uniform(0, N_new - 1);
 		for (int i = 0; i < N_new; i++) {
             int ind =  uniform(prng);
+		    ++value;
 			int draw = indicesIncluded[ind];
 			selectedSet.insert(draw);
 		}

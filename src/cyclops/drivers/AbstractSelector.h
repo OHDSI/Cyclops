@@ -47,6 +47,8 @@ public:
 
 	virtual void advance(int permutationCount) { } // Do nothing by default
 
+	virtual void report() { } // Do nothing by default
+
 protected:
 	const std::vector<int> ids;
 	SelectorType type;

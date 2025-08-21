@@ -38,10 +38,14 @@ public:
 
 	virtual void advance(int permutationCount);
 
+	virtual void report();
+
 private:
 	std::multiset<int> selectedSet;
 	std::vector<int> indicesIncluded;
 	const std::vector<double>* weightsOriginal;
+
+	int value;
 };
 
 } // namespace

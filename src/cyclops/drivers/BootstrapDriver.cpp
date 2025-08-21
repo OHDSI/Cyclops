@@ -129,56 +129,11 @@ void BootstrapDriver::doBootstrap(
         std::vector<CyclicCoordinateDescent*>& ccdPool,
         std::vector<AbstractSelector*>& selectorPool) {
 
-    const bool serialPrng = false;
-
-    // Timer timer1;
-
     // selector.permute() in series to keep same PRNG stream
-    std::vector<std::vector<double>> weightsPool(replicates);
-    if (serialPrng) {
-        for (int i = 0; i < replicates; ++i) {
-            selector.permute();
-            selector.getWeights(0, weightsPool[i]);
-        }
-    }
+    std::vector<std::vector<double>> weightsPool(nThreads);
 
-    // auto sch = TaskScheduler<IncrementableIterator<size_t>>(
-    //     IncrementableIterator<size_t>(0),
-    //     IncrementableIterator<size_t>(replicates),
-    //     nThreads);
-    //
-    // std::vector<int> starts = sch.getThreadStarts();
-    //
-    // std::cerr << "starts: " << starts[0];
-    // for (int i = 1; i < nThreads; ++i) {
-    //     std::cerr << " " << starts[i];
-    // }
-    // std::cerr << "\n";
-    //
-    // auto ot = [&](int task) {
-    //     const auto uniqueId = sch.getThreadIndex(task);
-    //     auto selector = selectorPool[uniqueId];
-    //
-    //     if (task == starts[uniqueId]) {
-    //         std::cerr << "start at " << task << "\n";
-    //         selector->advance(task);
-    //     }
-    //
-    //     selector->permute();
-    //     selector->getWeights(0, weightsPool[task]);
-    //
-    // };
-    //
-    // sch.execute(ot);
-
-    // std::cerr << "A: " << timer1() << "\n";
-
-    // allocate results so cache-lines do not collabore each other
+    // allocate results so cache-lines do not thrash each other
     std::vector<double> storage(J * replicates);
-    // std::vector<std::vector<double>> storage(nThreads);
-    // for (int i = 0; i < nThreads; ++i) {
-    //     storage[i].resize(J * replicates); // TODO fix
-    // }
 
     // one task
     auto scheduler = TaskScheduler<IncrementableIterator<size_t>>(
@@ -192,23 +147,18 @@ void BootstrapDriver::doBootstrap(
 
         const auto uniqueId = scheduler.getThreadIndex(task);
         auto ccdTask = ccdPool[uniqueId];
+        auto selector = selectorPool[uniqueId];
 
         // for loop to parallelize
 
-        if (!serialPrng) {
-
-            auto selector = selectorPool[uniqueId];
-
-            if (task == starts[uniqueId]) {
-                // std::cerr << "start at " << task << "\n";
-                selector->advance(task);
-            }
-
-            selector->permute();
-            selector->getWeights(0, weightsPool[task]);
+        if (task == starts[uniqueId]) {
+            selector->advance(task);
         }
 
-        ccdTask->setWeights(&weightsPool[task][0]);
+        selector->permute();
+
+        selector->getWeights(0, weightsPool[uniqueId]);
+        ccdTask->setWeights(weightsPool[uniqueId].data());
 
         std::ostringstream stream;
         stream << "\nRunning replicate #" << (task + 1);
