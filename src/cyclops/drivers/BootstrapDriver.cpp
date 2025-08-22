@@ -129,6 +129,8 @@ void BootstrapDriver::doBootstrap(
         std::vector<CyclicCoordinateDescent*>& ccdPool,
         std::vector<AbstractSelector*>& selectorPool) {
 
+    bool coldStart = allArguments.resetCoefficients;
+
     // selector.permute() in series to keep same PRNG stream
     std::vector<std::vector<double>> weightsPool(nThreads);
 
@@ -164,17 +166,25 @@ void BootstrapDriver::doBootstrap(
         stream << "\nRunning replicate #" << (task + 1);
         logger->writeLine(stream);
 
+        if (coldStart) {
+            ccdTask->resetBeta();
+        }
+
         ccdTask->update(allArguments.modeFinding);
 
-        // store results without race-conditions
-        // std::lock_guard<std::mutex> lock(estimatesMutex);
+        if (ccdTask->getUpdateReturnFlag() == SUCCESS) {
 
-        // auto& result = storage[uniqueId];
+            for (int j = 0; j < J; ++j) {
+                storage[task * J + j] = ccdTask->getBeta(j);
+            }
 
-        for (int j = 0; j < J; ++j) {
-            // estimates[j]->push_back(ccdTask->getBeta(j));
-            storage[task * J + j] = ccdTask->getBeta(j);
-            // result[task * J + j] = ccdTask->getBeta(j);
+        } else {
+
+            ccdTask->resetBeta(); // cold start for stability
+
+            for (int j = 0; j < J; ++j) {
+                storage[task * J + j] = std::numeric_limits<double>::quiet_NaN();
+            }
         }
     };
 
