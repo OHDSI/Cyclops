@@ -70,8 +70,8 @@ void BootstrapSelector::advance(int permutationCount) {
 }
 
 void BootstrapSelector::report() {
-    std::cerr << "report: " << value << "\n";
-    std::cerr << "value: " << prng() << "\n";
+    // std::cerr << "report: " << value << "\n";
+    // std::cerr << "value: " << prng() << "\n";
 }
 
 void BootstrapSelector::permute() {
