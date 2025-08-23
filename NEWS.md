@@ -3,7 +3,7 @@ develop
 
 Changes:
 
-1. add Schoenfeld residual output for Cox models (still under development)
+1. fix `covariate` type in `confint()` output 
 
 Cyclops v3.6.0
 ==============

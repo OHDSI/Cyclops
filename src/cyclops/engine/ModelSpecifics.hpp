@@ -26,10 +26,6 @@
 #include <tbb/parallel_for.h>
 #endif
 
-
-//#include "R.h"
-//#include "Rcpp.h" // TODO Remove
-
 #ifdef CYCLOPS_DEBUG_TIMING
 	#include "Timing.h"
 #endif
@@ -2288,6 +2284,7 @@ void ModelSpecifics<BaseModel,RealType>::setPidForAccumulationImpl(const AnyReal
 
     // Find first non-zero weight
     size_t index = 0;
+
     while(weights != nullptr && weights[index] == 0.0 && index < K) {
         hPid[index] = ignore;
         index++;

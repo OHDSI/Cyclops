@@ -981,7 +981,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
         if (isTRUE(any(newHessianDiagonal > 0))) {
             warning("Cannot estimate confidence interval for positive-curvature log-likelihood function")
 
-            prof <- data.frame(covariate = savedParm,
+            prof <- data.frame(covariate = parm, # was 'savedParm' but unsure why
                                lower = rep(NA, length(parm)),
                                upper = rep(NA, length(parm)),
                                evaluations = rep(NA, length(parm)))
