@@ -33,7 +33,7 @@ if (.Platform$OS.type == "unix") {
     system("make -C tools/jvm-w32 clean")
 }
 
-if (nchar(java_home) == 0) {
+if (is.null(java_home) || nchar(java_home) == 0) {
     message("No JAVA_HOME defined; ignoring JNI compilation")
 } else {
     message("Using JAVA_HOME=", java_home)
