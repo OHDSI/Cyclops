@@ -44,7 +44,7 @@ residuals.cyclopsFit <- function(object, parm = NULL, type = "schoenfeld", ...) 
     }
 
     if (getNumberOfCovariates(object$cyclopsData) != 1) {
-        warning("Only single-covariate models are currently implemented") # TODO change to stop
+        stop("Only single-covariate models are currently implemented")
     }
 
     res <- .cyclopsGetSchoenfeldResiduals(object$interface, NULL)
@@ -67,15 +67,16 @@ residuals.cyclopsFit <- function(object, parm = NULL, type = "schoenfeld", ...) 
 #'
 #' @description
 #' \code{testProportionality} tests the hazard ratio proportionality assumption
-#' of a Cyclops model fit object
+#' of a Cyclops model fit object using a score test
 #'
 #' @param object    A Cyclops model fit object
-#' @param parm      A specification of which parameters require residuals,
+#' @param parm      A specification of which parameters require a proportionality test,
 #'                  either a vector of numbers or covariateId names
-#' @param transformedTimes Vector of transformed time
+#' @param transformedTimes Vector of transformed time. If NULL, then the default "identity"
+#'                         transform of `cox.zph` is used
 #'
 #' @export
-testProportionality <- function(object, parm = NULL, transformedTimes) {
+testProportionality <- function(object, parm = NULL, transformedTimes = NULL) {
 
     .checkInterface(object$cyclopsData, testOnly = TRUE)
 
@@ -85,23 +86,27 @@ testProportionality <- function(object, parm = NULL, transformedTimes) {
 
     nCovariates <- getNumberOfCovariates(object$cyclopsData)
     if (nCovariates != 1) {
-        warning("Only single-covariate models are currently implemented") # TODO change to stop
+        stop("Only single-covariate models are currently implemented")
     }
 
+    if (is.null(transformedTimes)) {
+        times <- getTimeVector(object$cyclopsData)
+        y <- getYVector(object$cyclopsData)
+        transformedTimes <- times - mean(times[y == 1])
+    } else {
+        if (getNumberOfRows(object$cyclopsData) != length(transformedTimes)) {
+            stop("Incorrect 'transformedTime' length")
+        }
 
-    if (getNumberOfRows(object$cyclopsData) != length(transformedTimes)) {
-        stop("Incorrect 'transformedTime' length")
+        transformedTimes <- transformedTimes[object$cyclopsData$sortOrder]
     }
-
-    # transformedTimes <- transformedTimes - mean(transformedTimes)
-    transformedTimes <- transformedTimes[object$cyclopsData$sortOrder]
 
     res <- .cyclopsTestProportionality(object$interface, NULL, transformedTimes)
     nCovariates <- 1 # TODO Remove
     res$hessian <- matrix(res$hessian, nrow = (nCovariates + 1))
 
     if (any(abs(res$gradient[1:nCovariates]) > 1E-5)) {
-        warning("Internal state of Cyclops 'object' is not at its mode") # TODO change to `stop`
+        stop("Internal state of Cyclops 'object' is not at its mode: ", res$gradient)
     }
 
     u <- c(rep(0, nCovariates), res$gradient[nCovariates + 1])

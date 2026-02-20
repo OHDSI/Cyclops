@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <numeric>
 #include <limits>
+#include <deque>
 
 #include "ModelSpecifics.h"
 #include "Iterators.h"
@@ -765,6 +766,9 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
     RealType wHessian = static_cast<RealType>(0);
     RealType xHessian = static_cast<RealType>(0);
 
+    RealType uGradient2 = static_cast<RealType>(0);
+    RealType wGradient2 = static_cast<RealType>(0);
+
     // TODO: only written for accummulive models (Cox, Fine/Grey)
 
 	IteratorType it(hX, index);
@@ -777,37 +781,58 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
 
 	// find start relavent accumulator reset point
 	auto reset = begin(accReset);
-	while( *reset < it.index() ) {
-		++reset;
-	}
+	// while( *reset < it.index() ) {
+	// 	++reset;
+	// }
+
+	std::deque<RealType> deferredResidualX;
+	std::deque<RealType> deferredScore1;
+	std::deque<RealType> deferredScore2;
+	std::deque<RealType> deferredScore3;
+	std::deque<int> deferredScore4;
 
 	auto processRow = [&](int i, RealType x) {
 
-	    // std::cerr << "row " << i;
+	    // std::cerr << "row " << i << "\n";
 
-		if (*reset <= i) {
+	    // std::cerr << "r" << *reset << " ";
 
-		    // std::cerr << " reset ";
+	    if (*reset <= i) {
 
-			resNumerator = static_cast<RealType>(0);
-			resDenominator = static_cast<RealType>(0);
-			scoreNumerator1 = static_cast<RealType>(0);
-			scoreNumerator2 = static_cast<RealType>(0);
-			scoreDenominator = static_cast<RealType>(0);
+	        // std::cerr << *reset << " ";
 
-			++reset;
-		}
+	        resNumerator = static_cast<RealType>(0);
+	        resDenominator = static_cast<RealType>(0);
+	        scoreNumerator1 = static_cast<RealType>(0);
+	        scoreNumerator2 = static_cast<RealType>(0);
+	        scoreDenominator = static_cast<RealType>(0);
+
+	        ++reset;
+	    }
 
 		const auto expXBeta = offsExpXBeta[i]; // std::exp(hXBeta[i]);
 
 		resNumerator += expXBeta * x;
 		resDenominator += expXBeta;
 
-		if (hY[i] == 1 ) {
-		    // std::cerr << " " << x << " for " << resNumerator << " / " << resDenominator;
+		if (hY[i] == 1) {
+		    // std::cerr << " " << x << " for " << resNumerator << " / " << resDenominator << " - " <<  ( x - resNumerator / resDenominator) << "\n";
+		    // std::cerr << denomPid[i] << "\n";
 			if (hasResiduals) {
-			    const auto residual = x - resNumerator / resDenominator;
-				residuals->push_back(residual);
+			    if (i < N && i < *reset &&
+                    (hOffs[i] == hOffs[i+ 1]) && hY[i + 1] == 1) {
+			        deferredResidualX.push_back(x);
+			    } else {
+
+			        while (deferredResidualX.size() > 0) {
+			            const auto residual = deferredResidualX.front() - resNumerator / resDenominator;
+			            residuals->push_back(residual);
+			            deferredResidualX.pop_front();
+			        }
+
+			        const auto residual = x - resNumerator / resDenominator;
+				    residuals->push_back(residual);
+			    }
 			}
 			if (hasTimes) {
 				times->push_back(hOffs[i]);
@@ -815,9 +840,13 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
 			if (hasStrata) {
 				strata->push_back(hPidOriginal[i]);
 			}
+		} else {
+		    // std::cerr << "\n";
 		}
 
 		if (hasScore) {
+
+		    // std::cerr << "i = " << i << "\n";
 			const auto weight = covariate[i];
 			// MAS does not believe reweighing is correct, but is matching cox.zph
 
@@ -827,116 +856,94 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
 			const auto numerator2 = expXBeta * x * x; // TODO not xt?
 
 			if (hY[i] == 1) {
-				uGradient += x;
-				wGradient += x * weight; // TODO not xt and no weight?
+				uGradient2 += x;
+				wGradient2 += x * weight; // TODO not xt and no weight?
 			}
 
 			scoreNumerator1 += numerator1;
 			scoreNumerator2 += numerator2;
 
-			const auto t = scoreNumerator1 / resDenominator;
-			const auto gradient = hNWeight[i] * t;
-			const auto hessian = hNWeight[i] * (scoreNumerator2 / resDenominator - t * t);
+			// if (hY[i] == 1) {
 
-			uGradient -= gradient;
-			wGradient -= gradient * weight;
+			if (hY[i] == 1 && i < (K - 1) && i < *reset &&
+                (hOffs[i] == hOffs[i+ 1]) && hY[i + 1] == 1) {
 
-			uHessian += hessian;
-			wHessian += hessian * weight * weight;
-			xHessian += hessian * weight;
+			    // deferredScore1.push_back(scoreNumerator1);
+			    // deferredScore2.push_back(scoreNumerator2);
+			    // // deferredScore3.push_back(hNWeight[hPid[i]]);
+			    // deferredScore3.push_back(0.0);
+			    // deferredScore4.push_back(i);
+
+			} else {
+
+			    // while (deferredScore1.size() > 0) {
+			    //
+			    //     const auto popScoreNumerator1 = deferredScore1.front();
+			    //     const auto popScoreNumerator2 = deferredScore2.front();
+			    //     const auto popNWeight = deferredScore3.front();
+			    //     const auto popI = deferredScore4.front();
+			    //
+			    //     const auto denom = accDenomPid[hPid[popI]];
+			    //
+			    //     const auto t = scoreNumerator1 / denom;
+			    //     const auto gradient = popNWeight * t;
+			    //     const auto hessian = popNWeight * (scoreNumerator2 / denom - t * t);
+			    //
+			    //     uGradient += gradient;
+			    //     wGradient += gradient * weight;
+			    //
+			    //     // std::cerr<< "newP" << popI << " " << hPid[popI] << " " << scoreNumerator1 << "/" << denom << " " << hY[popI] << " " << uGradient << " " << popNWeight << "\n";
+			    //
+			    //     uHessian += hessian;
+			    //     wHessian += hessian * weight * weight;
+			    //     xHessian += hessian * weight;
+			    //
+			    //     deferredScore1.pop_front();
+			    //     deferredScore2.pop_front();
+			    //     deferredScore3.pop_front();
+			    //     deferredScore4.pop_front();
+			    // }
+
+			    const auto denom = accDenomPid[hPid[i]];
+
+	    		const auto t = scoreNumerator1 / denom;
+			    const auto gradient = hNWeight[hPid[i]] * t;
+			    const auto hessian = hNWeight[hPid[i]] * (scoreNumerator2 / denom - t * t);
+
+			    uGradient += gradient;
+			    wGradient += gradient * weight;
+
+			    // std::cerr<< "newA" << i << " " << hPid[i] << " " << scoreNumerator1 << "/" << denom << " " << hY[i] << " " << uGradient << " " << hNWeight[hPid[i]] << "\n";
+
+			    uHessian += hessian;
+			    wHessian += hessian * weight * weight;
+			    xHessian += hessian * weight;
+		    }
 		}
-
-		// std::cerr << "\n";
 	};
 
 	// main loop
-	for (; it; ) {
 
-		int i = it.index();
-		const RealType x = it.value();
-
-		processRow(i, x);
-
-		++it;
-
-		if (IteratorType::isSparse) {
-
-			const int next = it ? it.index() : N;
-			for (++i; i < next; ++i) {
-
-				processRow(i, static_cast<RealType>(0));
-
-// 				if (*reset <= i) {
-// 					resNumerator = static_cast<RealType>(0);
-// 					resDenominator = static_cast<RealType>(0);
-//
-// 					scoreNumerator1 = static_cast<RealType>(0);
-// 					scoreNumerator2 = static_cast<RealType>(0);
-// 					scoreDenominator = static_cast<RealType>(0);
-//
-// 					++reset;
-// 				}
-//
-// 				const auto expXBeta = offsExpXBeta[i]; // std::exp(hXBeta[i]);
-//
-// 				resDenominator += expXBeta;
-//
-// 				if (hY[i] == 1) {
-// 					if (hasResiduals) {
-// 						residuals->push_back(-resNumerator / resDenominator);
-// 					}
-// 					if (hasTimes) {
-// 						times->push_back(hOffs[i]);
-// 					}
-// 					if (hasStrata) {
-// 						strata->push_back(hPidOriginal[i]);
-// 					}
-// 				}
-//
-// 				if (hasScore) {
-// 					const auto weight = covariate[i];
-// 					// MAS does not believe reweighing is correct, but is matching cox.zph
-//
-// 					// const auto xt = x * covariate[i];
-// 					// MAS believes covariate should be adjusted
-// 					const auto numerator1 = expXBeta * x; // TODO not xt?
-// 					const auto numerator2 = expXBeta * x * x; // TODO not xt?
-//
-// 					if (hY[i] == 1) {
-// 						uGradient += x;
-// 						wGradient += x * weight; // TODO not xt and no weight?
-// 					}
-//
-// 					scoreNumerator1 += numerator1;
-// 					scoreNumerator2 += numerator2;
-//
-// 					const auto t = scoreNumerator1 / resDenominator;
-// 					const auto gradient = hNWeight[i] * t;
-// 					const auto hessian = hNWeight[i] * (scoreNumerator2 / resDenominator - t * t);
-//
-// 					uGradient -= gradient;
-// 					wGradient -= gradient * weight;
-//
-// 					uHessian += hessian;
-// 					wHessian += hessian * weight * weight;
-// 				}
-			}
-		}
+	// for (int i = 0; i <= N; ++i) {
+	for (int i = 0; i < K; ++i) {
+	    // std::cerr << i << " ";
+	    if (i == it.index()) {
+	        processRow(i, it.value());
+	        ++it;
+	    } else {
+	        processRow(i, static_cast<RealType>(0));
+	    }
 	}
 
     if (hasScore) {
 
-        score[0] = static_cast<double>(uGradient);
-        score[1] = static_cast<double>(wGradient);
+        score[0] = static_cast<double>(uGradient2 - uGradient);
+        score[1] = static_cast<double>(wGradient2 - wGradient);
         score[2] = static_cast<double>(uHessian);
         score[3] = static_cast<double>(xHessian);
         score[4] = static_cast<double>(xHessian);
         score[5] = static_cast<double>(wHessian);
-
-        // *score = static_cast<double>(gradient / hessian);
-        // std::cerr << "score = " << wGradient << " / " << wHessian << "\n";
-        // std::cerr << "hess2 = " << hess2 << " or " <<  static_cast<RealType>(2.0) * hXjX[index] << "\n";
-    }
+     }
 }
 
 // TODO The following function is an example of a double-dispatch, rewrite without need for virtual function
@@ -1180,6 +1187,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 
     	        if (IteratorType::isSparse) {
 
+    	            // TODO Should end be N or K?
     	            const int next = it ? it.index() : N;
                     for (++i; i < next; ++i) {
 
@@ -2296,18 +2304,22 @@ void ModelSpecifics<BaseModel,RealType>::setPidForAccumulationImpl(const AnyReal
 
     int pid = hPid[index] = 0;
 
+    int nTies = 0;
+
     for (size_t k = index + 1; k < K; ++k) {
         if (weights == nullptr || weights[k] != 0.0) {
             int nextPid = hPid[k];
 
             if (nextPid != lastPid) { // start new strata
                 pid++;
-                accReset.push_back(pid);
+                accReset.push_back(pid + nTies);
+                nTies = 0;
                 lastPid = nextPid;
             } else {
 
                 if (lastEvent == 1.0 && lastTime == hOffs[k] && lastEvent == hY[k]) {
                     // In a tie, do not increment denominator
+                    ++nTies;
                 } else {
                     pid++;
                 }
@@ -2321,7 +2333,7 @@ void ModelSpecifics<BaseModel,RealType>::setPidForAccumulationImpl(const AnyReal
         }
     }
     pid++;
-    accReset.push_back(pid);
+    accReset.push_back(pid + nTies); // TODO BUG HERE????
 
     // Save number of denominators
     N = pid;

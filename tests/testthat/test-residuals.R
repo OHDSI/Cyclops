@@ -51,13 +51,15 @@ test_that("Check Schoenfeld residuals and PH test, with strata", {
 
 test_that("Check Schoenfeld residuals and PH test, with sparse covariates", {
     skip("residuals not yet implemented")
+
     test <- read.table(header=T, sep = ",", text = "
 start, length, event, x1, x2
-0, 4,  1,0,0
-0, 3,  1,2,0
+0, 4,  1,0.2,0
 0, 3,  0,0,1
-0, 2,  1,0,1
-0, 2,  1,1,1
+0, 3,  1,2,0 # was x1 = 2
+0, 2,  1,0.5,1
+0, 2,  1,0.1,1
+0, 2,  1,1.2,1
 0, 1,  0,1,0
 0, 1,  1,1,0
 ")
@@ -66,19 +68,41 @@ start, length, event, x1, x2
     gres <- residuals(gfit, "schoenfeld")
     gtest <- cox.zph(gfit, transform = "identity", global = FALSE)
 
-
-    data <- createCyclopsData(Surv(length, event) ~ x1,
-                              # sparseFormula = ~ x1,
+    data <- createCyclopsData(Surv(length, event) ~ 1,
+                              sparseFormula = ~ x1,
                               data = test, modelType = "cox")
 
     cfit <- fitCyclopsModel(data)
-    cres <- residuals(cfit, "schoenfeld") # TODO broken (and not even sparse yet)
+    cres <- residuals(cfit, "schoenfeld")
+
+    expect_equal(gres, cres)
 
     ttimes <- test$length - mean(test$length[test$event == 1])
     ctest <- testProportionality(cfit, parm = NULL, transformedTimes = ttimes)
 
+    expect_equal(gtest$table, ctest$table)
 
-    # expect_equivalent(cres, gres) # TODO
+    ctest2 <- testProportionality(cfit, parm = NULL)
+
+    expect_equal(ctest, ctest2)
+
+#     #  check in Stata
+#
+#     clear
+#     input start length event x1 x2
+#     0 4 1   0   0
+#     0 3 0   0   1
+#     0 3 1   2   0   // was x1 = 2
+#     0 2 1   0.1 1
+#     0 2 1   1.2 1
+#     0 1 0   1   0   // was 0
+#     0 1 1   1   0   // was 1
+#     end
+#
+#     stset length, failure(event)
+#     stcox x1
+#     predict sch_x1, schoenfeld
+#     show sch_x1
 })
 
 test_that("Check Schoenfeld residuals and PH test, with sparse covariates", {
