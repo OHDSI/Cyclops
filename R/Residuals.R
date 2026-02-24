@@ -72,11 +72,10 @@ residuals.cyclopsFit <- function(object, parm = NULL, type = "schoenfeld", ...) 
 #' @param object    A Cyclops model fit object
 #' @param parm      A specification of which parameters require a proportionality test,
 #'                  either a vector of numbers or covariateId names
-#' @param transformedTimes Vector of transformed time. If NULL, then the default "identity"
-#'                         transform of `cox.zph` is used
+#' @param transform Same as `transform` in `cox.zph`
 #'
 #' @export
-testProportionality <- function(object, parm = NULL, transformedTimes = NULL) {
+testProportionality <- function(object, parm = NULL, transform = "km") {
 
     .checkInterface(object$cyclopsData, testOnly = TRUE)
 
@@ -89,17 +88,26 @@ testProportionality <- function(object, parm = NULL, transformedTimes = NULL) {
         stop("Only single-covariate models are currently implemented")
     }
 
-    if (is.null(transformedTimes)) {
-        times <- getTimeVector(object$cyclopsData)
-        y <- getYVector(object$cyclopsData)
-        transformedTimes <- times - mean(times[y == 1])
+    times <- getTimeVector(object$cyclopsData)
+    y <- getYVector(object$cyclopsData)
+    survY <- survival::Surv(time = times, event = y)
+    if (is.character(transform)) {
+        tname <- transform
+        ttimes <- switch(transform, identity = times, rank = rank(times),
+                         log = log(times), km = {
+                             temp <- survfitKM(factor(rep(1L, nrow(survY))), survY,
+                                               se.fit = FALSE)
+                             indx <- findInterval(times, temp$time, left.open = TRUE)
+                             1 - c(1, temp$surv)[indx + 1]
+                         }, stop("Unrecognized transform"))
     } else {
-        if (getNumberOfRows(object$cyclopsData) != length(transformedTimes)) {
-            stop("Incorrect 'transformedTime' length")
+        tname <- deparse(substitute(transform))
+        if (length(tname) > 1) {
+            tname <- "user"
         }
-
-        transformedTimes <- transformedTimes[object$cyclopsData$sortOrder]
+        ttimes <- transform(times)
     }
+    transformedTimes <- ttimes - mean(ttimes[y == 1])
 
     res <- .cyclopsTestProportionality(object$interface, NULL, transformedTimes)
     nCovariates <- 1 # TODO Remove

@@ -774,7 +774,7 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
 	IteratorType it(hX, index);
 
 	RealType resNumerator  = static_cast<RealType>(0);
-	RealType resDenominator = static_cast<RealType>(0);
+	// RealType resDenominator = static_cast<RealType>(0);
 	RealType scoreNumerator1 = static_cast<RealType>(0);
 	RealType scoreNumerator2 = static_cast<RealType>(0);
 	RealType scoreDenominator = static_cast<RealType>(0);
@@ -793,16 +793,10 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
 
 	auto processRow = [&](int i, RealType x) {
 
-	    // std::cerr << "row " << i << "\n";
-
-	    // std::cerr << "r" << *reset << " ";
-
-	    if (*reset <= i) {
-
-	        // std::cerr << *reset << " ";
+	    if (*reset <= hPid[i]) {
 
 	        resNumerator = static_cast<RealType>(0);
-	        resDenominator = static_cast<RealType>(0);
+	        // resDenominator = static_cast<RealType>(0);
 	        scoreNumerator1 = static_cast<RealType>(0);
 	        scoreNumerator2 = static_cast<RealType>(0);
 	        scoreDenominator = static_cast<RealType>(0);
@@ -812,25 +806,27 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
 
 		const auto expXBeta = offsExpXBeta[i]; // std::exp(hXBeta[i]);
 
-		resNumerator += expXBeta * x;
-		resDenominator += expXBeta;
+		resNumerator += hKWeight[i] * expXBeta * x;
+		// resDenominator += expXBeta;
 
 		if (hY[i] == 1) {
 		    // std::cerr << " " << x << " for " << resNumerator << " / " << resDenominator << " - " <<  ( x - resNumerator / resDenominator) << "\n";
 		    // std::cerr << denomPid[i] << "\n";
 			if (hasResiduals) {
-			    if (i < N && i < *reset &&
+			    if (i < (K - 1) && hPid[i] < *reset &&
                     (hOffs[i] == hOffs[i+ 1]) && hY[i + 1] == 1) {
 			        deferredResidualX.push_back(x);
 			    } else {
 
+			        const auto denom = accDenomPid[hPid[i]];
+
 			        while (deferredResidualX.size() > 0) {
-			            const auto residual = deferredResidualX.front() - resNumerator / resDenominator;
+			            const auto residual = deferredResidualX.front() - resNumerator / denom;
 			            residuals->push_back(residual);
 			            deferredResidualX.pop_front();
 			        }
 
-			        const auto residual = x - resNumerator / resDenominator;
+			        const auto residual = x - resNumerator / denom;
 				    residuals->push_back(residual);
 			    }
 			}
@@ -845,64 +841,21 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
 		}
 
 		if (hasScore) {
-
-		    // std::cerr << "i = " << i << "\n";
-			const auto weight = covariate[i];
-			// MAS does not believe reweighing is correct, but is matching cox.zph
-
-			// const auto xt = x * covariate[i];
-			// MAS believes covariate should be adjusted
-			const auto numerator1 = expXBeta * x; // TODO not xt?
-			const auto numerator2 = expXBeta * x * x; // TODO not xt?
+			const auto cov = covariate[i];
+			const auto numerator1 = hKWeight[i] * expXBeta * x;
+			const auto numerator2 = hKWeight[i] * expXBeta * x * x;
 
 			if (hY[i] == 1) {
-				uGradient2 += x;
-				wGradient2 += x * weight; // TODO not xt and no weight?
+				uGradient2 += hKWeight[i] * x;
+				wGradient2 += hKWeight[i] * x * cov;
 			}
 
 			scoreNumerator1 += numerator1;
 			scoreNumerator2 += numerator2;
 
-			// if (hY[i] == 1) {
-
-			if (hY[i] == 1 && i < (K - 1) && i < *reset &&
-                (hOffs[i] == hOffs[i+ 1]) && hY[i + 1] == 1) {
-
-			    // deferredScore1.push_back(scoreNumerator1);
-			    // deferredScore2.push_back(scoreNumerator2);
-			    // // deferredScore3.push_back(hNWeight[hPid[i]]);
-			    // deferredScore3.push_back(0.0);
-			    // deferredScore4.push_back(i);
-
-			} else {
-
-			    // while (deferredScore1.size() > 0) {
-			    //
-			    //     const auto popScoreNumerator1 = deferredScore1.front();
-			    //     const auto popScoreNumerator2 = deferredScore2.front();
-			    //     const auto popNWeight = deferredScore3.front();
-			    //     const auto popI = deferredScore4.front();
-			    //
-			    //     const auto denom = accDenomPid[hPid[popI]];
-			    //
-			    //     const auto t = scoreNumerator1 / denom;
-			    //     const auto gradient = popNWeight * t;
-			    //     const auto hessian = popNWeight * (scoreNumerator2 / denom - t * t);
-			    //
-			    //     uGradient += gradient;
-			    //     wGradient += gradient * weight;
-			    //
-			    //     // std::cerr<< "newP" << popI << " " << hPid[popI] << " " << scoreNumerator1 << "/" << denom << " " << hY[popI] << " " << uGradient << " " << popNWeight << "\n";
-			    //
-			    //     uHessian += hessian;
-			    //     wHessian += hessian * weight * weight;
-			    //     xHessian += hessian * weight;
-			    //
-			    //     deferredScore1.pop_front();
-			    //     deferredScore2.pop_front();
-			    //     deferredScore3.pop_front();
-			    //     deferredScore4.pop_front();
-			    // }
+		    if (i < (K - 1) && hPid[i] == hPid[i + 1]) {
+                // zero contribution under Breslow
+		    } else {
 
 			    const auto denom = accDenomPid[hPid[i]];
 
@@ -911,22 +864,19 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
 			    const auto hessian = hNWeight[hPid[i]] * (scoreNumerator2 / denom - t * t);
 
 			    uGradient += gradient;
-			    wGradient += gradient * weight;
+			    wGradient += gradient * cov;
 
-			    // std::cerr<< "newA" << i << " " << hPid[i] << " " << scoreNumerator1 << "/" << denom << " " << hY[i] << " " << uGradient << " " << hNWeight[hPid[i]] << "\n";
+			    // std::cerr << "newA" << i << " " << hPid[i] << " " << scoreNumerator1 << "/" << denom << " " << hY[i] << " " << uGradient << " " << hNWeight[hPid[i]] << "\n";
 
 			    uHessian += hessian;
-			    wHessian += hessian * weight * weight;
-			    xHessian += hessian * weight;
+			    wHessian += hessian * cov * cov;
+			    xHessian += hessian * cov;
 		    }
 		}
 	};
 
 	// main loop
-
-	// for (int i = 0; i <= N; ++i) {
 	for (int i = 0; i < K; ++i) {
-	    // std::cerr << i << " ";
 	    if (i == it.index()) {
 	        processRow(i, it.value());
 	        ++it;
@@ -1183,6 +1133,9 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
                         w, // Signature-only, for iterator-type specialization
                         &gradient, &hessian, accNumerPid, accNumerPid2,
                         accDenomPid[i], hNWeight[i], 0.0, hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
+
+                // std::cerr << "oldA" << i << " " << accNumerPid << "/" << accDenomPid[i] << " " << hY[i] << " " << gradient << " " << hNWeight[i] << "\n";
+
                 ++it;
 
     	        if (IteratorType::isSparse) {
@@ -1201,6 +1154,8 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
                                 w, // Signature-only, for iterator-type specialization
     	                        &gradient, &hessian, accNumerPid, accNumerPid2,
     	                        accDenomPid[i], hNWeight[i], static_cast<RealType>(0), hXBeta[i], hY[i]); // When function is in-lined, compiler will only use necessary arguments
+
+                        // std::cerr << "oldB" << i << " " << accNumerPid << "/" << accDenomPid[i] << " " << hY[i] << " " << gradient << " " << hNWeight[i] << "\n";
     	            }
     	        }
     	    }
@@ -2312,7 +2267,7 @@ void ModelSpecifics<BaseModel,RealType>::setPidForAccumulationImpl(const AnyReal
 
             if (nextPid != lastPid) { // start new strata
                 pid++;
-                accReset.push_back(pid + nTies);
+                accReset.push_back(pid);
                 nTies = 0;
                 lastPid = nextPid;
             } else {
@@ -2333,7 +2288,7 @@ void ModelSpecifics<BaseModel,RealType>::setPidForAccumulationImpl(const AnyReal
         }
     }
     pid++;
-    accReset.push_back(pid + nTies); // TODO BUG HERE????
+    accReset.push_back(pid);
 
     // Save number of denominators
     N = pid;

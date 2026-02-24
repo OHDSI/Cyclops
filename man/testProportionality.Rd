@@ -4,7 +4,7 @@
 \alias{testProportionality}
 \title{Test hazard ratio proportionality assumption}
 \usage{
-testProportionality(object, parm = NULL, transformedTimes = NULL)
+testProportionality(object, parm = NULL, transform = "km")
 }
 \arguments{
 \item{object}{A Cyclops model fit object}
@@ -12,8 +12,7 @@ testProportionality(object, parm = NULL, transformedTimes = NULL)
 \item{parm}{A specification of which parameters require a proportionality test,
 either a vector of numbers or covariateId names}
 
-\item{transformedTimes}{Vector of transformed time. If NULL, then the default "identity"
-transform of \code{cox.zph} is used}
+\item{transform}{Same as \code{transform} in \code{cox.zph}}
 }
 \description{
 \code{testProportionality} tests the hazard ratio proportionality assumption
