@@ -18,10 +18,7 @@ test_that("Check Schoenfeld residuals and PH test, no strata", {
     expect_equal(cres, gres)
 
     gtest <- cox.zph(gfit, transform = "identity", global = FALSE)
-
-    ttimes <- ovarian$futime - mean(ovarian$futime[ovarian$fustat == 1])
-
-    ctest <- testProportionality(cfit, parm = NULL, transformedTimes = ttimes)
+    ctest <- testProportionality(cfit, parm = NULL, transform = "identity")
 
     expect_equal(ctest$table, gtest$table)
 })
@@ -39,10 +36,7 @@ test_that("Check Schoenfeld residuals and PH test, with strata", {
     expect_equivalent(cres, gres)
 
     gtest <- cox.zph(gfit, transform = "identity", global = FALSE)
-
-    ttimes <- ovarian$futime - mean(ovarian$futime[ovarian$fustat == 1])
-
-    ctest <- testProportionality(cfit, parm = NULL, transformedTimes = ttimes)
+    ctest <- testProportionality(cfit, parm = NULL, transform = "identity")
 
     expect_equal(ctest$table, gtest$table)
 })
@@ -62,7 +56,7 @@ start, length, event, x1, x2
 
     gfit <- coxph(Surv(length, event) ~ x1, test, ties = "breslow")
     gres <- residuals(gfit, "schoenfeld")
-    gtest <- cox.zph(gfit, transform = "identity", global = FALSE)
+    gtest <- cox.zph(gfit, transform = "km", global = FALSE)
 
     data <- createCyclopsData(Surv(length, event) ~ 1,
                               sparseFormula = ~ x1,
@@ -73,8 +67,7 @@ start, length, event, x1, x2
 
     expect_equal(gres, cres)
 
-    ttimes <- test$length - mean(test$length[test$event == 1])
-    ctest <- testProportionality(cfit, parm = NULL, transformedTimes = ttimes)
+    ctest <- testProportionality(cfit, parm = NULL, transform = "km")
 
     expect_equal(gtest$table, ctest$table)
 
