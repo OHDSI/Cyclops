@@ -492,12 +492,12 @@ void cyclopsFinalizeData(
     XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
 
     if (data->getIsFinalized()) {
-        ::Rf_error("OHDSI data object is already finalized");
+        Rcpp::stop("OHDSI data object is already finalized");
     }
 
     if (addIntercept) {
         if (data->getHasInterceptCovariate()) {
-            ::Rf_error("OHDSI data object already has an intercept");
+            Rcpp::stop("OHDSI data object already has an intercept");
         }
         // TODO add intercept as INTERCEPT_TYPE if magicFlag ==  true
         data->addIntercept();
