@@ -94,12 +94,15 @@ testProportionality <- function(object, parm = NULL, transform = "km") {
     if (is.character(transform)) {
         tname <- transform
         ttimes <- switch(transform, identity = times, rank = rank(times),
-                         log = log(times), km = {
-                             temp <- survfitKM(factor(rep(1L, nrow(survY))), survY,
-                                               se.fit = FALSE)
+                         log = log(times),
+                         km = {
+                             temp <- survival::survfitKM(
+                                 factor(rep(1L, nrow(survY))), survY,
+                                 se.fit = FALSE)
                              indx <- findInterval(times, temp$time, left.open = TRUE)
                              1 - c(1, temp$surv)[indx + 1]
-                         }, stop("Unrecognized transform"))
+                             },
+                         stop("Unrecognized transform"))
     } else {
         tname <- deparse(substitute(transform))
         if (length(tname) > 1) {
