@@ -1,11 +1,11 @@
-develop
+Cyclops v3.7.0
 ==============
 
 Changes:
 
-1. fix `covariate` type in `confint()` output 
-2. implement Schoenfeld residuals for Cox models with ties (Breslow) and strata
-3. implement score-test of Cox proportionality for models with ties (Breslow) and strata
+1. implement Schoenfeld residuals for Cox models with ties (Breslow) and strata
+2. implement score-test of Cox proportionality for models with ties (Breslow) and strata
+3. fix `covariate` type in `confint()` output 
 4. remove use of `Rf_error()` that can cause memory leaks
 
 Cyclops v3.6.0

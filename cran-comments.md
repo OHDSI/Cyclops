@@ -1,8 +1,9 @@
-## Submission of v3.6.0
+## Submission of v3.7.0
 
 Minor version upgrade:
-* enables high-performance bootstrapping for all models
-* implement high-performance gradients
+* implement Schoenfeld residuals for Cox models with strata and weights
+* implement score-test of proportionality for Cox models with strata and weights
+* fix minor bugs, including possible memory leak from previous use of Rf_error()
    
 ## Test environments
 * local OS X install, R 4.2 / 4.4 / 4.5
