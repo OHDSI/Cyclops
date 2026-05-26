@@ -1,12 +1,10 @@
-## Submission of v3.7.0
+## Submission of v3.7.1
 
-Minor version upgrade:
-* implement Schoenfeld residuals for Cox models with strata and weights
-* implement score-test of proportionality for Cox models with strata and weights
-* fix minor bugs, including possible memory leak from previous use of Rf_error()
-   
+CRAN error on MKL system:
+* fix bootstrap tolerance for MKL system difference report by Brian Ripley
+
 ## Test environments
-* local OS X install, R 4.2 / 4.4 / 4.5
+* local OS X install, R 4.4 / 4.5 / 4.6
 * r-devel-valgrind docker container
 * ubuntu 24.04 (via gh-actions: devel and release)
 * win-builder (devel and release)
