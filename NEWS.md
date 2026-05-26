@@ -1,3 +1,10 @@
+Cyclops v3.7.1
+==============
+
+Changes:
+
+1. more robust unit-test for bootstrapping
+
 Cyclops v3.7.0
 ==============
 
