@@ -631,6 +631,10 @@ double CyclicCoordinateDescent::getObjectiveFunction(int convergenceType) {
 		return getLogLikelihood();
 	} else
 	if (convergenceType == LANGE) {
+        if (aggregate) {
+            const auto values = aggregate(0, {getLogLikelihood(), getLogPrior()});
+            return values[0] + values[1]; // The shared prior contributes once.
+        }
 		return getLogLikelihood() + getLogPrior();
 	} else if (convergenceType == ONE_STEP) {
 	    return 0.0;
@@ -958,7 +962,8 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
             illconditioned = true;
         } else {
             conv = computeConvergenceCriterion(thisObjFunc, *lastObjFunc);
-            if (conv == 0.0 && iteration == 1 && convergenceType != ONE_STEP &&
+            // An unchanged LANGE posterior can be a valid initial optimum.
+            if (conv == 0.0 && iteration == 1 && convergenceType != ONE_STEP && convergenceType != LANGE &&
                 !std::all_of(std::begin(fixBeta), std::end(fixBeta), [](bool fixed) { return fixed; })
             ) {
                 std::ostringstream stream;
@@ -1645,6 +1650,11 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	computeGradientAndHessian(index, &gh.first, &gh.second);
 
 //	std::cout << "index: " << index << " grad: " << gh.first << " hess: " << gh.second << "\n";
+
+    if (aggregate) {
+        const auto values = aggregate(index + 1, {gh.first, gh.second, hBeta[index], hDelta[index]});
+        gh = {values[0], values[1]};
+    }
 
 	if (gh.second < 0.0) {
 	    gh.first = 0.0;

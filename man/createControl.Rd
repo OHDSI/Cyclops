@@ -27,7 +27,8 @@ createControl(
   maxBoundCount = 5,
   algorithm = "ccd",
   doItAll = TRUE,
-  syncCV = FALSE
+  syncCV = FALSE,
+  aggregate = NULL
 )
 }
 \arguments{
@@ -81,7 +82,17 @@ the average number of rows per stratum is smaller than the number of strata.}
 
 \item{doItAll}{Currently unused}
 
-\item{syncCV}{Currently unused
+\item{syncCV}{Currently unused}
+
+\item{aggregate}{Optional function \code{function(coordinate, statistics)} for
+plaintext federated logistic CCD. For coordinates 1 through p (including
+the intercept), statistics contains gradient, curvature, coefficient and
+trust bound. Return summed gradient/curvature and unchanged coefficient/bound.
+Coordinate 0 exchanges local log likelihood and common log prior; sum only
+the likelihood. All sites must use the same features, scales, prior,
+starting coefficients and controls. Requires a fixed Laplace prior,
+unweighted float64 CPU CCD, Lange convergence and one thread. The callback
+is installed only during fitting and is released even when fitting fails.
 
 Todo: Describe convegence types}
 }

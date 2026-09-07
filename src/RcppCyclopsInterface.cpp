@@ -129,6 +129,30 @@ double cyclopsGetBeta(SEXP inRcppCcdInterface, const int index) {
 	return interface->getCcd().getBeta(index);
 }
 
+// [[Rcpp::export(".cyclopsSetAggregation")]]
+void cyclopsSetAggregation(SEXP inRcppCcdInterface, SEXP callback) {
+    XPtr<bsccs::RcppCcdInterface> interface(inRcppCcdInterface);
+    if (Rf_isNull(callback)) {
+        interface->getCcd().setAggregation(nullptr);
+        return;
+    }
+    Function aggregate(callback);
+    interface->getCcd().setAggregation([aggregate](int coordinate, const std::vector<double>& statistics) {
+        if (!std::all_of(statistics.begin(), statistics.end(), [](double x) { return std::isfinite(x); })) {
+            stop("Non-finite local statistics");
+        }
+        const auto result = as<std::vector<double>>(aggregate(coordinate, wrap(statistics)));
+        if (result.size() != statistics.size() ||
+            !std::all_of(result.begin(), result.end(), [](double x) { return std::isfinite(x); })) {
+            stop("Invalid aggregated statistics");
+        }
+        if (coordinate > 0 && result[1] <= 0) {
+            stop("Global coordinate curvature must be positive");
+        }
+        return result;
+    });
+}
+
 // [[Rcpp::export(.cyclopsSetStartingBeta)]]
 void cyclopsSetStartingBeta(SEXP inRcppCcdInterface, const std::vector<double>& inStartingBeta) {
 	using namespace bsccs;

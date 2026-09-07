@@ -85,3 +85,10 @@ Cyclops is being developed in R Studio.
 Acknowledgements
 ================
 - This project is supported in part through the National Science Foundation grants IIS 1251151 and DMS 1264153.
+
+This fork adds `createControl(aggregate = function(coordinate, statistics) ...)`
+for plaintext federated logistic CCD. It exchanges coordinate derivatives and
+the convergence likelihood while reusing Cyclops updates, trust bounds and
+sparse caches. See `?createControl` for the callback contract. Patient data and
+transport stay outside Cyclops. The default `aggregate = NULL` uses ordinary
+Cyclops fitting. An unchanged initial Lange posterior is accepted as convergence.

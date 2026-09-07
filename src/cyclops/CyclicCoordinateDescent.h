@@ -19,6 +19,7 @@
 
 #include <Eigen/Dense>
 #include <deque>
+#include <functional>
 
 #include "Types.h"
 
@@ -47,6 +48,14 @@ using std::string;
 class CyclicCoordinateDescent {
 
 public:
+
+    using Aggregation = std::function<std::vector<double>(int, const std::vector<double>&)>;
+    void setAggregation(Aggregation callback) {
+        if (callback && hXI.getFloatingPointSize() != 64) {
+            error->throwError(std::ostringstream("Aggregation requires float64 data."));
+        }
+        aggregate = std::move(callback);
+    }
 
 	typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Matrix;
 
@@ -236,6 +245,8 @@ public:
 	void setHXBeta(void);
 
 protected:
+
+    Aggregation aggregate;
 
 	bsccs::unique_ptr<AbstractModelSpecifics> privateModelSpecifics;
 

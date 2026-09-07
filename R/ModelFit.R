@@ -212,6 +212,29 @@ fitCyclopsModel <- function(cyclopsData,
     control <- .setControl(cyclopsData$cyclopsInterfacePtr, control)
     threads <- control$threads
 
+    if (!is.null(control$aggregate)) {
+        if (cyclopsData$modelType != "lr" || computeDevice != "native" ||
+            control$algorithm != "ccd" || control$convergenceType != "lange" ||
+            control$threads != 1 || control$useKKTSwindle || control$syncCV) {
+            stop("Aggregation requires CPU logistic CCD with Lange convergence")
+        }
+        if (!identical(prior$priorType, "laplace") || prior$useCrossValidation ||
+            !is.null(prior$graph) || !is.null(prior$neighborhood) ||
+            prior$forceIntercept || length(prior$exclude) != 1) {
+            stop("Use a fixed Laplace prior excluding only the intercept")
+        }
+        if (is.null(startingCoefficients) || any(!is.finite(startingCoefficients)) ||
+            !is.null(weights) || !is.null(fixedCoefficients)) {
+            stop("Provide common starting coefficients and no weights or fixed coefficients")
+        }
+        if (any(!is.finite(c(prior$variance, control$tolerance, control$initialBound))) ||
+            prior$variance <= 0 || control$tolerance <= 0 || control$initialBound <= 0) {
+            stop("Prior variance, tolerance and initial bound must be positive and finite")
+        }
+        .cyclopsSetAggregation(cyclopsData$cyclopsInterfacePtr, control$aggregate)
+        on.exit(.cyclopsSetAggregation(cyclopsData$cyclopsInterfacePtr, NULL), add = TRUE)
+    }
+
     if (!is.null(startingCoefficients)) {
 
         if (length(startingCoefficients) != getNumberOfCovariates(cyclopsData)) {
@@ -617,6 +640,15 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param algorithm             String: name of fitting algorithm to employ; default is `ccd`
 #' @param doItAll               Currently unused
 #' @param syncCV                Currently unused
+#' @param aggregate Optional function \code{function(coordinate, statistics)} for
+#'   plaintext federated logistic CCD. For coordinates 1 through p (including
+#'   the intercept), statistics contains gradient, curvature, coefficient and
+#'   trust bound. Return summed gradient/curvature and unchanged coefficient/bound.
+#'   Coordinate 0 exchanges local log likelihood and common log prior; sum only
+#'   the likelihood. All sites must use the same features, scales, prior,
+#'   starting coefficients and controls. Requires a fixed Laplace prior,
+#'   unweighted float64 CPU CCD, Lange convergence and one thread. The callback
+#'   is installed only during fitting and is released even when fitting fails.
 #'
 #' Todo: Describe convegence types
 #'
@@ -648,7 +680,8 @@ createControl <- function(maxIterations = 1000,
                           maxBoundCount = 5,
                           algorithm = "ccd",
                           doItAll = TRUE,
-                          syncCV = FALSE) {
+                          syncCV = FALSE,
+                          aggregate = NULL) {
     validCVNames = c("grid", "auto")
     stopifnot(cvType %in% validCVNames)
 
@@ -683,7 +716,8 @@ createControl <- function(maxIterations = 1000,
                    maxBoundCount = maxBoundCount,
                    algorithm = algorithm,
                    doItAll = doItAll,
-                   syncCV = syncCV),
+                   syncCV = syncCV,
+                   aggregate = aggregate),
               class = "cyclopsControl")
 }
 

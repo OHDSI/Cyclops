@@ -29,6 +29,10 @@
     .Call(`_Cyclops_cyclopsGetBeta`, inRcppCcdInterface, index)
 }
 
+.cyclopsSetAggregation <- function(inRcppCcdInterface, callback) {
+    invisible(.Call(`_Cyclops_cyclopsSetAggregation`, inRcppCcdInterface, callback))
+}
+
 .cyclopsSetStartingBeta <- function(inRcppCcdInterface, inStartingBeta) {
     invisible(.Call(`_Cyclops_cyclopsSetStartingBeta`, inRcppCcdInterface, inStartingBeta))
 }
