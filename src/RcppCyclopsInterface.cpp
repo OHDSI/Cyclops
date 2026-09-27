@@ -49,6 +49,7 @@ namespace bsccs {
  	{ModelType::COX_RAW, "cox_raw"},
 	{ModelType::TIME_VARYING_COX, "cox_time"},
  	{ModelType::FINE_GRAY, "fgr"},
+ 	{ModelType::COX_COUNTING, "cox_counting"},
  };
 
 void RcppCcdInterface::logResultsToFile(const std::string& fileName, bool withASE) {
@@ -78,7 +79,8 @@ std::vector<std::string> cyclopsGetRemoveInterceptNames() {
 		modelTypeNames[ModelType::COX],
 		modelTypeNames[ModelType::COX_RAW],
 		modelTypeNames[ModelType::TIME_VARYING_COX],
-        modelTypeNames[ModelType::FINE_GRAY]
+        modelTypeNames[ModelType::FINE_GRAY],
+        modelTypeNames[ModelType::COX_COUNTING]
 	};
 	return names;
 }
@@ -90,7 +92,8 @@ std::vector<std::string> cyclopsGetIsSurvivalNames() {
 		modelTypeNames[ModelType::COX],
 		modelTypeNames[ModelType::COX_RAW],
 		modelTypeNames[ModelType::TIME_VARYING_COX],
-        modelTypeNames[ModelType::FINE_GRAY]
+        modelTypeNames[ModelType::FINE_GRAY],
+        modelTypeNames[ModelType::COX_COUNTING]
 	};
 	return names;
 }
@@ -103,7 +106,8 @@ std::vector<std::string> cyclopsGetUseOffsetNames() {
 		modelTypeNames[ModelType::COX],
 		modelTypeNames[ModelType::COX_RAW],
 		modelTypeNames[ModelType::TIME_VARYING_COX],
-        modelTypeNames[ModelType::FINE_GRAY]
+        modelTypeNames[ModelType::FINE_GRAY],
+        modelTypeNames[ModelType::COX_COUNTING]
 	};
 	return names;
 }

@@ -140,6 +140,7 @@ enum class ModelType {
 	COX_RAW,
 	TIME_VARYING_COX,
 	FINE_GRAY, // ESK: Added Fine-Gray
+	COX_COUNTING, // Cox with (start, stop] counting-process data
 	SIZE_OF_ENUM // Keep at end
 };
 

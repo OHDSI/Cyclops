@@ -336,6 +336,10 @@ getTimeVector <- function(object) {
     invisible(.Call(`_Cyclops_cyclopsLoadDataY`, x, stratumId, rowId, y, time))
 }
 
+.loadCyclopsDataStartTime <- function(x, startTime) {
+    invisible(.Call(`_Cyclops_cyclopsLoadDataStartTime`, x, startTime))
+}
+
 .loadCyclopsDataMultipleX <- function(x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append, forceSparse) {
     .Call(`_Cyclops_cyclopsLoadDataMultipleX`, x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append, forceSparse)
 }

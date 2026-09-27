@@ -145,6 +145,26 @@ void ModelData<RealType>::loadY(
 }
 
 template <typename RealType>
+void ModelData<RealType>::loadStartTime(const std::vector<double>& oStartTime) {
+
+    if (oStartTime.size() != y.size() || oStartTime.size() != offs.size()) {
+        std::ostringstream stream;
+        stream << "Mismatched start time dimensions";
+        error->throwError(stream);
+    }
+
+    for (size_t i = 0; i < oStartTime.size(); ++i) {
+        if (!(oStartTime[i] < offs[i])) {
+            std::ostringstream stream;
+            stream << "Start times must be less than stop times";
+            error->throwError(stream);
+        }
+    }
+
+    copyAssign(startTime, oStartTime);
+}
+
+template <typename RealType>
 int ModelData<RealType>::loadMultipleX(
 		const std::vector<int64_t>& covariateIds,
 		const std::vector<int64_t>& rowIds,

@@ -11,6 +11,7 @@
 #include "AbstractModelSpecifics.h"
 #include "ModelData.h"
 #include "engine/ModelSpecifics.h"
+#include "engine/CountingProcessModelSpecifics.hpp"
 
 #ifdef HAVE_OPENCL
 #include "engine/GpuModelSpecifics.hpp"
@@ -116,6 +117,11 @@ AbstractModelSpecifics* precisionFactory<float>(
     case ModelType::FINE_GRAY:
         model = deviceFactory<BreslowTiedFineGray<float>,float>(modelData, deviceType, deviceName);
         break;
+    case ModelType::COX_COUNTING :
+        if (deviceType == DeviceType::CPU) {
+            model = new CountingProcessModelSpecifics<float>(modelData);
+        }
+        break;
     default:
     	break;
     }
@@ -206,6 +212,11 @@ AbstractModelSpecifics* precisionFactory<double>(
         break;
     case ModelType::FINE_GRAY:
         model = deviceFactory<BreslowTiedFineGray<double>,double>(modelData, deviceType, deviceName);
+        break;
+    case ModelType::COX_COUNTING :
+        if (deviceType == DeviceType::CPU) {
+            model = new CountingProcessModelSpecifics<double>(modelData);
+        }
         break;
     default:
         break;

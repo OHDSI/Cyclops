@@ -66,6 +66,7 @@ Currently supported model types are:
 \verb{	"cpr"} \tab Conditional Poisson regression \cr
 \verb{	"sccs"} \tab Self-controlled case series \cr
 \verb{	"cox"} \tab Cox proportional hazards regression \cr
+\verb{	"cox_counting"} \tab Cox proportional hazards regression for counting-process data, \code{Surv(start, stop, event)} \cr
 \verb{	"fgr"} \tab Fine-Gray proportional subdistribution hazards regression \cr
 }
 }

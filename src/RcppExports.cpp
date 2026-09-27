@@ -833,6 +833,17 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// cyclopsLoadDataStartTime
+void cyclopsLoadDataStartTime(Environment x, const std::vector<double>& startTime);
+RcppExport SEXP _Cyclops_cyclopsLoadDataStartTime(SEXP xSEXP, SEXP startTimeSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type startTime(startTimeSEXP);
+    cyclopsLoadDataStartTime(x, startTime);
+    return R_NilValue;
+END_RCPP
+}
 // cyclopsLoadDataMultipleX
 int cyclopsLoadDataMultipleX(Environment x, const std::vector<double>& covariateId, const std::vector<double>& rowId, const std::vector<double>& covariateValue, const bool checkCovariateIds, const bool checkCovariateBounds, const bool append, const bool forceSparse);
 RcppExport SEXP _Cyclops_cyclopsLoadDataMultipleX(SEXP xSEXP, SEXP covariateIdSEXP, SEXP rowIdSEXP, SEXP covariateValueSEXP, SEXP checkCovariateIdsSEXP, SEXP checkCovariateBoundsSEXP, SEXP appendSEXP, SEXP forceSparseSEXP) {
@@ -1015,6 +1026,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetTimeVector", (DL_FUNC) &_Cyclops_cyclopsGetTimeVector, 1},
     {"_Cyclops_cyclopsFinalizeData", (DL_FUNC) &_Cyclops_cyclopsFinalizeData, 7},
     {"_Cyclops_cyclopsLoadDataY", (DL_FUNC) &_Cyclops_cyclopsLoadDataY, 5},
+    {"_Cyclops_cyclopsLoadDataStartTime", (DL_FUNC) &_Cyclops_cyclopsLoadDataStartTime, 2},
     {"_Cyclops_cyclopsLoadDataMultipleX", (DL_FUNC) &_Cyclops_cyclopsLoadDataMultipleX, 8},
     {"_Cyclops_cyclopsLoadDataX", (DL_FUNC) &_Cyclops_cyclopsLoadDataX, 7},
     {"_Cyclops_cyclopsLoadDataStratTimeEffects", (DL_FUNC) &_Cyclops_cyclopsLoadDataStratTimeEffects, 5},

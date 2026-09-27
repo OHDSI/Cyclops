@@ -581,6 +581,16 @@ void cyclopsLoadDataY(Environment x,
                 y, time);
 }
 
+// [[Rcpp::export(".loadCyclopsDataStartTime")]]
+void cyclopsLoadDataStartTime(Environment x,
+                              const std::vector<double>& startTime) {
+
+    using namespace bsccs;
+    XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
+
+    data->loadStartTime(startTime);
+}
+
 // [[Rcpp::export(".loadCyclopsDataMultipleX")]]
 int cyclopsLoadDataMultipleX(Environment x,
 		const std::vector<double>& covariateId,

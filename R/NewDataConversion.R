@@ -44,6 +44,8 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'   \verb{y}    \tab(real) \tab The outcome variable \cr
 #'   \verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
 #'                  \tab        \tab(e.g. number of days) \cr
+#'   \verb{startTime}    \tab(real) \tab (optional) For \code{"cox_counting"} models, the start of the \code{(startTime, time]} \cr
+#'                  \tab        \tab risk interval of each row; rows without it are at risk from time 0 \cr
 #'   \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
 #'   \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided.
 #' }
@@ -141,7 +143,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
         outcomes$stratumId <- NULL
         covariates$stratumId <- NULL
     }
-    if ((modelType == "cox" | modelType == "cox_time" | modelType == "fgr") & !"stratumId" %in% colnames(outcomes)) {
+    if ((modelType == "cox" | modelType == "cox_time" | modelType == "fgr" | modelType == "cox_counting") & !"stratumId" %in% colnames(outcomes)) {
         outcomes$stratumId <- 0
         covariates$stratumId <- 0
     }
@@ -172,9 +174,9 @@ convertToCyclopsData.data.frame <- function(outcomes,
         }
     }
 
-    if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr") {
+    if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr" | modelType == "cox_counting") {
 
-        if ((modelType == "cox" | modelType == "cox_time") & length(unique(outcomes$y)) > 2) {
+        if ((modelType == "cox" | modelType == "cox_time" | modelType == "cox_counting") & length(unique(outcomes$y)) > 2) {
             stop("Cox model only accepts one outcome type")
         }
 # <<<<<<< HEAD
@@ -244,7 +246,11 @@ convertToCyclopsData.data.frame <- function(outcomes,
                            y = outcomes$y,
                            time = if ("time" %in% colnames(outcomes)) outcomes$time else NULL)
 
-    if (addIntercept & (modelType != "cox" & modelType != "cox_time" & modelType != "fgr")) {
+    if (modelType == "cox_counting" && "startTime" %in% colnames(outcomes)) {
+        .loadCyclopsDataStartTime(dataPtr, outcomes$startTime)
+    }
+
+    if (addIntercept & (modelType != "cox" & modelType != "cox_time" & modelType != "fgr" & modelType != "cox_counting")) {
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
     }
 
@@ -349,7 +355,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
 #                 covariates <- covariates[order(covariates$covariateId, covariates$stratumId,covariates$rowId),]
 #             }
 # =======
-    if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr") {
+    if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr" | modelType == "cox_counting") {
         if (providedNoStrata) {
             outcomes <- outcomes %>%
                 mutate(stratumId = 0)
@@ -393,9 +399,9 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
             arrange(.data$covariateId, .data$stratumId, .data$rowId)
     }
 
-    if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr") {
+    if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr" | modelType == "cox_counting") {
 
-        if ((modelType == "cox" | modelType == "cox_time") &
+        if ((modelType == "cox" | modelType == "cox_time" | modelType == "cox_counting") &
             (select(outcomes, "y") %>% distinct() %>% count() %>% collect() > 2)) {
             stop("Cox model only accepts one outcome type")
         }
@@ -427,7 +433,11 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                            y = outcomes$y,
                            time = if ("time" %in% colnames(outcomes)) (select(outcomes, time) %>% pull()) else NULL)
 
-    if (addIntercept & (modelType != "cox" & modelType != "cox_time" & modelType != "fgr")) {
+    if (modelType == "cox_counting" && "startTime" %in% colnames(outcomes)) {
+        .loadCyclopsDataStartTime(dataPtr, outcomes$startTime)
+    }
+
+    if (addIntercept & (modelType != "cox" & modelType != "cox_time" & modelType != "fgr" & modelType != "cox_counting")) {
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
     }
 

@@ -15,6 +15,9 @@
 #' @export
 survfit.cyclopsFit <- function(formula, type="aalen", ...) {
     cyclopsFit <- formula
+    if (cyclopsFit$cyclopsData$modelType == "cox_counting") {
+        stop("Baseline hazards are not yet implemented for cox_counting models")
+    }
     delta = meanLinearPredictor(cyclopsFit)
 
     times = getTimeVector(cyclopsFit$cyclopsData)

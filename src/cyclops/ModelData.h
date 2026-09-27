@@ -133,6 +133,8 @@ public:
             const std::vector<double>& time
     ) = 0;
 
+    virtual void loadStartTime(const std::vector<double>& startTime) = 0;
+
     virtual int loadX(
             const IdType covariateId,
             const std::vector<IdType>& rowId,
@@ -301,6 +303,8 @@ public:
 		const std::vector<double>& time
 	);
 
+	void loadStartTime(const std::vector<double>& startTime);
+
 	int loadX(
 		const IdType covariateId,
 		const std::vector<IdType>& rowId,
@@ -343,6 +347,10 @@ public:
 
 	const RealVector& getTimeVectorRef() const {
 		return offs;
+	}
+
+	const RealVector& getStartTimeVectorRef() const {
+		return startTime;
 	}
 
 	const RealVector& getYVectorRef() const {
@@ -781,6 +789,7 @@ protected:
 	RealVector y;
 	RealVector z; // TODO Remove
 	RealVector offs; // TODO Rename to 'time'
+	RealVector startTime; // counting-process entry times; empty when all rows start at the origin
 	IntVector nevents; // TODO Where are these used?
 	std::string conditionId;
 	std::vector<std::string> labels; // TODO Change back to 'long'

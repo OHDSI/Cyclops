@@ -115,6 +115,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
 
     contrasts <- NULL
     sortOrder <- NULL
+    startTime <- NULL
 
     if (!missing(formula)) { # Use formula to construct Cyclops matrices
         if (missing(data)) {
@@ -134,7 +135,12 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
                 stop("Censored outcomes are currently only supported for Cox regression.")
             }
             if (dim(outcome)[2] == 3) {
-                time <- as.numeric(outcome[,2] - outcome[,1])
+                if (modelType == "cox_counting") {
+                    startTime <- as.numeric(outcome[,1])
+                    time <- as.numeric(outcome[,2])
+                } else {
+                    time <- as.numeric(outcome[,2] - outcome[,1])
+                }
                 y <- as.numeric(outcome[,3])
             } else {
                 time <- as.numeric(outcome[,1])
@@ -279,6 +285,9 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
                 censorWeights <- censorWeights[sortOrder]
             }
             time <- time[sortOrder]
+            if (!is.null(startTime)) {
+                startTime <- startTime[sortOrder]
+            }
             dx <- dx[sortOrder, ]
             if (inherits(dx,"numeric")) {
                 dx = as(dx,"dgeMatrix")
@@ -378,6 +387,10 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
         result$debug$time <- time
     }
     class(result) <- "cyclopsData"
+
+    if (!is.null(startTime)) {
+        .loadCyclopsDataStartTime(result, startTime)
+    }
 
     if (hasIntercept == TRUE) {
         .cyclopsSetHasIntercept(result, hasIntercept = TRUE)

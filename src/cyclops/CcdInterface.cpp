@@ -704,7 +704,8 @@ double CcdInterface::fitModel(CyclicCoordinateDescent *ccd) {
 SelectorType CcdInterface::getDefaultSelectorTypeOrOverride(SelectorType selectorType, ModelType modelType) {
 	if (selectorType == SelectorType::DEFAULT) {
 		selectorType = (modelType == ModelType::COX ||
-                        modelType == ModelType::COX_RAW) // TODO Fix for Normal, logistic, POISSON
+                        modelType == ModelType::COX_RAW ||
+                        modelType == ModelType::COX_COUNTING) // TODO Fix for Normal, logistic, POISSON
 			? SelectorType::BY_ROW : SelectorType::BY_PID;
 // 				NORMAL,
 // 				POISSON,
