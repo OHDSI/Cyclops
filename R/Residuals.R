@@ -36,7 +36,7 @@ residuals.cyclopsFit <- function(object, parm = NULL, type = "schoenfeld", ...) 
 
     .checkInterface(object$cyclopsData, testOnly = TRUE)
 
-    if (object$cyclopsData$modelType != "cox") {
+    if (object$cyclopsData$modelType != "cox" && object$cyclopsData$modelType != "cox_counting") {
         stop("Residuals for only Cox models are currently implemented")
     }
     if (type != "schoenfeld") {

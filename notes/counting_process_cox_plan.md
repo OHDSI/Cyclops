@@ -8,20 +8,25 @@ Row-level outcomes become `(start, stop, event)`: a row is at risk at event time
 `start < t <= stop`, and the event (or censoring) happens at `stop`. Rows carry the usual
 strata, case weights, and dense/sparse/indicator covariates. This is `Surv(start, stop, event)` in
 the survival package. It covers delayed entry (left truncation) and time-varying covariates
-(one row per interval). The existing `cox` model is the special case `start = 0`.
+(one row per interval). The `cox` model is the special case `start = 0`.
 
-* **New model type** `"cox_counting"` with its own engine, `CountingProcessModelSpecifics<RealType>`.
-  The engine is a **subclass of the existing Cox engine**
-  `ModelSpecifics<BreslowTiedCoxProportionalHazards<RealType>, RealType>`. It reuses the Cox
-  gradient/Hessian scan, log-likelihood, weighting and cross-validation code, and overrides only how
-  rows map to risk-set groups.
+* **New model type** `"cox_counting"`. Its engine, `CountingProcessModelSpecifics<RealType>`, is a
+  **subclass of the Cox engine** `ModelSpecifics<BreslowTiedCoxProportionalHazards<RealType>, RealType>`.
+  It reuses the Cox gradient/Hessian scan, log-likelihood, weighting and cross-validation code, and
+  overrides only how rows map to risk-set groups.
+* **One risk-set group per event time**, for both `cox_counting` and `cox` on CPU. Censored rows join
+  the next event group, so every `O(N)` pass runs over distinct event times instead of rows: about
+  30x faster in the benchmark below.
 * **Linear order is kept.** Each evaluation is `O(K + N)` (K rows, N distinct event times). The
   one-time setup is `O(K log N + nnz log nnz)` per weight vector (initialization, each CV fold).
-* **Existing behavior is unchanged.** The Cox engine sources (`ModelSpecifics.h/.hpp`) are not
-  modified. Existing code paths only gain new `case`/list entries. All existing tests pass, and 13
-  representative fits are bitwise identical before and after (section 3.3).
-* **Status:** phase 1 (engine, R interface, tests) is implemented and validated. The remaining work
-  and the optimization proposals are in sections 4 and 5.
+* **Decisions (from review):**
+  1. The name `cox_counting` stays.
+  2. `cox` requires every start time to be 0.
+  3. `cox` uses the one-group-per-event-time engine.
+  4. Cross-validation keeps all rows of a subject in the same fold.
+* **Other models are unchanged.** `ModelSpecifics.h/.hpp`, the GPU engine, `cox_time`, `fgr` and
+  `cox_raw` are not modified; `fgr`, `lr`, `pr` and `clr` fits are bitwise identical to `main`.
+  `cox` results differ from `main` only in the last bits (section 3.3).
 
 ## 1. Algorithm: (start, stop] risk sets as one prefix scan
 
@@ -48,6 +53,7 @@ The Cox formulas then apply unchanged (Breslow ties; `d_g` is the weighted event
     loglik = sum_k w_k delta_k eta_k - sum_g d_g log D_g
     grad_j = sum_g d_g N_j,g / D_g - sum_k w_k delta_k x_kj                (negative log-likelihood)
     hess_j = sum_g d_g ( N2_j,g / D_g - (N_j,g / D_g)^2 )
+    info_jl = sum_g d_g ( N_jl,g / D_g - N_j,g N_l,g / D_g^2 )             (Fisher information)
 
 **Conventions** (same as `survival::coxph`):
 * Intervals are open at `start`: a row that starts at an event time is not at risk then.
@@ -56,16 +62,13 @@ The Cox formulas then apply unchanged (Breslow ties; `d_g` is the weighted event
 * A row that is at risk at no event time contributes nothing. It points to an unused group `N`.
   Examples are `(1, 1.5]` with no event inside it, or a row censored after the last event.
 
-**Event-time groups.** Censored rows join the next event group instead of forming their own group.
-So `N` is the number of distinct event times, not the number of rows. Every `O(N)` pass shrinks by
-the censoring ratio: denominator accumulation, dense scans, and the fill loops of sparse scans.
-This is the main reason `cox_counting` is faster than `cox` on the same data (section 3.4).
-
 ## 2. Engine design
 
-`src/cyclops/engine/CountingProcessModelSpecifics.hpp` (about 350 lines):
+`src/cyclops/engine/CountingProcessModelSpecifics.hpp` is the CPU engine for `cox` (no start times,
+so no exits) and `cox_counting`. On GPU, `cox` still uses `GpuModelSpecificsCox`, which has one
+group per row.
 
-| Cox `ModelSpecifics` member | `cox_counting` |
+| Cox `ModelSpecifics` member | new engine |
 |---|---|
 | `computeGradientAndHessian` (the scan), `computeThirdDerivative` | reused unchanged |
 | `getLogLikelihood`, `getPredictiveLogLikelihood` | reused unchanged |
@@ -74,20 +77,27 @@ This is the main reason `cox_counting` is faster than `cox` on the same data (se
 | `computeNumeratorForGradient` | **override**: base version, then subtract at exit groups |
 | `updateXBeta` | **override**: a denominator change is applied at entry and exit |
 | `computeRemainingStatistics` | **override**: base version, then subtract at exit groups |
+| `computeSchoenfeldResiduals` (residuals and the proportionality score) | **override**: computed from the group risk-set sums (handles exits and case weights) |
+| `computeFisherInformation` | **override**: the risk-set information above. The row-indexed Cox version gave wrong Cox variances (`test-believedBroken.R`); it now matches `coxph` |
 | `clone` | **override**, so threaded CV copies the right engine |
-| `computeFisherInformation`, `computeSchoenfeldResiduals`, `computeMMGradientAndHessian` | **throw**: the Cox versions index rows, not (start, stop] risk sets |
+| `computeMMGradientAndHessian` | **throws**: MM did not converge for Cox on `main` either |
 
-Other changes (each only adds a case for the new type):
-* `ModelData`: optional `startTime` vector plus `loadStartTime()`, which checks `start < stop`. When
-  the vector is empty, every row is at risk from the origin (the model reduces to right-censored Cox).
-* `ModelType::COX_COUNTING` / `"cox_counting"`. CPU factory only; a GPU request stops with "Invalid model
-  type", as for the other CPU-only models. The type is added to the survival, remove-intercept and use-offset
-  lists. CV folds are assigned by row, as for `cox`.
-* R: `createCyclopsData(Surv(start, stop, event) ~ ..., modelType = "cox_counting")`, and
-  `convertToCyclopsData(outcomes, covariates, modelType = "cox_counting")` with an optional
-  `outcomes$startTime` column, for both data frames and Andromeda. `predict` on new data, `survfit`
-  and `residuals` stop with an error for `cox_counting`, because they assume right-censored risk sets.
-* `modelType = "cox"` with `Surv(start, stop, event)` keeps its current meaning (`time = stop - start`).
+Other changes:
+* `ModelData`:
+  * an optional `startTime` vector plus `loadStartTime()`, which checks `start < stop`;
+  * an optional per-row subject index plus `loadSubjectId()`, with ids numbered by first appearance.
+* **Cross-validation folds.** When subject ids are present, the fold units are subjects: the
+  existing `BY_PID` selector runs over subject indices. When every row is its own subject, this
+  reproduces the current by-row folds exactly.
+* `ModelType::COX_COUNTING` / `"cox_counting"`. CPU only; a GPU request stops with "Invalid model
+  type", as for the other CPU-only models.
+* R interface:
+  * `createCyclopsData(Surv(start, stop, event) ~ ... + cluster(id), modelType = "cox_counting")`;
+  * `convertToCyclopsData(outcomes, covariates, modelType = "cox_counting")` with optional
+    `outcomes$startTime` and `outcomes$subjectId`, for both data frames and Andromeda;
+  * `cox` accepts `cluster()` and `subjectId` as well, and stops with an error if any start time
+    is non-zero;
+  * `residuals()` works for `cox_counting`; `predict` on new data and `survfit` stop with an error.
 
 ## 3. Validation
 
@@ -112,45 +122,54 @@ maximum relative differences:
 Splitting right-censored rows with `survSplit` changes the log-likelihood, gradient and Hessian by
 exactly 0.
 
-### 3.2 Engine tests (`tests/testthat/test-countingProcessCox.R`, 14 tests)
+### 3.2 Engine tests (`tests/testthat/test-countingProcessCox.R`, 18 tests)
 
-Against `coxph` (coefficients and log-likelihood to 1e-6): delayed entry; ties; strata; case weights
-with a held-out row; left truncation with strata and weights (n = 1500); sparse and indicator
-covariates; a time-varying exposure through `convertToCyclopsData`, for both data-frame and Andromeda
-input.
+Against `coxph` (coefficients and log-likelihood to 1e-6):
+* delayed entry, ties, strata, and case weights with a held-out row;
+* left truncation with strata and weights (n = 1500);
+* sparse and indicator covariates;
+* a time-varying exposure through `convertToCyclopsData`, for both data-frame and Andromeda input;
+* `vcov` for `cox` and `cox_counting`;
+* `cox_counting` Schoenfeld residuals.
 
 Invariances and other checks:
 * `survSplit` data under `cox_counting` equals unsplit data under `cox`.
-* `start = 0`, and a two-column `Surv`, reproduce the `cox` engine.
+* `start = 0`, and a two-column `Surv`, give the same fit as `cox`.
 * The predictive log-likelihood on held-out rows equals `coxph`'s log-likelihood.
-* Laplace cross-validation with `start = 0` selects the same hyperparameter as `cox`.
-* The profile-likelihood CI limits sit exactly `qchisq(0.95, 1) / 2` below the maximum.
+* Profile-likelihood CI limits sit exactly `qchisq(0.95, 1) / 2` below the maximum.
 * Single precision matches to 1e-3.
-* Input checks: `start >= stop` is rejected; `residuals` and `survfit` stop with an error.
+* Input checks: `start >= stop` is rejected, and `cox` rejects non-zero starts.
+* **Subject-level folds:**
+  * cross-validation on `survSplit` rows with `cluster(id)`, or with `outcomes$subjectId`,
+    reproduces cross-validation on the unsplit data: hyperparameter equal to 10 digits,
+    coefficients to 8e-14;
+  * row-level folds on the same split rows select a different hyperparameter (1.77 vs 0.35).
 
-### 3.3 Existing behavior unchanged
+### 3.3 Existing behavior
 
-* The full test suite, built with R 4.4.1:
-  * baseline (`main`): 158 tests, 0 failures, 26 skipped (GPU etc.);
-  * branch: 172 tests, 0 failures, 26 skipped;
-  * the only differences are the 14 new tests.
-* Thirteen fits give `identical()` coefficients and log-likelihoods under both builds:
-  * `cox` with sparse covariates, Laplace, cross-validation (including the hyperparameter), weights,
-    50 strata, the stratified predictive log-likelihood, the formula interface, profile CIs, and the
-    legacy three-column `Surv`;
-  * `fgr`, `lr`, `pr` and `clr`.
+* Full test suite, built with R 4.4.1:
+  * `main`: 158 tests, 0 failures, 26 skipped (GPU etc.);
+  * branch: 176 tests, 0 failures, 26 skipped;
+  * every existing test keeps its status.
+* The same 13 representative fits under `main` and the branch:
+  * `fgr`, `lr`, `pr` and `clr`: `identical()`;
+  * `cox` (sparse covariates, Laplace, cross-validation including the hyperparameter, weights,
+    50 strata, formula interface, legacy three-column `Surv`): maximum relative difference ≤ 1e-15;
+  * `cox` profile CIs: 3e-14;
+  * `cox` stratified predictive log-likelihood: identical.
+* `vcov` for `cox` changes from wrong (`main`: 4.57 vs `coxph` 0.647 on the `test-believedBroken.R`
+  example) to correct (0.6471719).
 * Compiler warnings are identical (the same 6).
 
 ### 3.4 Performance (Apple M-series, single thread, R 4.4.1)
 
 Simulated data: K = 200,000 rows, 2% events, 2,000 indicator covariates at 0.5% density plus 1
-dense covariate. Both engines converge in the same number of iterations to coefficients that agree
-within 1.7e-14:
+dense covariate. Each run converges in 7 iterations, and the coefficients agree within 2.3e-14:
 
-| prior | `cox` | `cox_counting` (start = 0) | per-iteration speedup |
+| prior | `cox` on `main` | `cox` on this branch | speedup |
 |---|---|---|---|
-| normal(1) | 19.5 s (7 it) | 0.68 s (7 it) | 28.6x |
-| laplace(5) | 18.6 s (7 it) | 0.69 s (7 it) | 26.9x |
+| normal(1) | 19.5 s (2.78 s / it) | 0.66 s (0.094 s / it) | 29.5x |
+| laplace(5) | 18.4 s (2.64 s / it) | 0.62 s (0.088 s / it) | 29.8x |
 
 Scaling of `cox_counting` with real start times (200 indicators at 1% plus 1 dense, 2% events) is
 linear in K:
@@ -162,16 +181,17 @@ linear in K:
 
 ## 4. Remaining work (not implemented)
 
-1. **Fisher information / `vcov`**: needs risk-set cross terms. The same scan works with
-   `N_jk = sum w e^eta x_j x_k`. Profile-likelihood CIs already work.
-2. **Schoenfeld residuals** and a `cox.zph` analogue: residuals at each event time use the scanned
-   `N_j / D`.
-3. **Baseline hazard (`survfit`)**: Breslow increments `d_g / D_g` over the (start, stop] risk sets.
-   The engine already computes these.
-4. **GPU (CUDA)**: the scan kernels are unchanged; add a scatter of exit contributions (atomic add,
-   or a reduce-by-key over rows pre-sorted by exit group).
-5. **Subject-level CV folds**: the rows of one subject should share a fold. This needs a `subjectId`
-   when a subject spans several rows. Folds are currently by row, as for `cox`.
+1. **Baseline hazard (`survfit`) for `cox_counting`**: Breslow increments `d_g / D_g` over the
+   (start, stop] risk sets. `survfit` for `cox` is computed in R and is unchanged.
+2. **`testProportionality` for `cox_counting`**: the engine score already handles start times,
+   but the R `km` transform needs a Kaplan-Meier curve with delayed entry, i.e. start times on the
+   R side.
+3. **Bootstrap by subject**: the `BootstrapSelector` takes the same `ids`, so this is one line in
+   `CcdInterface::runBootstrap`. It was not requested, so it is left as is.
+4. **Weighted Fisher information**: the risk-set sums are already weighted. The weighted
+   `vcov` still throws, as on `main`.
+5. **GPU (CUDA)**: the scan kernels are unchanged; add a scatter of exit contributions, and event
+   groups for `cox`.
 6. **Single precision**: entry/exit prefix sums can cancel when risk sets turn over many times.
    FP64 agrees with `coxph` to 1e-14 on the examples; FP32 to about 1e-3. Options are long-double
    accumulation, or separate entry and exit arrays with a reset when the risk set empties.
@@ -179,7 +199,7 @@ linear in K:
 
 ## 5. Performance optimizations considered
 
-Profile of the **existing `cox` engine** (instrumented build, the 200k-row benchmark above, 7
+Profile of the **`cox` engine on `main`** (instrumented build, the 200k-row benchmark above, 7
 iterations):
 
 | part | time | cause |
@@ -189,28 +209,26 @@ iterations):
 | `computeNumeratorForGradient` | 0.10 s | O(nnz_j) |
 | `getLogLikelihood` | 0.007 s | not a bottleneck |
 
-With 2,000 strata the split is the same (10.6 s / 10.9 s): nothing is local to strata. In
-`cox_counting` the scan takes 0.185 s, because N is about 4k event times instead of 200k rows.
+With 2,000 strata the split is the same (10.6 s / 10.9 s): nothing is local to strata.
 
-| # | optimization | applies to | results identical? | expected effect |
+| # | optimization | applies to | results identical? | status / expected effect |
 |---|---|---|---|---|
-| 1 | **Event-time groups** (N = distinct event times) | `cox_counting` (done); could be ported to `cox` | no (sums re-associated, ~1e-14) | measured 27–29x end to end at 2% events; scales with the inverse event rate |
-| 2 | **Sparse gradient/Hessian by prefix sums.** Between a column's entry/exit points its numerators are constant, so each segment contributes `N·ΔC` and `N^2·ΔP`, with `C = cumsum(d/D)` and `P = cumsum(d/D^2)` built in the existing O(N) denominator pass | both | no (validated to 5e-13 in the prototype) | the per-column scan drops from O(N − first_j) to O(#entry/exit points of j); the largest gain for sparse, high-dimensional L1 fits where most coordinates don't move. Use per-stratum sums and FP64. |
-| 3 | **Range- and stratum-limited denominator updates.** After updating `beta_j`, recompute accumulated denominators only in strata that contain column j, and in `cox_counting` only on `[min entry_j, max exit_j)`: after the last exit the change cancels | both | yes for `cox`; last bits for `cox_counting` | large for many small strata or short exposure windows; small for unstratified right-censored data |
-| 4 | **Skip strata with no non-zeros** in the sparse fill loop (after a reset the contributions are exact zeros) | both | yes | proportional to the fraction of strata a column misses; superseded by #2 |
-| 5 | **Skip divisions at groups without events** | `cox` | yes | **measured: no gain** (9.39 s vs 9.25 s). The loop is bound by the O(N) traversal, not the division, so shrinking or skipping groups (#1, #2) is what helps |
+| 1 | **Event-time groups** (N = distinct event times) | `cox`, `cox_counting` | no (~1e-15) | **done**: 29.5–29.8x at 2% events; scales with the inverse event rate |
+| 2 | **Sparse gradient/Hessian by prefix sums.** Between a column's entry/exit points its numerators are constant, so each segment contributes `N·ΔC` and `N^2·ΔP`, with `C = cumsum(d/D)` and `P = cumsum(d/D^2)` built in the existing O(N) denominator pass | both | no (validated to 5e-13 in the prototype) | the per-column scan drops from O(N − first_j) to O(#entry/exit points of j); the largest gain for sparse, high-dimensional L1 fits where most coordinates don't move. Use per-stratum sums and FP64 |
+| 3 | **Range- and stratum-limited denominator updates.** After updating `beta_j`, recompute accumulated denominators only in strata that contain column j, and in `cox_counting` only on `[min entry_j, max exit_j)` (after the last exit the change cancels) | both | yes for right-censored data; last bits with exits | large for many small strata or short exposure windows |
+| 4 | **Skip strata with no non-zeros** in the sparse fill loop | both | yes | proportional to the fraction of strata a column misses; superseded by #2 |
+| 5 | **Skip divisions at groups without events** | `cox` on `main` | yes | **measured: no gain** (9.39 s vs 9.25 s); the loop is bound by the traversal, not the division. Moot now that every group has events |
 | 6 | **`exp(delta)` update for indicator columns** (`u_k *= e^delta` instead of `exp` per row; `computeRemainingStatistics` resets any drift each cycle) | both | no | removes one `exp` per non-zero in `updateXBeta` |
 | 7 | **Fuse the numerator scatter into the scan** for sparse/indicator columns (the non-zeros are already sorted by group) | both | yes | removes the zero/scatter/gather passes over `numerPid` |
 | 8 | **Parallelism** across strata (TBB), or GPU scans | both | yes / no | strata are independent; the scans are the existing CUB kernels |
 
-Recommended order: #3 (identical results), then #2, then porting #1 to `cox` as an opt-in. Until
-then, `cox_counting` with start times at 0 can be used for right-censored data wherever its missing
-features (section 4) are not needed.
+Recommended next: #3, then #2.
 
-## 6. Open questions
+## 6. Decisions
 
-1. Is `"cox_counting"` the right name (alternatives: `"cox_cp"`, `"cox_start_stop"`)?
-2. `modelType = "cox"` with `Surv(start, stop, event)` silently fits `time = stop - start`. Should it
-   warn when a start is non-zero, or switch to `cox_counting`? Either would change existing behavior.
-3. Should event-time grouping (#1) move into `cox`? It is not bitwise identical (about 1e-14).
-4. Should CV folds follow a `subjectId` for multi-row subjects?
+1. Name: `cox_counting`.
+2. `cox` requires start times of 0: an error in `createCyclopsData` (three-column `Surv`) and in
+   `convertToCyclopsData` (`startTime` column).
+3. `cox` uses one risk-set group per event time on CPU.
+4. Cross-validation folds are by subject when subjects are given (`cluster()`, or
+   `outcomes$subjectId`), for `cox` and `cox_counting`.

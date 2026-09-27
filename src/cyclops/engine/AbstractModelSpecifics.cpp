@@ -109,7 +109,11 @@ AbstractModelSpecifics* precisionFactory<float>(
     	model = deviceFactory<CoxProportionalHazards<float>,float>(modelData, deviceType, deviceName);
     	break;
     case ModelType::COX :
-        model = deviceFactory<BreslowTiedCoxProportionalHazards<float>,float>(modelData, deviceType, deviceName);
+        if (deviceType == DeviceType::CPU) { // one risk-set group per event time
+            model = new CountingProcessModelSpecifics<float>(modelData);
+        } else {
+            model = deviceFactory<BreslowTiedCoxProportionalHazards<float>,float>(modelData, deviceType, deviceName);
+        }
         break;
     case ModelType::TIME_VARYING_COX :
 	model = deviceFactory<TimeVaryingCoxProportionalHazards<float>,float>(modelData, deviceType, deviceName);
@@ -205,7 +209,11 @@ AbstractModelSpecifics* precisionFactory<double>(
         model = deviceFactory<CoxProportionalHazards<double>,double>(modelData, deviceType, deviceName);
         break;
     case ModelType::COX :
-        model = deviceFactory<BreslowTiedCoxProportionalHazards<double>,double>(modelData, deviceType, deviceName);
+        if (deviceType == DeviceType::CPU) { // one risk-set group per event time
+            model = new CountingProcessModelSpecifics<double>(modelData);
+        } else {
+            model = deviceFactory<BreslowTiedCoxProportionalHazards<double>,double>(modelData, deviceType, deviceName);
+        }
         break;
     case ModelType::TIME_VARYING_COX :
         model = deviceFactory<TimeVaryingCoxProportionalHazards<double>,double>(modelData, deviceType, deviceName);

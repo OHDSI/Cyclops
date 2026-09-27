@@ -800,10 +800,16 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, AbstractMo
 
 	//arguments.crossValidation.fold != -1 ?
 
+	std::vector<int> ids = modelData->getPidVectorSTL();
+	if (selectorType == SelectorType::BY_ROW && !modelData->getSubjectIndexVectorRef().empty()) {
+		ids = modelData->getSubjectIndexVectorRef(); // keep all rows of a subject in the same fold
+		selectorType = SelectorType::BY_PID;
+	}
+
 	AbstractSelector* ptr;
 	if (arguments.crossValidation.fold != -1) {
 	ptr = new CrossValidationSelector(arguments.crossValidation.fold,
-                             modelData->getPidVectorSTL(),
+                             ids,
                              selectorType, arguments.seed, logger, error,
                              nullptr,
                              (useWeights ? &weights : nullptr));

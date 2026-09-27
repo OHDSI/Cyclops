@@ -1,8 +1,9 @@
 /*
  * CountingProcessModelSpecifics.hpp
  *
- * Cox proportional hazards (Breslow ties) for counting-process data, Surv(start, stop, event):
- * a row is at risk at event time t when start < t <= stop.
+ * CPU engine for Cox proportional hazards (Breslow ties): "cox" (every row starts at the time
+ * origin) and "cox_counting" for Surv(start, stop, event), where a row is at risk at event time t
+ * when start < t <= stop.
  *
  * Subclass of the Cox ModelSpecifics that reuses its gradient/Hessian scan, log-likelihood and
  * weighting code, and changes only how rows map onto risk-set groups.  Groups are the distinct
@@ -48,20 +49,15 @@ public:
 
     void computeRemainingStatistics(bool useWeights);
 
-    // The Cox versions below index rows rather than (start, stop] risk sets
-    void computeFisherInformation(int indexOne, int indexTwo, double* oinfo, bool useWeights) {
-        throw std::logic_error("Fisher information is not yet implemented for cox_counting models");
-    }
+    void computeFisherInformation(int indexOne, int indexTwo, double* oinfo, bool useWeights);
 
     void computeSchoenfeldResiduals(int indexOne, std::vector<double>* residuals,
                                     std::vector<double>* times, std::vector<int>* strata,
-                                    double* covariate, double* score, bool useWeights) {
-        throw std::logic_error("Schoenfeld residuals are not yet implemented for cox_counting models");
-    }
+                                    double* covariate, double* score, bool useWeights);
 
     void computeMMGradientAndHessian(std::vector<GradientHessian>& gh,
                                      const std::vector<bool>& fixBeta, bool useWeights) {
-        throw std::logic_error("MM updates are not yet implemented for cox_counting models");
+        throw std::logic_error("MM updates are not yet implemented for Cox models");
     }
 
 private:
@@ -75,6 +71,7 @@ private:
     using Base::numerPid;
     using Base::numerPid2;
     using Base::hKWeight;
+    using Base::hNWeight;
     using Base::N;
     using Base::K;
     using Base::J;
@@ -92,6 +89,10 @@ private:
     void updateXBetaAndDenominators(RealType delta, int index);
 
     void setupRiskSetIndices();
+
+    std::vector<RealType> denseColumn(int index) const;
+
+    std::vector<RealType> riskSetSums(const std::vector<RealType>& x) const;
 
     const RealVector& hStart; // empty: every row is at risk from the time origin
     std::vector<int> hExitPid; // exit group per row; N when the row never leaves
@@ -341,6 +342,151 @@ void CountingProcessModelSpecifics<RealType>::computeRemainingStatistics(bool us
     // Censored rows outside every risk set point to the unused group N; the Cox predictive
     // log-likelihood still takes log() of its denominator, so keep it finite
     accDenomPid[N] = static_cast<RealType>(1);
+}
+
+template <typename RealType>
+std::vector<RealType> CountingProcessModelSpecifics<RealType>::denseColumn(int index) const {
+
+    std::vector<RealType> x(K, static_cast<RealType>(0));
+    for (GenericIterator<RealType> it(hX, index); it; ++it) {
+        x[it.index()] = it.value();
+    }
+    return x;
+}
+
+template <typename RealType>
+std::vector<RealType> CountingProcessModelSpecifics<RealType>::riskSetSums(
+        const std::vector<RealType>& x) const {
+
+    // Sum of w * exp(x'beta) * x over the risk set of each event-time group; as in the Cox
+    // residuals, case weights come from hKWeight (all 1 without weights)
+    std::vector<RealType> sums(N + 1, static_cast<RealType>(0)); // group N is unused
+    for (size_t k = 0; k < K; ++k) {
+        const RealType value = hKWeight[k] * offsExpXBeta[k] * x[k];
+        sums[hPid[k]] += value;
+        sums[hExitPid[k]] -= value;
+    }
+
+    RealType total = static_cast<RealType>(0);
+    auto reset = accReset.begin();
+    for (size_t g = 0; g < N; ++g) {
+        if (static_cast<size_t>(*reset) == g) { // new stratum
+            total = static_cast<RealType>(0);
+            ++reset;
+        }
+        total += sums[g];
+        sums[g] = total;
+    }
+    return sums;
+}
+
+template <typename RealType>
+void CountingProcessModelSpecifics<RealType>::computeFisherInformation(int indexOne, int indexTwo,
+                                                                       double* oinfo, bool useWeights) {
+
+    if (useWeights) {
+        throw std::logic_error("Weights are not yet implemented in Fisher Information calculations");
+    }
+
+    const std::vector<RealType> xOne = denseColumn(indexOne);
+    const std::vector<RealType> xTwo = denseColumn(indexTwo);
+    std::vector<RealType> xBoth(K);
+    for (size_t k = 0; k < K; ++k) {
+        xBoth[k] = xOne[k] * xTwo[k];
+    }
+
+    const std::vector<RealType> numerOne = riskSetSums(xOne);
+    const std::vector<RealType> numerTwo = riskSetSums(xTwo);
+    const std::vector<RealType> numerBoth = riskSetSums(xBoth);
+
+    RealType information = static_cast<RealType>(0);
+    for (size_t g = 0; g < N; ++g) {
+        const RealType denom = accDenomPid[g];
+        information += hNWeight[g] * (numerBoth[g] / denom - numerOne[g] * numerTwo[g] / (denom * denom));
+    }
+    *oinfo = static_cast<double>(information);
+}
+
+template <typename RealType>
+void CountingProcessModelSpecifics<RealType>::computeSchoenfeldResiduals(int index,
+        std::vector<double>* residuals, std::vector<double>* times, std::vector<int>* strata,
+        double* covariate, double* score, bool useWeights) {
+
+    if (useWeights) {
+        throw std::logic_error("Weights are not yet implemented in Schoenfeld residual calculations");
+    }
+
+    const std::vector<RealType> x = denseColumn(index);
+    std::vector<RealType> x2(K);
+    for (size_t k = 0; k < K; ++k) {
+        x2[k] = x[k] * x[k];
+    }
+    const std::vector<RealType> numer = riskSetSums(x);
+    const std::vector<RealType> numer2 = riskSetSums(x2);
+
+    if (residuals != nullptr) {
+        residuals->clear();
+    }
+    if (times != nullptr) {
+        times->clear();
+    }
+    if (strata != nullptr) {
+        strata->clear();
+    }
+
+    for (size_t k = 0; k < K; ++k) {
+        if (hY[k] == static_cast<RealType>(1)) {
+            const int g = hPid[k];
+            if (residuals != nullptr) {
+                residuals->push_back(x[k] - numer[g] / accDenomPid[g]);
+            }
+            if (times != nullptr) {
+                times->push_back(hOffs[k]);
+            }
+            if (strata != nullptr) {
+                strata->push_back(hPidOriginal[k]);
+            }
+        }
+    }
+
+    if (score != nullptr && covariate != nullptr) {
+        // Score and information for (beta, time-interaction) at the current beta, with the
+        // covariate (e.g. transformed time) evaluated at each event time
+        RealType uObserved = static_cast<RealType>(0);
+        RealType wObserved = static_cast<RealType>(0);
+        std::vector<RealType> groupCovariate(N, static_cast<RealType>(0));
+        for (size_t k = 0; k < K; ++k) {
+            if (hY[k] == static_cast<RealType>(1)) {
+                uObserved += hKWeight[k] * x[k];
+                wObserved += hKWeight[k] * x[k] * covariate[k];
+                groupCovariate[hPid[k]] = covariate[k];
+            }
+        }
+
+        RealType uGradient = static_cast<RealType>(0);
+        RealType wGradient = static_cast<RealType>(0);
+        RealType uHessian = static_cast<RealType>(0);
+        RealType xHessian = static_cast<RealType>(0);
+        RealType wHessian = static_cast<RealType>(0);
+        for (size_t g = 0; g < N; ++g) {
+            const RealType t = numer[g] / accDenomPid[g];
+            const RealType gradient = hNWeight[g] * t;
+            const RealType hessian = hNWeight[g] * (numer2[g] / accDenomPid[g] - t * t);
+            const RealType cov = groupCovariate[g];
+            uGradient += gradient;
+            wGradient += gradient * cov;
+            uHessian += hessian;
+            xHessian += hessian * cov;
+            wHessian += hessian * cov * cov;
+        }
+
+        score[0] = static_cast<double>(uObserved - uGradient);
+        score[1] = static_cast<double>(wObserved - wGradient);
+        score[2] = static_cast<double>(uHessian);
+        score[3] = static_cast<double>(xHessian);
+        score[4] = static_cast<double>(xHessian);
+        score[5] = static_cast<double>(wHessian);
+    }
 }
 
 } // namespace bsccs

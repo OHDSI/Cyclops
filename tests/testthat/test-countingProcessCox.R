@@ -241,6 +241,79 @@ test_that("cox_counting input checks and unsupported methods", {
                  "Start times must be less than stop times")
 
     fit <- fitCounting(Surv(start, stop, event) ~ x1, delayedEntry)
-    expect_error(residuals(fit), "only Cox models")
     expect_error(survfit(fit), "not yet implemented for cox_counting")
+})
+
+test_that("cox requires start times of 0", {
+    expect_error(createCyclopsData(Surv(start, stop, event) ~ x1 + x2, data = delayedEntry,
+                                   modelType = "cox"), "cox_counting")
+
+    outcomes <- data.frame(rowId = 1:3, y = c(1, 0, 1), time = c(2, 3, 4), startTime = c(0, 1, 0))
+    covariates <- data.frame(rowId = 1:3, covariateId = 1, covariateValue = c(1, 0.5, 2))
+    expect_error(convertToCyclopsData(outcomes, covariates, modelType = "cox", quiet = TRUE),
+                 "cox_counting")
+
+    zero <- transform(delayedEntry, start = 0)
+    gold <- coxph(Surv(stop, event) ~ x1 + x2, zero, ties = "breslow")
+    fit <- fitCyclopsModel(createCyclopsData(Surv(start, stop, event) ~ x1 + x2, data = zero,
+                                             modelType = "cox"), control = control)
+    expectMatchesCoxph(fit, gold)
+})
+
+test_that("vcov for cox and cox_counting matches coxph", {
+    data <- simulateLeftTruncated(500, 404)
+    gold <- coxph(Surv(start, stop, event) ~ x1 + x2 + x3 + strata(stratum), data, ties = "breslow")
+    fit <- fitCounting(Surv(start, stop, event) ~ x1 + x2 + x3 + strata(stratum), data)
+    expect_equal(unname(vcov(fit)), unname(vcov(gold)), tolerance = tolerance)
+
+    lung2 <- na.omit(lung[, c("time", "status", "age", "sex", "ph.ecog")])
+    goldCox <- coxph(Surv(time, status) ~ age + sex + ph.ecog + strata(ph.ecog > 1), lung2,
+                     ties = "breslow")
+    cox <- fitCyclopsModel(createCyclopsData(Surv(time, status) ~ age + sex + ph.ecog +
+                                                 strata(ph.ecog > 1), data = lung2, modelType = "cox"),
+                           control = control)
+    expect_equal(unname(vcov(cox)), unname(vcov(goldCox)), tolerance = tolerance)
+})
+
+test_that("Schoenfeld residuals for cox_counting match coxph", {
+    gold <- coxph(Surv(start, stop, event) ~ x1, delayedEntry, ties = "breslow")
+    fit <- fitCounting(Surv(start, stop, event) ~ x1, delayedEntry)
+    expect_equal(residuals(fit), residuals(gold, "schoenfeld"), tolerance = tolerance)
+})
+
+test_that("Cross-validation keeps all rows of a subject in the same fold", {
+    # Subjects are the fold units, so cross-validation on survSplit rows reproduces
+    # cross-validation on the original one-row-per-subject data
+    lung2 <- na.omit(lung[, c("time", "status", "age", "sex", "ph.ecog")])
+    lung2$status <- lung2$status - 1
+    lung2$id <- seq_len(nrow(lung2))
+    split <- survSplit(Surv(time, status) ~ ., data = lung2, cut = c(100, 200, 365, 500),
+                       start = "start", end = "stop", event = "event")
+
+    # The default starting variance depends on the number of rows, so fix it
+    prior <- createPrior("laplace", useCrossValidation = TRUE)
+    cvControl <- createControl(noiseLevel = "silent", seed = 123, fold = 5, cvRepetitions = 1,
+                               tolerance = 1E-10, startingVariance = 1)
+    fitCV <- function(cyclopsData) fitCyclopsModel(cyclopsData, prior = prior, control = cvControl)
+
+    unsplit <- fitCV(createCyclopsData(Surv(time, status) ~ age + sex + ph.ecog, data = lung2,
+                                       modelType = "cox"))
+    bySubject <- fitCV(createCyclopsData(Surv(start, stop, event) ~ age + sex + ph.ecog + cluster(id),
+                                         data = split, modelType = "cox_counting"))
+    expect_equal(getHyperParameter(bySubject), getHyperParameter(unsplit), tolerance = tolerance)
+    expect_equal(coef(bySubject), coef(unsplit), tolerance = tolerance)
+
+    # convertToCyclopsData takes subjects from outcomes$subjectId
+    outcomes <- data.frame(rowId = seq_len(nrow(split)), subjectId = split$id, y = split$event,
+                           time = split$stop, startTime = split$start)
+    covariates <- data.frame(rowId = rep(outcomes$rowId, 3), covariateId = rep(1:3, each = nrow(split)),
+                             covariateValue = c(split$age, split$sex, split$ph.ecog))
+    fromOutcomes <- fitCV(convertToCyclopsData(outcomes, covariates, modelType = "cox_counting",
+                                               quiet = TRUE))
+    expect_equal(getHyperParameter(fromOutcomes), getHyperParameter(unsplit), tolerance = tolerance)
+
+    # Row-level folds separate the rows of a subject
+    byRow <- fitCV(createCyclopsData(Surv(start, stop, event) ~ age + sex + ph.ecog, data = split,
+                                     modelType = "cox_counting"))
+    expect_false(isTRUE(all.equal(getHyperParameter(byRow), getHyperParameter(unsplit))))
 })

@@ -135,6 +135,10 @@ public:
 
     virtual void loadStartTime(const std::vector<double>& startTime) = 0;
 
+    virtual void loadSubjectId(const std::vector<IdType>& subjectId) = 0;
+
+    virtual const IntVector& getSubjectIndexVectorRef() const = 0;
+
     virtual int loadX(
             const IdType covariateId,
             const std::vector<IdType>& rowId,
@@ -304,6 +308,12 @@ public:
 	);
 
 	void loadStartTime(const std::vector<double>& startTime);
+
+	void loadSubjectId(const std::vector<IdType>& subjectId);
+
+	const IntVector& getSubjectIndexVectorRef() const {
+		return subjectIndex;
+	}
 
 	int loadX(
 		const IdType covariateId,
@@ -790,6 +800,7 @@ protected:
 	RealVector z; // TODO Remove
 	RealVector offs; // TODO Rename to 'time'
 	RealVector startTime; // counting-process entry times; empty when all rows start at the origin
+	IntVector subjectIndex; // subject of each row for cross-validation folds; empty: one subject per row
 	IntVector nevents; // TODO Where are these used?
 	std::string conditionId;
 	std::vector<std::string> labels; // TODO Change back to 'long'
