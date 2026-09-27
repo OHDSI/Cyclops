@@ -803,6 +803,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsGetStartTimeVector
+std::vector<double> cyclopsGetStartTimeVector(Environment object);
+RcppExport SEXP _Cyclops_cyclopsGetStartTimeVector(SEXP objectSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type object(objectSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetStartTimeVector(object));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cyclopsGetNumberOfSubjects
+int cyclopsGetNumberOfSubjects(Environment object);
+RcppExport SEXP _Cyclops_cyclopsGetNumberOfSubjects(SEXP objectSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type object(objectSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetNumberOfSubjects(object));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsFinalizeData
 void cyclopsFinalizeData(Environment x, bool addIntercept, SEXP sexpOffsetCovariate, bool offsetAlreadyOnLogScale, bool sortCovariates, SEXP sexpCovariatesDense, bool magicFlag);
 RcppExport SEXP _Cyclops_cyclopsFinalizeData(SEXP xSEXP, SEXP addInterceptSEXP, SEXP sexpOffsetCovariateSEXP, SEXP offsetAlreadyOnLogScaleSEXP, SEXP sortCovariatesSEXP, SEXP sexpCovariatesDenseSEXP, SEXP magicFlagSEXP) {
@@ -1035,6 +1057,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetMeanOffset", (DL_FUNC) &_Cyclops_cyclopsGetMeanOffset, 1},
     {"_Cyclops_cyclopsGetYVector", (DL_FUNC) &_Cyclops_cyclopsGetYVector, 1},
     {"_Cyclops_cyclopsGetTimeVector", (DL_FUNC) &_Cyclops_cyclopsGetTimeVector, 1},
+    {"_Cyclops_cyclopsGetStartTimeVector", (DL_FUNC) &_Cyclops_cyclopsGetStartTimeVector, 1},
+    {"_Cyclops_cyclopsGetNumberOfSubjects", (DL_FUNC) &_Cyclops_cyclopsGetNumberOfSubjects, 1},
     {"_Cyclops_cyclopsFinalizeData", (DL_FUNC) &_Cyclops_cyclopsFinalizeData, 7},
     {"_Cyclops_cyclopsLoadDataY", (DL_FUNC) &_Cyclops_cyclopsLoadDataY, 5},
     {"_Cyclops_cyclopsLoadDataStartTime", (DL_FUNC) &_Cyclops_cyclopsLoadDataStartTime, 2},

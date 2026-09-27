@@ -67,11 +67,14 @@ Option \code{"grid"} selects a grid-search cross validation}
 
 \item{tuneSwindle}{Numeric: Size multiplier for active set}
 
-\item{selectorType}{String: name of exchangeable sampling unit.
+\item{selectorType}{String: name of exchangeable sampling unit for cross-validation and bootstrap.
 Option \code{"byPid"} selects entire strata.
 Option \code{"byRow"} selects single rows.
+Option \code{"bySubject"} selects all rows of a subject (Cox models with
+subjects from \code{cluster()} or \code{outcomes$subjectId}).
 If set to \code{"auto"}, \code{"byRow"} will be used for all models except conditional models where
-the average number of rows per stratum is smaller than the number of strata.}
+the average number of rows per stratum is smaller than the number of strata;
+\code{"bySubject"} replaces \code{"byRow"} when the data have subjects.}
 
 \item{initialBound}{Numeric: Starting trust-region size}
 

@@ -79,7 +79,7 @@ testProportionality <- function(object, parm = NULL, transform = "km") {
 
     .checkInterface(object$cyclopsData, testOnly = TRUE)
 
-    if (object$cyclopsData$modelType != "cox") {
+    if (object$cyclopsData$modelType != "cox" && object$cyclopsData$modelType != "cox_counting") {
         stop("Proportionality test for only Cox models are currently implemented")
     }
 
@@ -90,7 +90,12 @@ testProportionality <- function(object, parm = NULL, transform = "km") {
 
     times <- getTimeVector(object$cyclopsData)
     y <- getYVector(object$cyclopsData)
-    survY <- survival::Surv(time = times, event = y)
+    startTimes <- getStartTimeVector(object$cyclopsData)
+    if (length(startTimes) > 0) {
+        survY <- survival::Surv(startTimes, times, y) # Kaplan-Meier with delayed entry
+    } else {
+        survY <- survival::Surv(time = times, event = y)
+    }
     if (is.character(transform)) {
         tname <- transform
         ttimes <- switch(transform, identity = times, rank = rank(times),

@@ -234,14 +234,39 @@ test_that("cox_counting in single precision", {
     expect_equal(unname(coef(fit)), unname(coef(gold)), tolerance = 1E-3)
 })
 
-test_that("cox_counting input checks and unsupported methods", {
+test_that("cox_counting input checks", {
     outcomes <- data.frame(rowId = 1:3, y = c(1, 0, 1), time = c(2, 3, 4), startTime = c(0, 3, 1))
     covariates <- data.frame(rowId = 1:3, covariateId = 1, covariateValue = c(1, 0.5, 2))
     expect_error(convertToCyclopsData(outcomes, covariates, modelType = "cox_counting", quiet = TRUE),
                  "Start times must be less than stop times")
 
-    fit <- fitCounting(Surv(start, stop, event) ~ x1, delayedEntry)
-    expect_error(survfit(fit), "not yet implemented for cox_counting")
+    cyclopsData <- createCyclopsData(Surv(start, stop, event) ~ x1, data = delayedEntry,
+                                     modelType = "cox_counting")
+    expect_equal(Cyclops:::getStartTimeVector(cyclopsData), delayedEntry$start[cyclopsData$sortOrder])
+    expect_error(fitCyclopsModel(cyclopsData,
+                                 control = createControl(selectorType = "bySubject", noiseLevel = "silent")),
+                 "bySubject")
+})
+
+test_that("Baseline survival for cox_counting matches survfit.coxph", {
+    data <- simulateLeftTruncated(300, 606)
+    for (d in list(delayedEntry, data)) {
+        gold <- survfit(coxph(Surv(start, stop, event) ~ x1 + x2, d, ties = "breslow", nocenter = NULL))
+        cyclops <- survfit(fitCounting(Surv(start, stop, event) ~ x1 + x2, d), type = "aalen")
+        expect_equal(cyclops$time, gold$time)
+        expect_equal(cyclops$surv, gold$surv, tolerance = tolerance)
+    }
+})
+
+test_that("Proportional hazards test for cox_counting matches cox.zph", {
+    data <- simulateLeftTruncated(500, 505)
+    gold <- coxph(Surv(start, stop, event) ~ x1, data, ties = "breslow")
+    fit <- fitCounting(Surv(start, stop, event) ~ x1, data)
+    for (transform in c("km", "identity")) {
+        expect_equal(unname(testProportionality(fit, transform = transform)$table),
+                     unname(cox.zph(gold, transform = transform, global = FALSE)$table),
+                     tolerance = 1E-5)
+    }
 })
 
 test_that("cox requires start times of 0", {
@@ -316,4 +341,31 @@ test_that("Cross-validation keeps all rows of a subject in the same fold", {
     byRow <- fitCV(createCyclopsData(Surv(start, stop, event) ~ age + sex + ph.ecog, data = split,
                                      modelType = "cox_counting"))
     expect_false(isTRUE(all.equal(getHyperParameter(byRow), getHyperParameter(unsplit))))
+})
+
+test_that("Bootstrap resamples all rows of a subject together", {
+    lung2 <- na.omit(lung[, c("time", "status", "age", "sex", "ph.ecog")])
+    lung2$status <- lung2$status - 1
+    lung2$id <- seq_len(nrow(lung2))
+    split <- survSplit(Surv(time, status) ~ ., data = lung2, cut = c(100, 200, 365, 500),
+                       start = "start", end = "stop", event = "event")
+    bootControl <- function(selectorType = "auto") {
+        createControl(noiseLevel = "silent", seed = 321, tolerance = 1E-10, selectorType = selectorType)
+    }
+    replicates <- 20
+
+    unsplit <- fitCyclopsModel(createCyclopsData(Surv(time, status) ~ age + sex + ph.ecog,
+                                                 data = lung2, modelType = "cox"),
+                               control = bootControl())
+    bootUnsplit <- runBootstrap(unsplit, replicates)$samples
+    fitSplit <- function(selectorType) {
+        cyclopsData <- createCyclopsData(Surv(start, stop, event) ~ age + sex + ph.ecog + cluster(id),
+                                         data = split, modelType = "cox_counting")
+        fitCyclopsModel(cyclopsData, control = bootControl(selectorType))
+    }
+
+    # With subjects, "auto" resamples subjects, which reproduces the one-row-per-subject bootstrap
+    expect_equal(runBootstrap(fitSplit("auto"), replicates)$samples, bootUnsplit, tolerance = tolerance)
+    expect_equal(runBootstrap(fitSplit("bySubject"), replicates)$samples, bootUnsplit, tolerance = tolerance)
+    expect_false(isTRUE(all.equal(runBootstrap(fitSplit("byRow"), replicates)$samples, bootUnsplit)))
 })

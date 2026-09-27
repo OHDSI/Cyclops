@@ -94,6 +94,8 @@ public:
 
     virtual std::vector<double> copyTimeVector() const = 0;
 
+    virtual std::vector<double> copyStartTimeVector() const = 0;
+
     virtual std::vector<double> copyZVector() const = 0;
 
     virtual std::vector<double> univariableCorrelation(
@@ -387,6 +389,10 @@ public:
 	    std::vector<double> copy(offs.size());
 	    std::copy(std::begin(offs), std::end(offs), std::begin(copy));
 	    return copy;
+	}
+
+	std::vector<double> copyStartTimeVector() const {
+	    return std::vector<double>(std::begin(startTime), std::end(startTime));
 	}
 
 	RealVector& getZVectorRef() {

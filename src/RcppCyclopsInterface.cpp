@@ -987,6 +987,8 @@ bsccs::SelectorType RcppCcdInterface::parseSelectorType(const std::string& selec
 		selectorType = SelectorType::BY_PID;
 	} else if (selectorName == "byRow") {
 		selectorType = SelectorType::BY_ROW;
+	} else if (selectorName == "bySubject") {
+		selectorType = SelectorType::BY_SUBJECT;
 	} else {
 		handleError("Invalid selector type.");
 	}

@@ -5,6 +5,8 @@
  *      Author: msuchard
  */
 
+#include <algorithm>
+
 #include "Rcpp.h"
 #include "RcppModelData.h"
 #include "Timer.h"
@@ -477,6 +479,19 @@ std::vector<double> cyclopsGetTimeVector(Environment object) {
     return data->copyTimeVector();
     // XPtr<bsccs::ModelData> data = parseEnvironmentForPtr(object);
     // return (data->getTimeVectorRef());
+}
+
+// [[Rcpp::export("getStartTimeVector")]]
+std::vector<double> cyclopsGetStartTimeVector(Environment object) {
+    XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);
+    return data->copyStartTimeVector(); // empty when every row starts at the time origin
+}
+
+// [[Rcpp::export(".cyclopsGetNumberOfSubjects")]]
+int cyclopsGetNumberOfSubjects(Environment object) {
+    XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);
+    const auto& subjects = data->getSubjectIndexVectorRef();
+    return subjects.empty() ? 0 : *std::max_element(subjects.begin(), subjects.end()) + 1;
 }
 
 // [[Rcpp::export(".cyclopsFinalizeData")]]

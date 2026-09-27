@@ -24,6 +24,10 @@ the survival package. It covers delayed entry (left truncation) and time-varying
   2. `cox` requires every start time to be 0.
   3. `cox` uses the one-group-per-event-time engine.
   4. Cross-validation keeps all rows of a subject in the same fold.
+  5. Bootstrap by subject is an option (`selectorType = "bySubject"`, the default when subjects are given).
+  6. Start times are available on the R side, so `survfit` and `testProportionality` work for
+     `cox_counting`.
+  7. Weighted `vcov` and GPU support are on hold.
 * **Other models are unchanged.** `ModelSpecifics.h/.hpp`, the GPU engine, `cox_time`, `fgr` and
   `cox_raw` are not modified; `fgr`, `lr`, `pr` and `clr` fits are bitwise identical to `main`.
   `cox` results differ from `main` only in the last bits (section 3.3).
@@ -86,9 +90,9 @@ Other changes:
 * `ModelData`:
   * an optional `startTime` vector plus `loadStartTime()`, which checks `start < stop`;
   * an optional per-row subject index plus `loadSubjectId()`, with ids numbered by first appearance.
-* **Cross-validation folds.** When subject ids are present, the fold units are subjects: the
-  existing `BY_PID` selector runs over subject indices. When every row is its own subject, this
-  reproduces the current by-row folds exactly.
+* **Cross-validation folds and bootstrap samples by subject.** A new selector type, `BY_SUBJECT`,
+  runs the existing `BY_PID` selectors over subject indices. When every row is its own subject, this
+  reproduces the by-row folds and draws exactly.
 * `ModelType::COX_COUNTING` / `"cox_counting"`. CPU only; a GPU request stops with "Invalid model
   type", as for the other CPU-only models.
 * R interface:
@@ -97,7 +101,14 @@ Other changes:
     `outcomes$startTime` and `outcomes$subjectId`, for both data frames and Andromeda;
   * `cox` accepts `cluster()` and `subjectId` as well, and stops with an error if any start time
     is non-zero;
-  * `residuals()` works for `cox_counting`; `predict` on new data and `survfit` stop with an error.
+  * `createControl(selectorType = "bySubject")` samples subjects for cross-validation and
+    `runBootstrap()`. `"auto"` picks it wherever it would pick `"byRow"` and the data have
+    subjects; `"byRow"` and `"byPid"` still force rows or strata;
+  * `getStartTimeVector()` (internal, like `getTimeVector()`) returns the loaded start times;
+  * `residuals()`, `testProportionality()` and `survfit()` work for `cox_counting`. The last two
+    use the start times: the `km` transform uses Kaplan-Meier with delayed entry, and the Breslow
+    baseline uses (start, stop] risk sets. As for `cox`, `survfit` pools strata;
+  * `predict` on new data stops with an error, as for `cox`.
 
 ## 3. Validation
 
@@ -122,7 +133,7 @@ maximum relative differences:
 Splitting right-censored rows with `survSplit` changes the log-likelihood, gradient and Hessian by
 exactly 0.
 
-### 3.2 Engine tests (`tests/testthat/test-countingProcessCox.R`, 18 tests)
+### 3.2 Engine tests (`tests/testthat/test-countingProcessCox.R`, 21 tests)
 
 Against `coxph` (coefficients and log-likelihood to 1e-6):
 * delayed entry, ties, strata, and case weights with a held-out row;
@@ -130,7 +141,9 @@ Against `coxph` (coefficients and log-likelihood to 1e-6):
 * sparse and indicator covariates;
 * a time-varying exposure through `convertToCyclopsData`, for both data-frame and Andromeda input;
 * `vcov` for `cox` and `cox_counting`;
-* `cox_counting` Schoenfeld residuals.
+* `cox_counting` Schoenfeld residuals;
+* `cox_counting` baseline survival against `survfit.coxph`, and `testProportionality` against
+  `cox.zph` with the `km` and `identity` transforms.
 
 Invariances and other checks:
 * `survSplit` data under `cox_counting` equals unsplit data under `cox`.
@@ -144,13 +157,16 @@ Invariances and other checks:
     reproduces cross-validation on the unsplit data: hyperparameter equal to 10 digits,
     coefficients to 8e-14;
   * row-level folds on the same split rows select a different hyperparameter (1.77 vs 0.35).
+* **Subject-level bootstrap:** on `survSplit` rows, `"auto"` and `"bySubject"` reproduce the
+  bootstrap samples of the unsplit data; `"byRow"` does not.
 
 ### 3.3 Existing behavior
 
 * Full test suite, built with R 4.4.1:
   * `main`: 158 tests, 0 failures, 26 skipped (GPU etc.);
-  * branch: 176 tests, 0 failures, 26 skipped;
-  * every existing test keeps its status.
+  * branch: 179 tests, 0 failures, 25 skipped;
+  * every existing test keeps its status, except the re-enabled `vcov` check in
+    `test-believedBroken.R`, which was empty (so skipped) and now passes.
 * The same 13 representative fits under `main` and the branch:
   * `fgr`, `lr`, `pr` and `clr`: `identical()`;
   * `cox` (sparse covariates, Laplace, cross-validation including the hyperparameter, weights,
@@ -181,21 +197,15 @@ linear in K:
 
 ## 4. Remaining work (not implemented)
 
-1. **Baseline hazard (`survfit`) for `cox_counting`**: Breslow increments `d_g / D_g` over the
-   (start, stop] risk sets. `survfit` for `cox` is computed in R and is unchanged.
-2. **`testProportionality` for `cox_counting`**: the engine score already handles start times,
-   but the R `km` transform needs a Kaplan-Meier curve with delayed entry, i.e. start times on the
-   R side.
-3. **Bootstrap by subject**: the `BootstrapSelector` takes the same `ids`, so this is one line in
-   `CcdInterface::runBootstrap`. It was not requested, so it is left as is.
-4. **Weighted Fisher information**: the risk-set sums are already weighted. The weighted
+1. **Weighted Fisher information** (on hold): the risk-set sums are already weighted. The weighted
    `vcov` still throws, as on `main`.
-5. **GPU (CUDA)**: the scan kernels are unchanged; add a scatter of exit contributions, and event
-   groups for `cox`.
-6. **Single precision**: entry/exit prefix sums can cancel when risk sets turn over many times.
+2. **GPU (CUDA)** (on hold): the scan kernels are unchanged; add a scatter of exit contributions,
+   and event groups for `cox`.
+3. **Stratified baseline survival**: `survfit` pools strata for both `cox` and `cox_counting`.
+4. **Single precision**: entry/exit prefix sums can cancel when risk sets turn over many times.
    FP64 agrees with `coxph` to 1e-14 on the examples; FP32 to about 1e-3. Options are long-double
    accumulation, or separate entry and exit arrays with a reset when the risk set empties.
-7. `NEWS.md` entry, and the choice of release version.
+5. `NEWS.md` entry, and the choice of release version.
 
 ## 5. Performance optimizations considered
 
@@ -232,3 +242,8 @@ Recommended next: #3, then #2.
 3. `cox` uses one risk-set group per event time on CPU.
 4. Cross-validation folds are by subject when subjects are given (`cluster()`, or
    `outcomes$subjectId`), for `cox` and `cox_counting`.
+5. Bootstrap by subject through `selectorType = "bySubject"`; `"auto"` uses it wherever it would use
+   `"byRow"` and the data have subjects.
+6. Start times on the R side: `survfit` and `testProportionality` for `cox_counting`.
+7. Weighted `vcov` and GPU support are on hold.
+8. The Cox `vcov` check in `test-believedBroken.R` is re-enabled.

@@ -200,9 +200,16 @@ fitCyclopsModel <- function(cyclopsData,
                 control$selectorType <- "byRow"
             }
         }
+        if (control$selectorType == "byRow" && .cyclopsGetNumberOfSubjects(cyclopsData) > 0) {
+            control$selectorType <- "bySubject"
+        }
         if (prior$useCrossValidation && control$noiseLevel != "silent") {
             writeLines(paste("Using cross-validation selector type", control$selectorType))
         }
+    }
+
+    if (control$selectorType == "bySubject" && .cyclopsGetNumberOfSubjects(cyclopsData) == 0) {
+        stop("selectorType = \"bySubject\" requires subjects from cluster() or outcomes$subjectId")
     }
 
     if (control$cvRepetitions == "auto") {
@@ -308,6 +315,9 @@ fitCyclopsModel <- function(cyclopsData,
             stop("Insufficient data count for cross validation")
         }
         if (control$selectorType == "byPid" && minCVData > getNumberOfStrata(cyclopsData)) {
+            stop("Insufficient data count for cross validation")
+        }
+        if (control$selectorType == "bySubject" && minCVData > .cyclopsGetNumberOfSubjects(cyclopsData)) {
             stop("Insufficient data count for cross validation")
         }
 
@@ -607,11 +617,14 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param startingVariance      Numeric: Starting variance for auto-search cross-validation; default = -1 (use estimate based on data)
 #' @param useKKTSwindle Logical: Use the Karush-Kuhn-Tucker conditions to limit search
 #' @param tuneSwindle    Numeric: Size multiplier for active set
-#' @param selectorType  String: name of exchangeable sampling unit.
+#' @param selectorType  String: name of exchangeable sampling unit for cross-validation and bootstrap.
 #'                              Option \code{"byPid"} selects entire strata.
 #'                              Option \code{"byRow"} selects single rows.
+#'                              Option \code{"bySubject"} selects all rows of a subject (Cox models with
+#'                              subjects from \code{cluster()} or \code{outcomes$subjectId}).
 #'                              If set to \code{"auto"}, \code{"byRow"} will be used for all models except conditional models where
-#'                              the average number of rows per stratum is smaller than the number of strata.
+#'                              the average number of rows per stratum is smaller than the number of strata;
+#'                              \code{"bySubject"} replaces \code{"byRow"} when the data have subjects.
 #' @param initialBound          Numeric: Starting trust-region size
 #' @param maxBoundCount         Numeric: Maximum number of tries to decrease initial trust-region size
 #' @param algorithm             String: name of fitting algorithm to employ; default is `ccd`
@@ -656,7 +669,7 @@ createControl <- function(maxIterations = 1000,
     stopifnot(noiseLevel %in% validNLNames)
     stopifnot(threads == -1 || threads >= 1)
     stopifnot(startingVariance == -1 || startingVariance > 0)
-    stopifnot(selectorType %in% c("auto","byPid", "byRow"))
+    stopifnot(selectorType %in% c("auto","byPid", "byRow", "bySubject"))
 
     validAlgorithmNames = c("ccd", "mm")
     stopifnot(algorithm %in% validAlgorithmNames)
@@ -881,6 +894,10 @@ getSEs <- function(object, covariates) {
 }
 
 #' @title Run bootstrap for Cyclops model parameters
+#'
+#' @details
+#' Bootstrap samples resample the units given by the fit's \code{selectorType} (see \code{\link{createControl}}),
+#' so Cox models with subjects resample whole subjects by default.
 #'
 #' @param object          A fitted Cyclops model object
 #' @param replicates      Numeric: number of bootstrap samples

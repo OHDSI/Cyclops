@@ -328,6 +328,14 @@ getTimeVector <- function(object) {
     .Call(`_Cyclops_cyclopsGetTimeVector`, object)
 }
 
+getStartTimeVector <- function(object) {
+    .Call(`_Cyclops_cyclopsGetStartTimeVector`, object)
+}
+
+.cyclopsGetNumberOfSubjects <- function(object) {
+    .Call(`_Cyclops_cyclopsGetNumberOfSubjects`, object)
+}
+
 .cyclopsFinalizeData <- function(x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag = FALSE) {
     invisible(.Call(`_Cyclops_cyclopsFinalizeData`, x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag))
 }

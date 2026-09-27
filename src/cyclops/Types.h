@@ -174,6 +174,7 @@ enum class SelectorType {
 	DEFAULT,
 	BY_PID,
 	BY_ROW,
+	BY_SUBJECT, // all rows of a subject together (Cox models with subject ids)
 	SIZE_OF_ENUM // Keep at end
 };
 

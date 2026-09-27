@@ -15,14 +15,30 @@
 #' @export
 survfit.cyclopsFit <- function(formula, type="aalen", ...) {
     cyclopsFit <- formula
-    if (cyclopsFit$cyclopsData$modelType == "cox_counting") {
-        stop("Baseline hazards are not yet implemented for cox_counting models")
-    }
     delta = meanLinearPredictor(cyclopsFit)
 
     times = getTimeVector(cyclopsFit$cyclopsData)
     events = getYVector(cyclopsFit$cyclopsData)
     predictors = exp(predict(cyclopsFit))
+    startTimes = getStartTimeVector(cyclopsFit$cyclopsData)
+
+    if (type == "aalen" && length(startTimes) > 0) {
+        # Breslow increments over (start, stop] risk sets:
+        # D(s) = sum over start < s minus sum over stop < s
+        u <- unname(predictors)
+        eventTimes <- sort(unique(times[events == 1]))
+        byStart <- order(startTimes)
+        byStop <- order(times)
+        denominator <-
+            c(0, cumsum(u[byStart]))[findInterval(eventTimes, startTimes[byStart], left.open = TRUE) + 1] -
+            c(0, cumsum(u[byStop]))[findInterval(eventTimes, times[byStop], left.open = TRUE) + 1]
+        nEvents <- tabulate(match(times[events == 1], eventTimes), length(eventTimes))
+
+        newTimes <- sort(unique(times))
+        L <- c(0, cumsum(nEvents / denominator))[findInterval(newTimes, eventTimes) + 1]
+        return (list(time = newTimes,
+                     surv = 1/exp(L)^exp(delta)))
+    }
 
     if (type == "aalen") {
         accDenom = Reduce("+",predictors,accumulate=TRUE)

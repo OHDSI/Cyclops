@@ -18,3 +18,7 @@ runBootstrap(object, replicates, ciCoverage = 0.95, na.rm = FALSE)
 \description{
 Run bootstrap for Cyclops model parameters
 }
+\details{
+Bootstrap samples resample the units given by the fit's \code{selectorType} (see \code{\link{createControl}}),
+so Cox models with subjects resample whole subjects by default.
+}

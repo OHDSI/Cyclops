@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <algorithm>
+#include <numeric>
 
 #include <iostream>
 #include <time.h>
@@ -701,6 +702,20 @@ double CcdInterface::fitModel(CyclicCoordinateDescent *ccd) {
 }
 
 
+namespace {
+
+// Subject of each row as the exchangeable unit; one subject per row when none were loaded
+std::vector<int> getSubjectIds(const AbstractModelData* modelData) {
+	std::vector<int> ids = modelData->getSubjectIndexVectorRef();
+	if (ids.empty()) {
+		ids.resize(modelData->getNumberOfRows());
+		std::iota(ids.begin(), ids.end(), 0);
+	}
+	return ids;
+}
+
+} // namespace
+
 SelectorType CcdInterface::getDefaultSelectorTypeOrOverride(SelectorType selectorType, ModelType modelType) {
 	if (selectorType == SelectorType::DEFAULT) {
 		selectorType = (modelType == ModelType::COX ||
@@ -735,6 +750,11 @@ double CcdInterface::runBoostrap(
 	if (selectorType == SelectorType::BY_ROW) {
 		ids.resize(modelData->getNumberOfRows());
 		std::iota(ids.begin(), ids.end(), 0);
+	} else if (selectorType == SelectorType::BY_SUBJECT) { // resample subjects with all their rows
+		ids = getSubjectIds(modelData);
+		selectorType = SelectorType::BY_PID;
+	} else {
+		ids = modelData->getPidVectorSTL();
 	}
 
 	// Get possible weights
@@ -748,7 +768,7 @@ double CcdInterface::runBoostrap(
 		}
 	}
 
-	BootstrapSelector selector(arguments.replicates, selectorType == SelectorType::BY_ROW ? ids : modelData->getPidVectorSTL(),
+	BootstrapSelector selector(arguments.replicates, ids,
 			selectorType, arguments.seed, logger, error,
 			nullptr, (useWeights ? &weights : nullptr));
 	BootstrapDriver driver(arguments.replicates, modelData, logger, error);
@@ -801,8 +821,8 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, AbstractMo
 	//arguments.crossValidation.fold != -1 ?
 
 	std::vector<int> ids = modelData->getPidVectorSTL();
-	if (selectorType == SelectorType::BY_ROW && !modelData->getSubjectIndexVectorRef().empty()) {
-		ids = modelData->getSubjectIndexVectorRef(); // keep all rows of a subject in the same fold
+	if (selectorType == SelectorType::BY_SUBJECT) { // keep all rows of a subject in the same fold
+		ids = getSubjectIds(modelData);
 		selectorType = SelectorType::BY_PID;
 	}
 

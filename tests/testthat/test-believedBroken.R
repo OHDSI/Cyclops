@@ -93,6 +93,6 @@ start, length, event, x1, x2
     cyclopsFit <- fitCyclopsModel(dataPtr)
 
     tolerance <- 1E-4
-    #     expect_equal(vcov(cyclopsFit), vcov(gold), tolerance = tolerance)
+    expect_equal(vcov(cyclopsFit), vcov(gold), tolerance = tolerance)
 
 })
