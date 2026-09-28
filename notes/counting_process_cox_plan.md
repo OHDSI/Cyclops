@@ -219,12 +219,12 @@ linear in K:
 3. **Stratified baseline survival for `cox`**: `survfit` still pools strata for `cox` (done for
    `cox_counting`).
 4. **Single precision with heavy row turnover.** Single-precision fits use only single-precision
-   arithmetic. FP32 `cox` is at least as accurate as on `main` (relative coefficient error 8e-7 vs
-   9e-6, and 2.5e-6 vs 8.3e-6 on lung). `cox_counting` is comparable (1e-5 with left truncation)
-   except when many rows enter and leave at the same event times: `survSplit(lung)` with 100 cuts
-   gives 2.8e-4. At each cut, one interval's exit and the next interval's entry for the same subject
-   cancel in float. Compensated (Kahan) summation, still single-precision arithmetic, would recover
-   most of this.
+   arithmetic (compiling the float engine with `-Wdouble-promotion` finds no promotion). FP32 `cox`
+   is at least as accurate as on `main` (relative coefficient error 8e-7 vs 9e-6, and 2.5e-6 vs
+   8.3e-6 on lung). `cox_counting` is comparable (1e-5 with left truncation) except when many rows
+   enter and leave at the same event times: `survSplit(lung)` with 100 cuts gives 2.8e-4. At each
+   cut, one interval's exit and the next interval's entry for the same subject cancel in float.
+   Compensated (Kahan) summation, still single-precision arithmetic, would recover most of this.
 5. `NEWS.md` entry, and the choice of release version.
 
 ## 5. Performance optimizations considered
