@@ -332,6 +332,10 @@ getStartTimeVector <- function(object) {
     .Call(`_Cyclops_cyclopsGetStartTimeVector`, object)
 }
 
+.cyclopsGetStratumVector <- function(object) {
+    .Call(`_Cyclops_cyclopsGetStratumVector`, object)
+}
+
 .cyclopsGetNumberOfSubjects <- function(object) {
     .Call(`_Cyclops_cyclopsGetNumberOfSubjects`, object)
 }

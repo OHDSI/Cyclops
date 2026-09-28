@@ -285,6 +285,17 @@ test_that("Baseline survival for cox_counting matches survfit.coxph", {
     }
 })
 
+test_that("Stratified baseline survival for cox_counting matches survfit.coxph", {
+    data <- simulateLeftTruncated(400, 808)
+    gold <- survfit(coxph(Surv(start, stop, event) ~ x1 + x2 + strata(stratum), data, ties = "breslow",
+                          nocenter = NULL))
+    cyclops <- survfit(fitCounting(Surv(start, stop, event) ~ x1 + x2 + strata(stratum), data),
+                       type = "aalen")
+    expect_equal(cyclops$time, gold$time)
+    expect_equal(cyclops$surv, gold$surv, tolerance = tolerance)
+    expect_equal(unname(cyclops$strata), unname(gold$strata))
+})
+
 test_that("Proportional hazards test for cox_counting matches cox.zph", {
     data <- simulateLeftTruncated(500, 505)
     gold <- coxph(Surv(start, stop, event) ~ x1, data, ties = "breslow")

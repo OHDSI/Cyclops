@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <functional>
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 
 #include "ModelSpecifics.h"
@@ -46,6 +47,8 @@ public:
     void computeNumeratorForGradient(int index, bool useWeights);
 
     void computeGradientAndHessian(int index, double* ogradient, double* ohessian, bool useWeights);
+
+    void computeThirdDerivative(int index, double* othird, bool useWeights);
 
     void updateXBeta(double delta, int index, bool useWeights);
 
@@ -95,12 +98,25 @@ private:
 
     void accumulateDenominators(int begin, int end);
 
-    void accumulateHazards(int begin);
+    void accumulateAllDenominators();
+
+    void accumulateHazards(int begin, int end);
 
     void computeAllHazards();
 
-    template <bool isIndicator>
-    void gradientAndHessianByHazards(int index, double* ogradient, double* ohessian);
+    struct Workspace { // per-thread numerator changes of one column at each group
+        RealVector numer;
+        RealVector numer2;
+    };
+
+    template <class IteratorType, bool isWeighted>
+    void hazardGradientAndHessian(int index, Workspace& workspace, double* ogradient,
+                                  double* ohessian) const;
+
+    void dispatchHazardGradientAndHessian(int index, Workspace& workspace, double* ogradient,
+                                          double* ohessian, bool useWeights) const;
+
+    void computeScanNumerators(int index, bool useWeights);
 
     std::vector<RealType> denseColumn(int index) const;
 
@@ -113,8 +129,14 @@ private:
     std::vector<int> groupStratumEnd; // one past the last group of each group's stratum
     std::vector<int> groupStratumStart;
 
-    std::vector<double> cumHazard;  // sum of d / D over the groups of a stratum up to each group
-    std::vector<double> cumHazard2; // sum of d / D^2, likewise
+    // Breslow increments d / D and d / D^2 of each group. In double precision these hold their
+    // running sums within the stratum, so a segment's total is one difference; in single precision
+    // such differences cancel badly, so segments sum the increments directly, as the Cox scan does.
+    static const bool hazardSums = !std::is_same<RealType, float>::value;
+    RealVector cumHazard;
+    RealVector cumHazard2;
+
+    Workspace workspace;
 };
 
 template <typename RealType>
@@ -235,6 +257,12 @@ void CountingProcessModelSpecifics<RealType>::setupRiskSetIndices() {
 
 template <typename RealType>
 void CountingProcessModelSpecifics<RealType>::computeNumeratorForGradient(int index, bool useWeights) {
+    // Numerators are accumulated where they are used: in computeGradientAndHessian() and, for the
+    // scans, in computeScanNumerators()
+}
+
+template <typename RealType>
+void CountingProcessModelSpecifics<RealType>::computeScanNumerators(int index, bool useWeights) {
 
     Base::computeNumeratorForGradient(index, useWeights); // adds each row at its entry group
 
@@ -298,53 +326,140 @@ template <typename RealType>
 void CountingProcessModelSpecifics<RealType>::computeGradientAndHessian(int index, double* ogradient,
                                                                         double* ohessian, bool useWeights) {
 
-    const FormatType format = hX.getFormatType(index);
-    if ((format == INDICATOR || format == SPARSE) && cumHazard.size() == N &&
-        hX.getNumberOfNonZeroEntries(index) > 0) {
-        if (format == INDICATOR) {
-            gradientAndHessianByHazards<true>(index, ogradient, ohessian);
-        } else {
-            gradientAndHessianByHazards<false>(index, ogradient, ohessian);
-        }
-    } else {
+    if (cumHazard.size() != N || hX.getNumberOfNonZeroEntries(index) == 0) {
+        computeScanNumerators(index, useWeights);
         Base::computeGradientAndHessian(index, ogradient, ohessian, useWeights);
+        return;
+    }
+    dispatchHazardGradientAndHessian(index, workspace, ogradient, ohessian, useWeights);
+}
+
+template <typename RealType>
+void CountingProcessModelSpecifics<RealType>::dispatchHazardGradientAndHessian(int index,
+        Workspace& workspace, double* ogradient, double* ohessian, bool useWeights) const {
+
+    switch (hX.getFormatType(index)) {
+        case INDICATOR :
+            if (useWeights) {
+                hazardGradientAndHessian<IndicatorIterator<RealType>, true>(index, workspace, ogradient, ohessian);
+            } else {
+                hazardGradientAndHessian<IndicatorIterator<RealType>, false>(index, workspace, ogradient, ohessian);
+            }
+            break;
+        case SPARSE :
+            if (useWeights) {
+                hazardGradientAndHessian<SparseIterator<RealType>, true>(index, workspace, ogradient, ohessian);
+            } else {
+                hazardGradientAndHessian<SparseIterator<RealType>, false>(index, workspace, ogradient, ohessian);
+            }
+            break;
+        case DENSE :
+            if (useWeights) {
+                hazardGradientAndHessian<DenseIterator<RealType>, true>(index, workspace, ogradient, ohessian);
+            } else {
+                hazardGradientAndHessian<DenseIterator<RealType>, false>(index, workspace, ogradient, ohessian);
+            }
+            break;
+        case INTERCEPT :
+            if (useWeights) {
+                hazardGradientAndHessian<InterceptIterator<RealType>, true>(index, workspace, ogradient, ohessian);
+            } else {
+                hazardGradientAndHessian<InterceptIterator<RealType>, false>(index, workspace, ogradient, ohessian);
+            }
+            break;
+        default : break;
     }
 }
 
-template <typename RealType> template <bool isIndicator>
-void CountingProcessModelSpecifics<RealType>::gradientAndHessianByHazards(int index, double* ogradient,
-                                                                          double* ohessian) {
+template <typename RealType> template <class IteratorType, bool isWeighted>
+void CountingProcessModelSpecifics<RealType>::hazardGradientAndHessian(int index, Workspace& workspace,
+        double* ogradient, double* ohessian) const {
 
-    // A sparse column's risk-set numerators change only at its entry and exit groups, so each
-    // segment [a, b) between them adds numer * (C[b-1] - C[a-1]) to the gradient and
-    // numer2 * (C[b-1] - C[a-1]) - numer^2 * (P[b-1] - P[a-1]) to the Hessian
-    const std::vector<int>& groups = *sparseIndices[index];
-    double gradient = 0.0;
-    double hessian = 0.0;
-    double numer = 0.0;
-    double numer2 = 0.0;
-    int stratumEnd = 0;
-
-    for (size_t p = 0; p < groups.size(); ++p) {
-        const int a = groups[p];
-        if (a >= stratumEnd) { // new stratum
-            numer = 0.0;
-            numer2 = 0.0;
-            stratumEnd = groupStratumEnd[a];
+    // A column's risk-set numerators change only at its rows' entry and exit groups (all groups for
+    // dense columns). Collect those changes, then each segment [a, b) between changes adds
+    // numer * (C[b-1] - C[a-1]) to the gradient and numer2 * (C[b-1] - C[a-1]) -
+    // numer^2 * (P[b-1] - P[a-1]) to the Hessian. Only the workspace is written.
+    const int unused = static_cast<int>(N);
+    const std::vector<int>* points = sparseIndices[index].get(); // null: every group
+    RealVector& change = workspace.numer;
+    RealVector& change2 = workspace.numer2;
+    if (change.size() < N + 1) {
+        change.resize(N + 1);
+        change2.resize(N + 1);
+    }
+    const RealType zero = static_cast<RealType>(0);
+    if (points != nullptr) {
+        for (int g : *points) {
+            change[g] = zero;
+            change2[g] = zero;
         }
-        numer += numerPid[a];
-        numer2 += isIndicator ? numerPid[a] : numerPid2[a];
-
-        const int b = (p + 1 < groups.size() && groups[p + 1] < stratumEnd) ? groups[p + 1] : stratumEnd;
-        const bool first = (a == groupStratumStart[a]);
-        const double hazard = cumHazard[b - 1] - (first ? 0.0 : cumHazard[a - 1]);
-        const double hazard2 = cumHazard2[b - 1] - (first ? 0.0 : cumHazard2[a - 1]);
-        gradient += numer * hazard;
-        hessian += numer2 * hazard - numer * numer * hazard2;
+    } else {
+        std::fill(change.begin(), change.begin() + N, zero);
+        std::fill(change2.begin(), change2.begin() + N, zero);
     }
 
-    *ogradient = gradient - static_cast<double>(hXjY[index]);
-    *ohessian = hessian;
+    for (IteratorType it(hX, index); it; ++it) {
+        const int k = it.index();
+        const int entry = hPid[k];
+        if (entry < unused) {
+            const RealType x = it.value();
+            const RealType value = (isWeighted ? hKWeight[k] : static_cast<RealType>(1)) * offsExpXBeta[k] * x;
+            const int exit = hExitPid[k];
+            change[entry] += value;
+            if (!IteratorType::isIndicator) {
+                change2[entry] += value * x;
+            }
+            if (exit < unused) {
+                change[exit] -= value;
+                if (!IteratorType::isIndicator) {
+                    change2[exit] -= value * x;
+                }
+            }
+        }
+    }
+
+    RealType numer = zero;
+    RealType numer2 = zero;
+    RealType gradient = zero;
+    RealType hessian = zero;
+    int stratumEnd = 0;
+    const size_t count = (points != nullptr) ? points->size() : N;
+    for (size_t p = 0; p < count; ++p) {
+        const int a = (points != nullptr) ? (*points)[p] : static_cast<int>(p);
+        if (a >= stratumEnd) { // new stratum
+            numer = zero;
+            numer2 = zero;
+            stratumEnd = groupStratumEnd[a];
+        }
+        numer += change[a];
+        numer2 += IteratorType::isIndicator ? change[a] : change2[a];
+
+        const int next = (p + 1 < count) ? ((points != nullptr) ? (*points)[p + 1] : a + 1) : stratumEnd;
+        const int b = std::min(next, stratumEnd);
+        if (hazardSums) {
+            const bool first = (a == groupStratumStart[a]);
+            const RealType hazard = cumHazard[b - 1] - (first ? zero : cumHazard[a - 1]);
+            const RealType hazard2 = cumHazard2[b - 1] - (first ? zero : cumHazard2[a - 1]);
+            gradient += numer * hazard;
+            hessian += numer2 * hazard - numer * numer * hazard2;
+        } else {
+            for (int g = a; g < b; ++g) {
+                gradient += numer * cumHazard[g];
+                hessian += numer2 * cumHazard[g] - numer * numer * cumHazard2[g];
+            }
+        }
+    }
+
+    *ogradient = static_cast<double>(gradient - hXjY[index]);
+    *ohessian = static_cast<double>(hessian);
+}
+
+template <typename RealType>
+void CountingProcessModelSpecifics<RealType>::computeThirdDerivative(int index, double* othird,
+                                                                     bool useWeights) {
+
+    computeScanNumerators(index, useWeights); // the Cox third derivative scans numerPid
+    Base::computeThirdDerivative(index, othird, useWeights);
 }
 
 template <typename RealType>
@@ -391,16 +506,21 @@ void CountingProcessModelSpecifics<RealType>::updateXBetaAndDenominators(RealTyp
     // For sparse columns, only groups [lo, hi) of each stratum holding the column's rows change:
     // from their first entry to their last exit (or the end of the stratum)
     const int unused = static_cast<int>(N);
+    const bool ranged = IteratorType::isSparse && accDenomPid.size() == N + 1 && cumHazard.size() == N;
     int lo = unused;
     int hi = 0;
     int stratumEnd = 0;
+
+    // Rows of a 0/1 column all change by the same factor, so one exp() serves the whole update;
+    // computeRemainingStatistics() recomputes exp(x'beta) from scratch
+    const RealType factor = IteratorType::isIndicator ? std::exp(delta) : static_cast<RealType>(1);
 
     for (IteratorType it(hX, index); it; ++it) {
         const int k = it.index();
         hXBeta[k] += delta * it.value();
 
         const RealType oldEntry = isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k];
-        offsExpXBeta[k] = std::exp(hXBeta[k]);
+        offsExpXBeta[k] = IteratorType::isIndicator ? offsExpXBeta[k] * factor : std::exp(hXBeta[k]);
         const RealType newEntry = isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k];
 
         const int entry = hPid[k];
@@ -410,10 +530,11 @@ void CountingProcessModelSpecifics<RealType>::updateXBetaAndDenominators(RealTyp
             denomPid[exit] -= (newEntry - oldEntry);
         }
 
-        if (IteratorType::isSparse && entry < unused) {
+        if (ranged && entry < unused) {
             if (entry >= stratumEnd) { // rows are grouped by stratum
                 if (lo < hi) {
                     accumulateDenominators(lo, hi);
+                    accumulateHazards(lo, hi);
                 }
                 lo = entry;
                 hi = entry;
@@ -424,11 +545,12 @@ void CountingProcessModelSpecifics<RealType>::updateXBetaAndDenominators(RealTyp
         }
     }
 
-    if (!IteratorType::isSparse || accDenomPid.size() != N + 1 || cumHazard.size() != N) {
-        this->computeAccumlatedDenominator(isWeighted);
+    if (!ranged) {
+        accumulateAllDenominators();
         computeAllHazards();
     } else if (lo < hi) {
         accumulateDenominators(lo, hi);
+        accumulateHazards(lo, hi);
     }
 }
 
@@ -441,7 +563,17 @@ void CountingProcessModelSpecifics<RealType>::accumulateDenominators(int begin, 
         total += denomPid[g];
         accDenomPid[g] = total;
     }
-    accumulateHazards(begin); // cumulative, so they change up to the end of the stratum
+}
+
+template <typename RealType>
+void CountingProcessModelSpecifics<RealType>::accumulateAllDenominators() {
+
+    if (accDenomPid.size() != N + 1) {
+        accDenomPid.resize(N + 1, static_cast<RealType>(0));
+    }
+    for (size_t g = 0; g < N; g = groupStratumEnd[g]) {
+        accumulateDenominators(g, groupStratumEnd[g]);
+    }
 }
 
 template <typename RealType>
@@ -455,21 +587,29 @@ void CountingProcessModelSpecifics<RealType>::computeAllHazards() {
     cumHazard.resize(N);
     cumHazard2.resize(N);
     for (size_t g = 0; g < N; g = groupStratumEnd[g]) {
-        accumulateHazards(g);
+        accumulateHazards(g, groupStratumEnd[g]);
     }
 }
 
 template <typename RealType>
-void CountingProcessModelSpecifics<RealType>::accumulateHazards(int begin) {
+void CountingProcessModelSpecifics<RealType>::accumulateHazards(int begin, int end) {
 
+    // Increments change only where denominators did, [begin, end); running sums change up to the
+    // end of the stratum
+    const int last = hazardSums ? groupStratumEnd[begin] : end;
     const bool first = (begin == groupStratumStart[begin]);
-    double hazard = first ? 0.0 : cumHazard[begin - 1];
-    double hazard2 = first ? 0.0 : cumHazard2[begin - 1];
-    for (int g = begin; g < groupStratumEnd[begin]; ++g) {
-        const double inverse = 1.0 / static_cast<double>(accDenomPid[g]);
-        const double increment = static_cast<double>(hNWeight[g]) * inverse;
-        hazard += increment;
-        hazard2 += increment * inverse;
+    RealType hazard = (first || !hazardSums) ? static_cast<RealType>(0) : cumHazard[begin - 1];
+    RealType hazard2 = (first || !hazardSums) ? static_cast<RealType>(0) : cumHazard2[begin - 1];
+    for (int g = begin; g < last; ++g) {
+        const RealType inverse = static_cast<RealType>(1) / accDenomPid[g];
+        const RealType increment = hNWeight[g] * inverse;
+        if (hazardSums) {
+            hazard += increment;
+            hazard2 += increment * inverse;
+        } else {
+            hazard = increment;
+            hazard2 = increment * inverse;
+        }
         cumHazard[g] = hazard;
         cumHazard2[g] = hazard2;
     }
@@ -478,17 +618,18 @@ void CountingProcessModelSpecifics<RealType>::accumulateHazards(int begin) {
 template <typename RealType>
 void CountingProcessModelSpecifics<RealType>::computeRemainingStatistics(bool useWeights) {
 
-    Base::computeRemainingStatistics(useWeights); // exp(x'beta) and denominators at entry groups
-
-    if (hasExits) {
-        const int unused = static_cast<int>(N);
-        for (size_t k = 0; k < K; ++k) {
-            if (hExitPid[k] < unused) {
-                denomPid[hExitPid[k]] -= useWeights ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k];
-            }
+    // Net change of each group's risk set: entries minus exits
+    const int unused = static_cast<int>(N);
+    std::fill(denomPid.begin(), denomPid.begin() + N + 1, static_cast<RealType>(0));
+    for (size_t k = 0; k < K; ++k) {
+        offsExpXBeta[k] = std::exp(hXBeta[k]);
+        const RealType value = useWeights ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k];
+        denomPid[hPid[k]] += value;
+        if (hExitPid[k] < unused) {
+            denomPid[hExitPid[k]] -= value;
         }
-        this->computeAccumlatedDenominator(useWeights);
     }
+    accumulateAllDenominators();
 
     // Censored rows outside every risk set point to the unused group N; the Cox predictive
     // log-likelihood still takes log() of its denominator, so keep it finite

@@ -30,6 +30,7 @@ the survival package. It covers delayed entry (left truncation) and time-varying
   6. Start times are available on the R side, so `survfit` and `testProportionality` work for
      `cox_counting`.
   7. Weighted `vcov` and GPU support are on hold.
+  8. Single-precision fits use only single-precision arithmetic.
 * **Other models are unchanged.** `ModelSpecifics.h/.hpp`, the GPU engine, `cox_time`, `fgr` and
   `cox_raw` are not modified; `fgr`, `lr`, `pr` and `clr` fits are bitwise identical to `main`.
   `cox` results differ from `main` only in the last bits (section 3.3).
@@ -109,7 +110,8 @@ Other changes:
   * `getStartTimeVector()` (internal, like `getTimeVector()`) returns the loaded start times;
   * `residuals()`, `testProportionality()` and `survfit()` work for `cox_counting`. The last two
     use the start times: the `km` transform uses Kaplan-Meier with delayed entry, and the Breslow
-    baseline uses (start, stop] risk sets. As for `cox`, `survfit` pools strata;
+    baseline uses (start, stop] risk sets, one curve per stratum (`survfit` for `cox` still pools
+    strata);
   * `predict` on new data stops with an error, as for `cox`.
 
 ## 3. Validation
@@ -135,7 +137,7 @@ maximum relative differences:
 Splitting right-censored rows with `survSplit` changes the log-likelihood, gradient and Hessian by
 exactly 0.
 
-### 3.2 Engine tests (`tests/testthat/test-countingProcessCox.R`, 22 tests)
+### 3.2 Engine tests (`tests/testthat/test-countingProcessCox.R`, 23 tests)
 
 Against `coxph` (coefficients and log-likelihood to 1e-6):
 * delayed entry, ties, strata, and case weights with a held-out row;
@@ -144,8 +146,8 @@ Against `coxph` (coefficients and log-likelihood to 1e-6):
 * a time-varying exposure through `convertToCyclopsData`, for both data-frame and Andromeda input;
 * `vcov` for `cox` and `cox_counting`;
 * `cox_counting` Schoenfeld residuals;
-* `cox_counting` baseline survival against `survfit.coxph`, and `testProportionality` against
-  `cox.zph` with the `km` and `identity` transforms;
+* `cox_counting` baseline survival against `survfit.coxph`, with and without strata, and
+  `testProportionality` against `cox.zph` with the `km` and `identity` transforms;
 * gradients and Hessian diagonals of sparse and indicator columns at an arbitrary beta, against
   `coxph.detail` (to 1e-10), for `cox` and `cox_counting`.
 
@@ -168,7 +170,7 @@ Invariances and other checks:
 
 * Full test suite, built with R 4.4.1:
   * `main`: 158 tests, 0 failures, 26 skipped (GPU etc.);
-  * branch: 180 tests, 0 failures, 25 skipped;
+  * branch: 181 tests, 0 failures, 25 skipped;
   * every existing test keeps its status, except the re-enabled `vcov` check in
     `test-believedBroken.R`, which was empty (so skipped) and now passes.
 * The same 13 representative fits under `main` and the branch:
@@ -205,10 +207,15 @@ linear in K:
    `vcov` still throws, as on `main`.
 2. **GPU (CUDA)** (on hold): the scan kernels are unchanged; add a scatter of exit contributions,
    and event groups for `cox`.
-3. **Stratified baseline survival**: `survfit` pools strata for both `cox` and `cox_counting`.
-4. **Single precision**: entry/exit prefix sums can cancel when risk sets turn over many times.
-   FP64 agrees with `coxph` to 1e-14 on the examples; FP32 to about 1e-3. Options are long-double
-   accumulation, or separate entry and exit arrays with a reset when the risk set empties.
+3. **Stratified baseline survival for `cox`**: `survfit` still pools strata for `cox` (done for
+   `cox_counting`).
+4. **Single precision with heavy row turnover.** Single-precision fits use only single-precision
+   arithmetic. FP32 `cox` is at least as accurate as on `main` (relative coefficient error 8e-7 vs
+   9e-6, and 2.5e-6 vs 8.3e-6 on lung). `cox_counting` is comparable (1e-5 with left truncation)
+   except when many rows enter and leave at the same event times: `survSplit(lung)` with 100 cuts
+   gives 2.8e-4. At each cut, one interval's exit and the next interval's entry for the same subject
+   cancel in float. Compensated (Kahan) summation, still single-precision arithmetic, would recover
+   most of this.
 5. `NEWS.md` entry, and the choice of release version.
 
 ## 5. Performance optimizations considered
@@ -232,8 +239,8 @@ With 2,000 strata the split is the same (10.6 s / 10.9 s): nothing is local to s
 | 3 | **Range- and stratum-limited denominator updates.** After updating `beta_j`, recompute accumulated denominators only in strata that contain column j, and in `cox_counting` only on `[min entry_j, max exit_j)` (after the last exit the change cancels) | both | yes for `cox` (verified `identical()`); last bits with exits | **done**: 1.6x with 20k strata |
 | 4 | **Skip strata with no non-zeros** in the sparse fill loop | both | yes | proportional to the fraction of strata a column misses; superseded by #2 |
 | 5 | **Skip divisions at groups without events** | `cox` on `main` | yes | **measured: no gain** (9.39 s vs 9.25 s); the loop is bound by the traversal, not the division. Moot now that every group has events |
-| 6 | **`exp(delta)` update for indicator columns** (`u_k *= e^delta` instead of `exp` per row; `computeRemainingStatistics` resets any drift each cycle) | both | no | removes one `exp` per non-zero in `updateXBeta` |
-| 7 | **Fuse the numerator scatter into the scan** for sparse/indicator columns (the non-zeros are already sorted by group) | both | yes | removes the zero/scatter/gather passes over `numerPid` |
+| 6 | **`exp(delta)` update for indicator columns** (`u_k *= e^delta` instead of `exp` per row; `computeRemainingStatistics` resets any drift) | both | no (≤ 1e-13; FP32 error unchanged) | **done**: 1.3–1.6x in A, C and D |
+| 7 | **Numerators inside the gradient.** The planned fused merge of entries and exits was measured **slower** (7–33%): the scatter it replaced writes into a small, cached per-group array, while visiting exits in exit order reads per-row arrays at random. Kept instead: each column's numerator changes are scattered into a per-call workspace inside `computeGradientAndHessian`, and dense columns use the same segment sums as sparse ones | both | yes for `cox` | **done**: 1.04–1.36x; the model state is only read, so columns can be evaluated concurrently (#8) |
 | 8 | **Parallelism** across strata (TBB), or GPU scans | both | yes / no | strata are independent; the scans are the existing CUB kernels |
 
 Measured effect of #3 and #2 (seconds per iteration, same data and iteration counts; B has 108
@@ -246,10 +253,14 @@ non-zero coefficients out of 20,000):
 | C: 200k rows in 20,000 strata, 2,000 covariates, normal(1) | 2.74 | 0.310 | 0.193 | 0.071 |
 | D: `cox_counting`, 400k rows, 1,000 short-window covariates | — | 0.146 | 0.122 | 0.119 |
 
-A and D are now bound by per-non-zero work (`exp` and the numerator scatter) and by the O(N)
-denominator pass after each update; each window covariate in D has about as many entry/exit
-points as there are event times, so #2 cannot shorten its scan. Next candidates are #6 and #7,
-which target the per-non-zero work, and #8.
+Adding #6 and #7 (double precision): A 0.046, B 0.020, C 0.039, D 0.066 seconds per iteration,
+60x, 650x and 70x faster than `main` for A, B and C.
+
+**Single precision.** Differences of running hazard sums cancel badly in float. So FP32 segments
+sum the per-group increments `d/D` and `d/D^2` directly, as the Cox scan does, without the
+divisions. FP32 therefore keeps O(N − first_j) per column; only double precision uses #2's
+O(#entry/exit points). With prefix sums, FP32 `cox` failed to converge on a 2,500-row example
+that `main` fits.
 
 ## 6. Decisions
 

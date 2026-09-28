@@ -487,6 +487,12 @@ std::vector<double> cyclopsGetStartTimeVector(Environment object) {
     return data->copyStartTimeVector(); // empty when every row starts at the time origin
 }
 
+// [[Rcpp::export(".cyclopsGetStratumVector")]]
+std::vector<int> cyclopsGetStratumVector(Environment object) {
+    XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);
+    return data->getPidVectorSTL();
+}
+
 // [[Rcpp::export(".cyclopsGetNumberOfSubjects")]]
 int cyclopsGetNumberOfSubjects(Environment object) {
     XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);
