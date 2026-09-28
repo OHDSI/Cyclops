@@ -20,6 +20,8 @@ Changes:
 9. `residuals()` returns Schoenfeld residuals for several covariates (a matrix, or a subset through
    `parm`) and scaled Schoenfeld residuals (`type = "scaledsch"`); `type` is now the second
    argument, as in `residuals.coxph()`
+10. `testProportionality()` leaves rows with zero weight out of the `km` and `rank` transforms, as
+    `cox.zph()` does for a fit on the rows with positive weight
 
 Cyclops v3.7.1
 ==============

@@ -114,7 +114,8 @@ Other changes:
   * `testProportionality()` and `survfit()` also work for `cox_counting`. They
     use the start times: the `km` transform uses Kaplan-Meier with delayed entry, and the Breslow
     baseline uses (start, stop] risk sets, one curve per stratum (`survfit` for `cox` still pools
-    strata);
+    strata). Rows with zero weight stay out of the time transform, as in `cox.zph` on the rows
+    with positive weight (which ignores the weights in the `km` and `rank` transforms);
   * `predict` on new data stops with an error, as for `cox`.
 
 ## 3. Validation
@@ -140,7 +141,7 @@ maximum relative differences:
 Splitting right-censored rows with `survSplit` changes the log-likelihood, gradient and Hessian by
 exactly 0.
 
-### 3.2 Engine tests (`tests/testthat/test-countingProcessCox.R`, 23 tests)
+### 3.2 Engine tests (`tests/testthat/test-countingProcessCox.R`, 25 tests)
 
 Against `coxph` (coefficients and log-likelihood to 1e-6):
 * delayed entry, ties, strata, and case weights with a held-out row;
@@ -153,6 +154,9 @@ Against `coxph` (coefficients and log-likelihood to 1e-6):
   scaled residuals);
 * `cox_counting` baseline survival against `survfit.coxph`, with and without strata, and
   `testProportionality` against `cox.zph` with the `km` and `identity` transforms;
+* weighted `testProportionality` with held-out events and censored rows, for `cox` and
+  `cox_counting` and for 0/1 and gamma weights, against `cox.zph` on the rows with positive weight
+  (`km`, `rank` and `identity` transforms);
 * gradients and Hessian diagonals of sparse and indicator columns at an arbitrary beta, against
   `coxph.detail` (to 1e-10), for `cox` and `cox_counting`.
 

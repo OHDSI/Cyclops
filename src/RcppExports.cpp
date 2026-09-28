@@ -143,6 +143,17 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// cyclopsGetWeights
+std::vector<double> cyclopsGetWeights(SEXP inRcppCcdInterface);
+RcppExport SEXP _Cyclops_cyclopsGetWeights(SEXP inRcppCcdInterfaceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetWeights(inRcppCcdInterface));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsSetCensorWeights
 void cyclopsSetCensorWeights(SEXP inRcppCcdInterface, NumericVector& weights);
 RcppExport SEXP _Cyclops_cyclopsSetCensorWeights(SEXP inRcppCcdInterfaceSEXP, SEXP weightsSEXP) {
@@ -1014,6 +1025,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetFixedBeta", (DL_FUNC) &_Cyclops_cyclopsGetFixedBeta, 2},
     {"_Cyclops_cyclopsGetIsRegularized", (DL_FUNC) &_Cyclops_cyclopsGetIsRegularized, 2},
     {"_Cyclops_cyclopsSetWeights", (DL_FUNC) &_Cyclops_cyclopsSetWeights, 2},
+    {"_Cyclops_cyclopsGetWeights", (DL_FUNC) &_Cyclops_cyclopsGetWeights, 1},
     {"_Cyclops_cyclopsSetCensorWeights", (DL_FUNC) &_Cyclops_cyclopsSetCensorWeights, 2},
     {"_Cyclops_cyclopsGetNewPredictiveLogLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetNewPredictiveLogLikelihood, 2},
     {"_Cyclops_cyclopsGetLogLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetLogLikelihood, 1},

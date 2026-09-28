@@ -172,6 +172,14 @@ void cyclopsSetWeights(SEXP inRcppCcdInterface,
     interface->getCcd().setWeights(&weights[0]);
 }
 
+// [[Rcpp::export(".cyclopsGetWeights")]]
+std::vector<double> cyclopsGetWeights(SEXP inRcppCcdInterface) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    return interface->getCcd().getWeights(); // empty when every row has weight 1
+}
+
 // [[Rcpp::export(".cyclopsSetCensorWeights")]]
 void cyclopsSetCensorWeights(SEXP inRcppCcdInterface,
                        NumericVector& weights) {

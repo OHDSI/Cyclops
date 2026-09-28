@@ -340,6 +340,28 @@ test_that("Proportional hazards test for cox_counting matches cox.zph", {
     }
 })
 
+test_that("Weighted proportional hazards test matches cox.zph on the rows in the fit", {
+    data <- simulateLeftTruncated(1500, 505)
+    data$weight[c(which(data$event == 1)[1:10], which(data$event == 0)[1:10])] <- 0 # held out
+    data$unit <- as.numeric(data$weight > 0)
+
+    expectMatchesZph <- function(formula, modelType, weight) {
+        data$w <- data[[weight]]
+        gold <- coxph(formula, data, weights = w, subset = w > 0, ties = "breslow", model = TRUE)
+        fit <- fitCyclopsModel(createCyclopsData(formula, data = data, modelType = modelType),
+                               weights = data$w, control = control)
+        for (transform in c("km", "rank", "identity")) {
+            expect_equal(unname(testProportionality(fit, transform = transform)$table),
+                         unname(cox.zph(gold, transform = transform, global = FALSE)$table),
+                         tolerance = 1E-5)
+        }
+    }
+    for (weight in c("weight", "unit")) {
+        expectMatchesZph(Surv(start, stop, event) ~ x1, "cox_counting", weight)
+        expectMatchesZph(Surv(stop, event) ~ x1, "cox", weight)
+    }
+})
+
 test_that("cox requires start times of 0", {
     expect_error(createCyclopsData(Surv(start, stop, event) ~ x1 + x2, data = delayedEntry,
                                    modelType = "cox"), "cox_counting")

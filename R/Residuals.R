@@ -93,7 +93,7 @@ residuals.cyclopsFit <- function(object, type = "schoenfeld", parm = NULL, ...) 
 #' @param object    A Cyclops model fit object
 #' @param parm      A specification of which parameters require a proportionality test,
 #'                  either a vector of numbers or covariateId names
-#' @param transform Same as `transform` in `cox.zph`
+#' @param transform Same as `transform` in `cox.zph`, computed over the rows with positive weight
 #'
 #' @export
 testProportionality <- function(object, parm = NULL, transform = "km") {
@@ -112,8 +112,14 @@ testProportionality <- function(object, parm = NULL, transform = "km") {
     times <- getTimeVector(object$cyclopsData)
     y <- getYVector(object$cyclopsData)
     startTimes <- getStartTimeVector(object$cyclopsData)
+
+    # As cox.zph on the rows in the fit: held-out rows (weight 0) stay out of the time transform
+    weights <- .cyclopsGetWeights(object$interface)
+    inFit <- if (length(weights) > 0) weights > 0 else rep(TRUE, length(times))
+    times <- times[inFit]
+    y <- y[inFit]
     if (length(startTimes) > 0) {
-        survY <- survival::Surv(startTimes, times, y) # Kaplan-Meier with delayed entry
+        survY <- survival::Surv(startTimes[inFit], times, y) # Kaplan-Meier with delayed entry
     } else {
         survY <- survival::Surv(time = times, event = y)
     }
@@ -136,7 +142,8 @@ testProportionality <- function(object, parm = NULL, transform = "km") {
         }
         ttimes <- transform(times)
     }
-    transformedTimes <- ttimes - mean(ttimes[y == 1])
+    transformedTimes <- rep(0, length(inFit)) # not used for held-out rows
+    transformedTimes[inFit] <- ttimes - mean(ttimes[y == 1])
 
     res <- .cyclopsTestProportionality(object$interface, NULL, transformedTimes)
     nCovariates <- 1 # TODO Remove

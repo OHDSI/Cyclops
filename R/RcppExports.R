@@ -49,6 +49,10 @@
     invisible(.Call(`_Cyclops_cyclopsSetWeights`, inRcppCcdInterface, weights))
 }
 
+.cyclopsGetWeights <- function(inRcppCcdInterface) {
+    .Call(`_Cyclops_cyclopsGetWeights`, inRcppCcdInterface)
+}
+
 .cyclopsSetCensorWeights <- function(inRcppCcdInterface, weights) {
     invisible(.Call(`_Cyclops_cyclopsSetCensorWeights`, inRcppCcdInterface, weights))
 }
