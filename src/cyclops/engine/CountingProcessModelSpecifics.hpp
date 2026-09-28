@@ -45,6 +45,8 @@ public:
 
     void computeNumeratorForGradient(int index, bool useWeights);
 
+    void computeGradientAndHessian(int index, double* ogradient, double* ohessian, bool useWeights);
+
     void updateXBeta(double delta, int index, bool useWeights);
 
     void computeRemainingStatistics(bool useWeights);
@@ -81,6 +83,7 @@ private:
     using Base::hPidOriginal;
     using Base::accReset;
     using Base::sparseIndices;
+    using Base::hXjY;
 
     template <class IteratorType, bool isWeighted>
     void subtractExitNumerators(int index);
@@ -90,6 +93,15 @@ private:
 
     void setupRiskSetIndices();
 
+    void accumulateDenominators(int begin, int end);
+
+    void accumulateHazards(int begin);
+
+    void computeAllHazards();
+
+    template <bool isIndicator>
+    void gradientAndHessianByHazards(int index, double* ogradient, double* ohessian);
+
     std::vector<RealType> denseColumn(int index) const;
 
     std::vector<RealType> riskSetSums(const std::vector<RealType>& x) const;
@@ -97,6 +109,12 @@ private:
     const RealVector& hStart; // empty: every row is at risk from the time origin
     std::vector<int> hExitPid; // exit group per row; N when the row never leaves
     bool hasExits;
+
+    std::vector<int> groupStratumEnd; // one past the last group of each group's stratum
+    std::vector<int> groupStratumStart;
+
+    std::vector<double> cumHazard;  // sum of d / D over the groups of a stratum up to each group
+    std::vector<double> cumHazard2; // sum of d / D^2, likewise
 };
 
 template <typename RealType>
@@ -160,6 +178,17 @@ void CountingProcessModelSpecifics<RealType>::setPidForAccumulation(const double
 
     N = groupTime.size();
     accReset.push_back(N);
+
+    groupStratumStart.resize(N);
+    groupStratumEnd.resize(N);
+    int stratumStart = 0;
+    for (int stratumEnd : accReset) {
+        for (int g = stratumStart; g < stratumEnd; ++g) {
+            groupStratumStart[g] = stratumStart;
+            groupStratumEnd[g] = stratumEnd;
+        }
+        stratumStart = stratumEnd;
+    }
 
     hasExits = false;
     for (size_t k = 0; k < K; ++k) { // rows outside every risk set use the unused group N
@@ -266,6 +295,59 @@ void CountingProcessModelSpecifics<RealType>::subtractExitNumerators(int index) 
 }
 
 template <typename RealType>
+void CountingProcessModelSpecifics<RealType>::computeGradientAndHessian(int index, double* ogradient,
+                                                                        double* ohessian, bool useWeights) {
+
+    const FormatType format = hX.getFormatType(index);
+    if ((format == INDICATOR || format == SPARSE) && cumHazard.size() == N &&
+        hX.getNumberOfNonZeroEntries(index) > 0) {
+        if (format == INDICATOR) {
+            gradientAndHessianByHazards<true>(index, ogradient, ohessian);
+        } else {
+            gradientAndHessianByHazards<false>(index, ogradient, ohessian);
+        }
+    } else {
+        Base::computeGradientAndHessian(index, ogradient, ohessian, useWeights);
+    }
+}
+
+template <typename RealType> template <bool isIndicator>
+void CountingProcessModelSpecifics<RealType>::gradientAndHessianByHazards(int index, double* ogradient,
+                                                                          double* ohessian) {
+
+    // A sparse column's risk-set numerators change only at its entry and exit groups, so each
+    // segment [a, b) between them adds numer * (C[b-1] - C[a-1]) to the gradient and
+    // numer2 * (C[b-1] - C[a-1]) - numer^2 * (P[b-1] - P[a-1]) to the Hessian
+    const std::vector<int>& groups = *sparseIndices[index];
+    double gradient = 0.0;
+    double hessian = 0.0;
+    double numer = 0.0;
+    double numer2 = 0.0;
+    int stratumEnd = 0;
+
+    for (size_t p = 0; p < groups.size(); ++p) {
+        const int a = groups[p];
+        if (a >= stratumEnd) { // new stratum
+            numer = 0.0;
+            numer2 = 0.0;
+            stratumEnd = groupStratumEnd[a];
+        }
+        numer += numerPid[a];
+        numer2 += isIndicator ? numerPid[a] : numerPid2[a];
+
+        const int b = (p + 1 < groups.size() && groups[p + 1] < stratumEnd) ? groups[p + 1] : stratumEnd;
+        const bool first = (a == groupStratumStart[a]);
+        const double hazard = cumHazard[b - 1] - (first ? 0.0 : cumHazard[a - 1]);
+        const double hazard2 = cumHazard2[b - 1] - (first ? 0.0 : cumHazard2[a - 1]);
+        gradient += numer * hazard;
+        hessian += numer2 * hazard - numer * numer * hazard2;
+    }
+
+    *ogradient = gradient - static_cast<double>(hXjY[index]);
+    *ohessian = hessian;
+}
+
+template <typename RealType>
 void CountingProcessModelSpecifics<RealType>::updateXBeta(double delta, int index, bool useWeights) {
 
     const RealType realDelta = static_cast<RealType>(delta);
@@ -306,7 +388,13 @@ void CountingProcessModelSpecifics<RealType>::updateXBeta(double delta, int inde
 template <typename RealType> template <class IteratorType, bool isWeighted>
 void CountingProcessModelSpecifics<RealType>::updateXBetaAndDenominators(RealType delta, int index) {
 
+    // For sparse columns, only groups [lo, hi) of each stratum holding the column's rows change:
+    // from their first entry to their last exit (or the end of the stratum)
     const int unused = static_cast<int>(N);
+    int lo = unused;
+    int hi = 0;
+    int stratumEnd = 0;
+
     for (IteratorType it(hX, index); it; ++it) {
         const int k = it.index();
         hXBeta[k] += delta * it.value();
@@ -315,13 +403,76 @@ void CountingProcessModelSpecifics<RealType>::updateXBetaAndDenominators(RealTyp
         offsExpXBeta[k] = std::exp(hXBeta[k]);
         const RealType newEntry = isWeighted ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k];
 
-        denomPid[hPid[k]] += (newEntry - oldEntry);
-        if (hExitPid[k] < unused) {
-            denomPid[hExitPid[k]] -= (newEntry - oldEntry);
+        const int entry = hPid[k];
+        const int exit = hExitPid[k];
+        denomPid[entry] += (newEntry - oldEntry);
+        if (exit < unused) {
+            denomPid[exit] -= (newEntry - oldEntry);
+        }
+
+        if (IteratorType::isSparse && entry < unused) {
+            if (entry >= stratumEnd) { // rows are grouped by stratum
+                if (lo < hi) {
+                    accumulateDenominators(lo, hi);
+                }
+                lo = entry;
+                hi = entry;
+                stratumEnd = groupStratumEnd[entry];
+            }
+            lo = std::min(lo, entry);
+            hi = std::max(hi, exit < unused ? exit : stratumEnd);
         }
     }
 
-    this->computeAccumlatedDenominator(isWeighted);
+    if (!IteratorType::isSparse || accDenomPid.size() != N + 1 || cumHazard.size() != N) {
+        this->computeAccumlatedDenominator(isWeighted);
+        computeAllHazards();
+    } else if (lo < hi) {
+        accumulateDenominators(lo, hi);
+    }
+}
+
+template <typename RealType>
+void CountingProcessModelSpecifics<RealType>::accumulateDenominators(int begin, int end) {
+
+    // Same running sum as computeAccumlatedDenominator, restarted within one stratum
+    RealType total = (begin == groupStratumStart[begin]) ? static_cast<RealType>(0) : accDenomPid[begin - 1];
+    for (int g = begin; g < end; ++g) {
+        total += denomPid[g];
+        accDenomPid[g] = total;
+    }
+    accumulateHazards(begin); // cumulative, so they change up to the end of the stratum
+}
+
+template <typename RealType>
+void CountingProcessModelSpecifics<RealType>::computeAllHazards() {
+
+    if (hNWeight.size() < N) { // event counts not set yet; gradients use the scan until they are
+        cumHazard.clear();
+        cumHazard2.clear();
+        return;
+    }
+    cumHazard.resize(N);
+    cumHazard2.resize(N);
+    for (size_t g = 0; g < N; g = groupStratumEnd[g]) {
+        accumulateHazards(g);
+    }
+}
+
+template <typename RealType>
+void CountingProcessModelSpecifics<RealType>::accumulateHazards(int begin) {
+
+    const bool first = (begin == groupStratumStart[begin]);
+    double hazard = first ? 0.0 : cumHazard[begin - 1];
+    double hazard2 = first ? 0.0 : cumHazard2[begin - 1];
+    for (int g = begin; g < groupStratumEnd[begin]; ++g) {
+        const double inverse = 1.0 / static_cast<double>(accDenomPid[g]);
+        const double increment = static_cast<double>(hNWeight[g]) * inverse;
+        hazard += increment;
+        hazard2 += increment * inverse;
+        cumHazard[g] = hazard;
+        cumHazard2[g] = hazard2;
+    }
 }
 
 template <typename RealType>
@@ -342,6 +493,8 @@ void CountingProcessModelSpecifics<RealType>::computeRemainingStatistics(bool us
     // Censored rows outside every risk set point to the unused group N; the Cox predictive
     // log-likelihood still takes log() of its denominator, so keep it finite
     accDenomPid[N] = static_cast<RealType>(1);
+
+    computeAllHazards();
 }
 
 template <typename RealType>

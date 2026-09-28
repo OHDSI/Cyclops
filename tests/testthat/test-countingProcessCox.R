@@ -140,6 +140,33 @@ test_that("cox_counting with sparse and indicator covariates", {
                  unname(coef(gold)[c("x1", "x2", "x4")]), tolerance = tolerance)
 })
 
+test_that("Sparse and indicator gradients and Hessians match coxph away from the mode", {
+    # Sparse and indicator columns take the prefix-sum (cumulative hazard) path, dense columns the scan
+    data <- simulateLeftTruncated(800, 707)
+    data$x4 <- ifelse(data$x1 > 0.5, data$x1, 0)
+    beta <- c(x1 = 0.3, x4 = -0.2, x2 = 0.5)
+    for (modelType in c("cox_counting", "cox")) {
+        d <- if (modelType == "cox") transform(data, start = 0) else data
+        cyclopsData <- createCyclopsData(Surv(start, stop, event) ~ x1 + strata(stratum),
+                                         sparseFormula = ~ x4, indicatorFormula = ~ x2,
+                                         data = d, modelType = modelType)
+        fit <- fitCyclopsModel(cyclopsData, control = control)
+        Cyclops:::.cyclopsSetBeta(fit$interface, unname(beta[names(coef(fit))]))
+
+        gold <- coxph.detail(coxph(Surv(start, stop, event) ~ x1 + x4 + x2 + strata(stratum), d,
+                                   ties = "breslow", init = beta, control = coxph.control(iter.max = 0)))
+        score <- setNames(colSums(gold$score), names(beta))
+        information <- setNames(diag(apply(gold$imat, c(1, 2), sum)), names(beta))
+
+        expect_equal(gradient(fit)[names(beta)], score, tolerance = 1E-10)
+        # The accessor returns the log-likelihood Hessian, the negative of the information
+        hessian <- setNames(Cyclops:::.cyclopsGetLogLikelihoodHessianDiagonal(fit$interface,
+                                                                                getCovariateIds(cyclopsData)),
+                            names(coef(fit)))
+        expect_equal(-hessian[names(beta)], information, tolerance = 1E-10)
+    }
+})
+
 test_that("convertToCyclopsData with a time-varying exposure matches coxph", {
     set.seed(123)
     n <- 400

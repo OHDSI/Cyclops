@@ -15,8 +15,10 @@ the survival package. It covers delayed entry (left truncation) and time-varying
   It reuses the Cox gradient/Hessian scan, log-likelihood, weighting and cross-validation code, and
   overrides only how rows map to risk-set groups.
 * **One risk-set group per event time**, for both `cox_counting` and `cox` on CPU. Censored rows join
-  the next event group, so every `O(N)` pass runs over distinct event times instead of rows: about
-  30x faster in the benchmark below.
+  the next event group, so every `O(N)` pass runs over distinct event times instead of rows.
+  With the range-limited updates and prefix-sum gradients of section 5, `cox` is 35–39x faster
+  than on `main` in the benchmarks there, and about 560x faster for a sparse high-dimensional
+  L1 fit.
 * **Linear order is kept.** Each evaluation is `O(K + N)` (K rows, N distinct event times). The
   one-time setup is `O(K log N + nnz log nnz)` per weight vector (initialization, each CV fold).
 * **Decisions (from review):**
@@ -133,7 +135,7 @@ maximum relative differences:
 Splitting right-censored rows with `survSplit` changes the log-likelihood, gradient and Hessian by
 exactly 0.
 
-### 3.2 Engine tests (`tests/testthat/test-countingProcessCox.R`, 21 tests)
+### 3.2 Engine tests (`tests/testthat/test-countingProcessCox.R`, 22 tests)
 
 Against `coxph` (coefficients and log-likelihood to 1e-6):
 * delayed entry, ties, strata, and case weights with a held-out row;
@@ -143,7 +145,9 @@ Against `coxph` (coefficients and log-likelihood to 1e-6):
 * `vcov` for `cox` and `cox_counting`;
 * `cox_counting` Schoenfeld residuals;
 * `cox_counting` baseline survival against `survfit.coxph`, and `testProportionality` against
-  `cox.zph` with the `km` and `identity` transforms.
+  `cox.zph` with the `km` and `identity` transforms;
+* gradients and Hessian diagonals of sparse and indicator columns at an arbitrary beta, against
+  `coxph.detail` (to 1e-10), for `cox` and `cox_counting`.
 
 Invariances and other checks:
 * `survSplit` data under `cox_counting` equals unsplit data under `cox`.
@@ -164,14 +168,14 @@ Invariances and other checks:
 
 * Full test suite, built with R 4.4.1:
   * `main`: 158 tests, 0 failures, 26 skipped (GPU etc.);
-  * branch: 179 tests, 0 failures, 25 skipped;
+  * branch: 180 tests, 0 failures, 25 skipped;
   * every existing test keeps its status, except the re-enabled `vcov` check in
     `test-believedBroken.R`, which was empty (so skipped) and now passes.
 * The same 13 representative fits under `main` and the branch:
   * `fgr`, `lr`, `pr` and `clr`: `identical()`;
-  * `cox` (sparse covariates, Laplace, cross-validation including the hyperparameter, weights,
-    50 strata, formula interface, legacy three-column `Surv`): maximum relative difference ≤ 1e-15;
-  * `cox` profile CIs: 3e-14;
+  * `cox` (sparse covariates, Laplace, weights, 50 strata, formula interface, legacy
+    three-column `Surv`): maximum relative difference ≤ 1e-14;
+  * `cox` cross-validation (hyperparameter and coefficients): 3e-13; profile CIs: 3e-14;
   * `cox` stratified predictive log-likelihood: identical.
 * `vcov` for `cox` changes from wrong (`main`: 4.57 vs `coxph` 0.647 on the `test-believedBroken.R`
   example) to correct (0.6471719).
@@ -224,15 +228,28 @@ With 2,000 strata the split is the same (10.6 s / 10.9 s): nothing is local to s
 | # | optimization | applies to | results identical? | status / expected effect |
 |---|---|---|---|---|
 | 1 | **Event-time groups** (N = distinct event times) | `cox`, `cox_counting` | no (~1e-15) | **done**: 29.5–29.8x at 2% events; scales with the inverse event rate |
-| 2 | **Sparse gradient/Hessian by prefix sums.** Between a column's entry/exit points its numerators are constant, so each segment contributes `N·ΔC` and `N^2·ΔP`, with `C = cumsum(d/D)` and `P = cumsum(d/D^2)` built in the existing O(N) denominator pass | both | no (validated to 5e-13 in the prototype) | the per-column scan drops from O(N − first_j) to O(#entry/exit points of j); the largest gain for sparse, high-dimensional L1 fits where most coordinates don't move. Use per-stratum sums and FP64 |
-| 3 | **Range- and stratum-limited denominator updates.** After updating `beta_j`, recompute accumulated denominators only in strata that contain column j, and in `cox_counting` only on `[min entry_j, max exit_j)` (after the last exit the change cancels) | both | yes for right-censored data; last bits with exits | large for many small strata or short exposure windows |
+| 2 | **Sparse gradient/Hessian by prefix sums.** Between a column's entry/exit points its numerators are constant, so each segment contributes `N·ΔC` and `N^2·ΔP`, with `C = cumsum(d/D)` and `P = cumsum(d/D^2)` per stratum (in double), maintained with the denominators | both | no (≤ 1e-14; gradients and Hessians match `coxph.detail` to 1e-10) | **done**: the per-column cost drops from O(N − first_j) to O(#entry/exit points of j); 12x in the sparse L1 regime (table below) |
+| 3 | **Range- and stratum-limited denominator updates.** After updating `beta_j`, recompute accumulated denominators only in strata that contain column j, and in `cox_counting` only on `[min entry_j, max exit_j)` (after the last exit the change cancels) | both | yes for `cox` (verified `identical()`); last bits with exits | **done**: 1.6x with 20k strata |
 | 4 | **Skip strata with no non-zeros** in the sparse fill loop | both | yes | proportional to the fraction of strata a column misses; superseded by #2 |
 | 5 | **Skip divisions at groups without events** | `cox` on `main` | yes | **measured: no gain** (9.39 s vs 9.25 s); the loop is bound by the traversal, not the division. Moot now that every group has events |
 | 6 | **`exp(delta)` update for indicator columns** (`u_k *= e^delta` instead of `exp` per row; `computeRemainingStatistics` resets any drift each cycle) | both | no | removes one `exp` per non-zero in `updateXBeta` |
 | 7 | **Fuse the numerator scatter into the scan** for sparse/indicator columns (the non-zeros are already sorted by group) | both | yes | removes the zero/scatter/gather passes over `numerPid` |
 | 8 | **Parallelism** across strata (TBB), or GPU scans | both | yes / no | strata are independent; the scans are the existing CUB kernels |
 
-Recommended next: #3, then #2.
+Measured effect of #3 and #2 (seconds per iteration, same data and iteration counts; B has 108
+non-zero coefficients out of 20,000):
+
+| regime | `main` | before #3 | after #3 | after #3 + #2 |
+|---|---|---|---|---|
+| A: 200k rows, 2,001 covariates, normal(1) | 2.78 | 0.100 | 0.083 | 0.079 |
+| B: 200k rows, 20,000 sparse covariates, laplace(0.1) | 13.3 | 0.295 | 0.286 | 0.024 |
+| C: 200k rows in 20,000 strata, 2,000 covariates, normal(1) | 2.74 | 0.310 | 0.193 | 0.071 |
+| D: `cox_counting`, 400k rows, 1,000 short-window covariates | — | 0.146 | 0.122 | 0.119 |
+
+A and D are now bound by per-non-zero work (`exp` and the numerator scatter) and by the O(N)
+denominator pass after each update; each window covariate in D has about as many entry/exit
+points as there are event times, so #2 cannot shorten its scan. Next candidates are #6 and #7,
+which target the per-non-zero work, and #8.
 
 ## 6. Decisions
 
