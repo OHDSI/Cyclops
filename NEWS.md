@@ -22,6 +22,10 @@ Changes:
    argument, as in `residuals.coxph()`
 10. `testProportionality()` leaves rows with zero weight out of the `km` and `rank` transforms, as
     `cox.zph()` does for a fit on the rows with positive weight
+11. the final fit after cross-validation uses the weights given to `fitCyclopsModel()` (it used all
+    rows with weight 1; `createWeightBasedSearchControl()` still refits on all rows), and
+    `runBootstrap()` leaves the weights and coefficients of the fit (it left those of the last
+    replicate)
 
 Cyclops v3.7.1
 ==============

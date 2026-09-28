@@ -39,7 +39,7 @@ void AbstractCrossValidationDriver::resetForOptimal(
 		ccd.turnOffSyncCV();
 	}
 
-	ccd.setWeights(NULL);
+	restoreWeights(ccd, arguments);
 
     for (int i = 0; i < maxPoint.point.size(); ++i) {
 	    ccd.setHyperprior(i, maxPoint.point[i]);
@@ -47,10 +47,25 @@ void AbstractCrossValidationDriver::resetForOptimal(
 	ccd.resetBeta(); // Cold-start
 }
 
+void AbstractCrossValidationDriver::restoreWeights(
+		CyclicCoordinateDescent& ccd,
+		const CCDArguments& arguments) {
+
+	// The weight-based search (fold = -1) uses its weights to split in- from out-of-sample rows,
+	// so its final fit uses all rows
+	if (savedWeights.empty() || arguments.crossValidation.fold == -1) {
+		ccd.setWeights(NULL);
+	} else {
+		ccd.setWeights(savedWeights.data());
+	}
+}
+
 void AbstractCrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
 		const CCDArguments& allArguments) {
+
+	savedWeights = ccd.getWeights(); // restored for the final fit, see restoreWeights()
 
 	// TODO Check that selector is type of CrossValidationSelector
 //     const auto& arguments = allArguments.crossValidation;

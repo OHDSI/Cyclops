@@ -64,6 +64,13 @@ void BootstrapDriver::drive(
 	// TODO Make sure that selector is type-of BootstrapSelector
 	std::vector<double> weights;
 
+	// Replicates overwrite the weights and coefficients of the fit; restored below
+	std::vector<double> savedWeights = ccd.getWeights();
+	std::vector<double> savedBeta(J);
+	for (int j = 0; j < J; ++j) {
+		savedBeta[j] = ccd.getBeta(j);
+	}
+
     // TODO parallelize this loop using multiple threads (see example in cross-validation)
     // TODO via a pool of CCD, but call selector.permute() in series to keep same PRNG stream
 	for (int step = 0; step < replicates; step++) {
@@ -84,6 +91,9 @@ void BootstrapDriver::drive(
 	}
 
 	ccd.setBootStrapInfo(flattenEstimates());
+
+	ccd.setWeights(savedWeights.empty() ? NULL : savedWeights.data());
+	ccd.setBeta(savedBeta); // assigns rather than updates, so non-finite replicate estimates do not carry over
 }
 
 void BootstrapDriver::logResults(const CCDArguments& arguments) {

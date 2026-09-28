@@ -180,6 +180,30 @@ start, length, event, x1, x2
     expect_lt(nrow(bootstrap$samples), 4999)
 })
 
+test_that("Bootstrap leaves the weights and coefficients of the fit", {
+
+    dobson <- data.frame(
+        counts = c(18,17,15,20,10,20,25,13,12),
+        outcome2 = c(0,1,0,0,1,0,0,1,0),
+        outcome3 = c(0,0,1,0,0,1,0,0,1),
+        treatment2 = c(0,0,0,1,1,1,0,0,0),
+        treatment3 = c(0,0,0,0,0,0,1,1,1),
+        weights = c(0.17,0.03,0.93,0.64,0.94,0.19,0.12,0.58,0.01)
+    )
+
+    cd <- createCyclopsData(counts ~ outcome2 + outcome3 + treatment2 + treatment3, data = dobson, modelType = "pr")
+    fit <- fitCyclopsModel(cd, weights = dobson$weights,
+                           prior = createPrior("normal", exclude = "(Intercept)"),
+                           control = createControl(seed = 123))
+    weights <- Cyclops:::.cyclopsGetWeights(fit$interface)
+    prediction <- predict(fit)
+
+    bootstrap <- runBootstrap(fit, replicates = 100)
+
+    expect_equal(Cyclops:::.cyclopsGetWeights(fit$interface), weights)
+    expect_equal(predict(fit), prediction)
+})
+
 test_that("Large logistic bootstrap with and without weights", {
 
     # skip_on_cran()
