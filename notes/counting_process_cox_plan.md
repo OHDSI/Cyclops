@@ -108,7 +108,10 @@ Other changes:
     `runBootstrap()`. `"auto"` picks it wherever it would pick `"byRow"` and the data have
     subjects; `"byRow"` and `"byPid"` still force rows or strata;
   * `getStartTimeVector()` (internal, like `getTimeVector()`) returns the loaded start times;
-  * `residuals()`, `testProportionality()` and `survfit()` work for `cox_counting`. The last two
+  * `residuals()` gives Schoenfeld residuals for all covariates (a matrix, or a subset through
+    `parm`) and scaled Schoenfeld residuals (`type = "scaledsch"`, which uses `vcov()`), for `cox`
+    and `cox_counting`; events outside the fit (zero weight) have no residual;
+  * `testProportionality()` and `survfit()` also work for `cox_counting`. They
     use the start times: the `km` transform uses Kaplan-Meier with delayed entry, and the Breslow
     baseline uses (start, stop] risk sets, one curve per stratum (`survfit` for `cox` still pools
     strata);
@@ -145,7 +148,9 @@ Against `coxph` (coefficients and log-likelihood to 1e-6):
 * sparse and indicator covariates;
 * a time-varying exposure through `convertToCyclopsData`, for both data-frame and Andromeda input;
 * `vcov` for `cox` and `cox_counting`;
-* `cox_counting` Schoenfeld residuals;
+* `cox_counting` Schoenfeld residuals (delayed entry, failure ties, strata, case weights including
+  a held-out event, `survSplit` rows, left truncation; several covariates, `parm` subsets, and
+  scaled residuals);
 * `cox_counting` baseline survival against `survfit.coxph`, with and without strata, and
   `testProportionality` against `cox.zph` with the `km` and `identity` transforms;
 * gradients and Hessian diagonals of sparse and indicator columns at an arbitrary beta, against

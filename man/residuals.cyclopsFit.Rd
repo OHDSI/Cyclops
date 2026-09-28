@@ -4,18 +4,23 @@
 \alias{residuals.cyclopsFit}
 \title{Model residuals}
 \usage{
-\method{residuals}{cyclopsFit}(object, parm = NULL, type = "schoenfeld", ...)
+\method{residuals}{cyclopsFit}(object, type = "schoenfeld", parm = NULL, ...)
 }
 \arguments{
 \item{object}{A Cyclops model fit object}
 
-\item{parm}{A specification of which parameters require residuals,
-either a vector of numbers or covariateId names}
-
 \item{type}{Character string indicating the type of residual desires. Possible
-values are "schoenfeld".}
+values are "schoenfeld" and "scaledsch" (scaled Schoenfeld residuals, which
+need all parameters and \code{vcov()})}
+
+\item{parm}{A specification of which parameters require residuals,
+either a vector of numbers or covariateId names; default is all}
 
 \item{...}{Additional parameters for compatibility with S3 parent function}
+}
+\value{
+One residual per event, ordered by stratum and time and named by event time: a vector
+for one parameter, otherwise a matrix with one column per parameter
 }
 \description{
 \code{residuals.cyclopsFit} computes model residuals for Cox model-based Cyclops objects

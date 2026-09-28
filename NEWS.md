@@ -17,6 +17,9 @@ Changes:
 6. `survfit()` for `cox_counting` returns one curve per stratum
 7. `createControl(threads = )` also parallelizes Cox fits (results identical to one thread)
 8. single-precision Cox fits use only single-precision arithmetic, and are more accurate
+9. `residuals()` returns Schoenfeld residuals for several covariates (a matrix, or a subset through
+   `parm`) and scaled Schoenfeld residuals (`type = "scaledsch"`); `type` is now the second
+   argument, as in `residuals.coxph()`
 
 Cyclops v3.7.1
 ==============

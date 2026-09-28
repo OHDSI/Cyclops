@@ -793,8 +793,9 @@ void CountingProcessModelSpecifics<RealType>::computeSchoenfeldResiduals(int ind
         strata->clear();
     }
 
+    const int unused = static_cast<int>(N);
     for (size_t k = 0; k < K; ++k) {
-        if (hY[k] == static_cast<RealType>(1)) {
+        if (hY[k] == static_cast<RealType>(1) && hPid[k] < unused) { // skip rows outside the fit
             const int g = hPid[k];
             if (residuals != nullptr) {
                 residuals->push_back(x[k] - numer[g] / accDenomPid[g]);
@@ -815,7 +816,7 @@ void CountingProcessModelSpecifics<RealType>::computeSchoenfeldResiduals(int ind
         RealType wObserved = static_cast<RealType>(0);
         std::vector<RealType> groupCovariate(N, static_cast<RealType>(0));
         for (size_t k = 0; k < K; ++k) {
-            if (hY[k] == static_cast<RealType>(1)) {
+            if (hY[k] == static_cast<RealType>(1) && hPid[k] < unused) {
                 uObserved += hKWeight[k] * x[k];
                 wObserved += hKWeight[k] * x[k] * covariate[k];
                 groupCovariate[hPid[k]] = covariate[k];

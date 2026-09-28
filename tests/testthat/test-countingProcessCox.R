@@ -372,9 +372,43 @@ test_that("vcov for cox and cox_counting matches coxph", {
 })
 
 test_that("Schoenfeld residuals for cox_counting match coxph", {
-    gold <- coxph(Surv(start, stop, event) ~ x1, delayedEntry, ties = "breslow")
-    fit <- fitCounting(Surv(start, stop, event) ~ x1, delayedEntry)
-    expect_equal(residuals(fit), residuals(gold, "schoenfeld"), tolerance = tolerance)
+    goldResiduals <- function(formula, data, weights, type = "schoenfeld") {
+        data$w <- weights
+        residuals(coxph(formula, data, weights = w, subset = w > 0, ties = "breslow", model = TRUE),
+                  type)
+    }
+    expectResiduals <- function(formula, data, weights = rep(1, nrow(data))) {
+        fit <- fitCounting(formula, data, weights = weights)
+        expect_equivalent(residuals(fit), goldResiduals(formula, data, weights), tolerance = tolerance)
+        expect_equal(names(residuals(fit)), names(goldResiduals(formula, data, weights)))
+    }
+
+    expectResiduals(Surv(start, stop, event) ~ x1, delayedEntry)
+    expectResiduals(Surv(start, stop, event) ~ x1, tied) # failure ties
+    expectResiduals(Surv(start, stop, event) ~ x1 + strata(stratum), tied)
+    expectResiduals(Surv(start, stop, event) ~ x1, tied, weights = c(1, 2, 0.5, 1, 1.5, 1, 0.3, 1, 2, 0.7))
+    # a held-out event has no residual
+    expectResiduals(Surv(start, stop, event) ~ x1, tied, weights = c(1, 2, 0.5, 1, 1.5, 1, 0, 1, 2, 0.7))
+
+    lung2 <- na.omit(lung[, c("time", "status", "age", "sex", "ph.ecog")])
+    lung2$status <- lung2$status - 1
+    split <- survSplit(Surv(time, status) ~ ., data = lung2, cut = c(100, 200, 365, 500),
+                       start = "start", end = "stop", event = "event")
+    expectResiduals(Surv(start, stop, event) ~ age, split)
+    expectResiduals(Surv(start, stop, event) ~ x1 + strata(stratum), simulateLeftTruncated(800, 456))
+
+    # several covariates: one column each, or a subset through parm
+    formula <- Surv(start, stop, event) ~ age + sex + ph.ecog
+    fit <- fitCounting(formula, split)
+    gold <- goldResiduals(formula, split, rep(1, nrow(split)))
+    expect_equal(residuals(fit), gold, tolerance = tolerance)
+    expect_equal(residuals(fit, parm = c("sex", "age")), gold[, c("sex", "age")], tolerance = tolerance)
+    expect_equal(residuals(fit, parm = "ph.ecog"), gold[, "ph.ecog"], tolerance = tolerance)
+
+    # scaled residuals use the variance, so they need every parameter
+    expect_equal(residuals(fit, type = "scaledsch"),
+                 goldResiduals(formula, split, rep(1, nrow(split)), "scaledsch"), tolerance = tolerance)
+    expect_error(residuals(fit, parm = "age", type = "scaledsch"), "all parameters")
 })
 
 test_that("Cross-validation keeps all rows of a subject in the same fold", {
