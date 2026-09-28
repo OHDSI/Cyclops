@@ -496,3 +496,24 @@ test_that("Bootstrap resamples all rows of a subject together", {
     expect_equal(runBootstrap(fitSplit("bySubject"), replicates)$samples, bootUnsplit, tolerance = tolerance)
     expect_false(isTRUE(all.equal(runBootstrap(fitSplit("byRow"), replicates)$samples, bootUnsplit)))
 })
+
+test_that("Bootstrap by subject leaves out subjects with zero weight", {
+    lung2 <- na.omit(lung[, c("time", "status", "age", "sex", "ph.ecog")])
+    lung2$status <- lung2$status - 1
+    lung2$id <- seq_len(nrow(lung2))
+    split <- survSplit(Surv(time, status) ~ ., data = lung2, cut = c(100, 200, 365, 500),
+                       start = "start", end = "stop", event = "event")
+    set.seed(7)
+    heldOut <- split$id %in% sample(lung2$id, 40) # every row of 40 subjects
+    fitSplit <- function(data, weights = NULL) {
+        cyclopsData <- createCyclopsData(Surv(start, stop, event) ~ age + sex + ph.ecog + cluster(id),
+                                         data = data, modelType = "cox_counting")
+        fitCyclopsModel(cyclopsData, weights = weights,
+                        control = createControl(noiseLevel = "silent", seed = 321, tolerance = 1E-10,
+                                                selectorType = "bySubject"))
+    }
+
+    # The same draws as a bootstrap of the subjects in the fit alone
+    expect_equal(runBootstrap(fitSplit(split, as.numeric(!heldOut)), 20)$samples,
+                 runBootstrap(fitSplit(split[!heldOut, ]), 20)$samples, tolerance = tolerance)
+})

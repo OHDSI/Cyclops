@@ -204,6 +204,27 @@ test_that("Bootstrap leaves the weights and coefficients of the fit", {
     expect_equal(predict(fit), prediction)
 })
 
+test_that("Bootstrap resamples only rows with non-zero weight", {
+    set.seed(123)
+    sim <- simulateCyclopsData(nstrata = 1, ncovars = 4, nrows = 500, effectSizeSd = 0.5,
+                               eCovarsPerRow = 2, model = "logistic")
+    weights <- rep(1, nrow(sim$outcomes))
+    weights[sample(nrow(sim$outcomes), 150)] <- 0 # held out
+    fit <- function(outcomes, covariates, weights = NULL) {
+        fitCyclopsModel(convertToCyclopsData(outcomes, covariates, modelType = "lr", quiet = TRUE),
+                        weights = weights, prior = createPrior("none"),
+                        control = createControl(seed = 123, noiseLevel = "silent", tolerance = 1E-10))
+    }
+    kept <- sim$outcomes$rowId[weights > 0]
+    withHeldOut <- fit(sim$outcomes, sim$covariates, weights)
+    withoutHeldOut <- fit(sim$outcomes[sim$outcomes$rowId %in% kept, ],
+                          sim$covariates[sim$covariates$rowId %in% kept, ])
+
+    # The same draws as a bootstrap of the rows in the fit alone
+    expect_equal(runBootstrap(withHeldOut, 20)$samples, runBootstrap(withoutHeldOut, 20)$samples,
+                 tolerance = 1E-6)
+})
+
 test_that("Large logistic bootstrap with and without weights", {
 
     # skip_on_cran()

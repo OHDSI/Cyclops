@@ -5,6 +5,7 @@
  *      Author: msuchard
  */
 
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
@@ -41,6 +42,17 @@ BootstrapSelector::BootstrapSelector(
 	}
 
 	weightsOriginal = wtsOriginal;
+
+	if (weightsOriginal) { // resample only units in the fit, i.e. with a row of non-zero weight
+		std::vector<bool> inFit(N, false);
+		for (size_t k = 0; k < K; ++k) {
+			if (weightsOriginal->at(k) != 0.0) {
+				inFit[ids[k]] = true;
+			}
+		}
+		indicesIncluded.erase(std::remove_if(indicesIncluded.begin(), indicesIncluded.end(),
+				[&inFit](int i) { return !inFit[i]; }), indicesIncluded.end());
+	}
 
 	permute();
 }

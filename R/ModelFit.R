@@ -899,7 +899,8 @@ getSEs <- function(object, covariates) {
 #'
 #' @details
 #' Bootstrap samples resample the units given by the fit's \code{selectorType} (see \code{\link{createControl}}),
-#' so Cox models with subjects resample whole subjects by default.
+#' so Cox models with subjects resample whole subjects by default. Units whose rows all have weight zero
+#' are not resampled: each sample draws as many units as the fit uses.
 #'
 #' @param object          A fitted Cyclops model object
 #' @param replicates      Numeric: number of bootstrap samples

@@ -141,7 +141,7 @@ maximum relative differences:
 Splitting right-censored rows with `survSplit` changes the log-likelihood, gradient and Hessian by
 exactly 0.
 
-### 3.2 Engine tests (`tests/testthat/test-countingProcessCox.R`, 25 tests)
+### 3.2 Engine tests (`tests/testthat/test-countingProcessCox.R`, 26 tests)
 
 Against `coxph` (coefficients and log-likelihood to 1e-6):
 * delayed entry, ties, strata, and case weights with a held-out row;
@@ -173,7 +173,8 @@ Invariances and other checks:
     coefficients to 8e-14;
   * row-level folds on the same split rows select a different hyperparameter (1.77 vs 0.35).
 * **Subject-level bootstrap:** on `survSplit` rows, `"auto"` and `"bySubject"` reproduce the
-  bootstrap samples of the unsplit data; `"byRow"` does not.
+  bootstrap samples of the unsplit data; `"byRow"` does not. With 40 subjects held out (weight
+  0), the bootstrap reproduces that of the data without them.
 
 ### 3.3 Existing behavior
 

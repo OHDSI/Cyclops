@@ -26,6 +26,8 @@ Changes:
     rows with weight 1; `createWeightBasedSearchControl()` still refits on all rows), and
     `runBootstrap()` leaves the weights and coefficients of the fit (it left those of the last
     replicate)
+12. `runBootstrap()` resamples only rows (or strata, or subjects) with non-zero weight; it also drew
+    held-out ones, so each replicate had a random number of draws from the fit
 
 Cyclops v3.7.1
 ==============
