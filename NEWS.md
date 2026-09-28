@@ -1,3 +1,23 @@
+Cyclops (development version)
+=============================
+
+Changes:
+
+1. add `modelType = "cox_counting"` for counting-process data, `Surv(start, stop, event)` or
+   `convertToCyclopsData()` with `outcomes$startTime`: delayed entry (left truncation) and
+   time-varying covariates, with Breslow ties, strata, weights, profile-likelihood confidence
+   intervals, `vcov()`, Schoenfeld residuals, `testProportionality()` and `survfit()`
+2. `cox` fits use one risk-set group per event time, range-limited denominator updates and
+   prefix-sum gradients: 60-700x faster in benchmarks with 200,000 rows, with results that differ
+   from the previous version only in the last bits
+3. `cox` requires start times of 0 (use `cox_counting` for other start times)
+4. correct `vcov()` for `cox` models
+5. keep all rows of a subject together in cross-validation and bootstrap: `cluster()` in the
+   formula or `outcomes$subjectId`, and `createControl(selectorType = "bySubject")`
+6. `survfit()` for `cox_counting` returns one curve per stratum
+7. `createControl(threads = )` also parallelizes Cox fits (results identical to one thread)
+8. single-precision Cox fits use only single-precision arithmetic, and are more accurate
+
 Cyclops v3.7.1
 ==============
 

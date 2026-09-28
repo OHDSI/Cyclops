@@ -18,11 +18,13 @@
 
 #include <algorithm>
 #include <functional>
+#include <memory>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
 
 #include "ModelSpecifics.h"
+#include "WorkerPool.h"
 
 namespace bsccs {
 
@@ -49,6 +51,11 @@ public:
     void computeGradientAndHessian(int index, double* ogradient, double* ohessian, bool useWeights);
 
     void computeThirdDerivative(int index, double* othird, bool useWeights);
+
+    void setThreads(int threads);
+
+    bool computeGradientsAndHessians(const std::vector<int>& indices,
+                                     std::vector<GradientHessian>& gh, bool useWeights);
 
     void updateXBeta(double delta, int index, bool useWeights);
 
@@ -137,10 +144,30 @@ private:
     RealVector cumHazard2;
 
     Workspace workspace;
+
+    std::vector<bool> included; // rows with non-zero weight in the current layout
+    bool hasLayout = false;
+
+    std::unique_ptr<WorkerPool> pool; // only with more than one thread
+    std::vector<Workspace> workspaces; // one per pool thread
 };
 
 template <typename RealType>
 void CountingProcessModelSpecifics<RealType>::setPidForAccumulation(const double* weights) {
+
+    // The layout depends only on which rows have non-zero weight, and callers often repeat it
+    bool same = hasLayout && included.size() == K;
+    for (size_t k = 0; same && k < K; ++k) {
+        same = included[k] == (weights == nullptr || weights[k] != 0.0);
+    }
+    if (same) {
+        return;
+    }
+    included.resize(K);
+    for (size_t k = 0; k < K; ++k) {
+        included[k] = (weights == nullptr || weights[k] != 0.0);
+    }
+    hasLayout = true;
 
     // hPidOriginal holds each row's stratum; strata are contiguous
     hPidInternal = hPidOriginal;
@@ -228,13 +255,12 @@ void CountingProcessModelSpecifics<RealType>::setPidForAccumulation(const double
 template <typename RealType>
 void CountingProcessModelSpecifics<RealType>::setupRiskSetIndices() {
 
-    // Groups where a column's accumulated numerators change: entries and exits of its rows
+    // Groups where a column's accumulated numerators change: entries and exits of its rows.
+    // Columns are independent, so they are built in parallel when there are threads.
     const int unused = static_cast<int>(N);
-    sparseIndices.clear();
-    for (size_t j = 0; j < J; ++j) {
-        if (hX.getFormatType(j) == DENSE || hX.getFormatType(j) == INTERCEPT) {
-            sparseIndices.push_back(nullptr);
-        } else {
+    sparseIndices.assign(J, nullptr);
+    auto build = [this, unused](size_t j, int) {
+        if (hX.getFormatType(j) != DENSE && hX.getFormatType(j) != INTERCEPT) {
             std::vector<int> groups;
             const size_t n = hX.getNumberOfEntries(j);
             const int* rows = hX.getCompressedColumnVector(j);
@@ -249,10 +275,49 @@ void CountingProcessModelSpecifics<RealType>::setupRiskSetIndices() {
             }
             std::sort(groups.begin(), groups.end());
             groups.erase(std::unique(groups.begin(), groups.end()), groups.end());
-            sparseIndices.push_back(
-                bsccs::make_shared<AbstractModelSpecifics::IndexVector>(std::move(groups)));
+            sparseIndices[j] = bsccs::make_shared<AbstractModelSpecifics::IndexVector>(std::move(groups));
+        }
+    };
+    if (pool) {
+        pool->run(J, build);
+    } else {
+        for (size_t j = 0; j < J; ++j) {
+            build(j, 0);
         }
     }
+}
+
+template <typename RealType>
+void CountingProcessModelSpecifics<RealType>::setThreads(int threads) {
+
+    if (threads <= 1) {
+        pool.reset();
+    } else if (!pool || pool->size() != threads) {
+        pool.reset(new WorkerPool(threads));
+    }
+    workspaces.resize(pool ? threads : 0);
+}
+
+template <typename RealType>
+bool CountingProcessModelSpecifics<RealType>::computeGradientsAndHessians(const std::vector<int>& indices,
+        std::vector<GradientHessian>& gh, bool useWeights) {
+
+    if (!pool || cumHazard.size() != N) {
+        return false;
+    }
+    // Each column only reads the model state and writes its own workspace, and the result equals
+    // computeGradientAndHessian()
+    gh.resize(indices.size());
+    pool->run(indices.size(), [&](size_t task, int thread) {
+        const int index = indices[task];
+        if (hX.getNumberOfNonZeroEntries(index) == 0) {
+            gh[task] = GradientHessian(0.0, 0.0);
+        } else {
+            dispatchHazardGradientAndHessian(index, workspaces[thread], &gh[task].first,
+                                             &gh[task].second, useWeights);
+        }
+    });
+    return true;
 }
 
 template <typename RealType>

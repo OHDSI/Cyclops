@@ -611,7 +611,9 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param cvRepetitions			Numeric: Number of repetitions of X-fold cross validation
 #' @param minCVData					Numeric: Minimum number of data for cross validation
 #' @param noiseLevel				String: level of Cyclops screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})
-#' @param threads               Numeric: Specify number of CPU threads to employ in cross-validation; default = 1 (auto = -1)
+#' @param threads               Numeric: Specify number of CPU threads to employ in cross-validation, and within a fit
+#'                              for Cox models (building risk-set indices and gradients of coefficients at zero,
+#'                              with results identical to one thread); default = 1 (auto = -1)
 #' @param seed                  Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time}}.
 #' @param resetCoefficients     Logical: Reset all coefficients to 0 between model fits under cross-validation
 #' @param startingVariance      Numeric: Starting variance for auto-search cross-validation; default = -1 (use estimate based on data)

@@ -252,6 +252,39 @@ test_that("cox_counting profile-likelihood confidence interval", {
     }
 })
 
+test_that("Threads within a fit give identical results", {
+    # Gradients of coefficients at zero are evaluated together; the fit must not change
+    set.seed(909)
+    n <- 3000
+    J <- 200
+    X <- matrix(rbinom(n * J, 1, 0.03), n)
+    entry <- runif(n, 0, 2)
+    eventTime <- entry + rexp(n, 0.3 * exp(drop(X[, 1:5] %*% rep(0.7, 5))))
+    censorTime <- entry + rexp(n, 0.3)
+    outcomes <- data.frame(rowId = 1:n, y = as.numeric(eventTime <= censorTime),
+                           time = pmin(eventTime, censorTime), startTime = entry)
+    nonZero <- which(X != 0, arr.ind = TRUE)
+    covariates <- data.frame(rowId = nonZero[, 1], covariateId = nonZero[, 2], covariateValue = 1)
+
+    fitWith <- function(modelType, threads) {
+        data <- outcomes
+        if (modelType == "cox") {
+            data$startTime <- NULL
+        }
+        fitCyclopsModel(convertToCyclopsData(data, covariates, modelType = modelType, quiet = TRUE),
+                        prior = createPrior("laplace", 0.05),
+                        control = createControl(noiseLevel = "silent", threads = threads, seed = 1))
+    }
+    for (modelType in c("cox", "cox_counting")) {
+        one <- fitWith(modelType, 1)
+        four <- fitWith(modelType, 4)
+        expect_true(sum(coef(one) != 0) < J / 2)
+        expect_identical(coef(four), coef(one))
+        expect_identical(logLik(four), logLik(one))
+        expect_identical(runBootstrap(four, 5)$samples, runBootstrap(one, 5)$samples)
+    }
+})
+
 test_that("cox_counting in single precision", {
     data <- simulateLeftTruncated(1000, 303)
     gold <- coxph(Surv(start, stop, event) ~ x1 + x2 + x3, data, ties = "breslow")

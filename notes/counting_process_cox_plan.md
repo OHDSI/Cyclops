@@ -241,7 +241,7 @@ With 2,000 strata the split is the same (10.6 s / 10.9 s): nothing is local to s
 | 5 | **Skip divisions at groups without events** | `cox` on `main` | yes | **measured: no gain** (9.39 s vs 9.25 s); the loop is bound by the traversal, not the division. Moot now that every group has events |
 | 6 | **`exp(delta)` update for indicator columns** (`u_k *= e^delta` instead of `exp` per row; `computeRemainingStatistics` resets any drift) | both | no (≤ 1e-13; FP32 error unchanged) | **done**: 1.3–1.6x in A, C and D |
 | 7 | **Numerators inside the gradient.** The planned fused merge of entries and exits was measured **slower** (7–33%): the scatter it replaced writes into a small, cached per-group array, while visiting exits in exit order reads per-row arrays at random. Kept instead: each column's numerator changes are scattered into a per-call workspace inside `computeGradientAndHessian`, and dense columns use the same segment sums as sparse ones | both | yes for `cox` | **done**: 1.04–1.36x; the model state is only read, so columns can be evaluated concurrently (#8) |
-| 8 | **Parallelism** across strata (TBB), or GPU scans | both | yes / no | strata are independent; the scans are the existing CUB kernels |
+| 8 | **Multithreading** (`createControl(threads =)`) | both | yes: bitwise identical to one thread | **done**, see below: 1.5x on strongly regularized L1 fits, neutral otherwise |
 
 Measured effect of #3 and #2 (seconds per iteration, same data and iteration counts; B has 108
 non-zero coefficients out of 20,000):
@@ -255,6 +255,35 @@ non-zero coefficients out of 20,000):
 
 Adding #6 and #7 (double precision): A 0.046, B 0.020, C 0.039, D 0.066 seconds per iteration,
 60x, 650x and 70x faster than `main` for A, B and C.
+
+**Multithreading (#8).** Per-coordinate work at these sizes is 1–60 µs, too little to split
+across threads profitably, and each update changes the state that the next gradient needs. So
+threads go where the work is independent, and results stay bitwise identical to one thread:
+
+* **Coefficients at zero.** With an L1 prior, most coordinates sit at zero and stay there
+  (delta = 0), leaving the state unchanged. Runs of such coordinates have their gradients
+  computed in parallel, each thread with its own workspace. The run is then processed in order
+  exactly as the serial cycle and cut at the first coordinate that moves. How often candidates
+  move is tracked, and runs are dispatched only when fewer than 1 move is expected in
+  `8 × threads` candidates. A persistent pool, whose threads spin briefly before sleeping,
+  keeps the hand-off cheap.
+* **Setup.** Risk-set indices are built for all columns in parallel. Independently of threads,
+  the layout is no longer rebuilt when the pattern of non-zero weights is unchanged (the base
+  engine calls it twice per fit, and again for each predictive log-likelihood): 1.16–1.24x with
+  one thread.
+* CV keeps running folds in parallel; each fold fits with one thread, and the final fit uses
+  all threads.
+
+| seconds per iteration | 1 thread | 8 threads |
+|---|---|---|
+| B: 20k sparse covariates, laplace(0.1), 108 non-zero | 0.0184 | 0.0121 |
+| 1M rows, 20k sparse covariates, laplace(0.1), 3,187 non-zero | 0.326 | 0.319 |
+| A, C, D (every coordinate moves) | 0.045, 0.038, 0.054 | 0.043, 0.038, 0.054 |
+
+Without the move-rate check, the 1M-row fit ran 3.4x slower at 8 threads: runs broke every
+~6 coordinates. Larger gains would need parallel prefix sums in each update (the 1M-row fit
+spends most of its time in O(N) passes over 20k groups), which change the order of additions.
+Another option is parallel bootstrap replicates, which run serially today.
 
 **Single precision.** Differences of running hazard sums cancel badly in float. So FP32 segments
 sum the per-group increments `d/D` and `d/D^2` directly, as the Cox scan does, without the

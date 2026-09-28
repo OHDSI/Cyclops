@@ -15,6 +15,8 @@
 #include <time.h>
 #include <set>
 #include <list>
+#include <functional>
+#include <algorithm>
 
 //#include "Rcpp.h"
 
@@ -1202,6 +1204,8 @@ void CyclicCoordinateDescent::findMode(
 	    			}
 	    		}
 	    		hBeta = modelSpecifics.getBeta();
+	    	} else if (threads > 1) {
+	    		cycleWithConcurrentGradients(log);
 	    	} else {
 
 	    		// Do a complete cycle in serial
@@ -1630,6 +1634,82 @@ void CyclicCoordinateDescent::mmUpdateAllBeta(std::vector<double>& delta,
     }
 }
 
+
+void CyclicCoordinateDescent::setThreads(int threads) {
+	this->threads = std::max(threads, 1);
+	modelSpecifics.setThreads(this->threads);
+}
+
+void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<void(int)>& log) {
+
+	// A coordinate at zero that did not move last cycle, or has a Laplace prior, usually stays at
+	// zero (delta == 0), and then the model state is unchanged. So the gradients of a run of such
+	// coordinates are computed together, and the run is processed in order exactly as the serial
+	// cycle, stopping at the first coordinate that moves (the gradients after it are stale).
+	// Runs are only worth it when they are long, so the chance that a candidate moves is tracked,
+	// and runs are cut to about twice the expected run length.
+	if (stayedAtZero.size() != static_cast<size_t>(J)) {
+		stayedAtZero.assign(J, false);
+	}
+	const size_t maxRun = 1024;
+	const size_t minRun = 8 * static_cast<size_t>(threads); // enough work per thread
+	std::vector<int> run;
+	std::vector<GradientHessian> gh;
+
+	auto isCandidate = [this](int j) {
+		return !fixBeta[j] && hBeta[j] == 0.0 &&
+			(stayedAtZero[j] || jointPrior->getPriorType(j) == priors::LAPLACE);
+	};
+	auto finish = [this, &log](int index, double delta, bool candidate) {
+		delta = applyBounds(delta, index);
+		if (delta != 0.0) {
+			sufficientStatisticsKnown = false;
+			updateSufficientStatistics(delta, index);
+		}
+		stayedAtZero[index] = (delta == 0.0 && hBeta[index] == 0.0);
+		if (candidate) {
+			moveRate = 0.99 * moveRate + 0.01 * (delta != 0.0 ? 1.0 : 0.0);
+		}
+		log(index);
+		return delta != 0.0;
+	};
+
+	for (int index = 0; index < J; ) {
+		if (fixBeta[index]) {
+			log(index);
+			++index;
+			continue;
+		}
+
+		run.clear();
+		if (moveRate * minRun < 1.0) { // under one move expected in minRun candidates
+			const size_t cap = (moveRate > 0.0) ?
+				std::min(maxRun, std::max(minRun, static_cast<size_t>(2.0 / moveRate))) : maxRun;
+			for (int j = index; j < J && run.size() < cap && isCandidate(j); ++j) {
+				run.push_back(j);
+			}
+		}
+
+		if (run.size() >= minRun && modelSpecifics.computeGradientsAndHessians(run, gh, useCrossValidation)) {
+			size_t r = 0;
+			for (; r < run.size(); ++r) {
+				priors::GradientHessian g = gh[r];
+				if (g.second < 0.0) { // as in ccdUpdateBeta()
+					g.first = 0.0;
+					g.second = 0.0;
+				}
+				if (finish(run[r], jointPrior->getDelta(g, hBeta, run[r], *this), true)) {
+					break;
+				}
+			}
+			index = run[std::min(r, run.size() - 1)] + 1;
+		} else {
+			const bool candidate = isCandidate(index);
+			finish(index, ccdUpdateBeta(index), candidate);
+			++index;
+		}
+	}
+}
 
 double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 

@@ -694,6 +694,7 @@ double CcdInterface::fitModel(CyclicCoordinateDescent *ccd) {
 	//Eric: Commented this out.
 	//std::vector<double> weights(7, 1.0);
 	//ccd->setWeights(weights.data());
+	ccd->setThreads(arguments.threads == -1 ? bsccs::thread::hardware_concurrency() : arguments.threads);
 	ccd->update(arguments.modeFinding);
 
 	gettimeofday(&time2, NULL);
@@ -864,6 +865,7 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, AbstractMo
 		}
 	}
 
+	ccd->setThreads(1); // folds run in parallel instead; fitModel() restores the threads
 	driver->drive(*ccd, *selector, arguments);
 
 	gettimeofday(&time2, NULL);
