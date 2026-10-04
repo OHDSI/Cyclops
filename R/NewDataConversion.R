@@ -20,6 +20,17 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
     return(.isSorted(data, columnNames, ascending))
 }
 
+# The end of each row's (startTime, time] interval may also be called endTime
+.renameEndTime <- function(outcomes) {
+    if ("endTime" %in% colnames(outcomes)) {
+        if ("time" %in% colnames(outcomes)) {
+            stop("Give the end of each row's interval as time or endTime, not both", call. = FALSE)
+        }
+        outcomes <- rename(outcomes, time = "endTime")
+    }
+    outcomes
+}
+
 #' Convert data from two data frames or ffdf objects into a CyclopsData object
 #'
 #' @description
@@ -43,9 +54,10 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'   \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
 #'   \verb{y}    \tab(real) \tab The outcome variable \cr
 #'   \verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
-#'                  \tab        \tab(e.g. number of days) \cr
+#'                  \tab        \tab(e.g. number of days); it may instead be called \verb{endTime} \cr
 #'   \verb{startTime}    \tab(real) \tab (optional) For \code{"cox_counting"} models, the start of the \code{(startTime, time]} \cr
-#'                  \tab        \tab risk interval of each row; rows without it are at risk from time 0 \cr
+#'                  \tab        \tab (or \code{(startTime, endTime]}) risk interval of each row; rows without it are at risk \cr
+#'                  \tab        \tab from time 0 \cr
 #'   \verb{subjectId}    \tab(integer) \tab (optional) For Cox models, rows with the same subject stay in one cross-validation fold \cr
 #'   \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
 #'   \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided.
@@ -129,6 +141,8 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                             floatingPoint = 64) {
     if (!is.null(checkSorting))
         warning("The 'checkSorting' argument has been deprecated. Sorting is now always checked")
+
+    outcomes <- .renameEndTime(outcomes)
 
     if ((modelType == "clr" | modelType == "cpr") & addIntercept) {
         if (!quiet)
@@ -333,6 +347,8 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                                          floatingPoint = 64) {
     if (!is.null(checkSorting))
         warning("The 'checkSorting' argument has been deprecated. Sorting is now always checked")
+
+    outcomes <- .renameEndTime(outcomes)
 
     if ((modelType == "clr" | modelType == "cpr") & addIntercept) {
         if (!quiet) {

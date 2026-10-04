@@ -101,7 +101,8 @@ Other changes:
 * R interface:
   * `createCyclopsData(Surv(start, stop, event) ~ ... + cluster(id), modelType = "cox_counting")`;
   * `convertToCyclopsData(outcomes, covariates, modelType = "cox_counting")` with optional
-    `outcomes$startTime` and `outcomes$subjectId`, for both data frames and Andromeda;
+    `outcomes$startTime` and `outcomes$subjectId`, for both data frames and Andromeda; the end of
+    each interval is `outcomes$time` or, equivalently, `outcomes$endTime`;
   * `cox` accepts `cluster()` and `subjectId` as well, and stops with an error if any start time
     is non-zero;
   * `createControl(selectorType = "bySubject")` samples subjects for cross-validation and
@@ -141,13 +142,17 @@ maximum relative differences:
 Splitting right-censored rows with `survSplit` changes the log-likelihood, gradient and Hessian by
 exactly 0.
 
-### 3.2 Engine tests (`tests/testthat/test-countingProcessCox.R`, 26 tests)
+### 3.2 Engine tests (`tests/testthat/test-countingProcessCox.R`, 30 tests)
 
 Against `coxph` (coefficients and log-likelihood to 1e-6):
 * delayed entry, ties, strata, and case weights with a held-out row;
 * left truncation with strata and weights (n = 1500);
 * sparse and indicator covariates;
 * a time-varying exposure through `convertToCyclopsData`, for both data-frame and Andromeda input;
+* `convertToCyclopsData` with start times, strata, weights (with held-out rows) and rows in random
+  order, for both inputs (coefficients, log-likelihood and residuals against `coxph`); `endTime` in
+  place of `time`; zero start times under `cox`; and a risk window opening at the same time for
+  every row, which reproduces `cox`;
 * `vcov` for `cox` and `cox_counting`;
 * `cox_counting` Schoenfeld residuals (delayed entry, failure ties, strata, case weights including
   a held-out event, `survSplit` rows, left truncation; several covariates, `parm` subsets, and

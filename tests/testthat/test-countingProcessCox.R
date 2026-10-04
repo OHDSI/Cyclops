@@ -208,6 +208,117 @@ test_that("convertToCyclopsData with a time-varying exposure matches coxph", {
     expect_equal(coef(fitAndromeda), coef(fit), tolerance = tolerance)
 })
 
+test_that("convertToCyclopsData keeps startTime with its row, with strata and weights", {
+    data <- simulateLeftTruncated(1500, 818)
+    data$weight[1:40] <- 0 # held out
+    data$rowId <- seq_len(nrow(data))
+    gold <- coxph(Surv(start, stop, event) ~ x1 + x2 + x3 + strata(stratum), data, weights = weight,
+                  subset = weight > 0, ties = "breslow", model = TRUE)
+
+    # Rows in no particular order, so conversion has to sort them with their start times
+    set.seed(818)
+    outcomes <- data.frame(rowId = data$rowId, y = data$event, time = data$stop, startTime = data$start,
+                           stratumId = data$stratum, weights = data$weight)[sample(nrow(data)), ]
+    covariates <- rbind(data.frame(rowId = data$rowId, covariateId = 1, covariateValue = data$x1),
+                        data.frame(rowId = data$rowId, covariateId = 2, covariateValue = data$x2),
+                        data.frame(rowId = data$rowId, covariateId = 3, covariateValue = data$x3))
+    covariates <- covariates[covariates$covariateValue != 0, ]
+    covariates <- covariates[sample(nrow(covariates)), ]
+
+    fit <- fitCyclopsModel(convertToCyclopsData(outcomes, covariates, modelType = "cox_counting", quiet = TRUE),
+                           control = control)
+    expectMatchesCoxph(fit, gold)
+    # Residuals depend on each row's own risk interval
+    expect_equivalent(residuals(fit), residuals(gold, "schoenfeld"), tolerance = tolerance)
+
+    # Andromeda input; that path needs stratumId on the covariates, which CohortMethod provides
+    andromeda <- Andromeda::andromeda(outcomes = outcomes,
+                                      covariates = merge(covariates, outcomes[, c("rowId", "stratumId")]))
+    on.exit(Andromeda::close(andromeda))
+    fitAndromeda <- fitCyclopsModel(convertToCyclopsData(andromeda$outcomes, andromeda$covariates,
+                                                         modelType = "cox_counting", quiet = TRUE),
+                                    control = control)
+    expect_equal(coef(fitAndromeda), coef(fit), tolerance = tolerance)
+    expect_equal(as.numeric(logLik(fitAndromeda)), as.numeric(logLik(fit)), tolerance = tolerance)
+})
+
+test_that("convertToCyclopsData start-time checks, and starts that leave risk sets unchanged", {
+    data <- simulateLeftTruncated(500, 919)
+    outcomes <- data.frame(rowId = seq_len(nrow(data)), y = data$event, time = data$stop - data$start)
+    covariates <- data.frame(rowId = outcomes$rowId, covariateId = 1, covariateValue = data$x1)
+    fitFrom <- function(outcomes, modelType) {
+        fitCyclopsModel(convertToCyclopsData(outcomes, covariates, modelType = modelType, quiet = TRUE),
+                        control = control)
+    }
+    cox <- fitFrom(outcomes, "cox")
+
+    # A start-time column of zeros is accepted by cox and changes nothing
+    expect_identical(coef(fitFrom(transform(outcomes, startTime = 0), "cox")), coef(cox))
+    # cox_counting without start times is cox
+    expect_equal(coef(fitFrom(outcomes, "cox_counting")), coef(cox), tolerance = tolerance)
+    # A risk window opening at the same time for every row, e.g. 30 days after cohort start, has the
+    # same risk sets as time measured from the start of the window
+    shifted <- transform(outcomes, startTime = 30, time = time + 30)
+    expect_equal(coef(fitFrom(shifted, "cox_counting")), coef(cox), tolerance = tolerance)
+
+    # The input checks also hold for Andromeda input
+    andromeda <- Andromeda::andromeda(nonZeroStarts = transform(outcomes, startTime = 1:nrow(outcomes) %% 2),
+                                      startAfterStop = transform(outcomes, startTime = time),
+                                      covariates = covariates)
+    on.exit(Andromeda::close(andromeda))
+    expect_error(convertToCyclopsData(andromeda$nonZeroStarts, andromeda$covariates, modelType = "cox",
+                                      quiet = TRUE), "cox_counting")
+    expect_error(convertToCyclopsData(andromeda$startAfterStop, andromeda$covariates,
+                                      modelType = "cox_counting", quiet = TRUE),
+                 "Start times must be less than stop times")
+})
+
+test_that("convertToCyclopsData takes the end of each interval as time or endTime", {
+    data <- simulateLeftTruncated(500, 717)
+    outcomes <- data.frame(rowId = seq_len(nrow(data)), y = data$event, time = data$stop, startTime = data$start)
+    covariates <- data.frame(rowId = outcomes$rowId, covariateId = 1, covariateValue = data$x1)
+    withEndTime <- data.frame(rowId = outcomes$rowId, y = outcomes$y, startTime = outcomes$startTime,
+                              endTime = outcomes$time)
+    fitFrom <- function(outcomes, covariates) {
+        fitCyclopsModel(convertToCyclopsData(outcomes, covariates, modelType = "cox_counting", quiet = TRUE),
+                        control = control)
+    }
+    expected <- fitFrom(outcomes, covariates)
+    expect_identical(coef(fitFrom(withEndTime, covariates)), coef(expected))
+    expect_error(convertToCyclopsData(transform(outcomes, endTime = time), covariates,
+                                      modelType = "cox_counting", quiet = TRUE), "not both")
+
+    andromeda <- Andromeda::andromeda(withEndTime = withEndTime, both = transform(outcomes, endTime = time),
+                                      covariates = covariates)
+    on.exit(Andromeda::close(andromeda))
+    expect_equal(coef(fitFrom(andromeda$withEndTime, andromeda$covariates)), coef(expected), tolerance = tolerance)
+    expect_error(convertToCyclopsData(andromeda$both, andromeda$covariates, modelType = "cox_counting",
+                                      quiet = TRUE), "not both")
+})
+
+test_that("convertToCyclopsData subjectId changes folds and draws, not the fit", {
+    # survSplit rows tie at each cut, and subject order is the reverse of row order
+    lung2 <- na.omit(lung[, c("time", "status", "age")])
+    lung2$status <- lung2$status - 1
+    lung2$id <- rev(seq_len(nrow(lung2)))
+    split <- survSplit(Surv(time, status) ~ ., data = lung2, cut = c(100, 200, 365),
+                       start = "start", end = "stop", event = "event")
+    outcomes <- data.frame(rowId = seq_len(nrow(split)), y = split$event, time = split$stop,
+                           startTime = split$start)
+    covariates <- data.frame(rowId = outcomes$rowId, covariateId = 1, covariateValue = split$age)
+    withSubjects <- transform(outcomes, subjectId = split$id)
+    fitFrom <- function(outcomes, covariates) {
+        fitCyclopsModel(convertToCyclopsData(outcomes, covariates, modelType = "cox_counting", quiet = TRUE),
+                        control = control)
+    }
+    without <- fitFrom(outcomes, covariates)
+    expect_equal(coef(fitFrom(withSubjects, covariates)), coef(without), tolerance = tolerance)
+
+    andromeda <- Andromeda::andromeda(outcomes = withSubjects, covariates = covariates)
+    on.exit(Andromeda::close(andromeda))
+    expect_equal(coef(fitFrom(andromeda$outcomes, andromeda$covariates)), coef(without), tolerance = tolerance)
+})
+
 test_that("cox_counting predictive log-likelihood uses held-out (start, stop] risk sets", {
     # Fit on the first copy of the data, then score the second copy
     data <- rbind(data.frame(tied, copy = 0), data.frame(tied, copy = 1))

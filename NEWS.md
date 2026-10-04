@@ -4,9 +4,10 @@ Cyclops (development version)
 Changes:
 
 1. add `modelType = "cox_counting"` for counting-process data, `Surv(start, stop, event)` or
-   `convertToCyclopsData()` with `outcomes$startTime`: delayed entry (left truncation) and
-   time-varying covariates, with Breslow ties, strata, weights, profile-likelihood confidence
-   intervals, `vcov()`, Schoenfeld residuals, `testProportionality()` and `survfit()`
+   `convertToCyclopsData()` with `outcomes$startTime` (and the end as `time` or `endTime`): delayed
+   entry (left truncation) and time-varying covariates, with Breslow ties, strata, weights,
+   profile-likelihood confidence intervals, `vcov()`, Schoenfeld residuals, `testProportionality()`
+   and `survfit()`
 2. `cox` fits use one risk-set group per event time, range-limited denominator updates and
    prefix-sum gradients: 60-700x faster in benchmarks with 200,000 rows, with results that differ
    from the previous version only in the last bits
