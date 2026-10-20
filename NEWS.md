@@ -1,5 +1,5 @@
-Cyclops (development version)
-=============================
+Cyclops v3.8.0
+==============
 
 Changes:
 
