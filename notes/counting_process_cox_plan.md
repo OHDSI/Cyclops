@@ -142,7 +142,7 @@ maximum relative differences:
 Splitting right-censored rows with `survSplit` changes the log-likelihood, gradient and Hessian by
 exactly 0.
 
-### 3.2 Engine tests (`tests/testthat/test-countingProcessCox.R`, 30 tests)
+### 3.2 Engine tests (`tests/testthat/test-countingProcessCox.R`, 33 tests)
 
 Against `coxph` (coefficients and log-likelihood to 1e-6):
 * delayed entry, ties, strata, and case weights with a held-out row;
@@ -319,3 +319,6 @@ that `main` fits.
 6. Start times on the R side: `survfit` and `testProportionality` for `cox_counting`.
 7. Weighted `vcov` and GPU support are on hold.
 8. The Cox `vcov` check in `test-believedBroken.R` is re-enabled.
+9. `createControl(coxFitter = "legacy")` builds the old engine for `cox` on the CPU (for reproducing
+   earlier results, e.g. in CohortMethod); it is bitwise identical to `main`, and `cox_counting`
+   with `"legacy"` stops with an error. The default is `"efficient"`.

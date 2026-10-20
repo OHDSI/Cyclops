@@ -839,7 +839,7 @@ List cyclopsLogModel(SEXP inRcppCcdInterface) {
 
 // [[Rcpp::export(".cyclopsInitializeModel")]]
 List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, const std::string& computeDevice,
-                            bool computeMLE = false) {
+                            bool computeMLE = false, const std::string& coxFitter = "efficient") {
 	using namespace bsccs;
 
 	XPtr<AbstractModelData> rcppModelData(inModelData);
@@ -848,6 +848,7 @@ List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, cons
 
 	interface->getArguments().modelName = modelType;
 	interface->getArguments().computeDevice.name = computeDevice;
+	interface->getArguments().coxFitter = coxFitter;
 	if (computeMLE) {
 		interface->getArguments().computeMLE = true;
 	}
@@ -1230,7 +1231,8 @@ void RcppCcdInterface::initializeModelImpl(
 	    ? DeviceType::CPU : DeviceType::GPU;
 
 	*model = AbstractModelSpecifics::factory(modelType, **modelData,
-                                          deviceType, deviceName);
+                                          deviceType, deviceName,
+                                          arguments.coxFitter == "legacy");
 	if (*model == nullptr) {
 		handleError("Invalid model type.");
 	}

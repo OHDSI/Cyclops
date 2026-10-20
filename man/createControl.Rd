@@ -26,6 +26,7 @@ createControl(
   initialBound = 2,
   maxBoundCount = 5,
   algorithm = "ccd",
+  coxFitter = "efficient",
   doItAll = TRUE,
   syncCV = FALSE
 )
@@ -83,6 +84,11 @@ the average number of rows per stratum is smaller than the number of strata;
 \item{maxBoundCount}{Numeric: Maximum number of tries to decrease initial trust-region size}
 
 \item{algorithm}{String: name of fitting algorithm to employ; default is \code{ccd}}
+
+\item{coxFitter}{String: engine for \code{"cox"} models on the CPU. \code{"efficient"} (default)
+uses one risk-set group per event time; \code{"legacy"} uses the engine of
+Cyclops 3.7, for reproducing earlier results. Estimates agree up to rounding.
+\code{"cox_counting"} models need \code{"efficient"}}
 
 \item{doItAll}{Currently unused}
 

@@ -69,14 +69,16 @@ AbstractModelSpecifics* precisionFactory(
         const ModelType modelType,
         const ModelData<RealType>& modelData,
         const DeviceType deviceType,
-        const std::string& deviceName);
+        const std::string& deviceName,
+        const bool legacyCox);
 
 template <>
 AbstractModelSpecifics* precisionFactory<float>(
         const ModelType modelType,
         const ModelData<float>& modelData,
         const DeviceType deviceType,
-        const std::string& deviceName) {
+        const std::string& deviceName,
+        const bool legacyCox) {
 
     AbstractModelSpecifics* model = nullptr;
 
@@ -109,7 +111,7 @@ AbstractModelSpecifics* precisionFactory<float>(
     	model = deviceFactory<CoxProportionalHazards<float>,float>(modelData, deviceType, deviceName);
     	break;
     case ModelType::COX :
-        if (deviceType == DeviceType::CPU) { // one risk-set group per event time
+        if (deviceType == DeviceType::CPU && !legacyCox) { // one risk-set group per event time
             model = new CountingProcessModelSpecifics<float>(modelData);
         } else {
             model = deviceFactory<BreslowTiedCoxProportionalHazards<float>,float>(modelData, deviceType, deviceName);
@@ -176,7 +178,8 @@ AbstractModelSpecifics* precisionFactory<double>(
         const ModelType modelType,
         const ModelData<double>& modelData,
         const DeviceType deviceType,
-        const std::string& deviceName) {
+        const std::string& deviceName,
+        const bool legacyCox) {
 
     AbstractModelSpecifics* model = nullptr;
 
@@ -209,7 +212,7 @@ AbstractModelSpecifics* precisionFactory<double>(
         model = deviceFactory<CoxProportionalHazards<double>,double>(modelData, deviceType, deviceName);
         break;
     case ModelType::COX :
-        if (deviceType == DeviceType::CPU) { // one risk-set group per event time
+        if (deviceType == DeviceType::CPU && !legacyCox) { // one risk-set group per event time
             model = new CountingProcessModelSpecifics<double>(modelData);
         } else {
             model = deviceFactory<BreslowTiedCoxProportionalHazards<double>,double>(modelData, deviceType, deviceName);
@@ -274,7 +277,8 @@ AbstractModelSpecifics* precisionFactory<double>(
 AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelType,
                                                         const AbstractModelData& abstractModelData,
                                                         const DeviceType deviceType,
-                                                        const std::string& deviceName) {
+                                                        const std::string& deviceName,
+                                                        const bool legacyCox) {
 
     AbstractModelSpecifics* model = nullptr;
 
@@ -286,12 +290,12 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
     case PrecisionType::FP64 :
         model = precisionFactory<double>(modelType,
                                          static_cast<const ModelData<double>&>(abstractModelData),
-                                         deviceType, deviceName);
+                                         deviceType, deviceName, legacyCox);
         break;
     case PrecisionType::FP32 :
         model = precisionFactory<float>(modelType,
                                         static_cast<const ModelData<float>&>(abstractModelData),
-                                        deviceType, deviceName);
+                                        deviceType, deviceName, legacyCox);
         break;
     default :
         break;

@@ -466,8 +466,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsInitializeModel
-List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, const std::string& computeDevice, bool computeMLE);
-RcppExport SEXP _Cyclops_cyclopsInitializeModel(SEXP inModelDataSEXP, SEXP modelTypeSEXP, SEXP computeDeviceSEXP, SEXP computeMLESEXP) {
+List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, const std::string& computeDevice, bool computeMLE, const std::string& coxFitter);
+RcppExport SEXP _Cyclops_cyclopsInitializeModel(SEXP inModelDataSEXP, SEXP modelTypeSEXP, SEXP computeDeviceSEXP, SEXP computeMLESEXP, SEXP coxFitterSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -475,7 +475,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::string& >::type modelType(modelTypeSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type computeDevice(computeDeviceSEXP);
     Rcpp::traits::input_parameter< bool >::type computeMLE(computeMLESEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsInitializeModel(inModelData, modelType, computeDevice, computeMLE));
+    Rcpp::traits::input_parameter< const std::string& >::type coxFitter(coxFitterSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsInitializeModel(inModelData, modelType, computeDevice, computeMLE, coxFitter));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1050,7 +1051,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsRunBootstrap", (DL_FUNC) &_Cyclops_cyclopsRunBootstrap, 4},
     {"_Cyclops_cyclopsGetLogLikelihoodGradient", (DL_FUNC) &_Cyclops_cyclopsGetLogLikelihoodGradient, 1},
     {"_Cyclops_cyclopsLogModel", (DL_FUNC) &_Cyclops_cyclopsLogModel, 1},
-    {"_Cyclops_cyclopsInitializeModel", (DL_FUNC) &_Cyclops_cyclopsInitializeModel, 4},
+    {"_Cyclops_cyclopsInitializeModel", (DL_FUNC) &_Cyclops_cyclopsInitializeModel, 5},
     {"_Cyclops_cyclopsGetLogLikelihoodHessianDiagonal", (DL_FUNC) &_Cyclops_cyclopsGetLogLikelihoodHessianDiagonal, 2},
     {"_Cyclops_listGPUDevices", (DL_FUNC) &_Cyclops_listGPUDevices, 0},
     {"_Cyclops_getDefaultGPUDevice", (DL_FUNC) &_Cyclops_getDefaultGPUDevice, 0},

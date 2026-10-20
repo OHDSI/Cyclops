@@ -123,7 +123,8 @@ public:
 	static AbstractModelSpecifics* factory(const ModelType modelType,
                                            const AbstractModelData& modelData,
                                            const DeviceType deviceType,
-                                           const std::string& deviceName);
+                                           const std::string& deviceName,
+                                           const bool legacyCox = false);
 
 	virtual const std::vector<double> getXBeta() = 0;
 

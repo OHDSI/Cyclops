@@ -29,6 +29,8 @@ Changes:
     replicate)
 12. `runBootstrap()` resamples only rows (or strata, or subjects) with non-zero weight; it also drew
     held-out ones, so each replicate had a random number of draws from the fit
+13. `createControl(coxFitter = "legacy")` fits `cox` models with the engine of Cyclops 3.7, to reproduce
+    earlier results; the default, `"efficient"`, is the new engine
 
 Cyclops v3.7.1
 ==============

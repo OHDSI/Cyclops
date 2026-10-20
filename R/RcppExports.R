@@ -149,8 +149,8 @@
     .Call(`_Cyclops_cyclopsLogModel`, inRcppCcdInterface)
 }
 
-.cyclopsInitializeModel <- function(inModelData, modelType, computeDevice, computeMLE = FALSE) {
-    .Call(`_Cyclops_cyclopsInitializeModel`, inModelData, modelType, computeDevice, computeMLE)
+.cyclopsInitializeModel <- function(inModelData, modelType, computeDevice, computeMLE = FALSE, coxFitter = "efficient") {
+    .Call(`_Cyclops_cyclopsInitializeModel`, inModelData, modelType, computeDevice, computeMLE, coxFitter)
 }
 
 .cyclopsGetLogLikelihoodHessianDiagonal <- function(inRcppCcdInterface, sexpCovariates) {

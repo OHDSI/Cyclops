@@ -135,6 +135,7 @@ struct CCDArguments {
 	// Needed for model specification
 	int modelType;
 	std::string modelName;
+	std::string coxFitter; // "efficient" (one risk-set group per event time) or "legacy"
 
 	NoiseLevels noiseLevel;
 

@@ -99,7 +99,12 @@ fitCyclopsModel <- function(cyclopsData,
         stop("Data are incompletely loaded")
     }
 
-    .checkInterface(cyclopsData, computeDevice =  computeDevice, forceNewObject = forceNewObject)
+    coxFitter <- .coxFitter(control)
+    if (coxFitter == "legacy" && cyclopsData$modelType == "cox_counting") {
+        stop("The legacy Cox fitter does not handle start times; use createControl(coxFitter = \"efficient\")")
+    }
+    .checkInterface(cyclopsData, computeDevice =  computeDevice, forceNewObject = forceNewObject,
+                    coxFitter = coxFitter)
 
     # Set up prior
     stopifnot(inherits(prior, "cyclopsPrior"))
@@ -449,11 +454,17 @@ clearCyclopsModelCache <- function() {
     }
 }
 
-.checkInterface <- function(x, computeDevice = "native", forceNewObject = FALSE, testOnly = FALSE) {
+.coxFitter <- function(control) { # controls created before coxFitter existed lack it
+    if (is.null(control$coxFitter)) "efficient" else control$coxFitter
+}
+
+.checkInterface <- function(x, computeDevice = "native", forceNewObject = FALSE, testOnly = FALSE,
+                            coxFitter = NULL) {
     if (forceNewObject
         || is.null(x$cyclopsInterfacePtr)
         || !inherits(x$cyclopsInterfacePtr, "externalptr")
         || .isRcppPtrNull(x$cyclopsInterfacePtr)
+        || (!is.null(coxFitter) && !identical(x$coxFitter, coxFitter))
         #|| .cyclopsGetComputeDevice(x$cyclopsInterfacePtr) != computeDevice TODO is this necessary?
     ) {
 
@@ -466,9 +477,14 @@ clearCyclopsModelCache <- function() {
         }
 
         # Build interface
-        interface <- .cyclopsInitializeModel(x$cyclopsDataPtr, modelType = x$modelType, computeDevice, computeMLE = TRUE)
+        if (is.null(coxFitter)) {
+            coxFitter <- "efficient"
+        }
+        interface <- .cyclopsInitializeModel(x$cyclopsDataPtr, modelType = x$modelType, computeDevice,
+                                             computeMLE = TRUE, coxFitter = coxFitter)
         # TODO Check for errors
         assign("cyclopsInterfacePtr", interface$interface, x)
+        assign("coxFitter", coxFitter, x)
     }
 }
 
@@ -630,6 +646,10 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param initialBound          Numeric: Starting trust-region size
 #' @param maxBoundCount         Numeric: Maximum number of tries to decrease initial trust-region size
 #' @param algorithm             String: name of fitting algorithm to employ; default is `ccd`
+#' @param coxFitter             String: engine for \code{"cox"} models on the CPU. \code{"efficient"} (default)
+#'                              uses one risk-set group per event time; \code{"legacy"} uses the engine of
+#'                              Cyclops 3.7, for reproducing earlier results. Estimates agree up to rounding.
+#'                              \code{"cox_counting"} models need \code{"efficient"}
 #' @param doItAll               Currently unused
 #' @param syncCV                Currently unused
 #'
@@ -662,6 +682,7 @@ createControl <- function(maxIterations = 1000,
                           initialBound = 2.0,
                           maxBoundCount = 5,
                           algorithm = "ccd",
+                          coxFitter = "efficient",
                           doItAll = TRUE,
                           syncCV = FALSE) {
     validCVNames = c("grid", "auto")
@@ -675,6 +696,7 @@ createControl <- function(maxIterations = 1000,
 
     validAlgorithmNames = c("ccd", "mm")
     stopifnot(algorithm %in% validAlgorithmNames)
+    stopifnot(coxFitter %in% c("efficient", "legacy"))
 
     structure(list(maxIterations = maxIterations,
                    tolerance = tolerance,
@@ -697,6 +719,7 @@ createControl <- function(maxIterations = 1000,
                    initialBound = initialBound,
                    maxBoundCount = maxBoundCount,
                    algorithm = algorithm,
+                   coxFitter = coxFitter,
                    doItAll = doItAll,
                    syncCV = syncCV),
               class = "cyclopsControl")
@@ -1146,7 +1169,8 @@ getCyclopsProfileLogLikelihood <- function(object,
                 warning("Coefficient drift detected. Resetting Cyclops object and recomputing all likelihood values computed so far.")
                 grid <- profile$point
                 profile <- tibble()
-                interface <- .cyclopsInitializeModel(object$cyclopsData$cyclopsDataPtr, modelType = object$cyclopsData$modelType, "native", computeMLE = TRUE)
+                interface <- .cyclopsInitializeModel(object$cyclopsData$cyclopsDataPtr, modelType = object$cyclopsData$modelType, "native", computeMLE = TRUE,
+                                                     coxFitter = if (is.null(object$cyclopsData$coxFitter)) "efficient" else object$cyclopsData$coxFitter)
                 assign("cyclopsInterfacePtr", interface$interface, object)
                 resetsPerformed <- resetsPerformed + 1
                 next
