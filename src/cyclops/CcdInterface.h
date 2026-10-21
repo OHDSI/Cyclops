@@ -191,7 +191,11 @@ public:
             std::vector<double>& values,
             std::vector<double>* derivatives,
             int threads,
-            bool includePenalty);
+            bool includePenalty,
+            const std::vector<double>& startPoints,
+            const std::vector<double>& startBetas,
+            std::vector<double>* betas,
+            bool chain);
 
     double runCrossValidation(
             CyclicCoordinateDescent *ccd,

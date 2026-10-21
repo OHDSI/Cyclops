@@ -35,6 +35,11 @@ Changes:
     within `maxDrop` of its maximum; the default, `Inf`, refines everywhere as before. With wide
     bounds, `maxDrop = 50` saves most evaluations and leaves the profile accurate to `tolerance`
     within 50 of its maximum, as evidence synthesis needs
+15. `getCyclopsProfileLogLikelihood()` starts the fit at each point from the solution at the
+    nearest point already evaluated and no longer refits at a coefficient of 0 first, so adaptive
+    profiles need far fewer iterations. Results no longer depend on `threads`, and differ from the
+    previous version only within the convergence tolerance. With more than one thread, profiles also
+    keep `fixedCoefficients` fixed (they let them vary)
 
 Cyclops v3.7.1
 ==============

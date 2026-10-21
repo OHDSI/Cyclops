@@ -175,3 +175,24 @@ test_that("Check adaptive profiling refines only within maxDrop of the maximum",
     interpolated <- approx(drop$point, drop$value, xout = full$point[near])$y
     expect_lt(max(abs(interpolated - full$value[near])), 0.1)
 })
+
+test_that("Check profile likelihood does not depend on the number of threads", {
+    set.seed(123)
+    sim <- simulateCyclopsData(nstrata = 200, nrows = 2000, ncovars = 4, effectSizeSd = 0.5,
+                               zeroEffectSizeProp = 0, model = "poisson")
+    data <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = "cpr",
+                                 addIntercept = FALSE, quiet = TRUE)
+    x <- seq(-1, 1, length.out = 9)
+    profiles <- lapply(c(1, 2), function(threads) {
+        # Fixed coefficients stay fixed in every thread
+        fit <- fitCyclopsModel(data, fixedCoefficients = c(FALSE, TRUE, FALSE, FALSE),
+                               control = createControl(threads = threads), forceNewObject = TRUE)
+        list(adaptive = getCyclopsProfileLogLikelihood(fit, "1", bounds = c(-3, 3), tolerance = 0.1),
+             grid = getCyclopsProfileLogLikelihood(fit, "3", x = x),
+             single = sapply(x, function(v) getCyclopsProfileLogLikelihood(fit, "3", x = v)$value))
+    })
+    expect_identical(profiles[[1]], profiles[[2]])
+
+    # Warm starts reach the same profile as fits that each start from the estimate
+    expect_equal(profiles[[1]]$grid$value, profiles[[1]]$single)
+})

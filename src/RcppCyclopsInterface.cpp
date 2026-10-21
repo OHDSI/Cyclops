@@ -493,7 +493,11 @@ DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface,
                                  SEXP inCovariate,
                                  const std::vector<double> points,
                                  int threads, bool includePenalty,
-                                 bool returnDerivatives) {
+                                 bool returnDerivatives,
+                                 const std::vector<double>& startPoints,
+                                 const std::vector<double>& startBetas,
+                                 bool returnBetas,
+                                 bool chain) {
     using namespace bsccs;
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
@@ -502,28 +506,35 @@ DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface,
     std::memcpy(&covariate, &bitCovariate, sizeof(double));
     //const IdType covariate = as<IdType>(inCovariate);
 
+    const int J = interface->getCcd().getBetaSize();
+    if (startBetas.size() != startPoints.size() * J) {
+        interface->handleError("Starting solutions do not match the starting points");
+    }
+
     std::vector<double> values(points.size());
+    std::vector<double> derivatives(returnDerivatives ? points.size() : 0);
+    std::vector<double> betas;
 
-    if (!returnDerivatives) {
-        interface->evaluateProfileModel(covariate, points, values, nullptr, threads, includePenalty);
+    interface->evaluateProfileModel(covariate, points, values,
+                                    returnDerivatives ? &derivatives : nullptr,
+                                    threads, includePenalty, startPoints, startBetas,
+                                    returnBetas ? &betas : nullptr, chain);
 
-        return DataFrame::create(
-            Rcpp::Named("point") = points,
-            Rcpp::Named("value") = values
-        );
-
-    } else {
-
-        std::vector<double> derivatives(points.size());
-
-        interface->evaluateProfileModel(covariate, points, values, &derivatives, threads, includePenalty);
-
-        return DataFrame::create(
+    DataFrame result = returnDerivatives ?
+        DataFrame::create(
             Rcpp::Named("point") = points,
             Rcpp::Named("value") = values,
-            Rcpp::Named("derivative") = derivatives
-        );
+            Rcpp::Named("derivative") = derivatives) :
+        DataFrame::create(
+            Rcpp::Named("point") = points,
+            Rcpp::Named("value") = values);
+
+    if (returnBetas) {
+        NumericMatrix solutions(J, points.size());
+        std::copy(betas.begin(), betas.end(), solutions.begin());
+        result.attr("betas") = solutions;
     }
+    return result;
 }
 
 // [[Rcpp::export(".cyclopsProfileModel")]]

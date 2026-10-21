@@ -37,7 +37,10 @@ detected.}
 
 \item{includePenalty}{Logical: Include regularized covariate penalty in profile}
 
-\item{optimalWarmStart}{Logical: Use optimal warm-starting when parallelizing evaluations}
+\item{optimalWarmStart}{Logical: also warm-start each point from the solutions at the requested points between
+it and the estimate. Each fit starts from the solution at the nearest such point, the
+estimate or (adaptive profiling) a point already evaluated, so results do not depend
+on the number of threads}
 
 \item{returnDerivatives}{Return derivative of log-likelihood wrt the parameter \code{param} at each evaluation point}
 
