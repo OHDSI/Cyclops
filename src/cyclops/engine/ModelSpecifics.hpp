@@ -14,6 +14,7 @@
 #include <numeric>
 #include <limits>
 #include <deque>
+#include <unordered_map>
 
 #include "ModelSpecifics.h"
 #include "Iterators.h"
@@ -1998,6 +1999,22 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
         const RealType* values = IteratorType::isIndicator ? nullptr : hX.getDataVector(index);
         const StratumSegments& segments = stratumSegments[index];
 
+        // offsExpXBeta = offs * exp(xBeta) in grouped models, so an update multiplies it by exp(delta * x):
+        // one exp() for an indicator column, one per distinct value of a coded sparse column
+        RealType indicatorFactor = static_cast<RealType>(1);
+        const uint16_t* codes = nullptr;
+        if (IteratorType::isIndicator) {
+            indicatorFactor = std::exp(realDelta);
+        } else if (!valueCodes[index].codes.empty()) {
+            const RealVector& distinct = valueCodes[index].values;
+            expFactors.resize(distinct.size());
+            for (size_t d = 0; d < distinct.size(); ++d) {
+                expFactors[d] = std::exp(realDelta * distinct[d]);
+            }
+            codes = valueCodes[index].codes.data();
+        }
+        const bool multiply = IteratorType::isIndicator || codes != nullptr;
+
         for (size_t s = 0; s < segments.strata.size(); ++s) {
             RealType denominator = denomPid[segments.strata[s]]; // the same additions, in a register
 
@@ -2007,7 +2024,14 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
 
                 if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
                     RealType oldEntry = offsExpXBeta[k];
-                    RealType newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
+                    RealType newEntry;
+                    if (multiply && oldEntry >= std::numeric_limits<RealType>::min() &&
+                        oldEntry <= std::numeric_limits<RealType>::max()) { // not 0, subnormal, inf or NaN
+                        newEntry = oldEntry * (IteratorType::isIndicator ? indicatorFactor : expFactors[codes[i]]);
+                    } else {
+                        newEntry = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
+                    }
+                    offsExpXBeta[k] = newEntry;
                     denominator += (newEntry - oldEntry);
                 }
             }
@@ -2398,6 +2422,39 @@ void ModelSpecifics<BaseModel,RealType>::setupStratumSegments() {
 }
 
 template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::setupValueCodes() {
+    valueCodes.assign(J, ValueCodes());
+
+    for (size_t j = 0; j < J; ++j) {
+        if (hX.getFormatType(j) == SPARSE) {
+            const size_t n = hX.getNumberOfEntries(j);
+            const RealType* x = hX.getDataVector(j);
+            // Worthwhile when an exp() per distinct value is much cheaper than one per entry
+            const size_t maxValues = std::min(n / 4, static_cast<size_t>(std::numeric_limits<uint16_t>::max()) + 1);
+
+            std::unordered_map<RealType, uint16_t> index;
+            ValueCodes& coded = valueCodes[j];
+            coded.codes.resize(n);
+            size_t i = 0;
+            for (; i < n; ++i) {
+                auto found = index.find(x[i]);
+                if (found == index.end()) {
+                    if (coded.values.size() == maxValues) {
+                        break; // too many distinct values
+                    }
+                    found = index.emplace(x[i], static_cast<uint16_t>(coded.values.size())).first;
+                    coded.values.push_back(x[i]);
+                }
+                coded.codes[i] = found->second;
+            }
+            if (i < n) {
+                coded = ValueCodes();
+            }
+        }
+    }
+}
+
+template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::deviceInitialization() {
     // Do nothing
 }
@@ -2441,6 +2498,7 @@ void ModelSpecifics<BaseModel,RealType>::initialize(
     } // else sparseIndices are not needed: only the cumulative scans and their numerators read them
     if (BaseModel::hasNtoKIndices) {
         setupStratumSegments();
+        setupValueCodes();
     }
 #ifdef CYCLOPS_DEBUG_TIMING_GPU_COX
 	auto end = std::chrono::steady_clock::now();

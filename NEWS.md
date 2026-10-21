@@ -37,6 +37,12 @@ Changes:
     log-likelihood and prior only when it prints them
 15. single-precision (`floatingPoint = 32`) `cpr`, `sccs` and `clr` fits no longer leave out the last
     entries of a column with more than 2^24 (about 16.8 million) entries
+16. `cpr`, `sccs` and `clr` fits update `exp(xBeta)` with one `exp()` per indicator column, or one per
+    distinct value of a sparse column with few values (such as spline bases), instead of one per
+    entry: about 3.5x faster than Cyclops 3.7 together with item 14. Results change in the last bits
+    (coefficients by about 1e-11 relative, with the same number of iterations); single-precision fits
+    move by less than their distance from double precision and can take a different number of
+    iterations
 
 Cyclops v3.7.1
 ==============

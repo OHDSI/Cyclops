@@ -14,6 +14,7 @@
 #include <stdexcept>
 #include <thread>
 #include <complex>
+#include <cstdint>
 
 //#define CYCLOPS_DEBUG_TIMING
 //#define CYCLOPS_DEBUG_TIMING_GPU_COX
@@ -257,6 +258,16 @@ protected:
 	std::vector<StratumSegments> stratumSegments; // by column, for grouped models
 
 	void setupStratumSegments();
+
+	// Sparse columns with few distinct values: the value of each entry as an index into a table
+	struct ValueCodes {
+		RealVector values;            // distinct values
+		std::vector<uint16_t> codes;  // index of the value of each entry; empty if not worthwhile
+	};
+	std::vector<ValueCodes> valueCodes; // by column, for grouped models
+	RealVector expFactors; // exp(delta * value) for each distinct value of the updated column
+
+	void setupValueCodes();
 
 	bool initializeAccumulationVectors(void);
 
