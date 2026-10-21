@@ -31,6 +31,10 @@ Changes:
     held-out ones, so each replicate had a random number of draws from the fit
 13. `createControl(coxFitter = "legacy")` fits `cox` models with the engine of Cyclops 3.7, to reproduce
     earlier results; the default, `"efficient"`, is the new engine
+14. `getCyclopsProfileLogLikelihood(maxDrop = )` refines the adaptive profile only where it lies
+    within `maxDrop` of its maximum; the default, `Inf`, refines everywhere as before. With wide
+    bounds, `maxDrop = 50` saves most evaluations and leaves the profile accurate to `tolerance`
+    within 50 of its maximum, as evidence synthesis needs
 
 Cyclops v3.7.1
 ==============

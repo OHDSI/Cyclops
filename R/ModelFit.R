@@ -1095,6 +1095,11 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 #' @param includePenalty    Logical: Include regularized covariate penalty in profile
 #' @param optimalWarmStart Logical: Use optimal warm-starting when parallelizing evaluations
 #' @param returnDerivatives Return derivative of log-likelihood wrt the parameter `param` at each evaluation point
+#' @param maxDrop   Numeric: adaptive profiling does not refine intervals whose two end points both lie more than
+#'                  \code{maxDrop} below the largest profile log likelihood found so far; their points remain in
+#'                  the result. The default (\code{Inf}) refines everywhere. With wide bounds, a value
+#'                  such as 50 saves most evaluations, and the profile stays within \code{tolerance}
+#'                  wherever it lies within 50 of its maximum, as evidence synthesis needs
 #'
 #' @return
 #' A data frame containing the profile log likelihood. Returns NULL when the adaptive profiling fails
@@ -1110,7 +1115,8 @@ getCyclopsProfileLogLikelihood <- function(object,
                                            maxResets = 10,
                                            includePenalty = TRUE,
                                            optimalWarmStart = TRUE,
-                                           returnDerivatives = FALSE) {
+                                           returnDerivatives = FALSE,
+                                           maxDrop = Inf) {
 
     if (!xor(is.null(x), is.null(bounds))) {
         stop("Must provide either `x` or `bounds`, but not both.")
@@ -1127,6 +1133,9 @@ getCyclopsProfileLogLikelihood <- function(object,
 
         if (length(bounds) != 2 || bounds[1] >= bounds[2]) {
             stop("Must provide bounds[1] < bounds[2]")
+        }
+        if (!(maxDrop > 0)) {
+            stop("Must provide maxDrop > 0")
         }
         profile <- .initAdaptiveProfile(object, parm, bounds, includePenalty, optimalWarmStart, returnDerivatives)
 
@@ -1191,14 +1200,18 @@ getCyclopsProfileLogLikelihood <- function(object,
             maxError <- abs((profile$value[1:(nrow(profile) - 1)] + (interceptX - profile$point[1:(nrow(profile) - 1)]) * slopes[1:(length(slopes) - 2)]) -
                                 (profile$value[1:(nrow(profile) - 1)] + (interceptX - profile$point[1:(nrow(profile) - 1)]) * slopes[2:(length(slopes) - 1)]))
 
-            maxMaxError <- max(maxError, na.rm = TRUE)
+            # Refine only intervals with an end point within maxDrop of the largest value
+            relevant <- pmax(profile$value[1:(nrow(profile) - 1)], profile$value[2:nrow(profile)]) >=
+                max(profile$value) - maxDrop
+
+            maxMaxError <- max(maxError[relevant], na.rm = TRUE)
             if (is.na(maxMaxError) || maxMaxError > priorMaxMaxError) {
                 warning("Failing to converge when using adaptive profiling.")
                 return(NULL)
             }
             priorMaxMaxError <- maxMaxError
 
-            exceed <- which(maxError > tolerance)
+            exceed <- which(maxError > tolerance & relevant)
             grid <- (profile$point[exceed] + profile$point[exceed + 1]) / 2
         }
     } else { # Use x

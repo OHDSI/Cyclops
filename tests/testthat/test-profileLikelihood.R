@@ -150,3 +150,28 @@ start, length, event, x1, x2
                    "Failing to compute likelihood at entire initial grid")
 })
 
+
+test_that("Check adaptive profiling refines only within maxDrop of the maximum", {
+    set.seed(123)
+    sim <- simulateCyclopsData(nstrata = 200, nrows = 2000, ncovars = 2, effectSizeSd = 0.5,
+                               zeroEffectSizeProp = 0, model = "poisson")
+    data <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = "cpr",
+                                 addIntercept = FALSE, quiet = TRUE)
+    fit <- fitCyclopsModel(data)
+
+    expect_error(getCyclopsProfileLogLikelihood(fit, "1", bounds = c(-3, 3), maxDrop = 0),
+                 "maxDrop")
+
+    full <- getCyclopsProfileLogLikelihood(fit, "1", bounds = c(-3, 3), tolerance = 0.1)
+    drop <- getCyclopsProfileLogLikelihood(fit, "1", bounds = c(-3, 3), tolerance = 0.1,
+                                           maxDrop = 5)
+
+    expect_lt(nrow(drop), nrow(full))
+    expect_equal(range(drop$point), c(-3, 3))
+    expect_equal(max(drop$value), max(full$value))
+
+    # Within maxDrop of the maximum, interpolating the profile is as accurate as without maxDrop
+    near <- full$value >= max(full$value) - 5
+    interpolated <- approx(drop$point, drop$value, xout = full$point[near])$y
+    expect_lt(max(abs(interpolated - full$value[near])), 0.1)
+})

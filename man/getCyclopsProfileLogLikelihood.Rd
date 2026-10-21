@@ -14,7 +14,8 @@ getCyclopsProfileLogLikelihood(
   maxResets = 10,
   includePenalty = TRUE,
   optimalWarmStart = TRUE,
-  returnDerivatives = FALSE
+  returnDerivatives = FALSE,
+  maxDrop = Inf
 )
 }
 \arguments{
@@ -39,6 +40,12 @@ detected.}
 \item{optimalWarmStart}{Logical: Use optimal warm-starting when parallelizing evaluations}
 
 \item{returnDerivatives}{Return derivative of log-likelihood wrt the parameter \code{param} at each evaluation point}
+
+\item{maxDrop}{Numeric: adaptive profiling does not refine intervals whose two end points both lie more than
+\code{maxDrop} below the largest profile log likelihood found so far; their points remain in
+the result. The default (\code{Inf}) refines everywhere. With wide bounds, a value
+such as 50 saves most evaluations, and the profile stays within \code{tolerance}
+wherever it lies within 50 of its maximum, as evidence synthesis needs}
 }
 \value{
 A data frame containing the profile log likelihood. Returns NULL when the adaptive profiling fails
