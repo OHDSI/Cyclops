@@ -100,3 +100,24 @@ test_that("Conditional Poisson stratum denominators stay exact when they shrink"
         expect_equal(fit$estimation$estimate, coef(gold)[["x"]], tolerance = 1E-6)
     }
 })
+
+test_that("Conditional Poisson fit does not stop while steps are cut short by their bounds", {
+    formula <- event ~ exgr + agegr + strata(indiv) + offset(loginterval)
+    gold <- fitCyclopsModel(createCyclopsData(formula, data = Cyclops::oxford, modelType = "cpr"))
+    # The first cycle moves each coefficient by at most initialBound, so the objective barely changes
+    small <- fitCyclopsModel(createCyclopsData(formula, data = Cyclops::oxford, modelType = "cpr"),
+                             control = createControl(initialBound = 1E-6))
+    expect_equal(small$return_flag, "SUCCESS")
+    expect_equal(coef(small), coef(gold), tolerance = 1E-6)
+
+    # Each ILLCONDITIONED retry from a distant start shrinks the bound by 10, until a first cycle that
+    # hardly moves looked converged
+    set.seed(123)
+    data <- data.frame(stratum = rep(1:100, each = 4), x = rbinom(400, 1, 0.5), time = runif(400, 10, 100))
+    data$y <- rpois(400, data$time * exp(0.5 * data$x) / 100)
+    formula <- y ~ x + strata(stratum) + offset(log(time))
+    gold <- fitCyclopsModel(createCyclopsData(formula, data = data, modelType = "cpr"))
+    far <- fitCyclopsModel(createCyclopsData(formula, data = data, modelType = "cpr"), startingCoefficients = 40,
+                           control = createControl(maxBoundCount = 8), warnings = FALSE)
+    expect_true(far$return_flag != "SUCCESS" || abs(far$estimation$estimate - coef(gold)[["x"]]) < 1E-6)
+})

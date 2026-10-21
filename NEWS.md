@@ -39,6 +39,9 @@ Changes:
     Updating them by differences lost all precision when a denominator shrank by many orders of
     magnitude (for example, age and calendar-time splines with one outcome per case, or a distant
     starting value), giving wrong estimates or `ILLCONDITIONED`
+16. a fit no longer reports convergence after a cycle in which a step was cut short by its bound.
+    After `ILLCONDITIONED` retries shrank `initialBound`, the first cycle barely moved, and the fit
+    returned `SUCCESS` with coefficients near their starting values
 
 Cyclops v3.7.1
 ==============

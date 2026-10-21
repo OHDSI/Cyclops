@@ -403,6 +403,7 @@ protected:
 // 	DoubleVector& hXBeta; // TODO Delegate to ModelSpecifics
 // 	DoubleVector& hXBetaSave; // Delegate
 	DoubleVector hDelta;
+	bool boundLimitedStep = false; // a step in the current cycle was cut short by its bound
 	std::vector<bool> fixBeta;
 
 	int N; // Number of patients
