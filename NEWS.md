@@ -35,6 +35,10 @@ Changes:
     its number of events, as the likelihood does. Standard errors were too large with several events
     per stratum (by about the square root of the mean number) and too small when some strata had no
     events. `vcov()` after refitting the same data also reused stratum terms from the earlier fit
+15. `cpr`, `sccs` and `clr` fits re-sum the stratum denominators when coefficients have moved far.
+    Updating them by differences lost all precision when a denominator shrank by many orders of
+    magnitude (for example, age and calendar-time splines with one outcome per case, or a distant
+    starting value), giving wrong estimates or `ILLCONDITIONED`
 
 Cyclops v3.7.1
 ==============

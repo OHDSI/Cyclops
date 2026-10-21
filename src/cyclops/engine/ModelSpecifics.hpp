@@ -1991,6 +1991,26 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
         }
     }
 
+    if (BaseModel::likelihoodHasDenominator && BaseModel::hasNtoKIndices && !BaseModel::cumulativeGradientAndHessian) {
+        // denomPid += new - old cancels when a denominator shrinks by many orders of magnitude, down to
+        // zero or negative values. Re-sum all strata once entries may have moved by a factor of
+        // exp(6.9) = 1000 since the last exact summation.
+        if (columnMaxAbsX.size() != J) {
+            columnMaxAbsX.assign(J, -1.0);
+        }
+        if (columnMaxAbsX[index] < 0.0) {
+            double m = 0.0;
+            for (IteratorType itMax(hX, index); itMax; ++itMax) {
+                m = std::max(m, std::abs(static_cast<double>(itMax.value())));
+            }
+            columnMaxAbsX[index] = m;
+        }
+        denomMove += std::abs(static_cast<double>(realDelta)) * columnMaxAbsX[index];
+        if (denomMove > 6.9) {
+            resumStratumDenominators();
+        }
+    }
+
 	computeAccumlatedDenominator(Weights::isWeighted);
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -2034,9 +2054,19 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatisticsImpl() {
                 }
 */
             }
+            denomMove = 0.0;
         }
         computeAccumlatedDenominator(Weights::isWeighted);
     }
+}
+
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::resumStratumDenominators() {
+    fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());
+    for (size_t k = 0; k < K; ++k) {
+        incrementByGroup(denomPid.data(), hPid, k, offsExpXBeta[k]);
+    }
+    denomMove = 0.0;
 }
 
 template <class BaseModel,typename RealType>

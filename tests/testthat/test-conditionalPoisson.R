@@ -84,3 +84,19 @@ test_that("Check simple SCCS as SCCS", {
     expect_equal(coef(cyclopsFit), coef(gold.clogit), tolerance = tolerance)
 })
 
+
+test_that("Conditional Poisson stratum denominators stay exact when they shrink", {
+    # x has a large common level, so a start at beta = 5 multiplies every stratum denominator by about
+    # exp(50); incremental updates used to cancel down to wrong or negative denominators on the way back
+    set.seed(123)
+    data <- data.frame(stratum = rep(1:100, each = 4), x = 10 + runif(400), time = runif(400, 10, 100))
+    data$y <- rpois(400, data$time * exp(0.5 * data$x - 5) / 100)
+    formula <- y ~ x + strata(stratum) + offset(log(time))
+    gold <- fitCyclopsModel(createCyclopsData(formula, data = data, modelType = "cpr"))
+    for (start in c(3, 4, 5, 8)) {
+        fit <- fitCyclopsModel(createCyclopsData(formula, data = data, modelType = "cpr"),
+                               startingCoefficients = start, warnings = FALSE)
+        expect_equal(fit$return_flag, "SUCCESS")
+        expect_equal(fit$estimation$estimate, coef(gold)[["x"]], tolerance = 1E-6)
+    }
+})

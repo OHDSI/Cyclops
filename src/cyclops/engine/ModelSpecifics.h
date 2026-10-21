@@ -210,6 +210,10 @@ protected:
 
 	void computeRemainingStatistics(bool useWeights);
 
+	void resumStratumDenominators();
+	double denomMove = 0.0;                 // log-scale movement since the last exact summation
+	std::vector<double> columnMaxAbsX;      // max |x| per column
+
 	void computeAccumlatedNumerator(bool useWeights);
 
 	void computeAccumlatedDenominator(bool useWeights);
