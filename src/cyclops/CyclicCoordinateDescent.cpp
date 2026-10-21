@@ -978,12 +978,12 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
     } // Necessary to call getObjFxn or computeZO before getLogLikelihood,
     // since these copy over XBeta
 
-    double thisLogLikelihood = getLogLikelihood();
-    double thisLogPrior = getLogPrior();
-    double thisLogPost = thisLogLikelihood + thisLogPrior;
-
     std::ostringstream stream;
-    if (noiseLevel > QUIET) {
+    if (noiseLevel > QUIET) { // the log-likelihood and prior are only reported
+        double thisLogLikelihood = getLogLikelihood();
+        double thisLogPrior = getLogPrior();
+        double thisLogPost = thisLogLikelihood + thisLogPrior;
+
         // stream << "\n";
         // printVector(&hBeta[0], J, stream);
         stream << "\n";
