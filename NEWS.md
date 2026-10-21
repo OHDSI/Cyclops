@@ -35,6 +35,8 @@ Changes:
     that only Cox models read are no longer filled, the gradient and the `xBeta` update walk each
     column's entries one stratum at a time, and the convergence check of every model computes the
     log-likelihood and prior only when it prints them
+15. single-precision (`floatingPoint = 32`) `cpr`, `sccs` and `clr` fits no longer leave out the last
+    entries of a column with more than 2^24 (about 16.8 million) entries
 
 Cyclops v3.7.1
 ==============
