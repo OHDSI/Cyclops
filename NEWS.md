@@ -42,6 +42,10 @@ Changes:
 16. a fit no longer reports convergence after a cycle in which a step was cut short by its bound.
     After `ILLCONDITIONED` retries shrank `initialBound`, the first cycle barely moved, and the fit
     returned `SUCCESS` with coefficients near their starting values
+17. `ILLCONDITIONED` retries keep fixed coefficients at their values, including the one held by
+    `confint()` or `getCyclopsProfileLogLikelihood()`. The retry reset it to its starting value, so
+    a profile point could report the likelihood at 0 instead. For an exposure without events,
+    `confint()` returned an upper bound next to the estimate (about -157 instead of -5)
 
 Cyclops v3.7.1
 ==============

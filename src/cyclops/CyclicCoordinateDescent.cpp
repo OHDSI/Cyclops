@@ -302,6 +302,11 @@ void CyclicCoordinateDescent::resetBeta(void) {
     auto start = hXI.getHasOffsetCovariate() ? 1 : 0;
     for (auto j = start; j < J; j++) {
 
+    	// fixed coefficients keep their values, such as the one a profile likelihood holds
+    	if (fixBeta[j]) {
+    		continue;
+    	}
+
     	// check if a non-zero starting beta is present
     	if (startingBeta[j] != 0.0) {
     		hBeta[j] = startingBeta[j];

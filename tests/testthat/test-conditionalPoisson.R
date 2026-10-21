@@ -121,3 +121,16 @@ test_that("Conditional Poisson fit does not stop while steps are cut short by th
                            control = createControl(maxBoundCount = 8), warnings = FALSE)
     expect_true(far$return_flag != "SUCCESS" || abs(far$estimation$estimate - coef(gold)[["x"]]) < 1E-6)
 })
+
+test_that("Conditional Poisson profile refits keep the profiled coefficient through retries", {
+    formula <- event ~ exgr + agegr + strata(indiv) + offset(loginterval)
+    fit <- fitCyclopsModel(createCyclopsData(formula, data = Cyclops::oxford, modelType = "cpr"))
+    mode <- coef(fit)[["exgr1"]]
+    # The refit at the mode starts from the one at 50, fails, and retries from the starting values;
+    # the retry used to reset the profiled coefficient to 0 too
+    prof <- getCyclopsProfileLogLikelihood(fit, parm = "exgr1", x = c(mode, 50, 60, 70))
+    expect_equal(prof$value[prof$point == mode], as.numeric(logLik(fit)), tolerance = 1E-6)
+    # exp(800) overflows, so every attempt fails; the value must not be the one at 0
+    far <- getCyclopsProfileLogLikelihood(fit, parm = "exgr1", x = 800)
+    expect_false(isTRUE(far$value > as.numeric(logLik(fit)) - 100))
+})
