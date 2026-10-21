@@ -31,6 +31,8 @@ Changes:
     held-out ones, so each replicate had a random number of draws from the fit
 13. `createControl(coxFitter = "legacy")` fits `cox` models with the engine of Cyclops 3.7, to reproduce
     earlier results; the default, `"efficient"`, is the new engine
+14. `cpr`, `sccs` and `clr` fits no longer fill per-stratum numerators that only Cox models read:
+    about 1.7x faster, with identical results
 
 Cyclops v3.7.1
 ==============

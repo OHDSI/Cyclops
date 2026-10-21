@@ -1724,7 +1724,9 @@ void ModelSpecifics<BaseModel,RealType>::computeNumeratorForGradient(int index, 
 #endif
 #endif
 
-	if (BaseModel::hasNtoKIndices || BaseModel::cumulativeGradientAndHessian) {
+	// numerPid and numerPid2 are only read by the cumulative (Cox-type) scans; the grouped models
+	// accumulate their numerators by stratum inside computeGradientAndHessianImpl()
+	if (BaseModel::cumulativeGradientAndHessian) {
 
 		switch (hX.getFormatType(index)) {
 		case INDICATOR : {
@@ -2366,11 +2368,7 @@ void ModelSpecifics<BaseModel,RealType>::initialize(
 #endif
     if (initializeAccumulationVectors()) {
         setPidForAccumulation(static_cast<double*>(nullptr)); // calls setupSparseIndices() before returning
-    } else {
-        // TODO Suspect below is not necessary for non-grouped data.
-        // If true, then fill with pointers to CompressedDataColumn and do not delete in destructor
-        setupSparseIndices(N); // Need to be recomputed when hPid change!
-    }
+    } // else sparseIndices are not needed: only the cumulative scans and their numerators read them
 #ifdef CYCLOPS_DEBUG_TIMING_GPU_COX
 	auto end = std::chrono::steady_clock::now();
 	double timerPid = std::chrono::duration<double>(end - start).count();
