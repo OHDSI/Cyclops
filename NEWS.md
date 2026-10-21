@@ -43,6 +43,21 @@ Changes:
     (coefficients by about 1e-11 relative, with the same number of iterations); single-precision fits
     move by less than their distance from double precision and can take a different number of
     iterations
+17. `vcov()`, `getSEs()` and `aconfint()` for `cpr`, `sccs` and `clr` models weight each stratum by
+    its number of events, as the likelihood does. Standard errors were too large with several events
+    per stratum (by about the square root of the mean number) and too small when some strata had no
+    events. `vcov()` after refitting the same data also reused stratum terms from the earlier fit
+18. `cpr`, `sccs` and `clr` fits re-sum the stratum denominators when coefficients have moved far.
+    Updating them by differences lost all precision when a denominator shrank by many orders of
+    magnitude (for example, age and calendar-time splines with one outcome per case, or a distant
+    starting value), giving wrong estimates or `ILLCONDITIONED`
+19. a fit no longer reports convergence after a cycle in which a step was cut short by its bound.
+    After `ILLCONDITIONED` retries shrank `initialBound`, the first cycle barely moved, and the fit
+    returned `SUCCESS` with coefficients near their starting values
+20. `ILLCONDITIONED` retries keep fixed coefficients at their values, including the one held by
+    `confint()` or `getCyclopsProfileLogLikelihood()`. The retry reset it to its starting value, so
+    a profile point could report the likelihood at 0 instead. For an exposure without events,
+    `confint()` returned an upper bound next to the estimate (about -157 instead of -5)
 
 Cyclops v3.7.1
 ==============

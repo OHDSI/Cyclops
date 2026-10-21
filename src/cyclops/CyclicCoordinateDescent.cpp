@@ -302,6 +302,11 @@ void CyclicCoordinateDescent::resetBeta(void) {
     auto start = hXI.getHasOffsetCovariate() ? 1 : 0;
     for (auto j = start; j < J; j++) {
 
+    	// fixed coefficients keep their values, such as the one a profile likelihood holds
+    	if (fixBeta[j]) {
+    		continue;
+    	}
+
     	// check if a non-zero starting beta is present
     	if (startingBeta[j] != 0.0) {
     		hBeta[j] = startingBeta[j];
@@ -992,7 +997,11 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
                << ") (iter:" << iteration << ", conv: " << conv << ") ";
     }
 
-    if (epsilon > 0 && conv < epsilon) {
+    // A small change says nothing about convergence when steps were cut short by their bounds, as
+    // in the first cycles after ILLCONDITIONED retries shrink the initial bound
+    const bool stepsLimited = boundLimitedStep && convergenceType != ONE_STEP && !illconditioned;
+
+    if (epsilon > 0 && conv < epsilon && !stepsLimited) {
         if (poorBlr) {
             lastReturnFlag = POOR_BLR_STEP;
         } else if (illconditioned) {
@@ -1156,6 +1165,8 @@ void CyclicCoordinateDescent::findMode(
 	            logger->writeLine(stream);
 	        }
 	    };
+
+	    boundLimitedStep = false;
 
 	    if (algorithmType == AlgorithmType::MM) {
             // Do delta computation in parallel
@@ -1530,6 +1541,7 @@ double CyclicCoordinateDescent::getAsymptoticVariance(int indexOne, int indexTwo
 // }
 
 CyclicCoordinateDescent::Matrix CyclicCoordinateDescent::computeFisherInformation(const std::vector<IdType>& indices) const {
+    modelSpecifics.makeDirty(); // clear strata cross terms cached at earlier coefficients
     Matrix fisherInformation(indices.size(), indices.size());
     for (size_t ii = 0; ii < indices.size(); ++ii) {
         const int i = indices[ii];
@@ -1828,8 +1840,10 @@ double CyclicCoordinateDescent::applyBounds(double delta, int index) {
     if (doBound) {
 	    if (delta < -hDelta[index]) {
 		    delta = -hDelta[index];
+		    boundLimitedStep = true;
 	    } else if (delta > hDelta[index]) {
 		    delta = hDelta[index];
+		    boundLimitedStep = true;
 	    }
 
 	    // TODO Remove magic numbers

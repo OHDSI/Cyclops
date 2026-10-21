@@ -198,6 +198,8 @@ protected:
 
 	void computeFisherInformation(int indexOne, int indexTwo, double *oinfo, bool useWeights);
 
+	void makeDirty();
+
 	void computeSchoenfeldResiduals(int indexOne,
                                  std::vector<double>* residuals, std::vector<double>* times,
                                  std::vector<int>* strata,
@@ -208,6 +210,10 @@ protected:
 	void updateXBeta(double delta, int index, bool useWeights);
 
 	void computeRemainingStatistics(bool useWeights);
+
+	void resumStratumDenominators();
+	double denomMove = 0.0;                 // log-scale movement since the last exact summation
+	std::vector<double> columnMaxAbsX;      // max |x| per column
 
 	void computeAccumlatedNumerator(bool useWeights);
 
@@ -412,6 +418,9 @@ struct GroupedData {
 public:
 	const static bool hasStrataCrossTerms = true;
 
+	// Stratum contributes n_s * log(denominator), so Fisher information scales with n_s
+	const static bool fisherInformationScalesWithEvents = true;
+
 	const static bool hasNtoKIndices = true;
 
 	const static bool exactTies = false;
@@ -426,11 +435,15 @@ public:
 struct GroupedWithTiesData : GroupedData {
 public:
 	const static bool exactTies = true;
+
+	const static bool fisherInformationScalesWithEvents = false;
 };
 
 struct OrderedData {
 public:
 	const static bool hasStrataCrossTerms = true;
+
+	const static bool fisherInformationScalesWithEvents = false;
 
 	const static bool hasNtoKIndices = false;
 
@@ -449,6 +462,8 @@ struct OrderedWithTiesData {
 public:
 	const static bool hasStrataCrossTerms = true;
 
+	const static bool fisherInformationScalesWithEvents = false;
+
 	const static bool hasNtoKIndices = false;
 
 	const static bool exactTies = false;
@@ -465,6 +480,8 @@ public:
 struct IndependentData {
 public:
 	const static bool hasStrataCrossTerms = false;
+
+	const static bool fisherInformationScalesWithEvents = false;
 
 	const static bool hasNtoKIndices = false;
 
@@ -1007,6 +1024,8 @@ struct EfronConditionalLogisticRegression : public Storage<RealType>, GroupedDat
 public:
 
 	const static bool efron = true;
+
+	const static bool fisherInformationScalesWithEvents = false;
 
     typedef typename Storage<RealType>::RealVector RealVector;
     EfronConditionalLogisticRegression(const RealVector& y, const RealVector& offs)

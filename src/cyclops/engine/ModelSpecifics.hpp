@@ -1596,6 +1596,12 @@ void ModelSpecifics<BaseModel,RealType>::computeSchoenfeldResiduals(int indexOne
 
 
 template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::makeDirty() {
+	AbstractModelSpecifics::makeDirty();
+	hessianSparseCrossTerms.clear(); // cached at the coefficients of an earlier call
+}
+
+template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeFisherInformation(int indexOne, int indexTwo,
 		double *oinfo, bool useWeights) {
 
@@ -1675,9 +1681,12 @@ void ModelSpecifics<BaseModel,RealType>::computeFisherInformationImpl(int indexO
 	IteratorTypeTwo itTwo(hX, indexTwo);
 	PairProductIterator<IteratorTypeOne,IteratorTypeTwo,RealType> it(itOne, itTwo);
 
+	const bool scaleByEvents = BaseModel::fisherInformationScalesWithEvents;
+
 	RealType information = static_cast<RealType>(0);
 	for (; it.valid(); ++it) {
 		const int k = it.index();
+		const int group = BaseModel::getGroup(hPid, k);
 		// Compile-time delegation
 
 		BaseModel::incrementFisherInformation(it,
@@ -1685,8 +1694,9 @@ void ModelSpecifics<BaseModel,RealType>::computeFisherInformationImpl(int indexO
 				&information,
 				offsExpXBeta[k],
 				0.0, 0.0, // numerPid[k], numerPid2[k], // remove
-				denomPid[BaseModel::getGroup(hPid, k)],
-				hKWeight[k], it.value(), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
+				denomPid[group],
+				scaleByEvents ? hKWeight[k] * hNWeight[group] : hKWeight[k],
+				it.value(), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
 	}
 
 	if (BaseModel::hasStrataCrossTerms) {
@@ -1736,7 +1746,8 @@ void ModelSpecifics<BaseModel,RealType>::computeFisherInformationImpl(int indexO
 		RealType sparseCross = static_cast<RealType>(0);
 		for (; itSparseCross.valid(); ++itSparseCross) {
 			const int n = itSparseCross.index();
-			sparseCross += itSparseCross.value() / (denomPid[n] * denomPid[n]);
+			sparseCross += (scaleByEvents ? hNWeight[n] : static_cast<RealType>(1)) *
+				itSparseCross.value() / (denomPid[n] * denomPid[n]);
 		}
 		information -= sparseCross;
 #endif
@@ -2055,6 +2066,26 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
         }
     }
 
+    if (BaseModel::likelihoodHasDenominator && BaseModel::hasNtoKIndices && !BaseModel::cumulativeGradientAndHessian) {
+        // denomPid += new - old cancels when a denominator shrinks by many orders of magnitude, down to
+        // zero or negative values. Re-sum all strata once entries may have moved by a factor of
+        // exp(6.9) = 1000 since the last exact summation.
+        if (columnMaxAbsX.size() != J) {
+            columnMaxAbsX.assign(J, -1.0);
+        }
+        if (columnMaxAbsX[index] < 0.0) {
+            double m = 0.0;
+            for (IteratorType itMax(hX, index); itMax; ++itMax) {
+                m = std::max(m, std::abs(static_cast<double>(itMax.value())));
+            }
+            columnMaxAbsX[index] = m;
+        }
+        denomMove += std::abs(static_cast<double>(realDelta)) * columnMaxAbsX[index];
+        if (denomMove > 6.9) {
+            resumStratumDenominators();
+        }
+    }
+
 	computeAccumlatedDenominator(Weights::isWeighted);
 
 #ifdef CYCLOPS_DEBUG_TIMING
@@ -2098,9 +2129,19 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatisticsImpl() {
                 }
 */
             }
+            denomMove = 0.0;
         }
         computeAccumlatedDenominator(Weights::isWeighted);
     }
+}
+
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::resumStratumDenominators() {
+    fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());
+    for (size_t k = 0; k < K; ++k) {
+        incrementByGroup(denomPid.data(), hPid, k, offsExpXBeta[k]);
+    }
+    denomMove = 0.0;
 }
 
 template <class BaseModel,typename RealType>
