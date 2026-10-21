@@ -1300,6 +1300,32 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	    }
 #endif // USE_RCPP_PARALLEL
 
+	} else if (BaseModel::hasNtoKIndices && IteratorType::isSparse) { // one stratum per segment
+
+	    IteratorType it(hX, index); // Signature-only, for iterator-type specialization
+	    const int* rows = hX.getCompressedColumnVector(index);
+	    const RealType* values = IteratorType::isIndicator ? nullptr : hX.getDataVector(index);
+	    const StratumSegments& segments = stratumSegments[index];
+
+	    for (size_t s = 0; s < segments.strata.size(); ++s) {
+	        RealType numerator1 = static_cast<RealType>(0);
+	        RealType numerator2 = static_cast<RealType>(0);
+
+	        for (int i = segments.offsets[s]; i < segments.offsets[s + 1]; ++i) {
+	            const RealType x = IteratorType::isIndicator ? static_cast<RealType>(1) : values[i];
+	            const RealType predictor = offsExpXBeta[rows[i]];
+	            numerator1 += BaseModel::gradientNumeratorContrib(x, predictor, static_cast<RealType>(0), static_cast<RealType>(0));
+	            if (!IteratorType::isIndicator && BaseModel::hasTwoNumeratorTerms) {
+	                numerator2 += BaseModel::gradientNumerator2Contrib(x, predictor);
+	            }
+	        }
+
+	        const int key = segments.strata[s];
+	        BaseModel::incrementGradientAndHessian(it, w, // Signature-only, for iterator-type specialization
+                                                &gradient, &hessian, numerator1, numerator2,
+                                                denomPid[key], hNWeight[key], 0, 0, 0); // When function is in-lined, compiler will only use necessary arguments
+	    }
+
 	} else {
 
 // 	    auto rangeKey = helper::dependent::getRangeKey(
@@ -1967,6 +1993,26 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
                 incrementByGroup(denomPid.data(), hPid, k, (newEntry - oldEntry)); // Update denominators
             }
         }
+    } else if (BaseModel::hasNtoKIndices && IteratorType::isSparse) { // one stratum per segment
+        const int* rows = hX.getCompressedColumnVector(index);
+        const RealType* values = IteratorType::isIndicator ? nullptr : hX.getDataVector(index);
+        const StratumSegments& segments = stratumSegments[index];
+
+        for (size_t s = 0; s < segments.strata.size(); ++s) {
+            RealType denominator = denomPid[segments.strata[s]]; // the same additions, in a register
+
+            for (int i = segments.offsets[s]; i < segments.offsets[s + 1]; ++i) {
+                const int k = rows[i];
+                hXBeta[k] += realDelta * (IteratorType::isIndicator ? static_cast<RealType>(1) : values[i]);
+
+                if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
+                    RealType oldEntry = offsExpXBeta[k];
+                    RealType newEntry = offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
+                    denominator += (newEntry - oldEntry);
+                }
+            }
+            denomPid[segments.strata[s]] = denominator;
+        }
     } else {
         for (; it; ++it) {
             const int k = it.index();
@@ -2331,6 +2377,27 @@ void ModelSpecifics<BaseModel,RealType>::setupSparseIndices(const int max) {
 }
 
 template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::setupStratumSegments() {
+    stratumSegments.assign(J, StratumSegments());
+
+    for (size_t j = 0; j < J; ++j) {
+        if (hX.getFormatType(j) == INDICATOR || hX.getFormatType(j) == SPARSE) {
+            StratumSegments& segments = stratumSegments[j];
+            const int n = static_cast<int>(hX.getNumberOfEntries(j));
+            const int* rows = hX.getCompressedColumnVector(j);
+            for (int i = 0; i < n; ++i) {
+                const int stratum = hPid[rows[i]];
+                if (i == 0 || stratum != segments.strata.back()) {
+                    segments.offsets.push_back(i);
+                    segments.strata.push_back(stratum);
+                }
+            }
+            segments.offsets.push_back(n);
+        }
+    }
+}
+
+template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::deviceInitialization() {
     // Do nothing
 }
@@ -2372,6 +2439,9 @@ void ModelSpecifics<BaseModel,RealType>::initialize(
     if (initializeAccumulationVectors()) {
         setPidForAccumulation(static_cast<double*>(nullptr)); // calls setupSparseIndices() before returning
     } // else sparseIndices are not needed: only the cumulative scans and their numerators read them
+    if (BaseModel::hasNtoKIndices) {
+        setupStratumSegments();
+    }
 #ifdef CYCLOPS_DEBUG_TIMING_GPU_COX
 	auto end = std::chrono::steady_clock::now();
 	double timerPid = std::chrono::duration<double>(end - start).count();

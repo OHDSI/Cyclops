@@ -249,6 +249,15 @@ protected:
 
 	void setupSparseIndices(const int max);
 
+	// Entries of a sparse or indicator column split into runs that fall in one stratum
+	struct StratumSegments {
+		std::vector<int> offsets; // first entry of each run, then the number of entries
+		std::vector<int> strata;  // stratum of each run
+	};
+	std::vector<StratumSegments> stratumSegments; // by column, for grouped models
+
+	void setupStratumSegments();
+
 	bool initializeAccumulationVectors(void);
 
 	bool hasResetableAccumulators(void);
