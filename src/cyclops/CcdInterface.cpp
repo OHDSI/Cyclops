@@ -271,6 +271,52 @@ struct OptimizationProfile {
 	bool includePenalty;
 };
 
+// Safeguarded Newton iteration for the profile bound in `direction` from the mode x0. It starts at the
+// Wald bound for `curvature` (the other coefficients fixed, so inside the profile interval for a
+// quadratic log likelihood) and uses the derivative of the profile, which is the partial derivative at
+// the profile fit. Returns NAN when it fails; the caller then brackets a sign change instead.
+static double getNewtonBound(OptimizationProfile& eval, double x0, double direction,
+                             double curvature, double tolerance = 1E-3, int maxSteps = 20) {
+	// A nearly flat profile (an estimate at infinity) puts the Wald bound so far out that the fits there
+	// can overflow; leave it to bracketing
+	const double halfWidth = std::sqrt(2.0 * eval.getMaximum() / curvature);
+	if (!(halfWidth <= 10.0 * std::max(std::abs(x0), 1.0))) {
+		return NAN;
+	}
+	double inside = x0;   // objective > 0
+	double outside = NAN; // objective < 0
+	double x = x0 + direction * halfWidth;
+	for (int step = 0; step < maxSteps; ++step) {
+		const double y = eval.objective(x);
+		if (std::isnan(y)) {
+			return NAN;
+		}
+		if (y == 0.0) {
+			return x;
+		}
+		const double d = eval.derivative();
+		if (y > 0.0) {
+			inside = x;
+		} else {
+			outside = x;
+		}
+		double next = x - y / d;
+		const bool descending = direction * d < 0.0 && std::isfinite(next);
+		if (std::isnan(outside)) {
+			if (!descending || (next - inside) * direction <= 0.0) {
+				return NAN;
+			}
+		} else if (!descending || (next - inside) * direction <= 0.0 || (next - outside) * direction >= 0.0) {
+			next = 0.5 * (inside + outside); // bisect the bracket
+		}
+		if (std::abs(next - x) < tolerance) {
+			return next;
+		}
+		x = next;
+	}
+	return NAN;
+}
+
 double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelData *modelData,
 		const ProfileVector& profileCI, ProfileInformationMap& profileMap,
 		int inThreads, double threshold,
@@ -307,7 +353,6 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 			stream << "Variable " << *it << " not found.";
 			error->throwError(stream);
 		} else {
-			// TODO Minor bug, order of column evaluation yields different estimates
 			// TODO Check prior on covariate
 			if (!overrideNoRegularization && ccd->getIsRegularized(index)) {
 			    std::ostringstream stream;
@@ -317,6 +362,25 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 			indices.push_back(index);
 		    bounds.push_back(std::make_tuple(id, +1.0));
 			bounds.push_back(std::make_tuple(id, -1.0));
+		}
+	}
+
+	// Newton bounds need the derivative of the profile, which is the partial derivative at the profile fit
+	// when the objective includes the penalty of every free coefficient that moves. Without includePenalty,
+	// that holds only if no other free coefficient is regularized; with it, regularized covariates (whose
+	// derivative needs the prior gradient) are left to bracketing too. The curvature at the mode seeds them.
+	int nRegularized = 0;
+	for (int j = 0; j < J; ++j) {
+		if (ccd->getIsRegularized(j) && !ccd->getFixedBeta(j)) {
+			++nRegularized;
+		}
+	}
+	std::vector<double> curvatures(indices.size(), NAN);
+	for (size_t id = 0; id < indices.size(); ++id) {
+		const bool regularized = ccd->getIsRegularized(indices[id]);
+		const bool exact = includePenalty ? !regularized : nRegularized == (regularized ? 1 : 0);
+		if (exact) {
+			curvatures[id] = ccd->getHessianDiagonal(indices[id]);
 		}
 	}
 
@@ -333,7 +397,11 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	ccdPool.push_back(ccd);
 
 	for (int i = 1; i < nThreads; ++i) {
-	    ccdPool.push_back(ccd->clone(arguments.computeDevice));
+	    CyclicCoordinateDescent* copy = ccd->clone(arguments.computeDevice);
+	    for (int j = 0; j < J; ++j) {
+	        copy->setFixedBeta(j, ccd->getFixedBeta(j));
+	    }
+	    ccdPool.push_back(copy);
 	}
 
     std::vector<double> lowerPts(indices.size());
@@ -342,7 +410,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	std::vector<int> upperCnts(indices.size());
 
 	auto getBound = [this,
-	            &x0s,
+	            &x0s, &curvatures,
 	            &indices, &lowerPts, &upperPts,
                 &lowerCnts, &upperCnts, includePenalty, mode, threshold
             ](const BoundType bound, CyclicCoordinateDescent* ccd) {
@@ -352,18 +420,26 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 
 	    double x0 = x0s[index];
 
-	    // Bound edge
+	    // Bound edge, starting at the mode so that bounds do not depend on their order or the threads
+	    ccd->setBeta(x0s);
 	    OptimizationProfile eval(*ccd, arguments, index, mode, threshold, includePenalty);
-	    RZeroIn<OptimizationProfile> zeroIn(eval, 1E-3);
 
-	    double obj0 = eval.getMaximum();
+	    double pt = curvatures[id] > 0.0 ?
+	        getNewtonBound(eval, x0, direction, curvatures[id]) : NAN;
 
-	    //		std::cout << "BEGIN UP bracket" << std::endl;
-	    RZeroIn<OptimizationProfile>::Coordinate bracket =
-	        zeroIn.bracketSignChange(x0, obj0, direction);
-	     //		std::cout << "END UP bracket " << bracket.first << " " << bracket.second << std::endl;
+	    if (std::isnan(pt)) {
+	        ccd->setBeta(x0s);
+	        RZeroIn<OptimizationProfile> zeroIn(eval, 1E-3);
 
-	    double pt = std::isnan(bracket.second) ? NAN : zeroIn.getRoot(x0, bracket.first, obj0, bracket.second);
+	        double obj0 = eval.getMaximum();
+
+	        //		std::cout << "BEGIN UP bracket" << std::endl;
+	        RZeroIn<OptimizationProfile>::Coordinate bracket =
+	            zeroIn.bracketSignChange(x0, obj0, direction);
+	        //		std::cout << "END UP bracket " << bracket.first << " " << bracket.second << std::endl;
+
+	        pt = std::isnan(bracket.second) ? NAN : zeroIn.getRoot(x0, bracket.first, obj0, bracket.second);
+	    }
 
 	    if (direction == 1.0) {
 	        upperPts[id] = pt;
@@ -436,10 +512,9 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 
 		// Reset to mode
 		if (indices.size() > 0) {
-		    // Reset
-		    for (int j = 0; j < J; ++j) {
-		        ccd->setBeta(j, x0s[j]);
-		    }
+		    // Reset exactly, and recompute X beta now, as prediction reads it directly
+		    ccd->setBeta(x0s);
+		    ccd->getLogLikelihood();
 		    ccd->setHXBeta();
 		    // DEBUG, TODO Remove?
 // 		    double testMode = ccd->getLogLikelihood();
@@ -545,7 +620,11 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
                                           std::vector<double>& values,
                                           std::vector<double>* derivatives,
                                           int inThreads,
-                                          bool includePenalty) {
+                                          bool includePenalty,
+                                          const std::vector<double>& startPoints,
+                                          const std::vector<double>& startBetas,
+                                          std::vector<double>* betas,
+                                          bool chain) {
 
     struct timeval time1, time2;
     gettimeofday(&time1, NULL);
@@ -576,64 +655,167 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
 
     bool doDerivative = derivatives != nullptr;
 
-    auto evaluate = [this, index, includePenalty, doDerivative](const double point,
-                                                  CyclicCoordinateDescent* ccd) {
+    ccd->makeDirty(); // Reset internal memory
+
+    // Each point starts from the solution at the nearest of: the current coefficients, the supplied
+    // starting solutions and (chain) the requested points between it and the current value. The choice
+    // depends only on the locations, so the results do not depend on the number of threads.
+    const int nPoints = points.size();
+    const int nStarts = startPoints.size();
+    const double center = x0s[index];
+
+    std::vector<std::vector<double>> starts(nStarts);
+    for (int s = 0; s < nStarts; ++s) {
+        starts[s].assign(startBetas.begin() + s * J, startBetas.begin() + (s + 1) * J);
+    }
+
+    std::vector<double> sortedPoints(points);
+    std::sort(sortedPoints.begin(), sortedPoints.end());
+
+    std::vector<int> parent(nPoints); // -1: current; -2 - s: start s; >= 0: requested point
+    std::vector<double> chainPoint(nPoints);
+    for (int i = 0; i < nPoints; ++i) {
+        const double x = points[i];
+        double best = std::abs(x - center);
+        parent[i] = -1;
+        for (int s = 0; s < nStarts; ++s) {
+            const double d = std::abs(x - startPoints[s]);
+            if (d < best) {
+                best = d;
+                parent[i] = -2 - s;
+            }
+        }
+        if (chain) { // nearest requested point strictly between x and the current value
+            double y = NAN;
+            if (x > center) {
+                auto it = std::lower_bound(sortedPoints.begin(), sortedPoints.end(), x);
+                if (it != sortedPoints.begin() && *(it - 1) > center) y = *(it - 1);
+            } else if (x < center) {
+                auto it = std::upper_bound(sortedPoints.begin(), sortedPoints.end(), x);
+                if (it != sortedPoints.end() && *it < center) y = *it;
+            }
+            if (!std::isnan(y) && std::abs(x - y) < best) {
+                parent[i] = -3 - nStarts; // resolved below
+                chainPoint[i] = y;
+            }
+        }
+    }
+    if (chain) { // map chain points to (the first) requested index with that location
+        std::map<double, int> first;
+        for (int i = 0; i < nPoints; ++i) {
+            first.emplace(points[i], i);
+        }
+        for (int i = 0; i < nPoints; ++i) {
+            if (parent[i] == -3 - nStarts) parent[i] = first[chainPoint[i]];
+        }
+    }
+
+    // Evaluate in waves: a point waits for its parent; points within a wave are independent
+    std::vector<int> order(nPoints);
+    std::iota(order.begin(), order.end(), 0);
+    std::stable_sort(order.begin(), order.end(), [&points, center](int a, int b) {
+        return std::abs(points[a] - center) < std::abs(points[b] - center);
+    });
+    std::vector<int> wave(nPoints, 0);
+    std::vector<int> children(nPoints, 0);
+    int nWaves = 0;
+    for (int i : order) { // a requested parent is strictly nearer the current value
+        if (parent[i] >= 0) {
+            wave[i] = wave[parent[i]] + 1;
+            ++children[parent[i]];
+        }
+        nWaves = std::max(nWaves, wave[i] + 1);
+    }
+    std::vector<std::vector<int>> tasksByWave(nWaves);
+    for (int i = 0; i < nPoints; ++i) {
+        tasksByWave[wave[i]].push_back(i);
+    }
+    size_t maxWidth = 0;
+    for (const auto& tasks : tasksByWave) {
+        maxWidth = std::max(maxWidth, tasks.size());
+    }
+    nThreads = std::max(1, std::min(nThreads, static_cast<int>(maxWidth)));
+
+    std::vector<std::vector<double>> solutions(nPoints);
+    const bool keepAll = betas != nullptr;
+
+    auto evaluate = [this, index, includePenalty, doDerivative, J, keepAll,
+                     &x0s, &starts, &parent, &children, &solutions, &points, &values, &derivatives](
+                         const int i, CyclicCoordinateDescent* ccd) {
+
+        const int p = parent[i];
+        ccd->setBeta(p == -1 ? x0s : (p < -1 ? starts[-2 - p] : solutions[p]));
 
         OptimizationProfile eval(*ccd, arguments, index,
                                  0.0, 0.0, includePenalty);
 
-        double objective = eval.objective(point);
-        double derivative = doDerivative ? eval.derivative() : 0.0;
-
-        return std::pair<double,double>(objective, derivative);
+        values[i] = eval.objective(points[i]);
+        if (doDerivative) {
+            (*derivatives)[i] = eval.derivative();
+        }
+        if (keepAll || children[i] > 0) {
+            solutions[i].resize(J);
+            for (int j = 0; j < J; ++j) {
+                solutions[i][j] = ccd->getBeta(j);
+            }
+        }
     };
-
-    ccd->makeDirty(); // Reset internal memory
-    evaluate(0.0, ccd);
 
     std::vector<CyclicCoordinateDescent*> ccdPool;
     ccdPool.push_back(ccd);
 
     for (int i = 1; i < nThreads; ++i) {
-        ccdPool.push_back(ccd->clone(arguments.computeDevice));
+        CyclicCoordinateDescent* copy = ccd->clone(arguments.computeDevice);
+        for (int j = 0; j < J; ++j) {
+            copy->setFixedBeta(j, ccd->getFixedBeta(j));
+        }
+        ccdPool.push_back(copy);
     }
 
-    if (nThreads == 1) {
-        for (int i = 0; i < points.size(); ++i) {
-            auto pair = evaluate(points[i], ccd);
-            values[i] = pair.first;
-            if (doDerivative) {
-                (*derivatives)[i] = pair.second;
+    for (const auto& tasks : tasksByWave) {
+        if (nThreads == 1 || tasks.size() == 1) {
+            for (int i : tasks) {
+                evaluate(i, ccd);
+            }
+        } else {
+            auto scheduler = TaskScheduler<IncrementableIterator<size_t>>(
+                IncrementableIterator<size_t>(0),
+                IncrementableIterator<size_t>(tasks.size()),
+                nThreads);
+
+            auto oneTask = [&evaluate, &scheduler, &ccdPool, &tasks](unsigned long task) {
+                evaluate(tasks[task], ccdPool[scheduler.getThreadIndex(task)]);
+            };
+
+            // Run all tasks in parallel
+            ccd->getProgressLogger().setConcurrent(true);
+            ccd->getErrorHandler().setConcurrent(true);
+            scheduler.execute(oneTask);
+            ccd->getProgressLogger().setConcurrent(false);
+            ccd->getErrorHandler().setConcurrent(false);
+            ccd->getProgressLogger().flush();
+            ccd->getErrorHandler().flush();
+        }
+        if (!keepAll) { // release solutions whose children are done
+            for (int i : tasks) {
+                if (parent[i] >= 0 && --children[parent[i]] == 0) {
+                    std::vector<double>().swap(solutions[parent[i]]);
+                }
             }
         }
-    } else {
-        auto scheduler = TaskScheduler<IncrementableIterator<size_t>>(
-            IncrementableIterator<size_t>(0), //boost::make_counting_iterator(0),
-            IncrementableIterator<size_t>(points.size()), //boost::make_counting_iterator(static_cast<int>(points.size())),
-            nThreads);
-
-        auto oneTask = [&evaluate, &scheduler, &ccdPool, &points, &values, &derivatives, doDerivative](unsigned long task) {
-            auto pair = evaluate(points[task], ccdPool[scheduler.getThreadIndex(task)]);
-            values[task] = pair.first;
-            if (doDerivative) {
-                (*derivatives)[task] = pair.second;
-            }
-        };
-
-        // Run all tasks in parallel
-        ccd->getProgressLogger().setConcurrent(true);
-        ccd->getErrorHandler().setConcurrent(true);
-        scheduler.execute(oneTask);
-        ccd->getProgressLogger().setConcurrent(false);
-        ccd->getErrorHandler().setConcurrent(false);
-        ccd->getProgressLogger().flush();
-        ccd->getErrorHandler().flush();
     }
 
-    // Reset
-    for (int j = 0; j < J; ++j) {
-        ccd->setBeta(j, x0s[j]);
+    if (keepAll) {
+        betas->resize(static_cast<size_t>(J) * nPoints);
+        for (int i = 0; i < nPoints; ++i) {
+            std::copy(solutions[i].begin(), solutions[i].end(), betas->begin() + static_cast<size_t>(i) * J);
+        }
     }
+
+    // Reset exactly (incremental updates leave the coefficients off by rounding), and recompute
+    // X beta now, as prediction reads it directly
+    ccd->setBeta(x0s);
+    ccd->getLogLikelihood();
     // DEBUG
     //double testMode = ccd->getLogLikelihood();
     //std::ostringstream stream;

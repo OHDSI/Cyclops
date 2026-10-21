@@ -291,8 +291,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsGetProfileLikelihood
-DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface, SEXP inCovariate, const std::vector<double> points, int threads, bool includePenalty, bool returnDerivatives);
-RcppExport SEXP _Cyclops_cyclopsGetProfileLikelihood(SEXP inRcppCcdInterfaceSEXP, SEXP inCovariateSEXP, SEXP pointsSEXP, SEXP threadsSEXP, SEXP includePenaltySEXP, SEXP returnDerivativesSEXP) {
+DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface, SEXP inCovariate, const std::vector<double> points, int threads, bool includePenalty, bool returnDerivatives, const std::vector<double>& startPoints, const std::vector<double>& startBetas, bool returnBetas, bool chain);
+RcppExport SEXP _Cyclops_cyclopsGetProfileLikelihood(SEXP inRcppCcdInterfaceSEXP, SEXP inCovariateSEXP, SEXP pointsSEXP, SEXP threadsSEXP, SEXP includePenaltySEXP, SEXP returnDerivativesSEXP, SEXP startPointsSEXP, SEXP startBetasSEXP, SEXP returnBetasSEXP, SEXP chainSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -302,7 +302,11 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type threads(threadsSEXP);
     Rcpp::traits::input_parameter< bool >::type includePenalty(includePenaltySEXP);
     Rcpp::traits::input_parameter< bool >::type returnDerivatives(returnDerivativesSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsGetProfileLikelihood(inRcppCcdInterface, inCovariate, points, threads, includePenalty, returnDerivatives));
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type startPoints(startPointsSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type startBetas(startBetasSEXP);
+    Rcpp::traits::input_parameter< bool >::type returnBetas(returnBetasSEXP);
+    Rcpp::traits::input_parameter< bool >::type chain(chainSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetProfileLikelihood(inRcppCcdInterface, inCovariate, points, threads, includePenalty, returnDerivatives, startPoints, startBetas, returnBetas, chain));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1038,7 +1042,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsSetPrior", (DL_FUNC) &_Cyclops_cyclopsSetPrior, 6},
     {"_Cyclops_cyclopsTestParameterizedPrior", (DL_FUNC) &_Cyclops_cyclopsTestParameterizedPrior, 4},
     {"_Cyclops_cyclopsSetParameterizedPrior", (DL_FUNC) &_Cyclops_cyclopsSetParameterizedPrior, 5},
-    {"_Cyclops_cyclopsGetProfileLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetProfileLikelihood, 6},
+    {"_Cyclops_cyclopsGetProfileLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetProfileLikelihood, 10},
     {"_Cyclops_cyclopsProfileModel", (DL_FUNC) &_Cyclops_cyclopsProfileModel, 6},
     {"_Cyclops_cyclopsPredictModel", (DL_FUNC) &_Cyclops_cyclopsPredictModel, 1},
     {"_Cyclops_cyclopsSetConvergenceType", (DL_FUNC) &_Cyclops_cyclopsSetConvergenceType, 2},

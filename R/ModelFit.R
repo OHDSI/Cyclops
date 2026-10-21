@@ -1093,8 +1093,16 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 #' @param maxResets Maximum allowed number of recomputing the likelihood when coefficient drift is
 #'                  detected.
 #' @param includePenalty    Logical: Include regularized covariate penalty in profile
-#' @param optimalWarmStart Logical: Use optimal warm-starting when parallelizing evaluations
+#' @param optimalWarmStart Logical: also warm-start each point from the solutions at the requested points between
+#'                         it and the estimate. Each fit starts from the solution at the nearest such point, the
+#'                         estimate or (adaptive profiling) a point already evaluated, so results do not depend
+#'                         on the number of threads
 #' @param returnDerivatives Return derivative of log-likelihood wrt the parameter `param` at each evaluation point
+#' @param maxDrop   Numeric: adaptive profiling does not refine intervals whose two end points both lie more than
+#'                  \code{maxDrop} below the largest profile log likelihood found so far; their points remain in
+#'                  the result. The default (\code{Inf}) refines everywhere. With wide bounds, a value
+#'                  such as 50 saves most evaluations, and the profile stays within \code{tolerance}
+#'                  wherever it lies within 50 of its maximum, as evidence synthesis needs
 #'
 #' @return
 #' A data frame containing the profile log likelihood. Returns NULL when the adaptive profiling fails
@@ -1110,7 +1118,8 @@ getCyclopsProfileLogLikelihood <- function(object,
                                            maxResets = 10,
                                            includePenalty = TRUE,
                                            optimalWarmStart = TRUE,
-                                           returnDerivatives = FALSE) {
+                                           returnDerivatives = FALSE,
+                                           maxDrop = Inf) {
 
     if (!xor(is.null(x), is.null(bounds))) {
         stop("Must provide either `x` or `bounds`, but not both.")
@@ -1128,16 +1137,30 @@ getCyclopsProfileLogLikelihood <- function(object,
         if (length(bounds) != 2 || bounds[1] >= bounds[2]) {
             stop("Must provide bounds[1] < bounds[2]")
         }
+        if (!(maxDrop > 0)) {
+            stop("Must provide maxDrop > 0")
+        }
         profile <- .initAdaptiveProfile(object, parm, bounds, includePenalty, optimalWarmStart, returnDerivatives)
 
         # Start with sparse grid:
         grid <- seq(bounds[1], bounds[2], length.out = initialGridSize)
 
+        # Solutions at evaluated points warm-start the new points of the next round
+        keepStarts <- getNumberOfCovariates(object$cyclopsData) <= 10000
+        starts <- NULL
+
         # Iterate until stopping criteria met:
         priorMaxMaxError <- Inf
         resetsPerformed <- 0
         while (length(grid) != 0) {
-            ll <- fixedGridProfileLogLikelihood(object, parm, grid, includePenalty, optimalWarmStart, returnDerivatives)
+            ll <- fixedGridProfileLogLikelihood(object, parm, grid, includePenalty, optimalWarmStart, returnDerivatives,
+                                                starts = starts, returnBetas = keepStarts)
+            if (keepStarts) {
+                valid <- is.finite(ll$value)
+                starts <- list(point = c(starts$point, ll$point[valid]),
+                               betas = cbind(starts$betas, attr(ll, "betas")[, valid, drop = FALSE]))
+                attr(ll, "betas") <- NULL
+            }
             profile <- bind_rows(profile, ll) %>% arrange(.data$point)
             invalid <- is.nan(profile$value) | is.infinite(profile$value)
             if (any(invalid)) {
@@ -1173,6 +1196,7 @@ getCyclopsProfileLogLikelihood <- function(object,
                                                      coxFitter = if (is.null(object$cyclopsData$coxFitter)) "efficient" else object$cyclopsData$coxFitter)
                 assign("cyclopsInterfacePtr", interface$interface, object)
                 resetsPerformed <- resetsPerformed + 1
+                starts <- NULL
                 next
             }
 
@@ -1191,15 +1215,23 @@ getCyclopsProfileLogLikelihood <- function(object,
             maxError <- abs((profile$value[1:(nrow(profile) - 1)] + (interceptX - profile$point[1:(nrow(profile) - 1)]) * slopes[1:(length(slopes) - 2)]) -
                                 (profile$value[1:(nrow(profile) - 1)] + (interceptX - profile$point[1:(nrow(profile) - 1)]) * slopes[2:(length(slopes) - 1)]))
 
-            maxMaxError <- max(maxError, na.rm = TRUE)
+            # Refine only intervals with an end point within maxDrop of the largest value
+            relevant <- pmax(profile$value[1:(nrow(profile) - 1)], profile$value[2:nrow(profile)]) >=
+                max(profile$value) - maxDrop
+
+            maxMaxError <- max(maxError[relevant], na.rm = TRUE)
             if (is.na(maxMaxError) || maxMaxError > priorMaxMaxError) {
                 warning("Failing to converge when using adaptive profiling.")
                 return(NULL)
             }
             priorMaxMaxError <- maxMaxError
 
-            exceed <- which(maxError > tolerance)
+            exceed <- which(maxError > tolerance & relevant)
             grid <- (profile$point[exceed] + profile$point[exceed + 1]) / 2
+            if (keepStarts) { # only end points of refined intervals can be nearest to new points
+                keep <- starts$point %in% c(profile$point[exceed], profile$point[exceed + 1])
+                starts <- list(point = starts$point[keep], betas = starts$betas[, keep, drop = FALSE])
+            }
         }
     } else { # Use x
         profile <- fixedGridProfileLogLikelihood(object, parm, x, includePenalty, optimalWarmStart, returnDerivatives)
@@ -1209,35 +1241,28 @@ getCyclopsProfileLogLikelihood <- function(object,
 }
 
 fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty,
-                                          optimalWarmStart = TRUE, returnDerivatives = FALSE) {
+                                          optimalWarmStart = TRUE, returnDerivatives = FALSE,
+                                          starts = NULL, returnBetas = FALSE) {
 
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     parm <- .checkCovariates(object$cyclopsData, parm)
     threads <- object$threads
 
-    if (getNumberOfCovariates(object$cyclopsData) == 1 || length(x) == 1) {
-        grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
-                                             threads, includePenalty, returnDerivatives)
-    } else if (!optimalWarmStart && length(x) / 2 >= threads) {
-        grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
-                                             threads, includePenalty, returnDerivatives)
-    } else {
-        # Partition sequence
-        y <- sort(x)
-        midPt <- floor(length(x) / 2)
-        lower <- y[midPt:1]
-        upper <- y[(midPt + 1):length(x)]
-
-        # Execute: TODO chunk and repeat until ill-conditioned
-        gridLower <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, lower,
-                                                  threads, includePenalty, returnDerivatives)
-        gridUpper <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, upper,
-                                                  threads, includePenalty, returnDerivatives)
-        # Merge
-        grid <- rbind(gridLower, gridUpper)
-        grid <- grid[order(grid$point),]
+    # Each point starts from the solution at the nearest of: the current coefficients, `starts` and
+    # (optimalWarmStart) the points in `x` between it and the current value
+    grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
+                                         threads, includePenalty, returnDerivatives,
+                                         if (is.null(starts)) numeric(0) else starts$point,
+                                         if (is.null(starts)) numeric(0) else as.vector(starts$betas),
+                                         returnBetas, optimalWarmStart)
+    betas <- attr(grid, "betas")
+    if (optimalWarmStart && length(x) > 1) {
+        o <- order(grid$point)
+        grid <- grid[o, ]
         rownames(grid) <- NULL
+        if (!is.null(betas)) betas <- betas[, o, drop = FALSE]
     }
+    attr(grid, "betas") <- betas
 
     return(grid)
 }
