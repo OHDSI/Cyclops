@@ -40,6 +40,13 @@ Changes:
     profiles need far fewer iterations. Results no longer depend on `threads`, and differ from the
     previous version only within the convergence tolerance. With more than one thread, profiles also
     keep `fixedCoefficients` fixed (they let them vary)
+16. `confint()` starts each bound at its Wald estimate and takes safeguarded Newton steps on the
+    profile likelihood, falling back to the previous bracketing search; it needs 2-6 times fewer
+    fits, and bounds move by less than 1e-3. The fallback also covers regularized covariates with
+    `includePenalty = TRUE`, any covariate with `includePenalty = FALSE` when others are
+    regularized, and nearly flat profiles. Each bound starts from the estimate, so bounds no longer
+    depend on their order or on `threads`; with more than one thread, `fixedCoefficients` also stay
+    fixed
 
 Cyclops v3.7.1
 ==============

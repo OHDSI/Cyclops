@@ -196,3 +196,69 @@ test_that("Check profile likelihood does not depend on the number of threads", {
     # Warm starts reach the same profile as fits that each start from the estimate
     expect_equal(profiles[[1]]$grid$value, profiles[[1]]$single)
 })
+
+test_that("Check confint agrees with the bracketing search of Cyclops 3.8.0", {
+    # Bounds from Cyclops 3.8.0, which bracketed each root and refined it with Brent's method (tolerance 1E-3)
+    set.seed(123)
+    sim <- simulateCyclopsData(nstrata = 200, nrows = 2000, ncovars = 4, effectSizeSd = 0.5,
+                               zeroEffectSizeProp = 0, model = "poisson")
+    data <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = "cpr",
+                                 addIntercept = FALSE, quiet = TRUE)
+    fit <- fitCyclopsModel(data)
+    ci <- confint(fit, parm = 1:4)
+    old <- matrix(c(-0.7448019, -0.2439029,
+                    -0.4135118,  0.0674634,
+                     0.7202323,  1.0491097,
+                    -0.1687195,  0.2002380), ncol = 2, byrow = TRUE)
+    expect_lt(max(abs(ci[, 2:3] - old)), 1E-3)
+
+    # The profile log likelihood at each bound is threshold below the maximum
+    threshold <- qchisq(0.95, df = 1) / 2
+    for (parm in 1:4) {
+        at <- getCyclopsProfileLogLikelihood(fit, parm, x = ci[parm, 2:3], returnDerivatives = TRUE)
+        expect_lt(max(abs((at$value - (fit$log_likelihood - threshold)) / at$derivative)), 1E-4)
+    }
+
+    set.seed(123)
+    X <- matrix(rnorm(500 * 5), 500)
+    y <- rbinom(500, 1, plogis(-0.5 + X %*% c(0.8, -0.5, 0.3, 0, 0)))
+    data <- createCyclopsData(y ~ X, modelType = "lr")
+    fit <- fitCyclopsModel(data, prior = createPrior("laplace", variance = 0.1,
+                                                     exclude = c("(Intercept)", "X1", "X2")))
+    ci <- confint(fit, parm = c("X1", "X2"))
+    old <- matrix(c( 0.5535003,  0.9996095,
+                    -0.7544582, -0.3448097), ncol = 2, byrow = TRUE)
+    expect_lt(max(abs(ci[, 2:3] - old)), 1E-3)
+
+    test <- read.table(header=T, sep = ",", text = "
+start, length, event, x1, x2
+0, 4,  1,0,0
+0, 3.5,1,2,0
+0, 3,  0,0,1
+0, 2.5,1,0,1
+0, 2,  1,1,1
+0, 1.5,0,1,0
+0, 1,  1,1,0
+")
+    data <- createCyclopsData(Surv(length, event) ~ x1 + x2, data = test, modelType = "cox")
+    fit <- fitCyclopsModel(data)
+    ci <- confint(fit, parm = c("x1", "x2"))
+    old <- matrix(c(-0.6109136, 2.9002279,
+                    -1.3035896, 5.4649129), ncol = 2, byrow = TRUE)
+    expect_lt(max(abs(ci[, 2:3] - old)), 1E-3)
+})
+
+test_that("Check confint does not depend on the number of threads", {
+    set.seed(123)
+    sim <- simulateCyclopsData(nstrata = 200, nrows = 2000, ncovars = 4, effectSizeSd = 0.5,
+                               zeroEffectSizeProp = 0, model = "poisson")
+    data <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = "cpr",
+                                 addIntercept = FALSE, quiet = TRUE)
+    cis <- lapply(c(1, 2), function(threads) {
+        # Fixed coefficients stay fixed in every thread
+        fit <- fitCyclopsModel(data, fixedCoefficients = c(FALSE, TRUE, FALSE, FALSE),
+                               control = createControl(threads = threads), forceNewObject = TRUE)
+        confint(fit, parm = c(1, 3, 4))
+    })
+    expect_identical(cis[[1]], cis[[2]])
+})

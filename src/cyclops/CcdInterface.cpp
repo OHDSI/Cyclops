@@ -271,6 +271,52 @@ struct OptimizationProfile {
 	bool includePenalty;
 };
 
+// Safeguarded Newton iteration for the profile bound in `direction` from the mode x0. It starts at the
+// Wald bound for `curvature` (the other coefficients fixed, so inside the profile interval for a
+// quadratic log likelihood) and uses the derivative of the profile, which is the partial derivative at
+// the profile fit. Returns NAN when it fails; the caller then brackets a sign change instead.
+static double getNewtonBound(OptimizationProfile& eval, double x0, double direction,
+                             double curvature, double tolerance = 1E-3, int maxSteps = 20) {
+	// A nearly flat profile (an estimate at infinity) puts the Wald bound so far out that the fits there
+	// can overflow; leave it to bracketing
+	const double halfWidth = std::sqrt(2.0 * eval.getMaximum() / curvature);
+	if (!(halfWidth <= 10.0 * std::max(std::abs(x0), 1.0))) {
+		return NAN;
+	}
+	double inside = x0;   // objective > 0
+	double outside = NAN; // objective < 0
+	double x = x0 + direction * halfWidth;
+	for (int step = 0; step < maxSteps; ++step) {
+		const double y = eval.objective(x);
+		if (std::isnan(y)) {
+			return NAN;
+		}
+		if (y == 0.0) {
+			return x;
+		}
+		const double d = eval.derivative();
+		if (y > 0.0) {
+			inside = x;
+		} else {
+			outside = x;
+		}
+		double next = x - y / d;
+		const bool descending = direction * d < 0.0 && std::isfinite(next);
+		if (std::isnan(outside)) {
+			if (!descending || (next - inside) * direction <= 0.0) {
+				return NAN;
+			}
+		} else if (!descending || (next - inside) * direction <= 0.0 || (next - outside) * direction >= 0.0) {
+			next = 0.5 * (inside + outside); // bisect the bracket
+		}
+		if (std::abs(next - x) < tolerance) {
+			return next;
+		}
+		x = next;
+	}
+	return NAN;
+}
+
 double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelData *modelData,
 		const ProfileVector& profileCI, ProfileInformationMap& profileMap,
 		int inThreads, double threshold,
@@ -307,7 +353,6 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 			stream << "Variable " << *it << " not found.";
 			error->throwError(stream);
 		} else {
-			// TODO Minor bug, order of column evaluation yields different estimates
 			// TODO Check prior on covariate
 			if (!overrideNoRegularization && ccd->getIsRegularized(index)) {
 			    std::ostringstream stream;
@@ -317,6 +362,25 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 			indices.push_back(index);
 		    bounds.push_back(std::make_tuple(id, +1.0));
 			bounds.push_back(std::make_tuple(id, -1.0));
+		}
+	}
+
+	// Newton bounds need the derivative of the profile, which is the partial derivative at the profile fit
+	// when the objective includes the penalty of every free coefficient that moves. Without includePenalty,
+	// that holds only if no other free coefficient is regularized; with it, regularized covariates (whose
+	// derivative needs the prior gradient) are left to bracketing too. The curvature at the mode seeds them.
+	int nRegularized = 0;
+	for (int j = 0; j < J; ++j) {
+		if (ccd->getIsRegularized(j) && !ccd->getFixedBeta(j)) {
+			++nRegularized;
+		}
+	}
+	std::vector<double> curvatures(indices.size(), NAN);
+	for (size_t id = 0; id < indices.size(); ++id) {
+		const bool regularized = ccd->getIsRegularized(indices[id]);
+		const bool exact = includePenalty ? !regularized : nRegularized == (regularized ? 1 : 0);
+		if (exact) {
+			curvatures[id] = ccd->getHessianDiagonal(indices[id]);
 		}
 	}
 
@@ -333,7 +397,11 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	ccdPool.push_back(ccd);
 
 	for (int i = 1; i < nThreads; ++i) {
-	    ccdPool.push_back(ccd->clone(arguments.computeDevice));
+	    CyclicCoordinateDescent* copy = ccd->clone(arguments.computeDevice);
+	    for (int j = 0; j < J; ++j) {
+	        copy->setFixedBeta(j, ccd->getFixedBeta(j));
+	    }
+	    ccdPool.push_back(copy);
 	}
 
     std::vector<double> lowerPts(indices.size());
@@ -342,7 +410,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	std::vector<int> upperCnts(indices.size());
 
 	auto getBound = [this,
-	            &x0s,
+	            &x0s, &curvatures,
 	            &indices, &lowerPts, &upperPts,
                 &lowerCnts, &upperCnts, includePenalty, mode, threshold
             ](const BoundType bound, CyclicCoordinateDescent* ccd) {
@@ -352,18 +420,26 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 
 	    double x0 = x0s[index];
 
-	    // Bound edge
+	    // Bound edge, starting at the mode so that bounds do not depend on their order or the threads
+	    ccd->setBeta(x0s);
 	    OptimizationProfile eval(*ccd, arguments, index, mode, threshold, includePenalty);
-	    RZeroIn<OptimizationProfile> zeroIn(eval, 1E-3);
 
-	    double obj0 = eval.getMaximum();
+	    double pt = curvatures[id] > 0.0 ?
+	        getNewtonBound(eval, x0, direction, curvatures[id]) : NAN;
 
-	    //		std::cout << "BEGIN UP bracket" << std::endl;
-	    RZeroIn<OptimizationProfile>::Coordinate bracket =
-	        zeroIn.bracketSignChange(x0, obj0, direction);
-	     //		std::cout << "END UP bracket " << bracket.first << " " << bracket.second << std::endl;
+	    if (std::isnan(pt)) {
+	        ccd->setBeta(x0s);
+	        RZeroIn<OptimizationProfile> zeroIn(eval, 1E-3);
 
-	    double pt = std::isnan(bracket.second) ? NAN : zeroIn.getRoot(x0, bracket.first, obj0, bracket.second);
+	        double obj0 = eval.getMaximum();
+
+	        //		std::cout << "BEGIN UP bracket" << std::endl;
+	        RZeroIn<OptimizationProfile>::Coordinate bracket =
+	            zeroIn.bracketSignChange(x0, obj0, direction);
+	        //		std::cout << "END UP bracket " << bracket.first << " " << bracket.second << std::endl;
+
+	        pt = std::isnan(bracket.second) ? NAN : zeroIn.getRoot(x0, bracket.first, obj0, bracket.second);
+	    }
 
 	    if (direction == 1.0) {
 	        upperPts[id] = pt;
@@ -436,10 +512,9 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 
 		// Reset to mode
 		if (indices.size() > 0) {
-		    // Reset
-		    for (int j = 0; j < J; ++j) {
-		        ccd->setBeta(j, x0s[j]);
-		    }
+		    // Reset exactly, and recompute X beta now, as prediction reads it directly
+		    ccd->setBeta(x0s);
+		    ccd->getLogLikelihood();
 		    ccd->setHXBeta();
 		    // DEBUG, TODO Remove?
 // 		    double testMode = ccd->getLogLikelihood();
