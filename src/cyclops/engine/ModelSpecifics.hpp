@@ -106,16 +106,19 @@ double ModelSpecifics<BaseModel,RealType>::getGradientObjective(bool useCrossVal
     auto start = bsccs::chrono::steady_clock::now();
 #endif
 
-		auto& xBeta = getXBeta();
+		if (isCUDA()) {
+			getXBeta(); // copies the device xBeta into hXBeta
+		}
+		const auto& xBeta = hXBeta; // no copy
 
 		RealType criterion = 0;
 		if (useCrossValidation) {
 			for (int i = 0; i < K; i++) {
-				criterion += xBeta[i] * hY[i] * hKWeight[i];
+				criterion += static_cast<double>(xBeta[i]) * hY[i] * hKWeight[i]; // in double, as before
 			}
 		} else {
 			for (int i = 0; i < K; i++) {
-				criterion += xBeta[i] * hY[i];
+				criterion += static_cast<double>(xBeta[i]) * hY[i];
             }
 		}
 #ifdef CYCLOPS_DEBUG_TIMING
