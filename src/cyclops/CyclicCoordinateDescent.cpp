@@ -1530,6 +1530,7 @@ double CyclicCoordinateDescent::getAsymptoticVariance(int indexOne, int indexTwo
 // }
 
 CyclicCoordinateDescent::Matrix CyclicCoordinateDescent::computeFisherInformation(const std::vector<IdType>& indices) const {
+    modelSpecifics.makeDirty(); // clear strata cross terms cached at earlier coefficients
     Matrix fisherInformation(indices.size(), indices.size());
     for (size_t ii = 0; ii < indices.size(); ++ii) {
         const int i = indices[ii];

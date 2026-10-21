@@ -1566,6 +1566,12 @@ void ModelSpecifics<BaseModel,RealType>::computeSchoenfeldResiduals(int indexOne
 
 
 template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::makeDirty() {
+	AbstractModelSpecifics::makeDirty();
+	hessianSparseCrossTerms.clear(); // cached at the coefficients of an earlier call
+}
+
+template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeFisherInformation(int indexOne, int indexTwo,
 		double *oinfo, bool useWeights) {
 
@@ -1645,9 +1651,12 @@ void ModelSpecifics<BaseModel,RealType>::computeFisherInformationImpl(int indexO
 	IteratorTypeTwo itTwo(hX, indexTwo);
 	PairProductIterator<IteratorTypeOne,IteratorTypeTwo,RealType> it(itOne, itTwo);
 
+	const bool scaleByEvents = BaseModel::fisherInformationScalesWithEvents;
+
 	RealType information = static_cast<RealType>(0);
 	for (; it.valid(); ++it) {
 		const int k = it.index();
+		const int group = BaseModel::getGroup(hPid, k);
 		// Compile-time delegation
 
 		BaseModel::incrementFisherInformation(it,
@@ -1655,8 +1664,9 @@ void ModelSpecifics<BaseModel,RealType>::computeFisherInformationImpl(int indexO
 				&information,
 				offsExpXBeta[k],
 				0.0, 0.0, // numerPid[k], numerPid2[k], // remove
-				denomPid[BaseModel::getGroup(hPid, k)],
-				hKWeight[k], it.value(), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
+				denomPid[group],
+				scaleByEvents ? hKWeight[k] * hNWeight[group] : hKWeight[k],
+				it.value(), hXBeta[k], hY[k]); // When function is in-lined, compiler will only use necessary arguments
 	}
 
 	if (BaseModel::hasStrataCrossTerms) {
@@ -1706,7 +1716,8 @@ void ModelSpecifics<BaseModel,RealType>::computeFisherInformationImpl(int indexO
 		RealType sparseCross = static_cast<RealType>(0);
 		for (; itSparseCross.valid(); ++itSparseCross) {
 			const int n = itSparseCross.index();
-			sparseCross += itSparseCross.value() / (denomPid[n] * denomPid[n]);
+			sparseCross += (scaleByEvents ? hNWeight[n] : static_cast<RealType>(1)) *
+				itSparseCross.value() / (denomPid[n] * denomPid[n]);
 		}
 		information -= sparseCross;
 #endif

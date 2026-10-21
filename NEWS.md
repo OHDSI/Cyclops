@@ -31,6 +31,10 @@ Changes:
     held-out ones, so each replicate had a random number of draws from the fit
 13. `createControl(coxFitter = "legacy")` fits `cox` models with the engine of Cyclops 3.7, to reproduce
     earlier results; the default, `"efficient"`, is the new engine
+14. `vcov()`, `getSEs()` and `aconfint()` for `cpr`, `sccs` and `clr` models weight each stratum by
+    its number of events, as the likelihood does. Standard errors were too large with several events
+    per stratum (by about the square root of the mean number) and too small when some strata had no
+    events. `vcov()` after refitting the same data also reused stratum terms from the earlier fit
 
 Cyclops v3.7.1
 ==============
