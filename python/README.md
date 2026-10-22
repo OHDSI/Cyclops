@@ -32,66 +32,64 @@ pinned copy, so the first build needs network access. Linux and macOS only.
 
 ```python
 import numpy as np
-from cyclops import LogisticRegression
+from cyclops import Control, CyclopsData, CyclopsModel, Prior
 
 rng = np.random.default_rng(0)
 X = rng.normal(size=(1000, 20))
 y = (rng.random(1000) < 1 / (1 + np.exp(-X @ rng.normal(size=20)))).astype(float)
 
-model = LogisticRegression(prior="laplace", prior_variance=0.1)
-model.fit(X, y)
+data = CyclopsData.from_arrays(X, y, "lr", add_intercept=True)
+result = CyclopsModel(data, prior=Prior("laplace", variance=0.1)).fit()
 
-model.coef_          # (20,)
-model.intercept_
-model.predict_proba(X)[:, 1]
-model.log_likelihood_
+result.coefficients      # intercept first, then one per column of X
+result.covariate_ids     # [0, 1, ..., 20]; the intercept is id 0
+result.log_likelihood
 ```
 
-Sparse designs are passed through without densification:
+Sparse designs are passed through without densification, and
+`variance="cv"` runs Cyclops' cross-validated hyperparameter search:
 
 ```python
 import scipy.sparse as sp
 
 X = sp.random(100_000, 50_000, density=1e-4, format="csc")
-LogisticRegression(prior="laplace", prior_variance="cv").fit(X, y)
+data = CyclopsData.from_arrays(X, y, "lr", add_intercept=True)
+CyclopsModel(data, prior=Prior("laplace", variance="cv")).fit()
 ```
 
-`prior_variance="cv"` runs Cyclops' cross-validated hyperparameter search
-(auto-search by default, or a fixed grid).
-
-## Models
-
-| Class | Cyclops model | Extra `fit` arguments |
-|---|---|---|
-| `LogisticRegression` | `lr` | — |
-| `PoissonRegression` | `pr` | `offset=` |
-| `LinearRegression` | `ls` | — |
-| `ConditionalLogisticRegression` | `clr` | `strata=` |
-| `ConditionalPoissonRegression` | `cpr` | `strata=` |
-| `SelfControlledCaseSeries` | `sccs` | `strata=`, `offset=` |
-| `CoxRegression` | `cox` | `time=`, `event=` |
-| `FineGrayRegression` | `fgr` | `time=`, `event=`, `censor_weights=` |
-
-## Lower-level API
-
-The estimator classes are a convenience layer over a thin wrapper of the C++
-facade. For streaming very wide designs, or for control the estimators do not
-expose, use it directly:
+Very wide designs can be streamed in column-chunks instead of built from one
+matrix:
 
 ```python
-from cyclops.data import CyclopsData
-from cyclops.model import CyclopsModel, FitOptions, Prior
-
 data = CyclopsData.create("cox")
-data.set_outcome(y=event, time=time, strata=None)
-for chunk in covariate_chunks:            # scipy.sparse.csc_matrix
+data.set_outcome(y=event, time=time)
+for chunk, chunk_ids in covariate_chunks:   # scipy.sparse.csc_matrix
     data.add_covariates(chunk, covariate_ids=chunk_ids)
 data.finalize()
 
-model = CyclopsModel(data)
-model.set_prior(Prior("laplace", variance=0.1))
-result = model.fit(FitOptions(max_iterations=2000, threads=4))
+model = CyclopsModel(data, control=Control(max_iterations=2000, threads=4))
+result = model.fit()
 ```
+
+## Models
+
+`model_type` is the first positional argument to `CyclopsData.from_arrays` /
+`CyclopsData.create`.
+
+| `model_type` | Model | Required arguments |
+|---|---|---|
+| `lr` | Logistic | — |
+| `pr` | Poisson | `offset=` (optional) |
+| `ls` | Least squares | — |
+| `clr`, `clr_exact`, `clr_efron` | Conditional logistic | `strata=` |
+| `cpr` | Conditional Poisson | `strata=` |
+| `sccs` | Self-controlled case series | `strata=`, `offset=` |
+| `cox`, `cox_raw`, `cox_time` | Cox proportional hazards | `time=` |
+| `fgr` | Fine-Gray competing risks | `time=`, `set_censor_weights()` |
+
+A scikit-learn-style estimator layer (`LogisticRegression`, `CoxRegression`
+and friends, with `coef_`/`predict_proba`/`get_params`) is deferred to a
+follow-up; it is a pure convenience wrapper over the two classes above.
 
 ## Testing
 

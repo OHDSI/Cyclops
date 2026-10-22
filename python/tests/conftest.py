@@ -1,4 +1,4 @@
-"""Shared fixtures: synthetic datasets and the R availability gate."""
+"""Shared fixtures: synthetic datasets, a fit helper, and the R availability gate."""
 
 from __future__ import annotations
 
@@ -10,9 +10,65 @@ import numpy as np
 import pytest
 import scipy.sparse as sp
 
+from cyclops import CyclopsData, CyclopsModel
+
 sys.path.insert(0, str(Path(__file__).parent))
 
 from r_bridge import r_cyclops_available
+
+
+def fit(
+    X,
+    y,
+    model_type,
+    *,
+    prior=None,
+    control=None,
+    strata=None,
+    time=None,
+    offset=None,
+    add_intercept=False,
+    covariate_ids=None,
+    weights=None,
+    censor_weights=None,
+    start_values=None,
+):
+    """Build a `CyclopsData`, fit it, and hand back all three objects.
+
+    Test-only scaffolding over the two-step `CyclopsData` / `CyclopsModel` API,
+    so a test that only cares about the numbers is one line. The weight vectors
+    are permuted by `row_order` because `from_arrays` re-sorts rows for the
+    conditional and survival models, while the caller supplies them in input
+    order.
+
+    Returns:
+        (data, model, result)
+    """
+    data = CyclopsData.from_arrays(
+        X,
+        y,
+        model_type,
+        time=time,
+        strata=strata,
+        offset=offset,
+        covariate_ids=covariate_ids,
+        add_intercept=add_intercept,
+    )
+    model = CyclopsModel(data, prior=prior, control=control)
+
+    order = data.row_order
+    for vector, setter in (
+        (weights, model.set_weights),
+        (censor_weights, model.set_censor_weights),
+    ):
+        if vector is not None:
+            vector = np.ascontiguousarray(vector, dtype=np.float64)
+            setter(vector if order is None else vector[order])
+
+    if start_values is not None:
+        model.set_start_values(np.ascontiguousarray(start_values, dtype=np.float64))
+
+    return data, model, model.fit()
 
 
 def pytest_collection_modifyitems(config, items):

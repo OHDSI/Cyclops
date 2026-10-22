@@ -4,39 +4,21 @@ Python bindings for the OHDSI Cyclops C++ engine. Fits logistic, Poisson,
 least-squares, conditional (stratified) and survival regressions with L1/L2
 regularization on sparse designs with hundreds of thousands of covariates.
 
-Two levels of API:
+The API is the data/model pair — :class:`~cyclops.data.CyclopsData` holds the
+outcome and design matrix, :class:`~cyclops.model.CyclopsModel` configures and
+runs the optimizer::
 
-* estimators — :class:`LogisticRegression`, :class:`CoxRegression` and friends,
-  shaped like scikit-learn::
+    from cyclops import CyclopsData, CyclopsModel, Prior
 
-      from cyclops import LogisticRegression
-      model = LogisticRegression(prior="laplace", prior_variance=0.1)
-      model.fit(X, y)
-      model.coef_, model.predict_proba(X)
-
-* the data/model pair — :class:`~cyclops.data.CyclopsData` and
-  :class:`~cyclops.model.CyclopsModel`, for streaming very wide designs and for
-  the controls the estimators do not surface.
+    data = CyclopsData.from_arrays(X, y, "lr", add_intercept=True)
+    result = CyclopsModel(data, prior=Prior("laplace", variance=0.1)).fit()
+    result.coefficients
 """
 
 from __future__ import annotations
 
 from cyclops import _cyclops
 from cyclops.data import INTERCEPT_ID, CyclopsData
-from cyclops.estimators import (
-    ConditionalLogisticRegression,
-    ConditionalPoissonRegression,
-    CoxRegression,
-    EfronConditionalLogisticRegression,
-    ExactConditionalLogisticRegression,
-    FineGrayRegression,
-    LinearRegression,
-    LogisticRegression,
-    NotFittedError,
-    PoissonRegression,
-    SelfControlledCaseSeries,
-    TimeVaryingCoxRegression,
-)
 from cyclops.model import Control, CyclopsError, CyclopsModel, FitResult, Prior
 
 __version__ = _cyclops.version()
@@ -56,28 +38,12 @@ def list_gpu_devices() -> list[str]:
 __all__ = [
     "__version__",
     "MODEL_TYPES",
-    # estimators
-    "LogisticRegression",
-    "PoissonRegression",
-    "LinearRegression",
-    "ConditionalLogisticRegression",
-    "ExactConditionalLogisticRegression",
-    "EfronConditionalLogisticRegression",
-    "ConditionalPoissonRegression",
-    "SelfControlledCaseSeries",
-    "CoxRegression",
-    "TimeVaryingCoxRegression",
-    "FineGrayRegression",
-    # lower level
     "CyclopsData",
     "CyclopsModel",
     "Prior",
     "Control",
     "FitResult",
     "INTERCEPT_ID",
-    # errors
     "CyclopsError",
-    "NotFittedError",
-    # misc
     "list_gpu_devices",
 ]

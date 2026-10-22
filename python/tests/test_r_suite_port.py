@@ -41,17 +41,8 @@ from typing import ClassVar
 import numpy as np
 import pytest
 
-from cyclops import (
-    ConditionalLogisticRegression,
-    ConditionalPoissonRegression,
-    CoxRegression,
-    CyclopsData,
-    CyclopsModel,
-    LinearRegression,
-    LogisticRegression,
-    PoissonRegression,
-    SelfControlledCaseSeries,
-)
+from conftest import fit
+from cyclops import Control, CyclopsData, CyclopsError, CyclopsModel, Prior
 
 DATA = Path(__file__).parent / "data"
 
@@ -88,7 +79,13 @@ def bernoulli():
 def bladder():
     columns = _read_csv("bladder.csv")
     X = np.column_stack([columns["rx"], columns["size"]])
-    return CoxRegression(tol=1e-12).fit(X, columns["event"], time=columns["stop"])
+    return fit(
+        X,
+        columns["event"],
+        "cox",
+        time=columns["stop"],
+        control=Control(tolerance=1e-12),
+    )
 
 
 @pytest.fixture(scope="module")
@@ -100,9 +97,10 @@ def oxford():
 def infert_clr():
     columns = _read_csv("infert.csv")
     X = np.column_stack([columns["spontaneous"], columns["induced"]])
-    return ConditionalLogisticRegression().fit(
-        X, columns["case"], strata=columns["stratum"].astype(np.int64)
-    ), columns
+    return (
+        fit(X, columns["case"], "clr", strata=columns["stratum"].astype(np.int64)),
+        columns,
+    )
 
 
 class TestSmallBernoulli:
@@ -120,71 +118,70 @@ class TestSmallBernoulli:
 
     def test_coefficients_and_likelihood(self, bernoulli):
         X, y = bernoulli
-        model = LogisticRegression().fit(X, y)
-        np.testing.assert_allclose(
-            [model.intercept_, *model.coef_], self.COEF, rtol=TOL, atol=TOL
-        )
-        np.testing.assert_allclose(
-            model.log_likelihood_, self.LOG_LIKELIHOOD, rtol=TOL
-        )
+        _, _, result = fit(X, y, "lr", add_intercept=True)
+        np.testing.assert_allclose(result.coefficients, self.COEF, rtol=TOL, atol=TOL)
+        np.testing.assert_allclose(result.log_likelihood, self.LOG_LIKELIHOOD, rtol=TOL)
 
     def test_profile_confidence_intervals(self, bernoulli):
         X, y = bernoulli
-        model = LogisticRegression().fit(X, y)
+        _, model, _ = fit(X, y, "lr", add_intercept=True)
         # Both ends of the interval are profile-likelihood based, so they are
         # comparable directly rather than only through a normal approximation.
-        intervals = model.model_.confidence_intervals()
+        intervals = model.confidence_intervals()
         observed = np.array([[i.lower, i.upper] for i in intervals])
         np.testing.assert_allclose(observed, self.CONFINT, rtol=TOL, atol=TOL)
 
     def test_predictions(self, bernoulli):
         X, y = bernoulli
-        model = LogisticRegression().fit(X, y)
+        _, model, _ = fit(X, y, "lr", add_intercept=True)
         np.testing.assert_allclose(
-            model.predict_proba(X)[:5, 1], self.PREDICT_HEAD, rtol=TOL, atol=TOL
+            model.predict()[:5], self.PREDICT_HEAD, rtol=TOL, atol=TOL
         )
 
     def test_zhang_oles_criterion_reaches_the_same_mode(self, bernoulli):
         """R: `createControl(convergenceType = "zhang")`."""
-        from cyclops import Control
-
         X, y = bernoulli
-        default = LogisticRegression().fit(X, y)
-        zhang = LogisticRegression(control=Control(convergence="zhang")).fit(X, y)
-        np.testing.assert_allclose(zhang.coef_, default.coef_, rtol=TOL, atol=TOL)
+        _, _, default = fit(X, y, "lr", add_intercept=True)
+        _, _, zhang = fit(
+            X, y, "lr", add_intercept=True, control=Control(convergence="zhang")
+        )
+        np.testing.assert_allclose(
+            zhang.coefficients, default.coefficients, rtol=TOL, atol=TOL
+        )
 
     def test_kkt_swindle_reaches_the_same_mode(self, bernoulli):
         """R: `createControl(useKKTSwindle = TRUE)` must not change the answer."""
-        from cyclops import Control
-
         X, y = bernoulli
-        gold = LogisticRegression(prior="laplace").fit(X, y)
-        swindle = LogisticRegression(
-            prior="laplace", control=Control(use_kkt_swindle=True)
-        ).fit(X, y)
-        np.testing.assert_allclose(swindle.coef_, gold.coef_, rtol=1e-6, atol=1e-8)
+        _, _, gold = fit(X, y, "lr", add_intercept=True, prior=Prior("laplace"))
+        _, _, swindle = fit(
+            X,
+            y,
+            "lr",
+            add_intercept=True,
+            prior=Prior("laplace"),
+            control=Control(use_kkt_swindle=True),
+        )
+        np.testing.assert_allclose(
+            swindle.coefficients, gold.coefficients, rtol=1e-6, atol=1e-8
+        )
 
     def test_sparse_storage_gives_the_same_fit(self, bernoulli):
         """R fits the same data through `sparseFormula = ~ log_bid`."""
         import scipy.sparse as sp
 
         X, y = bernoulli
-        dense = LogisticRegression().fit(X, y)
-        sparse = LogisticRegression().fit(sp.csc_matrix(X), y)
-        np.testing.assert_allclose(
-            [sparse.intercept_, *sparse.coef_], self.COEF, rtol=TOL, atol=TOL
-        )
-        np.testing.assert_allclose(sparse.coef_, dense.coef_, rtol=1e-10)
+        _, _, dense = fit(X, y, "lr", add_intercept=True)
+        _, _, sparse = fit(sp.csc_matrix(X), y, "lr", add_intercept=True)
+        np.testing.assert_allclose(sparse.coefficients, self.COEF, rtol=TOL, atol=TOL)
+        np.testing.assert_allclose(sparse.coefficients, dense.coefficients, rtol=1e-10)
 
     def test_intercept_added_after_the_covariates(self, bernoulli):
         """R: `y ~ log_bid - 1` then `finalizeSqlCyclopsData(addIntercept = TRUE)`."""
         X, y = bernoulli
-        model = LogisticRegression().fit(X, y)
-        np.testing.assert_allclose(
-            [model.intercept_, *model.coef_], self.COEF, rtol=TOL, atol=TOL
-        )
-        assert model.data_.has_intercept
-        assert model.data_.covariate_ids[0] == 0
+        data, _, result = fit(X, y, "lr", add_intercept=True)
+        np.testing.assert_allclose(result.coefficients, self.COEF, rtol=TOL, atol=TOL)
+        assert data.has_intercept
+        assert data.covariate_ids[0] == 0
 
 
 # ---------------------------------------------------------------------------
@@ -221,18 +218,14 @@ class TestSmallPoisson:
 
     def test_coefficients_and_likelihood(self):
         X, counts, _, _ = _dobson()
-        model = PoissonRegression().fit(X, counts)
-        np.testing.assert_allclose(
-            [model.intercept_, *model.coef_], self.COEF, rtol=TOL, atol=TOL
-        )
-        np.testing.assert_allclose(
-            model.log_likelihood_, self.LOG_LIKELIHOOD, rtol=TOL
-        )
+        _, _, result = fit(X, counts, "pr", add_intercept=True)
+        np.testing.assert_allclose(result.coefficients, self.COEF, rtol=TOL, atol=TOL)
+        np.testing.assert_allclose(result.log_likelihood, self.LOG_LIKELIHOOD, rtol=TOL)
 
     def test_profile_confidence_intervals(self):
         X, counts, _, _ = _dobson()
-        model = PoissonRegression().fit(X, counts)
-        intervals = model.model_.confidence_intervals()
+        _, model, _ = fit(X, counts, "pr", add_intercept=True)
+        intervals = model.confidence_intervals()
         observed = np.array([[i.lower, i.upper] for i in intervals])
         # Looser than the coefficient comparison: both sides locate the bound by
         # a root search with its own tolerance, so agreement is limited by the
@@ -241,22 +234,17 @@ class TestSmallPoisson:
 
     def test_predictions(self):
         X, counts, _, _ = _dobson()
-        model = PoissonRegression().fit(X, counts)
+        _, model, _ = fit(X, counts, "pr", add_intercept=True)
         # glm's fitted values reproduce the marginal totals for this design.
-        np.testing.assert_allclose(
-            model.predict(X), model.model_.predict(), rtol=TOL, atol=TOL
-        )
-        np.testing.assert_allclose(model.predict(X).sum(), counts.sum(), rtol=TOL)
+        np.testing.assert_allclose(model.predict().sum(), counts.sum(), rtol=TOL)
 
     def test_mittal_criterion(self):
         """R: `createControl(convergenceType = "mittal")`, tolerance 1e-3."""
-        from cyclops import Control
-
         X, counts, _, _ = _dobson()
-        model = PoissonRegression(control=Control(convergence="mittal")).fit(X, counts)
-        np.testing.assert_allclose(
-            [model.intercept_, *model.coef_], self.COEF, rtol=1e-3, atol=1e-3
+        _, _, result = fit(
+            X, counts, "pr", add_intercept=True, control=Control(convergence="mittal")
         )
+        np.testing.assert_allclose(result.coefficients, self.COEF, rtol=1e-3, atol=1e-3)
 
     def test_fp32_precision(self):
         """R: `createCyclopsData(..., floatingPoint = 32)`."""
@@ -284,13 +272,11 @@ class TestPoissonWithOffset:
     def test_coefficients(self):
         _, counts, outcome, treatment = _dobson()
         X = _dummies(treatment, [1, 2, 3])
-        model = PoissonRegression().fit(X, counts, offset=np.exp(outcome))
-        np.testing.assert_allclose(
-            [model.intercept_, *model.coef_], self.COEF, rtol=TOL, atol=TOL
+        _, _, result = fit(
+            X, counts, "pr", add_intercept=True, offset=np.exp(outcome)
         )
-        np.testing.assert_allclose(
-            model.log_likelihood_, self.LOG_LIKELIHOOD, rtol=TOL
-        )
+        np.testing.assert_allclose(result.coefficients, self.COEF, rtol=TOL, atol=TOL)
+        np.testing.assert_allclose(result.log_likelihood, self.LOG_LIKELIHOOD, rtol=TOL)
 
     def test_prelogged_offset_matches(self):
         """The same fit, handing Cyclops the log-scale offset directly."""
@@ -363,7 +349,7 @@ class TestNormalization:
 
     def test_normalized_fit_rescales_to_the_same_coefficients(self):
         X, counts, _, _ = _dobson()
-        plain = PoissonRegression().fit(X, counts)
+        _, _, plain = fit(X, counts, "pr", add_intercept=True)
 
         data = CyclopsData.create("pr")
         data.set_outcome(counts)
@@ -376,9 +362,11 @@ class TestNormalization:
         # Columns are multiplied by s_j, so the fitted coefficient is divided by
         # it; `coef(fit, rescale = TRUE)` multiplies back.
         rescaled = scaled.coefficients[1:] * scale
-        np.testing.assert_allclose(rescaled, plain.coef_, rtol=1e-6, atol=1e-8)
         np.testing.assert_allclose(
-            scaled.log_likelihood, plain.log_likelihood_, rtol=1e-10
+            rescaled, plain.coefficients[1:], rtol=1e-6, atol=1e-8
+        )
+        np.testing.assert_allclose(
+            scaled.log_likelihood, plain.log_likelihood, rtol=1e-10
         )
 
 
@@ -387,21 +375,33 @@ class TestCovariateRegularization:
 
     def test_excluded_covariates_survive_shrinkage(self):
         X, counts, _, _ = _dobson()
-        # R excludes ("(Intercept)", "outcome2", "outcome3"), i.e. columns 0, 1
-        # of the feature matrix plus the intercept.
-        model = PoissonRegression(prior="laplace", exclude=[0, 1]).fit(X, counts)
+        # R excludes ("(Intercept)", "outcome2", "outcome3"); the intercept is
+        # id 0 and is excluded automatically, outcome2/outcome3 are ids 1 and 2.
+        _, model, result = fit(
+            X,
+            counts,
+            "pr",
+            add_intercept=True,
+            prior=Prior("laplace", exclude=[1, 2]),
+        )
         # The treatment effects are ~0 in this design, so shrinkage drives them
         # exactly to zero -- the assertion the R test makes.
-        np.testing.assert_allclose(model.coef_[2:], 0.0, atol=1e-12)
-        regularized = model.model_.is_regularized()
+        np.testing.assert_allclose(result.coefficients[3:], 0.0, atol=1e-12)
+        regularized = model.is_regularized()
         assert not any(regularized[:3])  # intercept, outcome2, outcome3
         assert all(regularized[3:])      # treatment2, treatment3
 
     def test_unknown_covariate_is_rejected(self):
         """R: `exclude = c("BAD", ...)` and `exclude = c(10, 1:3)` both error."""
         X, counts, _, _ = _dobson()
-        with pytest.raises(ValueError, match="outside"):
-            PoissonRegression(prior="laplace", exclude=[10]).fit(X, counts)
+        with pytest.raises(CyclopsError, match="not found"):
+            fit(
+                X,
+                counts,
+                "pr",
+                add_intercept=True,
+                prior=Prior("laplace", exclude=[10]),
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -423,26 +423,24 @@ class TestSmallNormal:
     def test_coefficients(self):
         """Tighter than the R suite, which averages the relative error over the
         coefficient vector and so tolerates a partly converged intercept."""
-        from cyclops import Control
-
         X, y = self._data()
-        model = LinearRegression(control=Control(tolerance=1e-12)).fit(X, y)
-        np.testing.assert_allclose(
-            [model.intercept_, *model.coef_], self.COEF, rtol=1e-6, atol=1e-7
+        _, _, result = fit(
+            X, y, "ls", add_intercept=True, control=Control(tolerance=1e-12)
         )
+        np.testing.assert_allclose(result.coefficients, self.COEF, rtol=1e-6, atol=1e-7)
 
     def test_sparse_storage_gives_the_same_fit(self):
         import scipy.sparse as sp
 
-        from cyclops import Control
-
         X, y = self._data()
-        model = LinearRegression(control=Control(tolerance=1e-12)).fit(
-            sp.csc_matrix(X), y
+        _, _, result = fit(
+            sp.csc_matrix(X),
+            y,
+            "ls",
+            add_intercept=True,
+            control=Control(tolerance=1e-12),
         )
-        np.testing.assert_allclose(
-            [model.intercept_, *model.coef_], self.COEF, rtol=1e-6, atol=1e-7
-        )
+        np.testing.assert_allclose(result.coefficients, self.COEF, rtol=1e-6, atol=1e-7)
 
 
 # ---------------------------------------------------------------------------
@@ -488,12 +486,14 @@ class TestSmallCox:
     def test_unstratified(self, case):
         spec = getattr(self, case)
         X = np.column_stack([spec["x1"], spec["x2"]])
-        model = CoxRegression().fit(
-            X, np.array(spec["event"]), time=np.array(spec["length"])
+        _, _, result = fit(
+            X, np.array(spec["event"]), "cox", time=np.array(spec["length"])
         )
-        np.testing.assert_allclose(model.coef_, spec["coef"], rtol=TOL, atol=TOL)
         np.testing.assert_allclose(
-            model.log_likelihood_, spec["log_likelihood"], rtol=TOL
+            result.coefficients, spec["coef"], rtol=TOL, atol=TOL
+        )
+        np.testing.assert_allclose(
+            result.log_likelihood, spec["log_likelihood"], rtol=TOL
         )
 
     def test_standard_errors_are_unavailable_for_cox(self):
@@ -507,31 +507,34 @@ class TestSmallCox:
         """
         spec = self.NO_TIES
         X = np.column_stack([spec["x1"], spec["x2"]])
-        model = CoxRegression().fit(
-            X, np.array(spec["event"]), time=np.array(spec["length"])
+        _, model, result = fit(
+            X, np.array(spec["event"]), "cox", time=np.array(spec["length"])
         )
-        with pytest.raises(Exception, match=r"singular|degenerate"):
-            model.standard_errors()
+        with pytest.raises(CyclopsError, match=r"singular|degenerate"):
+            model.standard_errors(list(result.covariate_ids))
 
         # The coefficients themselves are sound; only the curvature is not.
-        np.testing.assert_allclose(model.coef_, spec["coef"], rtol=TOL, atol=TOL)
+        np.testing.assert_allclose(
+            result.coefficients, spec["coef"], rtol=TOL, atol=TOL
+        )
 
     @pytest.mark.parametrize("case", ["NO_TIES", "TIME_TIES"], ids=str.lower)
     def test_stratified(self, case):
         """R: `Surv(length, event) ~ x1 + strata(x2)`."""
         spec = getattr(self, case)
         X = np.array(spec["x1"]).reshape(-1, 1)
-        model = CoxRegression().fit(
+        _, _, result = fit(
             X,
             np.array(spec["event"]),
+            "cox",
             time=np.array(spec["length"]),
             strata=np.array(spec["x2"], dtype=np.int64),
         )
         np.testing.assert_allclose(
-            model.coef_, spec["strat_coef"], rtol=TOL, atol=TOL
+            result.coefficients, spec["strat_coef"], rtol=TOL, atol=TOL
         )
         np.testing.assert_allclose(
-            model.log_likelihood_, spec["strat_log_likelihood"], rtol=TOL
+            result.log_likelihood, spec["strat_log_likelihood"], rtol=TOL
         )
 
 
@@ -549,14 +552,14 @@ class TestGradient:
     LOG_LIKELIHOOD = -596.332754767
 
     def test_matches_coxph(self, bladder):
-        np.testing.assert_allclose(bladder.coef_, self.COEF, rtol=TOL, atol=TOL)
-        np.testing.assert_allclose(
-            bladder.log_likelihood_, self.LOG_LIKELIHOOD, rtol=TOL
-        )
+        _, _, result = bladder
+        np.testing.assert_allclose(result.coefficients, self.COEF, rtol=TOL, atol=TOL)
+        np.testing.assert_allclose(result.log_likelihood, self.LOG_LIKELIHOOD, rtol=TOL)
 
     def test_gradient_vanishes_at_the_mode(self, bladder):
         """R: `expect_equivalent(gradient(fit), rep(0, length(coef(fit))))`."""
-        np.testing.assert_allclose(bladder.model_.gradient(), 0.0, atol=1e-8)
+        _, model, _ = bladder
+        np.testing.assert_allclose(model.gradient(), 0.0, atol=1e-8)
 
     def test_gradient_matches_a_central_difference(self, bladder):
         """R perturbs beta by eps and compares against a finite difference.
@@ -564,8 +567,8 @@ class TestGradient:
         Evaluated off the mode, where the gradient is not simply zero and the
         comparison therefore has content.
         """
-        model = bladder.model_
-        mode = np.asarray(bladder.coef_)
+        _, model, result = bladder
+        mode = np.asarray(result.coefficients)
         eps = 1e-2
         offset = np.array([eps, 0.0])
 
@@ -604,31 +607,33 @@ class TestConditionalLogistic:
                         [0.702028248052, 2.1159950157]])
 
     def test_coefficients_and_likelihood(self, infert_clr):
-        fitted, _ = infert_clr
-        np.testing.assert_allclose(fitted.coef_, self.COEF, rtol=TOL, atol=TOL)
-        np.testing.assert_allclose(
-            fitted.log_likelihood_, self.LOG_LIKELIHOOD, rtol=TOL
-        )
+        (_, _, result), _ = infert_clr
+        np.testing.assert_allclose(result.coefficients, self.COEF, rtol=TOL, atol=TOL)
+        np.testing.assert_allclose(result.log_likelihood, self.LOG_LIKELIHOOD, rtol=TOL)
 
     def test_standard_errors(self, infert_clr):
         """R: `expect_equal(vcov(cyclopsFit), vcov(gold))`."""
-        fitted, _ = infert_clr
+        (_, model, result), _ = infert_clr
         np.testing.assert_allclose(
-            fitted.standard_errors(), self.SE, rtol=TOL, atol=TOL
+            model.standard_errors(list(result.covariate_ids)),
+            self.SE,
+            rtol=TOL,
+            atol=TOL,
         )
 
     def test_asymptotic_confidence_intervals(self, infert_clr):
         """R: `aconfint(cyclopsFit)` — the Wald interval `beta +/- 1.96 * se`."""
-        fitted, _ = infert_clr
-        errors = fitted.standard_errors()
+        (_, model, result), _ = infert_clr
+        coefficients = np.asarray(result.coefficients)
+        errors = model.standard_errors(list(result.covariate_ids))
         observed = np.column_stack(
-            [fitted.coef_ - 1.959964 * errors, fitted.coef_ + 1.959964 * errors]
+            [coefficients - 1.959964 * errors, coefficients + 1.959964 * errors]
         )
         np.testing.assert_allclose(observed, self.CONFINT, rtol=1e-3, atol=1e-4)
 
     def test_stratum_count(self, infert_clr):
-        fitted, columns = infert_clr
-        assert fitted.data_.n_strata == len(np.unique(columns["stratum"]))
+        (data, _, _), columns = infert_clr
+        assert data.n_strata == len(np.unique(columns["stratum"]))
 
 
 class TestConditionalPoisson:
@@ -641,24 +646,29 @@ class TestConditionalPoisson:
 
     def test_coefficients(self, oxford):
         X = np.column_stack([oxford["exgr"], oxford["agegr"] - 1.0])
-        model = ConditionalPoissonRegression().fit(
+        _, _, result = fit(
             X,
             oxford["event"],
+            "cpr",
             strata=oxford["indiv"].astype(np.int64),
             offset=oxford["interval"],
         )
-        np.testing.assert_allclose(model.coef_, self.COEF, rtol=1e-5, atol=1e-6)
+        np.testing.assert_allclose(result.coefficients, self.COEF, rtol=1e-5, atol=1e-6)
 
     def test_standard_errors(self, oxford):
         X = np.column_stack([oxford["exgr"], oxford["agegr"] - 1.0])
-        model = ConditionalPoissonRegression().fit(
+        _, model, result = fit(
             X,
             oxford["event"],
+            "cpr",
             strata=oxford["indiv"].astype(np.int64),
             offset=oxford["interval"],
         )
         np.testing.assert_allclose(
-            model.standard_errors(), self.SE, rtol=1e-4, atol=1e-6
+            model.standard_errors(list(result.covariate_ids)),
+            self.SE,
+            rtol=1e-4,
+            atol=1e-6,
         )
 
 
@@ -676,16 +686,15 @@ class TestSccs:
     def test_matches_clogit(self):
         oxford = _read_csv("oxford.csv")
         X = np.column_stack([oxford["exgr"], oxford["agegr"] - 1.0])
-        model = SelfControlledCaseSeries().fit(
+        _, _, result = fit(
             X,
             oxford["event"],
+            "sccs",
             strata=oxford["indiv"].astype(np.int64),
             offset=oxford["interval"],
         )
-        np.testing.assert_allclose(model.coef_, self.COEF, rtol=1e-5, atol=1e-6)
-        np.testing.assert_allclose(
-            model.log_likelihood_, self.LOG_LIKELIHOOD, rtol=TOL
-        )
+        np.testing.assert_allclose(result.coefficients, self.COEF, rtol=1e-5, atol=1e-6)
+        np.testing.assert_allclose(result.log_likelihood, self.LOG_LIKELIHOOD, rtol=TOL)
 
     def test_agrees_with_conditional_poisson(self):
         """R notes the two likelihoods differ only by fixed terms."""
@@ -694,9 +703,11 @@ class TestSccs:
         common = dict(
             strata=oxford["indiv"].astype(np.int64), offset=oxford["interval"]
         )
-        sccs = SelfControlledCaseSeries().fit(X, oxford["event"], **common)
-        cpr = ConditionalPoissonRegression().fit(X, oxford["event"], **common)
-        np.testing.assert_allclose(sccs.coef_, cpr.coef_, rtol=1e-8, atol=1e-10)
+        _, _, sccs = fit(X, oxford["event"], "sccs", **common)
+        _, _, cpr = fit(X, oxford["event"], "cpr", **common)
+        np.testing.assert_allclose(
+            sccs.coefficients, cpr.coefficients, rtol=1e-8, atol=1e-10
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -733,9 +744,11 @@ class TestInfiniteMle:
         # Every event falls in the unexposed arm, so the MLE is -Inf.
         assert outcome[X[:, 0] == 1.0].sum() == 0
 
-        model = CoxRegression().fit(X, outcome, time=time)
-        assert model.return_flag_ in ("SUCCESS", "MAX_ITERATIONS", "ILLCONDITIONED")
-        assert model.coef_[0] < -5.0, "expected the coefficient to run away negative"
+        _, _, result = fit(X, outcome, "cox", time=time)
+        assert result.return_flag in ("SUCCESS", "MAX_ITERATIONS", "ILLCONDITIONED")
+        assert result.coefficients[0] < -5.0, (
+            "expected the coefficient to run away negative"
+        )
 
     def test_jeffreys_prior_needs_a_single_covariate(self):
         """R: multivariable Jeffreys errors with '.*1 covariate.*'."""
@@ -743,16 +756,19 @@ class TestInfiniteMle:
         rng = np.random.default_rng(7)
         X2 = np.column_stack([X[:, 0], (rng.random(X.shape[0]) < 0.5).astype(float)])
         with pytest.raises(Exception, match=r"(?i)jeffreys|covariate"):
-            CoxRegression(prior="jeffreys").fit(X2, outcome, time=time)
+            fit(X2, outcome, "cox", time=time, prior=Prior("jeffreys"))
 
     def test_jeffreys_prior_with_lange_criterion(self):
         """R: succeeds once `convergenceType = "lange"` is set."""
-        from cyclops import Control
-
         X, outcome, time = self._simulate()
-        model = CoxRegression(
-            prior="jeffreys", control=Control(convergence="lange")
-        ).fit(X, outcome, time=time)
-        assert model.return_flag_ == "SUCCESS"
+        _, _, result = fit(
+            X,
+            outcome,
+            "cox",
+            time=time,
+            prior=Prior("jeffreys"),
+            control=Control(convergence="lange"),
+        )
+        assert result.return_flag == "SUCCESS"
         # A Jeffreys prior keeps the estimate finite where the MLE is not.
-        assert np.isfinite(model.coef_[0])
+        assert np.isfinite(result.coefficients[0])
