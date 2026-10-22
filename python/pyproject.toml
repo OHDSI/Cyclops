@@ -89,8 +89,9 @@ markers = [
 [tool.cibuildwheel]
 build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
 # PyPy has no NumPy/SciPy wheels for our floors, so the test step could never
-# install this package's own dependencies there.
-skip = "pp*"
+# install this package's own dependencies there. Windows is skipped because the
+# C++ core times itself with POSIX <sys/time.h> and does not build under MSVC.
+skip = "pp* *-win*"
 test-extras = ["test"]
 # {package} is the package directory (python/). {project} is the *repository*
 # root, whose tests/ holds the R testthat suite -- pointing pytest there
@@ -119,12 +120,6 @@ manylinux-x86_64-image = "manylinux_2_28"
 
 [tool.cibuildwheel.macos]
 archs = ["x86_64", "arm64"]
-
-[tool.cibuildwheel.windows]
-# AMD64 only. cibuildwheel's `auto` also builds win32, where the test step
-# cannot succeed: SciPy has published no 32-bit Windows wheel since 1.9.1, so
-# `scipy>=1.8` resolves to a version that must be built from source.
-archs = ["AMD64"]
 
 [[tool.cibuildwheel.overrides]]
 # arm64 has its own 11.0 floor; only the x86_64 target needs stating, and

@@ -11,8 +11,6 @@
 #include <cstdint>
 #include <vector>
 #include <map>
-#include <string>   // std::string, for ExtraInformation below
-#include <utility>  // std::pair
 
 // #if defined(__GXX_EXPERIMENTAL_CXX0X__) || __cplusplus >= 201103L
 // C++11

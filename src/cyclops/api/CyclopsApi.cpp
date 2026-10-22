@@ -477,9 +477,6 @@ std::vector<int> ModelData::stratum_index() const {
     return impl_->data->getPidVectorSTL();
 }
 
-double ModelData::normal_based_default_variance() const {
-    return impl_->data->getNormalBasedDefaultVar();
-}
 
 std::vector<double> ModelData::univariable_correlation(
     const std::vector<std::int64_t>& ids) const {

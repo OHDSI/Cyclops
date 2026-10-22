@@ -5,17 +5,27 @@
  *      Author: msuchard
  */
 
+
+#include <cstddef>
 #include "Timer.h"
 
 namespace bsccs {
 
-Timer::Timer() : time1(bsccs::chrono::steady_clock::now()) { }
+Timer::Timer() {
+	gettimeofday(&time1, NULL);
+}
 
 double Timer::operator()() {
-	const auto time2 = bsccs::chrono::steady_clock::now();
-	return bsccs::chrono::duration<double>(time2 - time1).count();
+	struct timeval time2;
+	gettimeofday(&time2, NULL);
+	return calculateSeconds(time1, time2);
 }
 
 Timer::~Timer() { }
+
+double Timer::calculateSeconds(const timeval &time1, const timeval &time2) {
+	return time2.tv_sec - time1.tv_sec +
+			(double)(time2.tv_usec - time1.tv_usec) / 1000000.0;
+}
 
 } /* namespace bsccs */

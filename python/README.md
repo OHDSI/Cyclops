@@ -21,11 +21,12 @@ Not on PyPI yet — install from GitHub. This builds the C++ core, so it needs a
 C++17 compiler and takes a few minutes:
 
 ```bash
-pip install "git+https://github.com/ablack3/Cyclops.git@feature/python-api#subdirectory=python"
+pip install "git+https://github.com/OHDSI/Cyclops.git#subdirectory=python"
 ```
 
-[`INSTALL.md`](INSTALL.md) covers prerequisites, pinning a revision, editable
-installs, `uv`, build options and troubleshooting.
+Needs a C++17 compiler and CMake >= 3.19. Eigen is used if installed
+(`apt install libeigen3-dev`, `brew install eigen`); otherwise CMake downloads a
+pinned copy, so the first build needs network access. Linux and macOS only.
 
 ## Quick start
 
@@ -111,10 +112,8 @@ pytest tests/ -m "not parity"      # no R required
 pytest tests/ -m parity            # needs R with Cyclops and jsonlite
 ```
 
-## Documentation
+## Layout
 
-- [`INSTALL.md`](INSTALL.md) — installing from GitHub, build options, troubleshooting
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Cyclops internals and the binding design
-- [`docs/DESIGN_DECISIONS.md`](docs/DESIGN_DECISIONS.md) — why pybind11, why a facade, API philosophy
-- [`docs/MIGRATION.md`](docs/MIGRATION.md) — every change made outside `python/`
-- [`docs/TODO.md`](docs/TODO.md) — roadmap and known gaps
+- `src/cyclops/` — the Python package
+- `src/bindings.cpp` — pybind11 bindings over the C++ facade in `../src/cyclops/api/`
+- `tests/` — unit tests, plus R-parity tests behind the `parity` marker

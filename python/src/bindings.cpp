@@ -226,8 +226,6 @@ PYBIND11_MODULE(_cyclops, m) {
             [](const ModelData& self) { return toArray(self.time()); })
         .def_property_readonly("stratum_index",
             [](const ModelData& self) { return toArray(self.stratum_index()); })
-        .def_property_readonly("normal_based_default_variance",
-                               &ModelData::normal_based_default_variance)
         .def("univariable_correlation",
              [](const ModelData& self, const std::vector<std::int64_t>& ids) {
                  return toArray(self.univariable_correlation(ids));

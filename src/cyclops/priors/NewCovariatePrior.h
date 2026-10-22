@@ -13,9 +13,19 @@
 #include <cmath>
 #include <sstream>
 #include <limits>
-#include <stdexcept>
 
 #include <iostream> // TODO Remove
+
+// The R package and the non-R front-ends are separate binaries, so the error
+// path is selected at compile time. CYCLOPS_NO_RCPP is defined only by the
+// CMake build (src/CMakeLists.txt); the R build does not define it and keeps
+// using Rcpp::stop exactly as before.
+#ifdef CYCLOPS_NO_RCPP
+#include <stdexcept>
+#define CYCLOPS_STOP(message) throw std::runtime_error(message)
+#else
+#define CYCLOPS_STOP(message) Rcpp::stop(message)
+#endif
 
 #ifndef PI
 #define PI	3.14159265358979323851280895940618620443274267017841339111328125
@@ -180,13 +190,13 @@ static PriorPtr makePrior(PriorType priorType, PriorFunctionPtr& priorFunction,
         prior = bsccs::make_shared<NewLaplacePrior>(priorFunction, index);
         break;
     case NORMAL :
-        throw std::runtime_error("Parameterized normal priors are not yet implemented");
+        CYCLOPS_STOP("Parameterized normal priors are not yet implemented");
         break;
     case BAR_UPDATE :
-        throw std::runtime_error("Parameterized BAR updates are not yet implemented");
+        CYCLOPS_STOP("Parameterized BAR updates are not yet implemented");
         break;
     case JEFFREYS :
-        throw std::runtime_error("Parameterized Jeffreys priors are not yet implemented");
+        CYCLOPS_STOP("Parameterized Jeffreys priors are not yet implemented");
         break;
     default : break;
     }

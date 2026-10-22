@@ -279,7 +279,6 @@ public:
     std::vector<double> time() const;
     std::vector<int> stratum_index() const;
 
-    double normal_based_default_variance() const;
 
     /// Pearson correlation of each covariate with the outcome. Empty `ids`
     /// means "all covariates".

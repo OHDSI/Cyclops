@@ -8,8 +8,19 @@
 #ifndef CCD_H_
 #define CCD_H_
 
+// #include <time.h>
+
+// #ifdef _WIN32
+// #include <stddef.h>
+// #include <io.h>
+// #include <stdlib.h>
+// #include <winsock.h>
+// #include <stdio.h>
+// #else
+// #include <sys/time.h>
+// #endif
+
 #include "Types.h"
-#include "Timing.h"
 #include "io/ProgressLogger.h"
 
 namespace bsccs {
@@ -213,20 +224,9 @@ public:
         return arguments;  // TODO To depricate
     }
 
-    // Elapsed-time helpers. These used to call gettimeofday() through a
-    // POSIX-only path, with an MSVC shim that could never compile (it referenced
-    // FILETIME without including <windows.h>, and never declared `timeval` at
-    // all). bsccs::chrono is the codebase's own wrapper over <chrono> and is
-    // portable, monotonic, and already used elsewhere.
-    typedef bsccs::chrono::steady_clock::time_point TimePoint;
-
-    static TimePoint now() {
-        return bsccs::chrono::steady_clock::now();
-    }
-
     static double calculateSeconds(
-		const TimePoint &time1,
-		const TimePoint &time2);
+		const struct timeval &time1,
+		const struct timeval &time2);
 
 protected:
     std::string getPathAndFileName(const CCDArguments& arguments, std::string stem);

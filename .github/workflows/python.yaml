@@ -47,7 +47,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
         python: ['3.9', '3.12']
         include:
           # The oldest and newest supported interpreters carry the signal; the
@@ -69,9 +69,6 @@ jobs:
       - name: Install Eigen (macOS)
         if: runner.os == 'macOS'
         run: brew install eigen
-
-      # Windows has no convenient Eigen package, so src/CMakeLists.txt falls back
-      # to its pinned FetchContent download there.
 
       - name: Install
         working-directory: python
@@ -112,8 +109,7 @@ jobs:
       - name: Install the R package from this tree
         run: R CMD INSTALL .
 
-      # Guards the two core changes documented in python/docs/MIGRATION.md
-      # against regressing the R package.
+      # Guards the core changes under src/cyclops/ against regressing R.
       - name: R test-suite
         run: |
           Rscript -e 'library(testthat); library(Cyclops);
@@ -129,17 +125,18 @@ jobs:
         run: pytest tests -v -m parity
 
   # ---------------------------------------------------------------------------
-  # Wheels. Built on every push so a packaging break surfaces immediately;
-  # publishing is left to a separate release workflow.
+  # Wheels. Not built on every push: the test job already compiles the core on
+  # every supported platform, so this only checks packaging. Run it on demand.
   # ---------------------------------------------------------------------------
   wheels:
     name: Wheels on ${{ matrix.os }}
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.os }}
     needs: [test]
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
 
     steps:
       - uses: actions/checkout@v4
