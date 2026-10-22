@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <numeric>
 
 // using std::map;
 // using std::string;
@@ -353,6 +354,24 @@ public:
 		return pid;
 	}
 
+	// Stratum index per row, valid whether or not strata were supplied.
+	//
+	// `pid` is left empty for unstratified data (loadY() only fills it when
+	// given stratum IDs), so reading it directly is only safe where an empty
+	// vector is handled explicitly. This accessor is the safe form of
+	// getPidVectorSTL(), returning a reference instead of a copy so it can be
+	// used on hot paths.
+	const IntVector& getStratumIndexRef() const {
+		if (pid.size() == getNumberOfRows()) {
+			return pid;
+		}
+		if (identityPid.size() != getNumberOfRows()) { // Each row its own stratum
+			identityPid.resize(getNumberOfRows());
+			std::iota(std::begin(identityPid), std::end(identityPid), 0);
+		}
+		return identityPid;
+	}
+
 	std::vector<double> copyYVector() const {
         std::vector<double> copy(y.size());
 	    std::copy(std::begin(y), std::end(y), std::begin(copy));
@@ -626,7 +645,9 @@ public:
 
 	template <typename T, typename F>
 	void binaryReductionByStratum(T& out, const size_t reductionIndex, F func) const {
-	    binaryReductionByGroup(out, reductionIndex, pid, func);
+	    // getStratumIndexRef(), not `pid`: unstratified data leave `pid` empty,
+	    // and indexing `out` through it then reads past the end of the vector.
+	    binaryReductionByGroup(out, reductionIndex, getStratumIndexRef(), func);
 	}
 
 	// TODO Improve encapsulation
@@ -806,6 +827,9 @@ protected:
 
     typedef bsccs::unordered_map<IdType,size_t> RowIdMap;
     RowIdMap rowIdMap;
+
+    // Lazily built by getStratumIndexRef() when `pid` is empty.
+    mutable IntVector identityPid;
 
 
     mutable bool touchedY;

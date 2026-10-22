@@ -747,13 +747,7 @@ const int*  ModelData<RealType>::getPidVector() const { // TODO deprecated
 
 template <typename RealType>
 IntVector ModelData<RealType>::getPidVectorSTL() const {
-    if (pid.size() == 0) {
-        std::vector<int> tPid(getNumberOfRows());
-        std::iota (std::begin(tPid), std::end(tPid), 0);
-        return tPid;
-    } else {
-    	return pid;
-    }
+    return getStratumIndexRef(); // copy
 }
 
 template <typename RealType>
