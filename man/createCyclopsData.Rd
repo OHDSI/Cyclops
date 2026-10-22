@@ -86,6 +86,7 @@ Items to discuss:
 \itemize{
 \item Only use formula or (y,dx,...)
 \item stratum() in formula
+\item cluster() in formula: for Cox models, rows with the same cluster (subject) stay in one cross-validation fold
 \item offset() in formula
 \item when \code{"stratum"} (renamed from pid) are necessary
 \item when \code{"time"} are necessary
@@ -102,6 +103,7 @@ Currently supported model types are:
 \verb{	"cpr"} \tab Conditional Poisson regression \cr
 \verb{	"sccs"} \tab Self-controlled case series \cr
 \verb{	"cox"} \tab Cox proportional hazards regression \cr
+\verb{	"cox_counting"} \tab Cox proportional hazards regression for counting-process data, \code{Surv(start, stop, event)} \cr
 \verb{	"fgr"} \tab Fine-Gray proportional subdistribution hazards regression \cr
 }
 }

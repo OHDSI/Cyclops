@@ -8,6 +8,7 @@
 #ifndef CYCLICCOORDINATEDESCENT_H_
 #define CYCLICCOORDINATEDESCENT_H_
 
+#include <functional>
 #include "CcdInterface.h"
 #include "CompressedDataMatrix.h"
 #include "ModelData.h"
@@ -114,6 +115,9 @@ public:
 	void update(const ModeFindingArguments& arguments);
 
 	virtual void resetBeta(void);
+
+	// Threads within one fit (the engine may evaluate gradients of several coordinates together)
+	void setThreads(int threads);
 
 	// Setters
 	void setPrior(priors::JointPriorPtr newPrior);
@@ -323,6 +327,8 @@ protected:
 
 	double ccdUpdateBeta(int index);
 
+	void cycleWithConcurrentGradients(const std::function<void(int)>& log);
+
 
 	void mmUpdateAllBeta(std::vector<double>& allDelta,
                          const std::vector<bool>& fixedBeta);
@@ -397,6 +403,7 @@ protected:
 // 	DoubleVector& hXBeta; // TODO Delegate to ModelSpecifics
 // 	DoubleVector& hXBetaSave; // Delegate
 	DoubleVector hDelta;
+	bool boundLimitedStep = false; // a step in the current cycle was cut short by its bound
 	std::vector<bool> fixBeta;
 
 	int N; // Number of patients
@@ -424,6 +431,9 @@ protected:
 	int likelihoodCount;
 
 	NoiseLevels noiseLevel;
+	int threads = 1;
+	std::vector<bool> stayedAtZero; // coordinate was at zero and did not move in the last cycle
+	double moveRate = 0.0; // recent chance that such a coordinate moves
 	UpdateReturnFlags lastReturnFlag;
 	int lastIterationCount;
 

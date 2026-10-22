@@ -49,6 +49,7 @@ namespace bsccs {
  	{ModelType::COX_RAW, "cox_raw"},
 	{ModelType::TIME_VARYING_COX, "cox_time"},
  	{ModelType::FINE_GRAY, "fgr"},
+ 	{ModelType::COX_COUNTING, "cox_counting"},
  };
 
 void RcppCcdInterface::logResultsToFile(const std::string& fileName, bool withASE) {
@@ -78,7 +79,8 @@ std::vector<std::string> cyclopsGetRemoveInterceptNames() {
 		modelTypeNames[ModelType::COX],
 		modelTypeNames[ModelType::COX_RAW],
 		modelTypeNames[ModelType::TIME_VARYING_COX],
-        modelTypeNames[ModelType::FINE_GRAY]
+        modelTypeNames[ModelType::FINE_GRAY],
+        modelTypeNames[ModelType::COX_COUNTING]
 	};
 	return names;
 }
@@ -90,7 +92,8 @@ std::vector<std::string> cyclopsGetIsSurvivalNames() {
 		modelTypeNames[ModelType::COX],
 		modelTypeNames[ModelType::COX_RAW],
 		modelTypeNames[ModelType::TIME_VARYING_COX],
-        modelTypeNames[ModelType::FINE_GRAY]
+        modelTypeNames[ModelType::FINE_GRAY],
+        modelTypeNames[ModelType::COX_COUNTING]
 	};
 	return names;
 }
@@ -103,7 +106,8 @@ std::vector<std::string> cyclopsGetUseOffsetNames() {
 		modelTypeNames[ModelType::COX],
 		modelTypeNames[ModelType::COX_RAW],
 		modelTypeNames[ModelType::TIME_VARYING_COX],
-        modelTypeNames[ModelType::FINE_GRAY]
+        modelTypeNames[ModelType::FINE_GRAY],
+        modelTypeNames[ModelType::COX_COUNTING]
 	};
 	return names;
 }
@@ -166,6 +170,14 @@ void cyclopsSetWeights(SEXP inRcppCcdInterface,
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
     interface->getCcd().setWeights(&weights[0]);
+}
+
+// [[Rcpp::export(".cyclopsGetWeights")]]
+std::vector<double> cyclopsGetWeights(SEXP inRcppCcdInterface) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    return interface->getCcd().getWeights(); // empty when every row has weight 1
 }
 
 // [[Rcpp::export(".cyclopsSetCensorWeights")]]
@@ -481,7 +493,11 @@ DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface,
                                  SEXP inCovariate,
                                  const std::vector<double> points,
                                  int threads, bool includePenalty,
-                                 bool returnDerivatives) {
+                                 bool returnDerivatives,
+                                 const std::vector<double>& startPoints,
+                                 const std::vector<double>& startBetas,
+                                 bool returnBetas,
+                                 bool chain) {
     using namespace bsccs;
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
@@ -490,28 +506,35 @@ DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface,
     std::memcpy(&covariate, &bitCovariate, sizeof(double));
     //const IdType covariate = as<IdType>(inCovariate);
 
+    const int J = interface->getCcd().getBetaSize();
+    if (startBetas.size() != startPoints.size() * J) {
+        interface->handleError("Starting solutions do not match the starting points");
+    }
+
     std::vector<double> values(points.size());
+    std::vector<double> derivatives(returnDerivatives ? points.size() : 0);
+    std::vector<double> betas;
 
-    if (!returnDerivatives) {
-        interface->evaluateProfileModel(covariate, points, values, nullptr, threads, includePenalty);
+    interface->evaluateProfileModel(covariate, points, values,
+                                    returnDerivatives ? &derivatives : nullptr,
+                                    threads, includePenalty, startPoints, startBetas,
+                                    returnBetas ? &betas : nullptr, chain);
 
-        return DataFrame::create(
-            Rcpp::Named("point") = points,
-            Rcpp::Named("value") = values
-        );
-
-    } else {
-
-        std::vector<double> derivatives(points.size());
-
-        interface->evaluateProfileModel(covariate, points, values, &derivatives, threads, includePenalty);
-
-        return DataFrame::create(
+    DataFrame result = returnDerivatives ?
+        DataFrame::create(
             Rcpp::Named("point") = points,
             Rcpp::Named("value") = values,
-            Rcpp::Named("derivative") = derivatives
-        );
+            Rcpp::Named("derivative") = derivatives) :
+        DataFrame::create(
+            Rcpp::Named("point") = points,
+            Rcpp::Named("value") = values);
+
+    if (returnBetas) {
+        NumericMatrix solutions(J, points.size());
+        std::copy(betas.begin(), betas.end(), solutions.begin());
+        result.attr("betas") = solutions;
     }
+    return result;
 }
 
 // [[Rcpp::export(".cyclopsProfileModel")]]
@@ -827,7 +850,7 @@ List cyclopsLogModel(SEXP inRcppCcdInterface) {
 
 // [[Rcpp::export(".cyclopsInitializeModel")]]
 List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, const std::string& computeDevice,
-                            bool computeMLE = false) {
+                            bool computeMLE = false, const std::string& coxFitter = "efficient") {
 	using namespace bsccs;
 
 	XPtr<AbstractModelData> rcppModelData(inModelData);
@@ -836,6 +859,7 @@ List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, cons
 
 	interface->getArguments().modelName = modelType;
 	interface->getArguments().computeDevice.name = computeDevice;
+	interface->getArguments().coxFitter = coxFitter;
 	if (computeMLE) {
 		interface->getArguments().computeMLE = true;
 	}
@@ -983,6 +1007,8 @@ bsccs::SelectorType RcppCcdInterface::parseSelectorType(const std::string& selec
 		selectorType = SelectorType::BY_PID;
 	} else if (selectorName == "byRow") {
 		selectorType = SelectorType::BY_ROW;
+	} else if (selectorName == "bySubject") {
+		selectorType = SelectorType::BY_SUBJECT;
 	} else {
 		handleError("Invalid selector type.");
 	}
@@ -1216,7 +1242,8 @@ void RcppCcdInterface::initializeModelImpl(
 	    ? DeviceType::CPU : DeviceType::GPU;
 
 	*model = AbstractModelSpecifics::factory(modelType, **modelData,
-                                          deviceType, deviceName);
+                                          deviceType, deviceName,
+                                          arguments.coxFitter == "legacy");
 	if (*model == nullptr) {
 		handleError("Invalid model type.");
 	}

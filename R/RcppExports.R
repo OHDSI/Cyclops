@@ -49,6 +49,10 @@
     invisible(.Call(`_Cyclops_cyclopsSetWeights`, inRcppCcdInterface, weights))
 }
 
+.cyclopsGetWeights <- function(inRcppCcdInterface) {
+    .Call(`_Cyclops_cyclopsGetWeights`, inRcppCcdInterface)
+}
+
 .cyclopsSetCensorWeights <- function(inRcppCcdInterface, weights) {
     invisible(.Call(`_Cyclops_cyclopsSetCensorWeights`, inRcppCcdInterface, weights))
 }
@@ -93,8 +97,8 @@
     invisible(.Call(`_Cyclops_cyclopsSetParameterizedPrior`, inRcppCcdInterface, priorTypeName, priorFunction, startingParameters, excludeNumeric))
 }
 
-.cyclopsGetProfileLikelihood <- function(inRcppCcdInterface, inCovariate, points, threads, includePenalty, returnDerivatives) {
-    .Call(`_Cyclops_cyclopsGetProfileLikelihood`, inRcppCcdInterface, inCovariate, points, threads, includePenalty, returnDerivatives)
+.cyclopsGetProfileLikelihood <- function(inRcppCcdInterface, inCovariate, points, threads, includePenalty, returnDerivatives, startPoints, startBetas, returnBetas, chain) {
+    .Call(`_Cyclops_cyclopsGetProfileLikelihood`, inRcppCcdInterface, inCovariate, points, threads, includePenalty, returnDerivatives, startPoints, startBetas, returnBetas, chain)
 }
 
 .cyclopsProfileModel <- function(inRcppCcdInterface, sexpCovariates, threads, threshold, override, includePenalty) {
@@ -145,8 +149,8 @@
     .Call(`_Cyclops_cyclopsLogModel`, inRcppCcdInterface)
 }
 
-.cyclopsInitializeModel <- function(inModelData, modelType, computeDevice, computeMLE = FALSE) {
-    .Call(`_Cyclops_cyclopsInitializeModel`, inModelData, modelType, computeDevice, computeMLE)
+.cyclopsInitializeModel <- function(inModelData, modelType, computeDevice, computeMLE = FALSE, coxFitter = "efficient") {
+    .Call(`_Cyclops_cyclopsInitializeModel`, inModelData, modelType, computeDevice, computeMLE, coxFitter)
 }
 
 .cyclopsGetLogLikelihoodHessianDiagonal <- function(inRcppCcdInterface, sexpCovariates) {
@@ -328,12 +332,32 @@ getTimeVector <- function(object) {
     .Call(`_Cyclops_cyclopsGetTimeVector`, object)
 }
 
+getStartTimeVector <- function(object) {
+    .Call(`_Cyclops_cyclopsGetStartTimeVector`, object)
+}
+
+.cyclopsGetStratumVector <- function(object) {
+    .Call(`_Cyclops_cyclopsGetStratumVector`, object)
+}
+
+.cyclopsGetNumberOfSubjects <- function(object) {
+    .Call(`_Cyclops_cyclopsGetNumberOfSubjects`, object)
+}
+
 .cyclopsFinalizeData <- function(x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag = FALSE) {
     invisible(.Call(`_Cyclops_cyclopsFinalizeData`, x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag))
 }
 
 .loadCyclopsDataY <- function(x, stratumId, rowId, y, time) {
     invisible(.Call(`_Cyclops_cyclopsLoadDataY`, x, stratumId, rowId, y, time))
+}
+
+.loadCyclopsDataStartTime <- function(x, startTime) {
+    invisible(.Call(`_Cyclops_cyclopsLoadDataStartTime`, x, startTime))
+}
+
+.loadCyclopsDataSubjectId <- function(x, subjectId) {
+    invisible(.Call(`_Cyclops_cyclopsLoadDataSubjectId`, x, subjectId))
 }
 
 .loadCyclopsDataMultipleX <- function(x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append, forceSparse) {

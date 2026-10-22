@@ -47,7 +47,7 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
     } else {
         # Predict for new data:
         modelType <- object$cyclopsData$modelType
-        if (modelType == "cox")
+        if (modelType == "cox" || modelType == "cox_counting")
             stop("Prediction for Cox models not implemented")
         if (modelType == "cpr" || modelType == "clr")
             stop("Prediction for conditional models not implemented")

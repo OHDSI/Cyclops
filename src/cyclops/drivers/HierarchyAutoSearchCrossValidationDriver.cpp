@@ -44,7 +44,7 @@ void HierarchyAutoSearchCrossValidationDriver::resetForOptimal(
 		AbstractSelector& selector,
 		const CCDArguments& arguments) {
 
-	ccd.setWeights(NULL);
+	restoreWeights(ccd, arguments);
 	ccd.setHyperprior(maxPoint.point[0]);
 	ccd.setClassHyperprior(maxPointClass);
 	ccd.resetBeta(); // Cold-start
@@ -55,6 +55,8 @@ void HierarchyAutoSearchCrossValidationDriver::drive(
 		CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
 		const CCDArguments& allArguments) {
+
+	savedWeights = ccd.getWeights(); // restored for the final fit, see restoreWeights()
 
 	// TODO Check that selector is type of CrossValidationSelector
 	std::vector<double> weights;

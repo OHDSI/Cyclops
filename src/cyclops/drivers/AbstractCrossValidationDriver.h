@@ -69,8 +69,11 @@ protected:
 
 	double computeStDev(const std::vector<double>& value, double mean);
 
+	void restoreWeights(CyclicCoordinateDescent& ccd, const CCDArguments& arguments);
+
 	MaxPoint maxPoint;
 	std::vector<double>* weightsExclude;
+	std::vector<double> savedWeights; // before cross-validation; empty when unweighted
 };
 
 } // namespace

@@ -36,10 +36,10 @@ start, length, event, x1, x2
 
     # Test residuals
 
-    # goldRes <- residuals(goldCounting, "schoenfeld")[,1]
-    # cyclopsRes <- residuals(cyclopsFitRight, "schoenfeld")
-#
-    # expect_equal(cyclopsRes, goldRes, tolerance = tolerance)
+    goldRes <- residuals(goldCounting, "schoenfeld")
+    cyclopsRes <- residuals(cyclopsFitRight, "schoenfeld")
+
+    expect_equal(cyclopsRes, goldRes, tolerance = tolerance)
 
     # cox2.zph(goldCounting, transform = "identity")
     # residuals2.coxph(goldCounting, type = "scaledsch")
@@ -60,7 +60,7 @@ start, length, event, x1, x2
 
     goldStratRes <- residuals(goldStrat, "schoenfeld")
     cyclopsStratRes <- residuals(cyclopsFitStrat, "schoenfeld")
-    # TODO Not yet the same order!!!
+    expect_equivalent(cyclopsStratRes, goldStratRes, tolerance = tolerance) # strata are named differently
 })
 
 

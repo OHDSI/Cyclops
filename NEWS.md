@@ -1,3 +1,80 @@
+Cyclops v3.8.0
+==============
+
+Changes:
+
+1. add `modelType = "cox_counting"` for counting-process data, `Surv(start, stop, event)` or
+   `convertToCyclopsData()` with `outcomes$startTime` (and the end as `time` or `endTime`): delayed
+   entry (left truncation) and time-varying covariates, with Breslow ties, strata, weights,
+   profile-likelihood confidence intervals, `vcov()`, Schoenfeld residuals, `testProportionality()`
+   and `survfit()`
+2. `cox` fits use one risk-set group per event time, range-limited denominator updates and
+   prefix-sum gradients: 60-700x faster in benchmarks with 200,000 rows, with results that differ
+   from the previous version only in the last bits
+3. `cox` requires start times of 0 (use `cox_counting` for other start times)
+4. correct `vcov()` for `cox` models
+5. keep all rows of a subject together in cross-validation and bootstrap: `cluster()` in the
+   formula or `outcomes$subjectId`, and `createControl(selectorType = "bySubject")`
+6. `survfit()` for `cox_counting` returns one curve per stratum
+7. `createControl(threads = )` also parallelizes Cox fits (results identical to one thread)
+8. single-precision Cox fits use only single-precision arithmetic, and are more accurate
+9. `residuals()` returns Schoenfeld residuals for several covariates (a matrix, or a subset through
+   `parm`) and scaled Schoenfeld residuals (`type = "scaledsch"`); `type` is now the second
+   argument, as in `residuals.coxph()`
+10. `testProportionality()` leaves rows with zero weight out of the `km` and `rank` transforms, as
+    `cox.zph()` does for a fit on the rows with positive weight
+11. the final fit after cross-validation uses the weights given to `fitCyclopsModel()` (it used all
+    rows with weight 1; `createWeightBasedSearchControl()` still refits on all rows), and
+    `runBootstrap()` leaves the weights and coefficients of the fit (it left those of the last
+    replicate)
+12. `runBootstrap()` resamples only rows (or strata, or subjects) with non-zero weight; it also drew
+    held-out ones, so each replicate had a random number of draws from the fit
+13. `createControl(coxFitter = "legacy")` fits `cox` models with the engine of Cyclops 3.7, to reproduce
+    earlier results; the default, `"efficient"`, is the new engine
+14. `cpr`, `sccs` and `clr` fits are about 2.3x faster, with identical results: per-stratum numerators
+    that only Cox models read are no longer filled, the gradient and the `xBeta` update walk each
+    column's entries one stratum at a time, and the convergence check of every model computes the
+    log-likelihood and prior only when it prints them
+15. single-precision (`floatingPoint = 32`) `cpr`, `sccs` and `clr` fits no longer leave out the last
+    entries of a column with more than 2^24 (about 16.8 million) entries
+16. `cpr`, `sccs` and `clr` fits update `exp(xBeta)` with one `exp()` per indicator column, or one per
+    distinct value of a sparse column with few values (such as spline bases), instead of one per
+    entry: about 3.5x faster than Cyclops 3.7 together with item 14. Results change in the last bits
+    (coefficients by about 1e-11 relative, with the same number of iterations); single-precision fits
+    move by less than their distance from double precision and can take a different number of
+    iterations
+17. `vcov()`, `getSEs()` and `aconfint()` for `cpr`, `sccs` and `clr` models weight each stratum by
+    its number of events, as the likelihood does. Standard errors were too large with several events
+    per stratum (by about the square root of the mean number) and too small when some strata had no
+    events. `vcov()` after refitting the same data also reused stratum terms from the earlier fit
+18. `cpr`, `sccs` and `clr` fits re-sum the stratum denominators when coefficients have moved far.
+    Updating them by differences lost all precision when a denominator shrank by many orders of
+    magnitude (for example, age and calendar-time splines with one outcome per case, or a distant
+    starting value), giving wrong estimates or `ILLCONDITIONED`
+19. a fit no longer reports convergence after a cycle in which a step was cut short by its bound.
+    After `ILLCONDITIONED` retries shrank `initialBound`, the first cycle barely moved, and the fit
+    returned `SUCCESS` with coefficients near their starting values
+20. `ILLCONDITIONED` retries keep fixed coefficients at their values, including the one held by
+    `confint()` or `getCyclopsProfileLogLikelihood()`. The retry reset it to its starting value, so
+    a profile point could report the likelihood at 0 instead. For an exposure without events,
+    `confint()` returned an upper bound next to the estimate (about -157 instead of -5)
+21. `getCyclopsProfileLogLikelihood(maxDrop = )` refines the adaptive profile only where it lies
+    within `maxDrop` of its maximum; the default, `Inf`, refines everywhere as before. With wide
+    bounds, `maxDrop = 50` saves most evaluations and leaves the profile accurate to `tolerance`
+    within 50 of its maximum, as evidence synthesis needs
+22. `getCyclopsProfileLogLikelihood()` starts the fit at each point from the solution at the
+    nearest point already evaluated and no longer refits at a coefficient of 0 first, so adaptive
+    profiles need far fewer iterations. Results no longer depend on `threads`, and differ from the
+    previous version only within the convergence tolerance. With more than one thread, profiles also
+    keep `fixedCoefficients` fixed (they let them vary)
+23. `confint()` starts each bound at its Wald estimate and takes safeguarded Newton steps on the
+    profile likelihood, falling back to the previous bracketing search; it needs 2-6 times fewer
+    fits, and bounds move by less than 1e-3. The fallback also covers regularized covariates with
+    `includePenalty = TRUE`, any covariate with `includePenalty = FALSE` when others are
+    regularized, and nearly flat profiles. Each bound starts from the estimate, so bounds no longer
+    depend on their order or on `threads`; with more than one thread, `fixedCoefficients` also stay
+    fixed
+
 Cyclops v3.7.1
 ==============
 

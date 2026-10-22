@@ -26,6 +26,7 @@ createControl(
   initialBound = 2,
   maxBoundCount = 5,
   algorithm = "ccd",
+  coxFitter = "efficient",
   doItAll = TRUE,
   syncCV = FALSE
 )
@@ -55,7 +56,9 @@ Option \code{"grid"} selects a grid-search cross validation}
 
 \item{noiseLevel}{String: level of Cyclops screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})}
 
-\item{threads}{Numeric: Specify number of CPU threads to employ in cross-validation; default = 1 (auto = -1)}
+\item{threads}{Numeric: Specify number of CPU threads to employ in cross-validation, and within a fit
+for Cox models (building risk-set indices and gradients of coefficients at zero,
+with results identical to one thread); default = 1 (auto = -1)}
 
 \item{seed}{Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time}}.}
 
@@ -67,17 +70,25 @@ Option \code{"grid"} selects a grid-search cross validation}
 
 \item{tuneSwindle}{Numeric: Size multiplier for active set}
 
-\item{selectorType}{String: name of exchangeable sampling unit.
+\item{selectorType}{String: name of exchangeable sampling unit for cross-validation and bootstrap.
 Option \code{"byPid"} selects entire strata.
 Option \code{"byRow"} selects single rows.
+Option \code{"bySubject"} selects all rows of a subject (Cox models with
+subjects from \code{cluster()} or \code{outcomes$subjectId}).
 If set to \code{"auto"}, \code{"byRow"} will be used for all models except conditional models where
-the average number of rows per stratum is smaller than the number of strata.}
+the average number of rows per stratum is smaller than the number of strata;
+\code{"bySubject"} replaces \code{"byRow"} when the data have subjects.}
 
 \item{initialBound}{Numeric: Starting trust-region size}
 
 \item{maxBoundCount}{Numeric: Maximum number of tries to decrease initial trust-region size}
 
 \item{algorithm}{String: name of fitting algorithm to employ; default is \code{ccd}}
+
+\item{coxFitter}{String: engine for \code{"cox"} models on the CPU. \code{"efficient"} (default)
+uses one risk-set group per event time; \code{"legacy"} uses the engine of
+Cyclops 3.7, for reproducing earlier results. Estimates agree up to rounding.
+\code{"cox_counting"} models need \code{"efficient"}}
 
 \item{doItAll}{Currently unused}
 

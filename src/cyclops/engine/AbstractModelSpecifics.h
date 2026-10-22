@@ -123,7 +123,8 @@ public:
 	static AbstractModelSpecifics* factory(const ModelType modelType,
                                            const AbstractModelData& modelData,
                                            const DeviceType deviceType,
-                                           const std::string& deviceName);
+                                           const std::string& deviceName,
+                                           const bool legacyCox = false);
 
 	virtual const std::vector<double> getXBeta() = 0;
 
@@ -141,6 +142,15 @@ public:
     virtual bool isCUDA() = 0;
 
 	virtual void resetBeta() {};
+
+	virtual void setThreads(int threads) {};
+
+	// Gradients and Hessians of several coordinates at the current state, for coordinates that do
+	// not change in between; returns false when the engine computes them one at a time
+	virtual bool computeGradientsAndHessians(const std::vector<int>& indices,
+	                                         std::vector<GradientHessian>& gh, bool useWeights) {
+		return false;
+	}
 
 	virtual void turnOnSyncCV(int foldToCompute) = 0;
 

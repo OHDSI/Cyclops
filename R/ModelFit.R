@@ -99,7 +99,12 @@ fitCyclopsModel <- function(cyclopsData,
         stop("Data are incompletely loaded")
     }
 
-    .checkInterface(cyclopsData, computeDevice =  computeDevice, forceNewObject = forceNewObject)
+    coxFitter <- .coxFitter(control)
+    if (coxFitter == "legacy" && cyclopsData$modelType == "cox_counting") {
+        stop("The legacy Cox fitter does not handle start times; use createControl(coxFitter = \"efficient\")")
+    }
+    .checkInterface(cyclopsData, computeDevice =  computeDevice, forceNewObject = forceNewObject,
+                    coxFitter = coxFitter)
 
     # Set up prior
     stopifnot(inherits(prior, "cyclopsPrior"))
@@ -200,9 +205,16 @@ fitCyclopsModel <- function(cyclopsData,
                 control$selectorType <- "byRow"
             }
         }
+        if (control$selectorType == "byRow" && .cyclopsGetNumberOfSubjects(cyclopsData) > 0) {
+            control$selectorType <- "bySubject"
+        }
         if (prior$useCrossValidation && control$noiseLevel != "silent") {
             writeLines(paste("Using cross-validation selector type", control$selectorType))
         }
+    }
+
+    if (control$selectorType == "bySubject" && .cyclopsGetNumberOfSubjects(cyclopsData) == 0) {
+        stop("selectorType = \"bySubject\" requires subjects from cluster() or outcomes$subjectId")
     }
 
     if (control$cvRepetitions == "auto") {
@@ -308,6 +320,9 @@ fitCyclopsModel <- function(cyclopsData,
             stop("Insufficient data count for cross validation")
         }
         if (control$selectorType == "byPid" && minCVData > getNumberOfStrata(cyclopsData)) {
+            stop("Insufficient data count for cross validation")
+        }
+        if (control$selectorType == "bySubject" && minCVData > .cyclopsGetNumberOfSubjects(cyclopsData)) {
             stop("Insufficient data count for cross validation")
         }
 
@@ -439,11 +454,17 @@ clearCyclopsModelCache <- function() {
     }
 }
 
-.checkInterface <- function(x, computeDevice = "native", forceNewObject = FALSE, testOnly = FALSE) {
+.coxFitter <- function(control) { # controls created before coxFitter existed lack it
+    if (is.null(control$coxFitter)) "efficient" else control$coxFitter
+}
+
+.checkInterface <- function(x, computeDevice = "native", forceNewObject = FALSE, testOnly = FALSE,
+                            coxFitter = NULL) {
     if (forceNewObject
         || is.null(x$cyclopsInterfacePtr)
         || !inherits(x$cyclopsInterfacePtr, "externalptr")
         || .isRcppPtrNull(x$cyclopsInterfacePtr)
+        || (!is.null(coxFitter) && !identical(x$coxFitter, coxFitter))
         #|| .cyclopsGetComputeDevice(x$cyclopsInterfacePtr) != computeDevice TODO is this necessary?
     ) {
 
@@ -456,9 +477,14 @@ clearCyclopsModelCache <- function() {
         }
 
         # Build interface
-        interface <- .cyclopsInitializeModel(x$cyclopsDataPtr, modelType = x$modelType, computeDevice, computeMLE = TRUE)
+        if (is.null(coxFitter)) {
+            coxFitter <- "efficient"
+        }
+        interface <- .cyclopsInitializeModel(x$cyclopsDataPtr, modelType = x$modelType, computeDevice,
+                                             computeMLE = TRUE, coxFitter = coxFitter)
         # TODO Check for errors
         assign("cyclopsInterfacePtr", interface$interface, x)
+        assign("coxFitter", coxFitter, x)
     }
 }
 
@@ -601,20 +627,29 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param cvRepetitions			Numeric: Number of repetitions of X-fold cross validation
 #' @param minCVData					Numeric: Minimum number of data for cross validation
 #' @param noiseLevel				String: level of Cyclops screen output (\code{"silent"}, \code{"quiet"}, \code{"noisy"})
-#' @param threads               Numeric: Specify number of CPU threads to employ in cross-validation; default = 1 (auto = -1)
+#' @param threads               Numeric: Specify number of CPU threads to employ in cross-validation, and within a fit
+#'                              for Cox models (building risk-set indices and gradients of coefficients at zero,
+#'                              with results identical to one thread); default = 1 (auto = -1)
 #' @param seed                  Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time}}.
 #' @param resetCoefficients     Logical: Reset all coefficients to 0 between model fits under cross-validation
 #' @param startingVariance      Numeric: Starting variance for auto-search cross-validation; default = -1 (use estimate based on data)
 #' @param useKKTSwindle Logical: Use the Karush-Kuhn-Tucker conditions to limit search
 #' @param tuneSwindle    Numeric: Size multiplier for active set
-#' @param selectorType  String: name of exchangeable sampling unit.
+#' @param selectorType  String: name of exchangeable sampling unit for cross-validation and bootstrap.
 #'                              Option \code{"byPid"} selects entire strata.
 #'                              Option \code{"byRow"} selects single rows.
+#'                              Option \code{"bySubject"} selects all rows of a subject (Cox models with
+#'                              subjects from \code{cluster()} or \code{outcomes$subjectId}).
 #'                              If set to \code{"auto"}, \code{"byRow"} will be used for all models except conditional models where
-#'                              the average number of rows per stratum is smaller than the number of strata.
+#'                              the average number of rows per stratum is smaller than the number of strata;
+#'                              \code{"bySubject"} replaces \code{"byRow"} when the data have subjects.
 #' @param initialBound          Numeric: Starting trust-region size
 #' @param maxBoundCount         Numeric: Maximum number of tries to decrease initial trust-region size
 #' @param algorithm             String: name of fitting algorithm to employ; default is `ccd`
+#' @param coxFitter             String: engine for \code{"cox"} models on the CPU. \code{"efficient"} (default)
+#'                              uses one risk-set group per event time; \code{"legacy"} uses the engine of
+#'                              Cyclops 3.7, for reproducing earlier results. Estimates agree up to rounding.
+#'                              \code{"cox_counting"} models need \code{"efficient"}
 #' @param doItAll               Currently unused
 #' @param syncCV                Currently unused
 #'
@@ -647,6 +682,7 @@ createControl <- function(maxIterations = 1000,
                           initialBound = 2.0,
                           maxBoundCount = 5,
                           algorithm = "ccd",
+                          coxFitter = "efficient",
                           doItAll = TRUE,
                           syncCV = FALSE) {
     validCVNames = c("grid", "auto")
@@ -656,10 +692,11 @@ createControl <- function(maxIterations = 1000,
     stopifnot(noiseLevel %in% validNLNames)
     stopifnot(threads == -1 || threads >= 1)
     stopifnot(startingVariance == -1 || startingVariance > 0)
-    stopifnot(selectorType %in% c("auto","byPid", "byRow"))
+    stopifnot(selectorType %in% c("auto","byPid", "byRow", "bySubject"))
 
     validAlgorithmNames = c("ccd", "mm")
     stopifnot(algorithm %in% validAlgorithmNames)
+    stopifnot(coxFitter %in% c("efficient", "legacy"))
 
     structure(list(maxIterations = maxIterations,
                    tolerance = tolerance,
@@ -682,6 +719,7 @@ createControl <- function(maxIterations = 1000,
                    initialBound = initialBound,
                    maxBoundCount = maxBoundCount,
                    algorithm = algorithm,
+                   coxFitter = coxFitter,
                    doItAll = doItAll,
                    syncCV = syncCV),
               class = "cyclopsControl")
@@ -882,6 +920,11 @@ getSEs <- function(object, covariates) {
 
 #' @title Run bootstrap for Cyclops model parameters
 #'
+#' @details
+#' Bootstrap samples resample the units given by the fit's \code{selectorType} (see \code{\link{createControl}}),
+#' so Cox models with subjects resample whole subjects by default. Units whose rows all have weight zero
+#' are not resampled: each sample draws as many units as the fit uses.
+#'
 #' @param object          A fitted Cyclops model object
 #' @param replicates      Numeric: number of bootstrap samples
 #' @param ciCoverage      Numeric (0-1): coverage proportion for bootstrap confidence intervals
@@ -1050,8 +1093,16 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 #' @param maxResets Maximum allowed number of recomputing the likelihood when coefficient drift is
 #'                  detected.
 #' @param includePenalty    Logical: Include regularized covariate penalty in profile
-#' @param optimalWarmStart Logical: Use optimal warm-starting when parallelizing evaluations
+#' @param optimalWarmStart Logical: also warm-start each point from the solutions at the requested points between
+#'                         it and the estimate. Each fit starts from the solution at the nearest such point, the
+#'                         estimate or (adaptive profiling) a point already evaluated, so results do not depend
+#'                         on the number of threads
 #' @param returnDerivatives Return derivative of log-likelihood wrt the parameter `param` at each evaluation point
+#' @param maxDrop   Numeric: adaptive profiling does not refine intervals whose two end points both lie more than
+#'                  \code{maxDrop} below the largest profile log likelihood found so far; their points remain in
+#'                  the result. The default (\code{Inf}) refines everywhere. With wide bounds, a value
+#'                  such as 50 saves most evaluations, and the profile stays within \code{tolerance}
+#'                  wherever it lies within 50 of its maximum, as evidence synthesis needs
 #'
 #' @return
 #' A data frame containing the profile log likelihood. Returns NULL when the adaptive profiling fails
@@ -1067,7 +1118,8 @@ getCyclopsProfileLogLikelihood <- function(object,
                                            maxResets = 10,
                                            includePenalty = TRUE,
                                            optimalWarmStart = TRUE,
-                                           returnDerivatives = FALSE) {
+                                           returnDerivatives = FALSE,
+                                           maxDrop = Inf) {
 
     if (!xor(is.null(x), is.null(bounds))) {
         stop("Must provide either `x` or `bounds`, but not both.")
@@ -1085,16 +1137,30 @@ getCyclopsProfileLogLikelihood <- function(object,
         if (length(bounds) != 2 || bounds[1] >= bounds[2]) {
             stop("Must provide bounds[1] < bounds[2]")
         }
+        if (!(maxDrop > 0)) {
+            stop("Must provide maxDrop > 0")
+        }
         profile <- .initAdaptiveProfile(object, parm, bounds, includePenalty, optimalWarmStart, returnDerivatives)
 
         # Start with sparse grid:
         grid <- seq(bounds[1], bounds[2], length.out = initialGridSize)
 
+        # Solutions at evaluated points warm-start the new points of the next round
+        keepStarts <- getNumberOfCovariates(object$cyclopsData) <= 10000
+        starts <- NULL
+
         # Iterate until stopping criteria met:
         priorMaxMaxError <- Inf
         resetsPerformed <- 0
         while (length(grid) != 0) {
-            ll <- fixedGridProfileLogLikelihood(object, parm, grid, includePenalty, optimalWarmStart, returnDerivatives)
+            ll <- fixedGridProfileLogLikelihood(object, parm, grid, includePenalty, optimalWarmStart, returnDerivatives,
+                                                starts = starts, returnBetas = keepStarts)
+            if (keepStarts) {
+                valid <- is.finite(ll$value)
+                starts <- list(point = c(starts$point, ll$point[valid]),
+                               betas = cbind(starts$betas, attr(ll, "betas")[, valid, drop = FALSE]))
+                attr(ll, "betas") <- NULL
+            }
             profile <- bind_rows(profile, ll) %>% arrange(.data$point)
             invalid <- is.nan(profile$value) | is.infinite(profile$value)
             if (any(invalid)) {
@@ -1126,9 +1192,11 @@ getCyclopsProfileLogLikelihood <- function(object,
                 warning("Coefficient drift detected. Resetting Cyclops object and recomputing all likelihood values computed so far.")
                 grid <- profile$point
                 profile <- tibble()
-                interface <- .cyclopsInitializeModel(object$cyclopsData$cyclopsDataPtr, modelType = object$cyclopsData$modelType, "native", computeMLE = TRUE)
+                interface <- .cyclopsInitializeModel(object$cyclopsData$cyclopsDataPtr, modelType = object$cyclopsData$modelType, "native", computeMLE = TRUE,
+                                                     coxFitter = if (is.null(object$cyclopsData$coxFitter)) "efficient" else object$cyclopsData$coxFitter)
                 assign("cyclopsInterfacePtr", interface$interface, object)
                 resetsPerformed <- resetsPerformed + 1
+                starts <- NULL
                 next
             }
 
@@ -1147,15 +1215,23 @@ getCyclopsProfileLogLikelihood <- function(object,
             maxError <- abs((profile$value[1:(nrow(profile) - 1)] + (interceptX - profile$point[1:(nrow(profile) - 1)]) * slopes[1:(length(slopes) - 2)]) -
                                 (profile$value[1:(nrow(profile) - 1)] + (interceptX - profile$point[1:(nrow(profile) - 1)]) * slopes[2:(length(slopes) - 1)]))
 
-            maxMaxError <- max(maxError, na.rm = TRUE)
+            # Refine only intervals with an end point within maxDrop of the largest value
+            relevant <- pmax(profile$value[1:(nrow(profile) - 1)], profile$value[2:nrow(profile)]) >=
+                max(profile$value) - maxDrop
+
+            maxMaxError <- max(maxError[relevant], na.rm = TRUE)
             if (is.na(maxMaxError) || maxMaxError > priorMaxMaxError) {
                 warning("Failing to converge when using adaptive profiling.")
                 return(NULL)
             }
             priorMaxMaxError <- maxMaxError
 
-            exceed <- which(maxError > tolerance)
+            exceed <- which(maxError > tolerance & relevant)
             grid <- (profile$point[exceed] + profile$point[exceed + 1]) / 2
+            if (keepStarts) { # only end points of refined intervals can be nearest to new points
+                keep <- starts$point %in% c(profile$point[exceed], profile$point[exceed + 1])
+                starts <- list(point = starts$point[keep], betas = starts$betas[, keep, drop = FALSE])
+            }
         }
     } else { # Use x
         profile <- fixedGridProfileLogLikelihood(object, parm, x, includePenalty, optimalWarmStart, returnDerivatives)
@@ -1165,35 +1241,28 @@ getCyclopsProfileLogLikelihood <- function(object,
 }
 
 fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty,
-                                          optimalWarmStart = TRUE, returnDerivatives = FALSE) {
+                                          optimalWarmStart = TRUE, returnDerivatives = FALSE,
+                                          starts = NULL, returnBetas = FALSE) {
 
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     parm <- .checkCovariates(object$cyclopsData, parm)
     threads <- object$threads
 
-    if (getNumberOfCovariates(object$cyclopsData) == 1 || length(x) == 1) {
-        grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
-                                             threads, includePenalty, returnDerivatives)
-    } else if (!optimalWarmStart && length(x) / 2 >= threads) {
-        grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
-                                             threads, includePenalty, returnDerivatives)
-    } else {
-        # Partition sequence
-        y <- sort(x)
-        midPt <- floor(length(x) / 2)
-        lower <- y[midPt:1]
-        upper <- y[(midPt + 1):length(x)]
-
-        # Execute: TODO chunk and repeat until ill-conditioned
-        gridLower <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, lower,
-                                                  threads, includePenalty, returnDerivatives)
-        gridUpper <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, upper,
-                                                  threads, includePenalty, returnDerivatives)
-        # Merge
-        grid <- rbind(gridLower, gridUpper)
-        grid <- grid[order(grid$point),]
+    # Each point starts from the solution at the nearest of: the current coefficients, `starts` and
+    # (optimalWarmStart) the points in `x` between it and the current value
+    grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
+                                         threads, includePenalty, returnDerivatives,
+                                         if (is.null(starts)) numeric(0) else starts$point,
+                                         if (is.null(starts)) numeric(0) else as.vector(starts$betas),
+                                         returnBetas, optimalWarmStart)
+    betas <- attr(grid, "betas")
+    if (optimalWarmStart && length(x) > 1) {
+        o <- order(grid$point)
+        grid <- grid[o, ]
         rownames(grid) <- NULL
+        if (!is.null(betas)) betas <- betas[, o, drop = FALSE]
     }
+    attr(grid, "betas") <- betas
 
     return(grid)
 }

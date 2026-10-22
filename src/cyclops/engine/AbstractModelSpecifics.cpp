@@ -11,6 +11,7 @@
 #include "AbstractModelSpecifics.h"
 #include "ModelData.h"
 #include "engine/ModelSpecifics.h"
+#include "engine/CountingProcessModelSpecifics.hpp"
 
 #ifdef HAVE_OPENCL
 #include "engine/GpuModelSpecifics.hpp"
@@ -68,14 +69,16 @@ AbstractModelSpecifics* precisionFactory(
         const ModelType modelType,
         const ModelData<RealType>& modelData,
         const DeviceType deviceType,
-        const std::string& deviceName);
+        const std::string& deviceName,
+        const bool legacyCox);
 
 template <>
 AbstractModelSpecifics* precisionFactory<float>(
         const ModelType modelType,
         const ModelData<float>& modelData,
         const DeviceType deviceType,
-        const std::string& deviceName) {
+        const std::string& deviceName,
+        const bool legacyCox) {
 
     AbstractModelSpecifics* model = nullptr;
 
@@ -108,13 +111,22 @@ AbstractModelSpecifics* precisionFactory<float>(
     	model = deviceFactory<CoxProportionalHazards<float>,float>(modelData, deviceType, deviceName);
     	break;
     case ModelType::COX :
-        model = deviceFactory<BreslowTiedCoxProportionalHazards<float>,float>(modelData, deviceType, deviceName);
+        if (deviceType == DeviceType::CPU && !legacyCox) { // one risk-set group per event time
+            model = new CountingProcessModelSpecifics<float>(modelData);
+        } else {
+            model = deviceFactory<BreslowTiedCoxProportionalHazards<float>,float>(modelData, deviceType, deviceName);
+        }
         break;
     case ModelType::TIME_VARYING_COX :
 	model = deviceFactory<TimeVaryingCoxProportionalHazards<float>,float>(modelData, deviceType, deviceName);
 	break;
     case ModelType::FINE_GRAY:
         model = deviceFactory<BreslowTiedFineGray<float>,float>(modelData, deviceType, deviceName);
+        break;
+    case ModelType::COX_COUNTING :
+        if (deviceType == DeviceType::CPU) {
+            model = new CountingProcessModelSpecifics<float>(modelData);
+        }
         break;
     default:
     	break;
@@ -166,7 +178,8 @@ AbstractModelSpecifics* precisionFactory<double>(
         const ModelType modelType,
         const ModelData<double>& modelData,
         const DeviceType deviceType,
-        const std::string& deviceName) {
+        const std::string& deviceName,
+        const bool legacyCox) {
 
     AbstractModelSpecifics* model = nullptr;
 
@@ -199,13 +212,22 @@ AbstractModelSpecifics* precisionFactory<double>(
         model = deviceFactory<CoxProportionalHazards<double>,double>(modelData, deviceType, deviceName);
         break;
     case ModelType::COX :
-        model = deviceFactory<BreslowTiedCoxProportionalHazards<double>,double>(modelData, deviceType, deviceName);
+        if (deviceType == DeviceType::CPU && !legacyCox) { // one risk-set group per event time
+            model = new CountingProcessModelSpecifics<double>(modelData);
+        } else {
+            model = deviceFactory<BreslowTiedCoxProportionalHazards<double>,double>(modelData, deviceType, deviceName);
+        }
         break;
     case ModelType::TIME_VARYING_COX :
         model = deviceFactory<TimeVaryingCoxProportionalHazards<double>,double>(modelData, deviceType, deviceName);
         break;
     case ModelType::FINE_GRAY:
         model = deviceFactory<BreslowTiedFineGray<double>,double>(modelData, deviceType, deviceName);
+        break;
+    case ModelType::COX_COUNTING :
+        if (deviceType == DeviceType::CPU) {
+            model = new CountingProcessModelSpecifics<double>(modelData);
+        }
         break;
     default:
         break;
@@ -255,7 +277,8 @@ AbstractModelSpecifics* precisionFactory<double>(
 AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelType,
                                                         const AbstractModelData& abstractModelData,
                                                         const DeviceType deviceType,
-                                                        const std::string& deviceName) {
+                                                        const std::string& deviceName,
+                                                        const bool legacyCox) {
 
     AbstractModelSpecifics* model = nullptr;
 
@@ -267,12 +290,12 @@ AbstractModelSpecifics* AbstractModelSpecifics::factory(const ModelType modelTyp
     case PrecisionType::FP64 :
         model = precisionFactory<double>(modelType,
                                          static_cast<const ModelData<double>&>(abstractModelData),
-                                         deviceType, deviceName);
+                                         deviceType, deviceName, legacyCox);
         break;
     case PrecisionType::FP32 :
         model = precisionFactory<float>(modelType,
                                         static_cast<const ModelData<float>&>(abstractModelData),
-                                        deviceType, deviceName);
+                                        deviceType, deviceName, legacyCox);
         break;
     default :
         break;

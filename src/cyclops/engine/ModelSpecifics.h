@@ -14,6 +14,7 @@
 #include <stdexcept>
 #include <thread>
 #include <complex>
+#include <cstdint>
 
 //#define CYCLOPS_DEBUG_TIMING
 //#define CYCLOPS_DEBUG_TIMING_GPU_COX
@@ -197,6 +198,8 @@ protected:
 
 	void computeFisherInformation(int indexOne, int indexTwo, double *oinfo, bool useWeights);
 
+	void makeDirty();
+
 	void computeSchoenfeldResiduals(int indexOne,
                                  std::vector<double>* residuals, std::vector<double>* times,
                                  std::vector<int>* strata,
@@ -207,6 +210,10 @@ protected:
 	void updateXBeta(double delta, int index, bool useWeights);
 
 	void computeRemainingStatistics(bool useWeights);
+
+	void resumStratumDenominators();
+	double denomMove = 0.0;                 // log-scale movement since the last exact summation
+	std::vector<double> columnMaxAbsX;      // max |x| per column
 
 	void computeAccumlatedNumerator(bool useWeights);
 
@@ -248,6 +255,25 @@ protected:
 	void setPidForAccumulationImpl(const AnyRealType* weights);
 
 	void setupSparseIndices(const int max);
+
+	// Entries of a sparse or indicator column split into runs that fall in one stratum
+	struct StratumSegments {
+		std::vector<int> offsets; // first entry of each run, then the number of entries
+		std::vector<int> strata;  // stratum of each run
+	};
+	std::vector<StratumSegments> stratumSegments; // by column, for grouped models
+
+	void setupStratumSegments();
+
+	// Sparse columns with few distinct values: the value of each entry as an index into a table
+	struct ValueCodes {
+		RealVector values;            // distinct values
+		std::vector<uint16_t> codes;  // index of the value of each entry; empty if not worthwhile
+	};
+	std::vector<ValueCodes> valueCodes; // by column, for grouped models
+	RealVector expFactors; // exp(delta * value) for each distinct value of the updated column
+
+	void setupValueCodes();
 
 	bool initializeAccumulationVectors(void);
 
@@ -392,6 +418,9 @@ struct GroupedData {
 public:
 	const static bool hasStrataCrossTerms = true;
 
+	// Stratum contributes n_s * log(denominator), so Fisher information scales with n_s
+	const static bool fisherInformationScalesWithEvents = true;
+
 	const static bool hasNtoKIndices = true;
 
 	const static bool exactTies = false;
@@ -406,11 +435,15 @@ public:
 struct GroupedWithTiesData : GroupedData {
 public:
 	const static bool exactTies = true;
+
+	const static bool fisherInformationScalesWithEvents = false;
 };
 
 struct OrderedData {
 public:
 	const static bool hasStrataCrossTerms = true;
+
+	const static bool fisherInformationScalesWithEvents = false;
 
 	const static bool hasNtoKIndices = false;
 
@@ -429,6 +462,8 @@ struct OrderedWithTiesData {
 public:
 	const static bool hasStrataCrossTerms = true;
 
+	const static bool fisherInformationScalesWithEvents = false;
+
 	const static bool hasNtoKIndices = false;
 
 	const static bool exactTies = false;
@@ -445,6 +480,8 @@ public:
 struct IndependentData {
 public:
 	const static bool hasStrataCrossTerms = false;
+
+	const static bool fisherInformationScalesWithEvents = false;
 
 	const static bool hasNtoKIndices = false;
 
@@ -987,6 +1024,8 @@ struct EfronConditionalLogisticRegression : public Storage<RealType>, GroupedDat
 public:
 
 	const static bool efron = true;
+
+	const static bool fisherInformationScalesWithEvents = false;
 
     typedef typename Storage<RealType>::RealVector RealVector;
     EfronConditionalLogisticRegression(const RealVector& y, const RealVector& offs)

@@ -32,6 +32,7 @@
 #' Items to discuss:
 #' * Only use formula or (y,dx,...)
 #' * stratum() in formula
+#' * cluster() in formula: for Cox models, rows with the same cluster (subject) stay in one cross-validation fold
 #' * offset() in formula
 #' * when \code{"stratum"} (renamed from pid) are necessary
 #' * when \code{"time"} are necessary
@@ -115,6 +116,8 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
 
     contrasts <- NULL
     sortOrder <- NULL
+    startTime <- NULL
+    subjectId <- NULL
 
     if (!missing(formula)) { # Use formula to construct Cyclops matrices
         if (missing(data)) {
@@ -134,7 +137,15 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
                 stop("Censored outcomes are currently only supported for Cox regression.")
             }
             if (dim(outcome)[2] == 3) {
-                time <- as.numeric(outcome[,2] - outcome[,1])
+                if (modelType == "cox_counting") {
+                    startTime <- as.numeric(outcome[,1])
+                    time <- as.numeric(outcome[,2])
+                } else {
+                    if (modelType == "cox" && any(outcome[,1] != 0)) {
+                        stop("Cox models require start times of 0; use modelType = \"cox_counting\" for Surv(start, stop, event)")
+                    }
+                    time <- as.numeric(outcome[,2] - outcome[,1])
+                }
                 y <- as.numeric(outcome[,3])
             } else {
                 time <- as.numeric(outcome[,1])
@@ -150,16 +161,25 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
 
         mt.d <- attr(mf.d, "terms")
 
-        # Handle strata
-        specialTerms <- terms(formula, "strata")
+        # Handle strata, and cluster() identifying the subject of each row
+        specialTerms <- terms(formula, c("strata", "cluster"))
         special <- attr(specialTerms, "special")
         hasStrata <- !is.null(special$strata)
         strata <- NULL
 
+        if (!is.null(special$cluster)) {
+            if (modelType != "cox" && modelType != "cox_counting") {
+                stop("cluster() is only supported for Cox models")
+            }
+            subjectId <- mf.d[ , special$cluster]
+            subjectId <- match(subjectId, unique(subjectId))
+        }
+        dropTerms <- survival::untangle.specials(specialTerms, "cluster")$terms
+
         if (hasStrata) {
             pid <- as.numeric(strata(mf.d[ , special$strata], shortlabel = TRUE))
             nterm <- survival::untangle.specials(specialTerms, "strata")$terms
-            mt.d <- mt.d[-nterm]
+            dropTerms <- c(dropTerms, nterm)
 
             ## Must sort outcomes
             if (.isSurvivalModelType(modelType)) {
@@ -178,6 +198,10 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
                     pid <- c(1:length(y))
                 }
             }
+        }
+
+        if (length(dropTerms) > 0) { # remove strata() and cluster() terms together
+            mt.d <- mt.d[-dropTerms]
         }
 
         #         if (.removeIntercept(modelType)) { # This does not work with constrasts
@@ -279,6 +303,12 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
                 censorWeights <- censorWeights[sortOrder]
             }
             time <- time[sortOrder]
+            if (!is.null(startTime)) {
+                startTime <- startTime[sortOrder]
+            }
+            if (!is.null(subjectId)) {
+                subjectId <- subjectId[sortOrder]
+            }
             dx <- dx[sortOrder, ]
             if (inherits(dx,"numeric")) {
                 dx = as(dx,"dgeMatrix")
@@ -378,6 +408,14 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
         result$debug$time <- time
     }
     class(result) <- "cyclopsData"
+
+    if (!is.null(startTime)) {
+        .loadCyclopsDataStartTime(result, startTime)
+    }
+
+    if (!is.null(subjectId)) {
+        .loadCyclopsDataSubjectId(result, bit64::as.integer64(subjectId))
+    }
 
     if (hasIntercept == TRUE) {
         .cyclopsSetHasIntercept(result, hasIntercept = TRUE)

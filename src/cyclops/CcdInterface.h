@@ -135,6 +135,7 @@ struct CCDArguments {
 	// Needed for model specification
 	int modelType;
 	std::string modelName;
+	std::string coxFitter; // "efficient" (one risk-set group per event time) or "legacy"
 
 	NoiseLevels noiseLevel;
 
@@ -190,7 +191,11 @@ public:
             std::vector<double>& values,
             std::vector<double>* derivatives,
             int threads,
-            bool includePenalty);
+            bool includePenalty,
+            const std::vector<double>& startPoints,
+            const std::vector<double>& startBetas,
+            std::vector<double>* betas,
+            bool chain);
 
     double runCrossValidation(
             CyclicCoordinateDescent *ccd,

@@ -56,9 +56,14 @@ public:
                                 const std::vector<double>& points,
                                 std::vector<double>& values,
                                 std::vector<double>* derivatives,
-                                int threads, bool includePenalty) {
+                                int threads, bool includePenalty,
+                                const std::vector<double>& startPoints,
+                                const std::vector<double>& startBetas,
+                                std::vector<double>* betas,
+                                bool chain) {
         return CcdInterface::evaluateProfileModel(ccd, modelData, covariate, points, values,
-                                                  derivatives, threads, includePenalty);
+                                                  derivatives, threads, includePenalty,
+                                                  startPoints, startBetas, betas, chain);
     }
 
     double runCrossValidation() {
