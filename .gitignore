@@ -39,3 +39,12 @@ src/Makevars
 src/Makevars.win
 tools/jvm-w32
 
+# Python bindings
+python/.venv/
+python/build/
+python/dist/
+python/wheelhouse/
+python/.coverage
+**/__pycache__/
+*.egg-info/
+.pytest_cache/
