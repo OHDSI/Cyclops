@@ -221,6 +221,8 @@ void CyclicCoordinateDescent::resetBounds() {
 	for (int j = 0; j < J; j++) {
 		hDelta[j] = initialBound;
 	}
+	lastStep.assign(J, 0.0);
+	flipCount.assign(J, 0);
 }
 
 void CyclicCoordinateDescent::init(bool offset) {
@@ -1881,6 +1883,26 @@ double CyclicCoordinateDescent::applyBounds(double delta, int index) {
 	    } else if (delta > hDelta[index]) {
 		    delta = hDelta[index];
 		    boundLimitedStep = true;
+	    }
+
+	    // A step of at least 1 that reverses the previous one without shrinking, three times in a row, is a
+	    // period-2 oscillation (seen on nearly saturated rows), not convergence: shrink the bound. Steps near
+	    // convergence also reverse at random, at rounding level, so small steps are left alone.
+	    if (lastStep.size() == hDelta.size()) {
+	        if (delta * lastStep[index] < 0.0 && std::abs(lastStep[index]) >= 1.0 &&
+	            std::abs(delta) >= std::abs(lastStep[index])) {
+	            if (++flipCount[index] >= 3) {
+	                flipCount[index] = 0;
+	                hDelta[index] = std::abs(lastStep[index]) / 4;
+	                delta = (delta < 0.0) ? -hDelta[index] : hDelta[index];
+	                boundLimitedStep = true;
+	                lastStep[index] = delta;
+	                return delta;
+	            }
+	        } else {
+	            flipCount[index] = 0;
+	        }
+	        lastStep[index] = delta;
 	    }
 
 	    // TODO Remove magic numbers

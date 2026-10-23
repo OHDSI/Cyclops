@@ -421,6 +421,8 @@ protected:
 // 	DoubleVector& hXBetaSave; // Delegate
 	DoubleVector hDelta;
 	bool boundLimitedStep = false; // a step in the current cycle was cut short by its bound
+	DoubleVector lastStep;         // previous step of each coefficient, to detect period-2 oscillation
+	std::vector<int> flipCount;    // consecutive steps that reversed sign without shrinking
 	std::vector<bool> fixBeta;
 
 	int N; // Number of patients
