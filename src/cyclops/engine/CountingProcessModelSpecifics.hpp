@@ -57,6 +57,8 @@ public:
     bool computeGradientsAndHessians(const std::vector<int>& indices,
                                      std::vector<GradientHessian>& gh, bool useWeights);
 
+    bool supportsConcurrentGradients() const { return pool != nullptr; }
+
     void updateXBeta(double delta, int index, bool useWeights);
 
     void computeRemainingStatistics(bool useWeights);

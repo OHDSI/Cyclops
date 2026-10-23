@@ -143,7 +143,7 @@ double ModelSpecifics<BaseModel,RealType>::getGradientObjective(bool useCrossVal
 		}
 		const auto& xBeta = hXBeta; // no copy
 
-		RealType criterion = 0;
+		double criterion = 0; // in double for any RealType: in float the sum of K terms stalls
 		if (useCrossValidation) {
 			for (int i = 0; i < K; i++) {
 				criterion += static_cast<double>(xBeta[i]) * hY[i] * hKWeight[i]; // in double, as before
@@ -696,7 +696,7 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 
 	ensureDenominators();
 
-	RealType logLikelihood = static_cast<RealType>(0.0);
+	double logLikelihood = 0.0; // in double for any RealType
 	if (useCrossValidation) {
 		for (size_t i = 0; i < K; i++) {
 			logLikelihood += BaseModel::logLikeNumeratorContrib(hY[i], hXBeta[i]) * hKWeight[i];

@@ -1247,7 +1247,7 @@ void CyclicCoordinateDescent::findMode(
 	    			}
 	    		}
 	    		hBeta = modelSpecifics.getBeta();
-	    	} else if (threads > 1) {
+	    	} else if (threads > 1 && modelSpecifics.supportsConcurrentGradients()) {
 	    		cycleWithConcurrentGradients(log);
 	    	} else {
 

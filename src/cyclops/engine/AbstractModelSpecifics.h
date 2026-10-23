@@ -160,6 +160,12 @@ public:
 		return false;
 	}
 
+	// True when computeGradientsAndHessians() can compute several coordinates at once with the
+	// current threads; otherwise a cycle with threads is the serial cycle
+	virtual bool supportsConcurrentGradients() const {
+		return false;
+	}
+
 	virtual void turnOnSyncCV(int foldToCompute) = 0;
 
 	virtual void turnOffSyncCV() = 0;
