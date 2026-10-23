@@ -10,6 +10,8 @@
 #include <numeric>
 #include <math.h>
 #include <cstdlib>
+#include <algorithm>
+#include <sstream>
 
 #include "GridSearchCrossValidationDriver.h"
 
@@ -104,6 +106,7 @@ MaxPoint GridSearchCrossValidationDriver::doCrossValidationLoop(
     const auto& arguments = allArguments.crossValidation;
 
 // 	std::vector<double> weights;
+	std::vector<std::vector<double>> scores;
 	for (int step = 0; step < gridSize; step++) {
 
 		std::vector<double> predLogLikelihood;
@@ -111,13 +114,24 @@ MaxPoint GridSearchCrossValidationDriver::doCrossValidationLoop(
 		ccd.setHyperprior(point);
 		selector.reseed();
 
-		double pointEstimate = doCrossValidationStep(ccd, selector, allArguments, step,
+		doCrossValidationStep(ccd, selector, allArguments, step,
 			nThreads, ccdPool, selectorPool,
 			predLogLikelihood);
-		double value = pointEstimate / (double(arguments.foldToCompute) / double(arguments.fold));
 
 		gridPoint.push_back(point);
-		gridValue.push_back(value);
+		scores.push_back(predLogLikelihood);
+	}
+
+	// Grid points are compared over the folds computed at all of them
+	std::vector<double> means, stdDevs;
+	computeCommonFoldEstimates(scores, means, stdDevs);
+	for (double pointEstimate : means) {
+		gridValue.push_back(pointEstimate / (double(arguments.foldToCompute) / double(arguments.fold)));
+	}
+	if (std::none_of(gridValue.begin(), gridValue.end(), [](double value) { return value == value; })) {
+		std::ostringstream errorStream;
+		errorStream << "Cross-validation failed: no fold fit converged at any grid point";
+		error->throwError(errorStream);
 	}
 
 	// Report results
@@ -233,9 +247,13 @@ MaxPoint GridSearchCrossValidationDriver::doCrossValidationLoop(
 
 void GridSearchCrossValidationDriver::findMax(double* maxPoint, double* maxValue) {
 
-	*maxPoint = gridPoint[0];
-	*maxValue = gridValue[0];
-	for (size_t i = 1; i < gridPoint.size(); i++) {
+	size_t first = 0; // grid points without any computed fold (NaN) are skipped
+	while (first + 1 < gridValue.size() && !(gridValue[first] == gridValue[first])) {
+		++first;
+	}
+	*maxPoint = gridPoint[first];
+	*maxValue = gridValue[first];
+	for (size_t i = first + 1; i < gridPoint.size(); i++) {
 		if (gridValue[i] > *maxValue) {
 			*maxPoint = gridPoint[i];
 			*maxValue = gridValue[i];

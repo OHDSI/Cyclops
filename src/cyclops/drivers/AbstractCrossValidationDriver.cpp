@@ -6,6 +6,8 @@
  */
 
 #include <numeric>
+#include <algorithm>
+#include <limits>
 #include <cmath>
 #include <iterator>
 #include <mutex>
@@ -501,6 +503,36 @@ double AbstractCrossValidationDriver::computePointEstimate(const std::vector<dou
 		}
 	}
 	return total / static_cast<double>(count);
+}
+
+void AbstractCrossValidationDriver::computeCommonFoldEstimates(const std::vector<std::vector<double>>& scores,
+                                                               std::vector<double>& means,
+                                                               std::vector<double>& stdDevs) {
+	const size_t nFolds = scores.empty() ? 0 : scores[0].size();
+	std::vector<bool> common(nFolds, true);
+	for (const auto& fold : scores) {
+		for (size_t i = 0; i < nFolds && i < fold.size(); ++i) {
+			if (!(fold[i] == fold[i])) {
+				common[i] = false;
+			}
+		}
+	}
+	const bool anyCommon = std::find(common.begin(), common.end(), true) != common.end();
+
+	means.resize(scores.size());
+	stdDevs.resize(scores.size());
+	for (size_t p = 0; p < scores.size(); ++p) {
+		std::vector<double> fold = scores[p];
+		if (anyCommon) {
+			for (size_t i = 0; i < nFolds && i < fold.size(); ++i) {
+				if (!common[i]) {
+					fold[i] = std::numeric_limits<double>::quiet_NaN();
+				}
+			}
+		}
+		means[p] = computePointEstimate(fold);
+		stdDevs[p] = computeStDev(fold, means[p]);
+	}
 }
 
 double AbstractCrossValidationDriver::computeStDev(const std::vector<double>& value, double mean) {

@@ -12,6 +12,8 @@
 #include <cstdlib>
 #include <iterator>
 #include <algorithm>
+#include <limits>
+#include <memory>
 
 #include "Types.h"
 #include "Thread.h"
@@ -99,8 +101,11 @@ MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 
 	    for (int dim = 0; dim < nDim; ++dim) {
 
-	        // Local search
-	        UniModalSearch searcher(10, 0.01, log(1.5));
+	        // Local search. The searcher is rebuilt after each step, so that every hyperparameter tried is
+	        // compared over the same folds (computeCommonFoldEstimates())
+	        std::vector<double> triedValues;
+	        std::vector<std::vector<double>> triedScores;
+	        std::unique_ptr<UniModalSearch> searcher;
 
 	        int step = 0;
 	        bool dimFinished = false;
@@ -113,11 +118,32 @@ MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 	            std::vector<double> predLogLikelihood;
 
 	            // Newly re-located code
-	            double pointEstimate = doCrossValidationStep(ccd, selector, allArguments, step,
-                                                          nThreads, ccdPool, selectorPool,
-                                                          predLogLikelihood);
+	            doCrossValidationStep(ccd, selector, allArguments, step,
+                                      nThreads, ccdPool, selectorPool,
+                                      predLogLikelihood);
 
-	            double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
+	            const double tried = currentOptimal[dim];
+	            size_t current = std::find(triedValues.begin(), triedValues.end(), tried) - triedValues.begin();
+	            if (current == triedValues.size()) {
+	                triedValues.push_back(tried);
+	                triedScores.push_back(predLogLikelihood);
+	            } else {
+	                triedScores[current] = predLogLikelihood;
+	            }
+
+	            std::vector<double> means, stdDevs;
+	            computeCommonFoldEstimates(triedScores, means, stdDevs);
+	            searcher.reset(new UniModalSearch(10, 0.01, log(1.5)));
+	            int nScored = 0;
+	            for (size_t p = 0; p < triedValues.size(); ++p) {
+	                if (means[p] == means[p]) { // a hyperparameter without any computed fold is left out
+	                    searcher->tried(triedValues[p], means[p], stdDevs[p]);
+	                    ++nScored;
+	                }
+	            }
+
+	            double pointEstimate = means[current];
+	            double stdDevEstimate = stdDevs[current];
 /*
 	            std::cout << "predLikelihoods: ";
 	            for (auto x : predLogLikelihood) {
@@ -127,19 +153,41 @@ MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 */
 	            std::ostringstream stream;
 	            stream << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
-	            searcher.tried(currentOptimal[dim], pointEstimate, stdDevEstimate);
-	            StepValue next = searcher.step();
+
+	            if (!(pointEstimate == pointEstimate)) {
+	                // No fold fit converged at this hyperparameter: stop at the best one with converged folds
+	                if (nScored == 0) {
+	                    std::ostringstream errorStream;
+	                    errorStream << "Cross-validation failed: no fold fit converged at " << tried;
+	                    error->throwError(errorStream);
+	                }
+	                currentOptimal[dim] = searcher->bestx();
+	                currentOptimalValue = searcher->besty();
+	                stream << "No fold fit converged at " << tried << "; stopping at " << currentOptimal[dim];
+	                logger->writeLine(stream);
+	                dimFinished = true;
+	                step++;
+	                continue;
+	            }
+
+	            StepValue next = searcher->step();
 	            stream << "Completed at " << currentOptimal[dim] << std::endl;
 	            stream << "Next point at " << next.second << " with value " << next.expected << " and continue = " << next.first;
 	            logger->writeLine(stream);
 
-	            currentOptimal[dim] = next.second;
-	            currentOptimalValue = next.expected;
-	            if (!next.first) {
+	            if (next.second > 0.0 && next.second < std::numeric_limits<double>::infinity()) {
+	                currentOptimal[dim] = next.second;
+	                currentOptimalValue = next.expected;
+	                if (!next.first) {
+	                    dimFinished = true;
+	                }
+	            } else { // never search at a non-finite hyperparameter: stop at the best one tried
+	                currentOptimal[dim] = searcher->bestx();
+	                currentOptimalValue = searcher->besty();
 	                dimFinished = true;
 	            }
 	            std::ostringstream stream1;
-	            stream1 << searcher;
+	            stream1 << *searcher;
 	            logger->writeLine(stream1);
 	            step++;
 	            if (step >= maxSteps) {

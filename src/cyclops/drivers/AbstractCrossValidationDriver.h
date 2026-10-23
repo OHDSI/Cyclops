@@ -69,6 +69,13 @@ protected:
 
 	double computeStDev(const std::vector<double>& value, double mean);
 
+	// Mean and standard deviation of the fold scores of each hyperparameter tried, over the folds computed
+	// at every one of them (a fold's score sums over its rows, so means over different folds are not
+	// comparable); over each one's own computed folds when no fold was computed at all of them. NaN
+	// when a hyperparameter has no computed fold.
+	void computeCommonFoldEstimates(const std::vector<std::vector<double>>& scores,
+	                                std::vector<double>& means, std::vector<double>& stdDevs);
+
 	void restoreWeights(CyclicCoordinateDescent& ccd, const CCDArguments& arguments);
 
 	MaxPoint maxPoint;
