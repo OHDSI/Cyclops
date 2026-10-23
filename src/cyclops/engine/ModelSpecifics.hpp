@@ -128,7 +128,9 @@ ModelSpecifics<BaseModel,RealType>::ModelSpecifics(const ModelData<RealType>& in
 
 template <class BaseModel, typename RealType>
 AbstractModelSpecifics* ModelSpecifics<BaseModel,RealType>::clone(ComputeDeviceArguments computeDevice) const {
-	return new ModelSpecifics<BaseModel,RealType>(modelData);
+	auto copy = new ModelSpecifics<BaseModel,RealType>(modelData);
+	copy->setLegacy(legacy); // cross-validation threads must run the same kernels
+	return copy;
 }
 
 template <class BaseModel, typename RealType>
@@ -528,7 +530,7 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *c
 
 	trainingRowsOnly = false;
 	activePartition.reset(); // setFoldPartition() follows
-	if (BaseModel::hasLogisticRows && heldOutRowsUnused && useCrossValidation) {
+	if (BaseModel::hasLogisticRows && !legacy && heldOutRowsUnused && useCrossValidation) {
 		bool binary = true;
 		for (size_t k = 0; k < K && binary; ++k) {
 			binary = inWeights[k] == 0.0 || inWeights[k] == 1.0;
@@ -1286,7 +1288,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
             } // End backwards iterator
 		}
 
-	} else if (BaseModel::hasLogisticRows) {
+	} else if (BaseModel::hasLogisticRows && !legacy) { // legacy: the 3.7 code below
 
 	    // p = e / (1 + e) and w = p (1 - p) from e = offsExpXBeta alone (no denomPid gather); e = inf
 	    // (xBeta > ~709) gives p = 1, w = 0 instead of NaN. As before, p rounds to exactly 1 and w to 0
@@ -2150,7 +2152,8 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
         // one exp() for an indicator column, one per distinct value of a coded sparse column
         RealType indicatorFactor = static_cast<RealType>(1);
         const uint16_t* codes = nullptr;
-        if (IteratorType::isIndicator) {
+        if (legacy) { // exp() per entry; no value codes are set up
+        } else if (IteratorType::isIndicator) {
             indicatorFactor = std::exp(realDelta);
         } else if (!valueCodes[index].codes.empty()) {
             const RealVector& distinct = valueCodes[index].values;
@@ -2160,7 +2163,7 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
             }
             codes = valueCodes[index].codes.data();
         }
-        const bool multiply = IteratorType::isIndicator || codes != nullptr;
+        const bool multiply = !legacy && (IteratorType::isIndicator || codes != nullptr);
 
         for (size_t s = 0; s < segments.strata.size(); ++s) {
             RealType denominator = denomPid[segments.strata[s]]; // the same additions, in a register
@@ -2184,7 +2187,7 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
             }
             denomPid[segments.strata[s]] = denominator;
         }
-    } else if (BaseModel::hasLogisticRows) {
+    } else if (BaseModel::hasLogisticRows && !legacy) { // legacy: the 3.7 code below
         // Each row is its own stratum with denominator 1 + exp(xBeta): set from exp(xBeta) (an
         // accumulated new - old drifts after large moves). exp(xBeta + delta x) = exp(xBeta) exp(delta x),
         // so an indicator or intercept column takes one exp() per column, and a column with few
@@ -2719,7 +2722,7 @@ void ModelSpecifics<BaseModel,RealType>::setupStratumSegments() {
 template <class BaseModel,typename RealType>
 FoldPartitionPtr ModelSpecifics<BaseModel,RealType>::makeFoldPartition(const std::vector<int>& segmentOfRow,
                                                                        int folds) const {
-    if (!BaseModel::hasLogisticRows || segmentOfRow.size() != K || folds < 1) {
+    if (!BaseModel::hasLogisticRows || legacy || segmentOfRow.size() != K || folds < 1) {
         return nullptr;
     }
     // Single precision keeps the 0/1-mask fold fits (bitwise equal to the weighted ones): reordered float
@@ -2969,8 +2972,10 @@ void ModelSpecifics<BaseModel,RealType>::initialize(
     } // else sparseIndices are not needed: only the cumulative scans and their numerators read them
     if (BaseModel::hasNtoKIndices) {
         setupStratumSegments();
-        setupValueCodes();
-    } else if (BaseModel::hasLogisticRows) {
+        if (!legacy) {
+            setupValueCodes();
+        }
+    } else if (BaseModel::hasLogisticRows && !legacy) {
         setupValueCodes();
     }
 #ifdef CYCLOPS_DEBUG_TIMING_GPU_COX

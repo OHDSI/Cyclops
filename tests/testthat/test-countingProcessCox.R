@@ -473,55 +473,55 @@ test_that("Weighted proportional hazards test matches cox.zph on the rows in the
     }
 })
 
-test_that("The efficient and legacy Cox fitters give the same fits", {
+test_that("The default and legacy fitters give the same Cox fits", {
     lung2 <- na.omit(lung[, c("time", "status", "age", "sex", "ph.ecog")])
     lung2$status <- lung2$status - 1
-    fitWith <- function(coxFitter, formula, ...) {
+    fitWith <- function(fitter, formula, ...) {
         fitCyclopsModel(createCyclopsData(formula, data = lung2, modelType = "cox"),
-                        control = createControl(noiseLevel = "silent", tolerance = 1E-10, coxFitter = coxFitter),
+                        control = createControl(noiseLevel = "silent", tolerance = 1E-10, fitter = fitter),
                         ...)
     }
     for (formula in c(Surv(time, status) ~ age + ph.ecog, Surv(time, status) ~ age + ph.ecog + strata(sex))) {
-        efficient <- fitWith("efficient", formula)
+        default <- fitWith("default", formula)
         legacy <- fitWith("legacy", formula)
-        expect_equal(coef(legacy), coef(efficient), tolerance = 1E-8)
-        expect_equal(as.numeric(logLik(legacy)), as.numeric(logLik(efficient)), tolerance = 1E-8)
-        expect_equal(confint(legacy, "age"), confint(efficient, "age"), tolerance = 1E-6)
+        expect_equal(coef(legacy), coef(default), tolerance = 1E-8)
+        expect_equal(as.numeric(logLik(legacy)), as.numeric(logLik(default)), tolerance = 1E-8)
+        expect_equal(confint(legacy, "age"), confint(default, "age"), tolerance = 1E-6)
     }
     weights <- rep(c(1, 2, 0, 0.5), length.out = nrow(lung2))
     expect_equal(coef(fitWith("legacy", Surv(time, status) ~ age + ph.ecog, weights = weights)),
-                 coef(fitWith("efficient", Surv(time, status) ~ age + ph.ecog, weights = weights)), tolerance = 1E-8)
+                 coef(fitWith("default", Surv(time, status) ~ age + ph.ecog, weights = weights)), tolerance = 1E-8)
 
     # L1 with threads: the legacy engine evaluates gradients one at a time
     set.seed(42)
     sim <- simulateCyclopsData(nstrata = 1, nrows = 2000, ncovars = 40, model = "survival")
     data <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = "cox", quiet = TRUE)
-    fits <- lapply(c("efficient", "legacy"), function(coxFitter) {
+    fits <- lapply(c("default", "legacy"), function(fitter) {
         fitCyclopsModel(data, prior = createPrior("laplace", 0.1), forceNewObject = TRUE,
                         control = createControl(noiseLevel = "silent", tolerance = 1E-10, threads = 2,
-                                                coxFitter = coxFitter))
+                                                fitter = fitter))
     })
     expect_equal(coef(fits[[2]]), coef(fits[[1]]), tolerance = 1E-8)
 })
 
-test_that("Changing the Cox fitter rebuilds the engine", {
+test_that("Changing the fitter rebuilds the engine", {
     data <- createCyclopsData(Surv(stop, event) ~ x1 + x2, data = tied, modelType = "cox")
-    efficient <- fitCyclopsModel(data, control = control)
-    expect_equal(data$coxFitter, "efficient")
+    default <- fitCyclopsModel(data, control = control)
+    expect_equal(data$fitter, "default")
     legacy <- fitCyclopsModel(data, control = createControl(noiseLevel = "silent", tolerance = 1E-10,
-                                                            coxFitter = "legacy"))
-    expect_equal(data$coxFitter, "legacy")
-    expect_equal(coef(legacy), coef(efficient), tolerance = tolerance)
+                                                            fitter = "legacy"))
+    expect_equal(data$fitter, "legacy")
+    expect_equal(coef(legacy), coef(default), tolerance = tolerance)
 
-    # A control from before coxFitter existed means "efficient"
+    # A control from before fitter existed means "default"
     older <- control
-    older$coxFitter <- NULL
+    older$fitter <- NULL
     fitCyclopsModel(data, control = older)
-    expect_equal(data$coxFitter, "efficient")
+    expect_equal(data$fitter, "default")
 
     counting <- createCyclopsData(Surv(start, stop, event) ~ x1, data = tied, modelType = "cox_counting")
-    expect_error(fitCyclopsModel(counting, control = createControl(coxFitter = "legacy")), "start times")
-    expect_error(createControl(coxFitter = "other"))
+    expect_error(fitCyclopsModel(counting, control = createControl(fitter = "legacy")), "start times")
+    expect_error(createControl(fitter = "other"))
 })
 
 test_that("cox_counting takes negative start times", {

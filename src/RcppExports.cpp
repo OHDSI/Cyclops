@@ -470,8 +470,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsInitializeModel
-List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, const std::string& computeDevice, bool computeMLE, const std::string& coxFitter);
-RcppExport SEXP _Cyclops_cyclopsInitializeModel(SEXP inModelDataSEXP, SEXP modelTypeSEXP, SEXP computeDeviceSEXP, SEXP computeMLESEXP, SEXP coxFitterSEXP) {
+List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, const std::string& computeDevice, bool computeMLE, const std::string& fitter);
+RcppExport SEXP _Cyclops_cyclopsInitializeModel(SEXP inModelDataSEXP, SEXP modelTypeSEXP, SEXP computeDeviceSEXP, SEXP computeMLESEXP, SEXP fitterSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -479,8 +479,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::string& >::type modelType(modelTypeSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type computeDevice(computeDeviceSEXP);
     Rcpp::traits::input_parameter< bool >::type computeMLE(computeMLESEXP);
-    Rcpp::traits::input_parameter< const std::string& >::type coxFitter(coxFitterSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsInitializeModel(inModelData, modelType, computeDevice, computeMLE, coxFitter));
+    Rcpp::traits::input_parameter< const std::string& >::type fitter(fitterSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsInitializeModel(inModelData, modelType, computeDevice, computeMLE, fitter));
     return rcpp_result_gen;
 END_RCPP
 }

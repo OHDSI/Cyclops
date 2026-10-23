@@ -135,7 +135,7 @@ struct CCDArguments {
 	// Needed for model specification
 	int modelType;
 	std::string modelName;
-	std::string coxFitter; // "efficient" (one risk-set group per event time) or "legacy"
+	std::string fitter; // "legacy" (Cyclops 3.7 kernels), "default" or "super", from createControl(fitter = )
 
 	NoiseLevels noiseLevel;
 

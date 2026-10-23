@@ -26,7 +26,7 @@ createControl(
   initialBound = 2,
   maxBoundCount = 5,
   algorithm = "ccd",
-  coxFitter = "efficient",
+  fitter = "default",
   doItAll = TRUE,
   syncCV = FALSE
 )
@@ -85,10 +85,13 @@ the average number of rows per stratum is smaller than the number of strata;
 
 \item{algorithm}{String: name of fitting algorithm to employ; default is \code{ccd}}
 
-\item{coxFitter}{String: engine for \code{"cox"} models on the CPU. \code{"efficient"} (default)
-uses one risk-set group per event time; \code{"legacy"} uses the engine of
-Cyclops 3.7, for reproducing earlier results. Estimates agree up to rounding.
-\code{"cox_counting"} models need \code{"efficient"}}
+\item{fitter}{String: which fitting code to run. \code{"default"} runs the current code.
+\code{"legacy"} runs the code of Cyclops 3.7, to reproduce earlier results: for
+logistic regression (\code{"lr"}), the grouped models (\code{"cpr"}, \code{"sccs"},
+\code{"clr"}, \code{"clr_efron"}, \code{"clr_exact"}) and \code{"cox"} models on the
+CPU. Bug fixes apply to every fitter. \code{"cox_counting"} models need another
+fitter. \code{"super"} is reserved for result-changing improvements to \code{"lr"}
+fits and currently runs the same code as \code{"default"}}
 
 \item{doItAll}{Currently unused}
 

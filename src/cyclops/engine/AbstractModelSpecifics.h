@@ -132,7 +132,11 @@ public:
                                            const AbstractModelData& modelData,
                                            const DeviceType deviceType,
                                            const std::string& deviceName,
-                                           const bool legacyCox = false);
+                                           const bool legacy = false);
+
+	// createControl(fitter = "legacy"): logistic regression and the grouped models run their Cyclops 3.7
+	// kernels, so a fit reproduces earlier results; clone() copies it
+	void setLegacy(bool value) { legacy = value; }
 
 	virtual const std::vector<double> getXBeta() = 0;
 
@@ -262,6 +266,8 @@ protected:
 	}
 
 protected:
+	bool legacy = false;
+
 //	const AbstractModelData& modelData;
 
 // 	const std::vector<real>& oY;
