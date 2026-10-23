@@ -250,7 +250,7 @@ int ModelData<RealType>::loadMultipleX(
 		        stream << *rowIdItr << " - " << *columnIdItr;
 		        throw std::range_error(stream.str());
 		    }
-		    const auto mappedRow = (useRowMap) ? rowIdMap[*rowIdItr] : *rowIdItr;
+		    const auto mappedRow = (useRowMap) ? mapRowId(*rowIdItr) : *rowIdItr;
 		    if (hasCovariateValues) {
                 if (*covariateValueItr != 0.0) {
                     if (format == INDICATOR && *covariateValueItr != 1.0) {
@@ -373,7 +373,7 @@ int ModelData<RealType>::loadX(
                     stream << *rowIdItr << " - " << covariateId;
                     throw std::range_error(stream.str());
                 }
-                const auto mappedRow = (useRowMap) ? rowIdMap[*rowIdItr] : *rowIdItr;
+                const auto mappedRow = (useRowMap) ? mapRowId(*rowIdItr) : *rowIdItr;
                 if (hasCovariateValues) {
                     if (*covariateValueItr != 0.0) {
                         if (newType == INDICATOR && *covariateValueItr != 1.0) {

@@ -238,7 +238,10 @@ fitCyclopsModel <- function(cyclopsData,
         .cyclopsSetStartingBeta(cyclopsData$cyclopsInterfacePtr, startingCoefficients)
     }
 
-    if (!is.null(fixedCoefficients)) {
+    if (!is.null(fixedCoefficients) || isTRUE(cyclopsData$hasFixedCoefficients)) {
+        if (is.null(fixedCoefficients)) { # release the coefficients an earlier fit on this interface fixed
+            fixedCoefficients <- rep(FALSE, getNumberOfCovariates(cyclopsData))
+        }
         if (length(fixedCoefficients) != getNumberOfCovariates(cyclopsData)) {
             stop("Must provide a boolean for each coefficient")
         }
@@ -247,6 +250,7 @@ fitCyclopsModel <- function(cyclopsData,
         for (i in 1:length(fixedCoefficients)) {
             .cyclopsSetFixedBeta(cyclopsData$cyclopsInterfacePtr, offset + i, fixedCoefficients[i] == TRUE)
         }
+        assign("hasFixedCoefficients", any(fixedCoefficients), cyclopsData)
     }
 
     if (.cyclopsGetHasIntercept(cyclopsData) &&
