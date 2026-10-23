@@ -454,7 +454,15 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 		}
 		if (coldStart) { // a fold's result does not depend on which model copy runs it
 			// Tasks start in order, so only the partitions of the repetitions in progress are alive
-			executeDynamic(arguments.foldToCompute, nThreads, oneTask);
+			try {
+				executeDynamic(arguments.foldToCompute, nThreads, oneTask);
+			} catch (...) {
+				if (nThreads > 1) {
+					ccd.getProgressLogger().setConcurrent(false);
+					ccd.getProgressLogger().flush();
+				}
+				throw;
+			}
 		} else { // each copy warm-starts from its previous fold, so keep the fixed assignment
 			auto scheduler = TaskScheduler<IncrementableIterator<size_t>>(
 			    IncrementableIterator<size_t>(0),

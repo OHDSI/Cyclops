@@ -5,6 +5,7 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
+#include <exception>
 #include <vector>
 #include "tinythread/tinythread.h"
 
@@ -166,15 +167,27 @@ namespace tthread {
 #endif
 
 // Runs function(task, worker) for task = 0, ..., taskCount - 1 on min(nThreads, taskCount) workers;
-// each worker takes the next unstarted task when it finishes one, and worker 0 is the calling thread
+// each worker takes the next unstarted task when it finishes one, and worker 0 is the calling thread.
+// The first exception thrown by any task stops the others from starting new tasks and is rethrown in
+// the calling thread once all workers have finished.
 template <typename BinaryFunction>
 void executeDynamic(size_t taskCount, size_t nThreads, BinaryFunction function) {
 
     nThreads = std::max(static_cast<size_t>(1), std::min(nThreads, taskCount));
     std::atomic<size_t> next(0);
-    auto worker = [&next, taskCount, &function](size_t index) {
-        for (size_t task = next++; task < taskCount; task = next++) {
-            function(task, index);
+    std::atomic<bool> failed(false);
+    std::exception_ptr failure; // written only by the worker that sets failed, read after the joins
+    auto worker = [&next, &failed, &failure, taskCount, &function](size_t index) {
+        try {
+            for (size_t task = next++; task < taskCount; task = next++) {
+                function(task, index);
+            }
+        } catch (...) {
+            bool expected = false;
+            if (failed.compare_exchange_strong(expected, true)) {
+                failure = std::current_exception();
+            }
+            next = taskCount;
         }
     };
 
@@ -200,6 +213,9 @@ void executeDynamic(size_t taskCount, size_t nThreads, BinaryFunction function) 
         workers[i].join();
     }
 #endif
+    if (failure) {
+        std::rethrow_exception(failure);
+    }
 }
 
 } // namespace bsccs
