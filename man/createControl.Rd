@@ -88,10 +88,10 @@ the average number of rows per stratum is smaller than the number of strata;
 \item{fitter}{String: which fitting code to run. \code{"default"} runs the current code.
 \code{"legacy"} runs the code of Cyclops 3.7, to reproduce earlier results: for
 logistic regression (\code{"lr"}), the grouped models (\code{"cpr"}, \code{"sccs"},
-\code{"clr"}, \code{"clr_efron"}, \code{"clr_exact"}) and \code{"cox"} models on the
-CPU. Bug fixes apply to every fitter. \code{"cox_counting"} models need another
-fitter. \code{"super"} is reserved for result-changing improvements to \code{"lr"}
-fits and currently runs the same code as \code{"default"}}
+\code{"clr"}, \code{"clr_efron"}, \code{"clr_exact"}), \code{"cox"} models on the
+CPU, profile likelihoods and confidence intervals. Bug fixes apply to every fitter.
+\code{"cox_counting"} models need another fitter. \code{"super"} is reserved for
+result-changing improvements to \code{"lr"} fits and currently runs the same code as \code{"default"}}
 
 \item{doItAll}{Currently unused}
 

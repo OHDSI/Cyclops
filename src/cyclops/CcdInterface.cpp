@@ -369,6 +369,9 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	// when the objective includes the penalty of every free coefficient that moves. Without includePenalty,
 	// that holds only if no other free coefficient is regularized; with it, regularized covariates (whose
 	// derivative needs the prior gradient) are left to bracketing too. The curvature at the mode seeds them.
+	// createControl(fitter = "legacy") keeps the bracketing of Cyclops 3.7, each bound starting from where
+	// the previous one on the same thread ended.
+	const bool legacy = arguments.fitter == "legacy";
 	int nRegularized = 0;
 	for (int j = 0; j < J; ++j) {
 		if (ccd->getIsRegularized(j) && !ccd->getFixedBeta(j)) {
@@ -379,7 +382,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	for (size_t id = 0; id < indices.size(); ++id) {
 		const bool regularized = ccd->getIsRegularized(indices[id]);
 		const bool exact = includePenalty ? !regularized : nRegularized == (regularized ? 1 : 0);
-		if (exact) {
+		if (exact && !legacy) {
 			curvatures[id] = ccd->getHessianDiagonal(indices[id]);
 		}
 	}
@@ -412,7 +415,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	auto getBound = [this,
 	            &x0s, &curvatures,
 	            &indices, &lowerPts, &upperPts,
-                &lowerCnts, &upperCnts, includePenalty, mode, threshold
+                &lowerCnts, &upperCnts, includePenalty, mode, threshold, legacy
             ](const BoundType bound, CyclicCoordinateDescent* ccd) {
 	    const auto id = std::get<0>(bound);
 	    const auto direction = std::get<1>(bound);
@@ -421,14 +424,18 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	    double x0 = x0s[index];
 
 	    // Bound edge, starting at the mode so that bounds do not depend on their order or the threads
-	    ccd->setBeta(x0s);
+	    if (!legacy) {
+	        ccd->setBeta(x0s);
+	    }
 	    OptimizationProfile eval(*ccd, arguments, index, mode, threshold, includePenalty);
 
 	    double pt = curvatures[id] > 0.0 ?
 	        getNewtonBound(eval, x0, direction, curvatures[id]) : NAN;
 
 	    if (std::isnan(pt)) {
-	        ccd->setBeta(x0s);
+	        if (!legacy) {
+	            ccd->setBeta(x0s);
+	        }
 	        RZeroIn<OptimizationProfile> zeroIn(eval, 1E-3);
 
 	        double obj0 = eval.getMaximum();
@@ -614,6 +621,88 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
     return calculateSeconds(time1, time2);
 }
 
+// createControl(fitter = "legacy"): the profile evaluation of Cyclops 3.7. A discarded fit at 0, then
+// each thread fits its share of the points in turn, each starting from its previous fit, so the values
+// depend on the number of threads. The bug fixes of later versions apply: clones keep fixed coefficients,
+// and the coefficients are reset exactly to the mode.
+void CcdInterface::evaluateProfileModelLegacy(CyclicCoordinateDescent *ccd, int index,
+                                              const std::vector<double>& x0s,
+                                              const std::vector<double>& points,
+                                              std::vector<double>& values,
+                                              std::vector<double>* derivatives,
+                                              int nThreads,
+                                              bool includePenalty) {
+
+    bool doDerivative = derivatives != nullptr;
+
+    auto evaluate = [this, index, includePenalty, doDerivative](const double point,
+                                                  CyclicCoordinateDescent* ccd) {
+
+        OptimizationProfile eval(*ccd, arguments, index,
+                                 0.0, 0.0, includePenalty);
+
+        double objective = eval.objective(point);
+        double derivative = doDerivative ? eval.derivative() : 0.0;
+
+        return std::pair<double,double>(objective, derivative);
+    };
+
+    ccd->makeDirty(); // Reset internal memory
+    evaluate(0.0, ccd);
+
+    std::vector<CyclicCoordinateDescent*> ccdPool;
+    ccdPool.push_back(ccd);
+
+    for (int i = 1; i < nThreads; ++i) {
+        CyclicCoordinateDescent* copy = ccd->clone(arguments.computeDevice);
+        for (int j = 0; j < static_cast<int>(x0s.size()); ++j) {
+            copy->setFixedBeta(j, ccd->getFixedBeta(j));
+        }
+        ccdPool.push_back(copy);
+    }
+
+    if (nThreads == 1) {
+        for (int i = 0; i < points.size(); ++i) {
+            auto pair = evaluate(points[i], ccd);
+            values[i] = pair.first;
+            if (doDerivative) {
+                (*derivatives)[i] = pair.second;
+            }
+        }
+    } else {
+        auto scheduler = TaskScheduler<IncrementableIterator<size_t>>(
+            IncrementableIterator<size_t>(0),
+            IncrementableIterator<size_t>(points.size()),
+            nThreads);
+
+        auto oneTask = [&evaluate, &scheduler, &ccdPool, &points, &values, &derivatives, doDerivative](unsigned long task) {
+            auto pair = evaluate(points[task], ccdPool[scheduler.getThreadIndex(task)]);
+            values[task] = pair.first;
+            if (doDerivative) {
+                (*derivatives)[task] = pair.second;
+            }
+        };
+
+        // Run all tasks in parallel
+        ccd->getProgressLogger().setConcurrent(true);
+        ccd->getErrorHandler().setConcurrent(true);
+        scheduler.execute(oneTask);
+        ccd->getProgressLogger().setConcurrent(false);
+        ccd->getErrorHandler().setConcurrent(false);
+        ccd->getProgressLogger().flush();
+        ccd->getErrorHandler().flush();
+    }
+
+    // Reset exactly, and recompute X beta now, as prediction reads it directly
+    ccd->setBeta(x0s);
+    ccd->getLogLikelihood();
+
+    // Clean up copies
+    for (int i = 1; i < nThreads; ++i) {
+        delete ccdPool[i];
+    }
+}
+
 double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, AbstractModelData *modelData,
                                           const IdType covariate,
                                           const std::vector<double>& points,
@@ -654,6 +743,12 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
     }
 
     bool doDerivative = derivatives != nullptr;
+
+    if (arguments.fitter == "legacy") {
+        evaluateProfileModelLegacy(ccd, index, x0s, points, values, derivatives, nThreads, includePenalty);
+        gettimeofday(&time2, NULL);
+        return calculateSeconds(time1, time2);
+    }
 
     ccd->makeDirty(); // Reset internal memory
 

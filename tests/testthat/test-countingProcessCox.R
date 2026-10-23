@@ -486,7 +486,8 @@ test_that("The default and legacy fitters give the same Cox fits", {
         legacy <- fitWith("legacy", formula)
         expect_equal(coef(legacy), coef(default), tolerance = 1E-8)
         expect_equal(as.numeric(logLik(legacy)), as.numeric(logLik(default)), tolerance = 1E-8)
-        expect_equal(confint(legacy, "age"), confint(default, "age"), tolerance = 1E-6)
+        # legacy keeps the bracketing search of Cyclops 3.7 (tolerance 1e-3); default takes Newton steps
+        expect_lt(max(abs(confint(legacy, "age")[, 2:3] - confint(default, "age")[, 2:3])), 1E-3)
     }
     weights <- rep(c(1, 2, 0, 0.5), length.out = nrow(lung2))
     expect_equal(coef(fitWith("legacy", Surv(time, status) ~ age + ph.ecog, weights = weights)),

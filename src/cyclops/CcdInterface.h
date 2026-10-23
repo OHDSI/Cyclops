@@ -197,6 +197,16 @@ public:
             std::vector<double>* betas,
             bool chain);
 
+    void evaluateProfileModelLegacy(
+            CyclicCoordinateDescent *ccd,
+            int index,
+            const std::vector<double>& x0s,
+            const std::vector<double>& points,
+            std::vector<double>& values,
+            std::vector<double>* derivatives,
+            int nThreads,
+            bool includePenalty);
+
     double runCrossValidation(
             CyclicCoordinateDescent *ccd,
             AbstractModelData *modelData);

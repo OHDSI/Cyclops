@@ -677,10 +677,10 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param fitter                String: which fitting code to run. \code{"default"} runs the current code.
 #'                              \code{"legacy"} runs the code of Cyclops 3.7, to reproduce earlier results: for
 #'                              logistic regression (\code{"lr"}), the grouped models (\code{"cpr"}, \code{"sccs"},
-#'                              \code{"clr"}, \code{"clr_efron"}, \code{"clr_exact"}) and \code{"cox"} models on the
-#'                              CPU. Bug fixes apply to every fitter. \code{"cox_counting"} models need another
-#'                              fitter. \code{"super"} is reserved for result-changing improvements to \code{"lr"}
-#'                              fits and currently runs the same code as \code{"default"}
+#'                              \code{"clr"}, \code{"clr_efron"}, \code{"clr_exact"}), \code{"cox"} models on the
+#'                              CPU, profile likelihoods and confidence intervals. Bug fixes apply to every fitter.
+#'                              \code{"cox_counting"} models need another fitter. \code{"super"} is reserved for
+#'                              result-changing improvements to \code{"lr"} fits and currently runs the same code as \code{"default"}
 #' @param doItAll               Currently unused
 #' @param syncCV                Currently unused
 #'
@@ -1176,8 +1176,10 @@ getCyclopsProfileLogLikelihood <- function(object,
         # Start with sparse grid:
         grid <- seq(bounds[1], bounds[2], length.out = initialGridSize)
 
-        # Solutions at evaluated points warm-start the new points of the next round
-        keepStarts <- getNumberOfCovariates(object$cyclopsData) <= 10000
+        # Solutions at evaluated points warm-start the new points of the next round (not under the
+        # legacy fitter, which keeps the profile evaluation of Cyclops 3.7)
+        keepStarts <- getNumberOfCovariates(object$cyclopsData) <= 10000 &&
+            .dataFitter(object$cyclopsData) != "legacy"
         starts <- NULL
 
         # Iterate until stopping criteria met:
@@ -1279,6 +1281,11 @@ fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty,
     parm <- .checkCovariates(object$cyclopsData, parm)
     threads <- object$threads
 
+    if (.dataFitter(object$cyclopsData) == "legacy") {
+        return(.legacyGridProfileLogLikelihood(object, parm, x, includePenalty, optimalWarmStart,
+                                               returnDerivatives, threads))
+    }
+
     # Each point starts from the solution at the nearest of: the current coefficients, `starts` and
     # (optimalWarmStart) the points in `x` between it and the current value
     grid <- .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, x,
@@ -1295,6 +1302,30 @@ fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty,
     }
     attr(grid, "betas") <- betas
 
+    return(grid)
+}
+
+# The profile evaluation of Cyclops 3.7, for createControl(fitter = "legacy"): each thread fits its
+# points in the order given, each starting from its previous fit, so the grid is split at its middle
+# and evaluated outwards in two calls
+.legacyGridProfileLogLikelihood <- function(object, parm, x, includePenalty, optimalWarmStart,
+                                            returnDerivatives, threads) {
+    evaluate <- function(points) {
+        .cyclopsGetProfileLikelihood(object$cyclopsData$cyclopsInterfacePtr, parm, points,
+                                     threads, includePenalty, returnDerivatives,
+                                     numeric(0), numeric(0), FALSE, FALSE)
+    }
+    if (getNumberOfCovariates(object$cyclopsData) == 1 || length(x) == 1) {
+        grid <- evaluate(x)
+    } else if (!optimalWarmStart && length(x) / 2 >= threads) {
+        grid <- evaluate(x)
+    } else {
+        y <- sort(x)
+        midPt <- floor(length(x) / 2)
+        grid <- rbind(evaluate(y[midPt:1]), evaluate(y[(midPt + 1):length(x)]))
+        grid <- grid[order(grid$point), ]
+        rownames(grid) <- NULL
+    }
     return(grid)
 }
 
