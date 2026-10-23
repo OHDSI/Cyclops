@@ -179,6 +179,10 @@ public:
 
 	void setCrossValidationInfo(string info);
 
+	int getCrossValidationFailedFolds() const { return crossValidationFailedFolds; }
+
+	void setCrossValidationFailedFolds(int count) { crossValidationFailedFolds = count; }
+
 	// string getBootStrapInfo() const;
 	//
 	// void setBootStrapInfo(string info);
@@ -465,6 +469,7 @@ protected:
 	SetBetaContainer setBetaList;
 
 	string crossValidationInfo;
+	int crossValidationFailedFolds = 0; // fold fits left out of their mean predictive log-likelihood
 	string bootStrapInfo;
 	std::vector<double> bootStrapInfoVector;
 

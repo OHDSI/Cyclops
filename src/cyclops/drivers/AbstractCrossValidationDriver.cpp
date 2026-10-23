@@ -184,6 +184,8 @@ void AbstractCrossValidationDriver::drive(
     }
 	// End of multi-thread set-up
 
+	failedFolds = 0;
+
 	// Delegate to auto or grid loop
     maxPoint = doCrossValidationLoop(ccd, selector, allArguments, nThreads, ccdPool, selectorPool);
 
@@ -216,6 +218,7 @@ void AbstractCrossValidationDriver::drive(
 	logger->writeLine(stream1);
 
 	ccd.setCrossValidationInfo(report.str());
+	ccd.setCrossValidationFailedFolds(failedFolds);
 }
 
 double AbstractCrossValidationDriver::doCrossValidationStep(
@@ -383,7 +386,21 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 
 			ccdTask->update(allArguments.modeFinding);
 
-			if (ccdTask->getUpdateReturnFlag() == SUCCESS) {
+			int criterion = allArguments.modeFinding.convergenceType;
+			if (ccdTask->getUpdateReturnFlag() == POOR_BLR_STEP && criterion == GRADIENT) {
+				// As fitCyclopsModel() does for a single fit, continue under a criterion that sees every coefficient
+				ModeFindingArguments langeModeFinding = allArguments.modeFinding;
+				langeModeFinding.convergenceType = LANGE;
+				ccdTask->update(langeModeFinding);
+				criterion = LANGE;
+			}
+
+			// A start that a whole cycle leaves exactly unchanged is already the mode; update() flags it
+			// POOR_BLR_STEP, which signals a problem only under the gradient criterion
+			const bool converged = ccdTask->getUpdateReturnFlag() == SUCCESS ||
+				(ccdTask->getUpdateReturnFlag() == POOR_BLR_STEP && criterion != GRADIENT);
+
+			if (converged) {
 
 				// Compute predictive loglikelihood for this fold
 				selectorTask->getComplement(weights);  // TODO THREAD_SAFE
@@ -450,6 +467,22 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 			ccd.getProgressLogger().flush();
 		}
 
+	}
+
+	int failed = 0;
+	for (auto x : predLogLikelihood) {
+		if (x != x) {
+			++failed;
+		}
+	}
+	if (failed > 0) {
+		failedFolds += failed;
+		std::ostringstream stream;
+		stream << "Warning: " << failed << " of " << predLogLikelihood.size()
+		       << " fold fits failed and are left out of the mean predictive log-likelihood at ";
+		std::vector<double> hyperprior = ccd.getHyperprior();
+		std::copy(hyperprior.begin(), hyperprior.end(), std::ostream_iterator<double>(stream, " "));
+		logger->writeLine(stream);
 	}
 
 	double pointEstimate = computePointEstimate(predLogLikelihood);

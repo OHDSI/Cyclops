@@ -74,6 +74,7 @@ protected:
 	MaxPoint maxPoint;
 	std::vector<double>* weightsExclude;
 	std::vector<double> savedWeights; // before cross-validation; empty when unweighted
+	int failedFolds = 0; // fold fits left out of their mean predictive log-likelihood
 };
 
 } // namespace

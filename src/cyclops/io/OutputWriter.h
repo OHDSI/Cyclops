@@ -278,6 +278,7 @@ public:
 		out.addMetaKey("cross_validation").addMetaValue(
 		    ccd.getCrossValidationInfo()
 		);
+		out.addMetaKey("cv_failed_folds").addMetaValue(ccd.getCrossValidationFailedFolds());
 		// out.addMetaKey("boot_strap").addMetaValue(
 		//     ccd.getBootStrapInfo()
 		// );

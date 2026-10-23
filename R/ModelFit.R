@@ -327,6 +327,10 @@ fitCyclopsModel <- function(cyclopsData,
         }
 
         fit <- .cyclopsRunCrossValidation(cyclopsData$cyclopsInterfacePtr)
+        if (warnings && !is.null(fit$cv_failed_folds) && fit$cv_failed_folds > 0) {
+            warning(fit$cv_failed_folds, " cross-validation fold fits failed and were left out of the mean ",
+                    "predictive log-likelihood at their variance")
+        }
     } else {
         fit <- .cyclopsFitModel(cyclopsData$cyclopsInterfacePtr)
     }
@@ -338,6 +342,26 @@ fitCyclopsModel <- function(cyclopsData,
         }
 
         control$convergenceType <- "lange"
+        if (prior$useCrossValidation) {
+            # Refit only the final model at the selected variance; fold fits already fell back to "lange"
+            cvFit <- fit
+            prior$useCrossValidation <- FALSE
+            prior$variance <- cvFit$variance
+            fit <- fitCyclopsModel(cyclopsData = cyclopsData,
+                                   prior = prior,
+                                   control = control,
+                                   weights = weights,
+                                   forceNewObject = forceNewObject,
+                                   returnEstimates = returnEstimates,
+                                   startingCoefficients = startingCoefficients,
+                                   fixedCoefficients = fixedCoefficients,
+                                   warnings = warnings,
+                                   computeDevice = computeDevice)
+            fit$cross_validation <- cvFit$cross_validation
+            fit$cv_failed_folds <- cvFit$cv_failed_folds
+            fit$cvRepetitions <- control$cvRepetitions
+            return(fit)
+        }
         return(fitCyclopsModel(cyclopsData = cyclopsData,
                                prior = prior,
                                control = control,
