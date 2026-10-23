@@ -10,6 +10,8 @@
 
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
+#include <cstdint>
 #include <algorithm>
 #include <numeric>
 #include <limits>
@@ -69,6 +71,35 @@ namespace bsccs {
 #endif
 
 #define NEW_LOOPS
+
+// exp(x) for x clamped to [-708, 709], within 1 ulp of std::exp: x = k ln(2) + r with |r| <= ln(2) / 2
+// (Cody-Waite), a degree-13 Taylor polynomial in r, times 2^k set in the exponent bits. Branch-free,
+// so loops over it vectorize.
+template <typename RealType>
+inline RealType vectorizableExp(const RealType value) {
+    const double x = std::min(std::max(static_cast<double>(value), -708.0), 709.0);
+    const double invLn2 = 1.4426950408889634, ln2Hi = 6.93147180369123816490e-01, ln2Lo = 1.90821492927058770002e-10;
+    const double k = std::rint(x * invLn2);
+    const double r = (x - k * ln2Hi) - k * ln2Lo;
+    double q = 1.0 / 6227020800.0;
+    q = q * r + 1.0 / 479001600.0;
+    q = q * r + 1.0 / 39916800.0;
+    q = q * r + 1.0 / 3628800.0;
+    q = q * r + 1.0 / 362880.0;
+    q = q * r + 1.0 / 40320.0;
+    q = q * r + 1.0 / 5040.0;
+    q = q * r + 1.0 / 720.0;
+    q = q * r + 1.0 / 120.0;
+    q = q * r + 1.0 / 24.0;
+    q = q * r + 1.0 / 6.0;
+    q = q * r + 0.5;
+    q = q * r + 1.0;
+    q = q * r + 1.0;
+    const uint64_t bits = static_cast<uint64_t>(static_cast<int64_t>(k) + 1023) << 52;
+    double scale;
+    std::memcpy(&scale, &bits, sizeof(scale));
+    return static_cast<RealType>(q * scale);
+}
 
 template <class BaseModel,typename RealType>
 ModelSpecifics<BaseModel,RealType>::ModelSpecifics(const ModelData<RealType>& input)
@@ -636,6 +667,8 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 	auto start = bsccs::chrono::steady_clock::now();
 #endif
 
+	ensureDenominators();
+
 	RealType logLikelihood = static_cast<RealType>(0.0);
 	if (useCrossValidation) {
 		for (size_t i = 0; i < K; i++) {
@@ -678,6 +711,8 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 
 template <class BaseModel,typename RealType>
 double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* weights) {
+
+	ensureDenominators();
 
 	std::vector<double> saveKWeight;
 	if (BaseModel::cumulativeGradientAndHessian)	{
@@ -980,6 +1015,8 @@ void ModelSpecifics<BaseModel,RealType>::computeMMGradientAndHessian(
         initializeMM(boundType, fixBeta);
     }
 
+    ensureDenominators();
+
 #ifdef CYCLOPS_DEBUG_TIMING
 #ifndef CYCLOPS_DEBUG_TIMING_LOW
     auto start = bsccs::chrono::steady_clock::now();
@@ -1221,6 +1258,35 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
                 } // End two-way scan
             } // End backwards iterator
 		}
+
+	} else if (BaseModel::hasLogisticRows) {
+
+	    // p = e / (1 + e) and w = p (1 - p) from e = offsExpXBeta alone (no denomPid gather); e = inf
+	    // (xBeta > ~709) gives p = 1, w = 0 instead of NaN. As before, p rounds to exactly 1 and w to 0
+	    // once 1 + e == e, so a separated covariate still ends in 0 / 0 (ILLCONDITIONED, NaN estimate),
+	    // which is.nan(coef()) separation checks and createNonSeparablePrior() rely on.
+	    IteratorType it(hX, index);
+	    const int n = it.size();
+	    const int* rows = IteratorType::isSparse ? hX.getCompressedColumnVector(index) : nullptr;
+	    const RealType* values = IteratorType::isIndicator ? nullptr : hX.getDataVector(index);
+	    const RealType* expXBeta = offsExpXBeta.data();
+	    const RealType* weight = hNWeight.data();
+
+	    for (int q = 0; q < n; ++q) {
+	        const int i = IteratorType::isSparse ? rows[q] : q;
+	        const RealType e = expXBeta[i];
+	        const RealType p = (e <= std::numeric_limits<RealType>::max()) ?
+	            e / (static_cast<RealType>(1) + e) : static_cast<RealType>(1);
+	        const RealType w = p * (static_cast<RealType>(1) - p);
+	        if (IteratorType::isIndicator) {
+	            gradient += Weights::isWeighted ? weight[i] * p : p;
+	            hessian += Weights::isWeighted ? weight[i] * w : w;
+	        } else {
+	            const RealType x = values[q];
+	            gradient += Weights::isWeighted ? weight[i] * (p * x) : p * x;
+	            hessian += Weights::isWeighted ? weight[i] * (w * x * x) : w * x * x;
+	        }
+	    }
 
 	} else if (BaseModel::hasIndependentRows) {
 
@@ -1604,6 +1670,8 @@ void ModelSpecifics<BaseModel,RealType>::makeDirty() {
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeFisherInformation(int indexOne, int indexTwo,
 		double *oinfo, bool useWeights) {
+
+	ensureDenominators();
 
 	if (useWeights) {
 		throw new std::logic_error("Weights are not yet implemented in Fisher Information calculations");
@@ -2048,6 +2116,75 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
             }
             denomPid[segments.strata[s]] = denominator;
         }
+    } else if (BaseModel::hasLogisticRows) {
+        // Each row is its own stratum with denominator 1 + exp(xBeta): set from exp(xBeta) (an
+        // accumulated new - old drifts after large moves). exp(xBeta + delta x) = exp(xBeta) exp(delta x),
+        // so an indicator or intercept column takes one exp() per column, and a column with few
+        // distinct values one per distinct value, instead of one per entry.
+        const RealType minEntry = std::numeric_limits<RealType>::min(); // multiply normal, finite values only
+        const RealType maxEntry = std::numeric_limits<RealType>::max();
+        RealType factor = static_cast<RealType>(1);
+        const uint16_t* codes = nullptr;
+        bool multiply = false;
+        if (IteratorType::isIndicator) {
+            factor = std::exp(realDelta);
+            multiply = factor >= minEntry && factor <= maxEntry;
+        } else if (valueCodes.size() == static_cast<size_t>(J) && !valueCodes[index].codes.empty()) {
+            const RealVector& distinct = valueCodes[index].values;
+            expFactors.resize(distinct.size());
+            multiply = true;
+            for (size_t d = 0; d < distinct.size(); ++d) {
+                expFactors[d] = std::exp(realDelta * distinct[d]);
+                multiply = multiply && expFactors[d] >= minEntry && expFactors[d] <= maxEntry;
+            }
+            codes = valueCodes[index].codes.data();
+        }
+        if (!IteratorType::isIndicator && !multiply) {
+            // exp(xBeta) for every entry, by vectorizableExp(); a sparse column through a buffer
+            const int n = it.size();
+            const RealType* values = hX.getDataVector(index);
+            RealType* xBeta = hXBeta.data();
+            RealType* expXBeta = offsExpXBeta.data();
+            if (IteratorType::isSparse) {
+                const int* rows = hX.getCompressedColumnVector(index);
+                if (expBuffer.size() < static_cast<size_t>(n)) {
+                    expBuffer.resize(n);
+                }
+                RealType* buffer = expBuffer.data();
+                for (int q = 0; q < n; ++q) {
+                    const int k = rows[q];
+                    const RealType t = xBeta[k] + realDelta * values[q];
+                    xBeta[k] = t;
+                    buffer[q] = t;
+                }
+                for (int q = 0; q < n; ++q) {
+                    buffer[q] = vectorizableExp(buffer[q]);
+                }
+                for (int q = 0; q < n; ++q) {
+                    expXBeta[rows[q]] = buffer[q];
+                }
+            } else {
+                for (int q = 0; q < n; ++q) {
+                    const RealType t = xBeta[q] + realDelta * values[q];
+                    xBeta[q] = t;
+                    expXBeta[q] = vectorizableExp(t);
+                }
+            }
+        } else {
+            for (int q = 0; it; ++it, ++q) {
+                const int k = it.index();
+                hXBeta[k] += realDelta * it.value();
+                const RealType oldEntry = offsExpXBeta[k];
+                RealType newEntry;
+                if (multiply && oldEntry >= minEntry && oldEntry <= maxEntry) { // not 0, subnormal, inf or NaN
+                    newEntry = oldEntry * (IteratorType::isIndicator ? factor : expFactors[codes[q]]);
+                } else {
+                    newEntry = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
+                }
+                offsExpXBeta[k] = newEntry;
+            }
+        }
+        denominatorsStale = true; // denomPid[k] = 1 + newEntry, deferred to ensureDenominators()
     } else {
         for (; it; ++it) {
             const int k = it.index();
@@ -2131,6 +2268,7 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatisticsImpl() {
             }
             denomMove = 0.0;
         }
+        denominatorsStale = false;
         computeAccumlatedDenominator(Weights::isWeighted);
     }
 }
@@ -2466,12 +2604,16 @@ template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::setupValueCodes() {
     valueCodes.assign(J, ValueCodes());
 
+    // Logistic regression also codes dense columns, up to 256 distinct values
+    const size_t maxDistinct = BaseModel::hasLogisticRows ? 256 :
+        static_cast<size_t>(std::numeric_limits<uint16_t>::max()) + 1;
+
     for (size_t j = 0; j < J; ++j) {
-        if (hX.getFormatType(j) == SPARSE) {
-            const size_t n = hX.getNumberOfEntries(j);
+        if (hX.getFormatType(j) == SPARSE || (BaseModel::hasLogisticRows && hX.getFormatType(j) == DENSE)) {
+            const size_t n = hX.getNumberOfNonZeroEntries(j);
             const RealType* x = hX.getDataVector(j);
             // Worthwhile when an exp() per distinct value is much cheaper than one per entry
-            const size_t maxValues = std::min(n / 4, static_cast<size_t>(std::numeric_limits<uint16_t>::max()) + 1);
+            const size_t maxValues = std::min(n / 4, maxDistinct);
 
             std::unordered_map<RealType, uint16_t> index;
             ValueCodes& coded = valueCodes[j];
@@ -2539,6 +2681,8 @@ void ModelSpecifics<BaseModel,RealType>::initialize(
     } // else sparseIndices are not needed: only the cumulative scans and their numerators read them
     if (BaseModel::hasNtoKIndices) {
         setupStratumSegments();
+        setupValueCodes();
+    } else if (BaseModel::hasLogisticRows) {
         setupValueCodes();
     }
 #ifdef CYCLOPS_DEBUG_TIMING_GPU_COX

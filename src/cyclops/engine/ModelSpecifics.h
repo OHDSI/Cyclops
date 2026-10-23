@@ -51,6 +51,10 @@ public:
 
     Storage(const RealVector& y, const RealVector& offs) : hY(y), hOffs(offs) { }
 
+    // Independent rows whose denominator is 1 + exp(xBeta) (logistic regression); only
+    // LogisticRegression sets this, so the specialized kernels leave all other models untouched
+    const static bool hasLogisticRows = false;
+
 protected:
     const RealVector& hY;
     const RealVector& hOffs;
@@ -215,6 +219,18 @@ protected:
 	double denomMove = 0.0;                 // log-scale movement since the last exact summation
 	std::vector<double> columnMaxAbsX;      // max |x| per column
 
+	// hasLogisticRows: the gradient needs only offsExpXBeta, so updateXBeta() does not store
+	// denomPid = 1 + offsExpXBeta; every reader of denomPid calls ensureDenominators() first
+	bool denominatorsStale = false;
+	void ensureDenominators() {
+		if (BaseModel::hasLogisticRows && denominatorsStale) {
+			for (size_t k = 0; k < K; ++k) {
+				denomPid[k] = static_cast<RealType>(1) + offsExpXBeta[k];
+			}
+			denominatorsStale = false;
+		}
+	}
+
 	void computeAccumlatedNumerator(bool useWeights);
 
 	void computeAccumlatedDenominator(bool useWeights);
@@ -270,8 +286,9 @@ protected:
 		RealVector values;            // distinct values
 		std::vector<uint16_t> codes;  // index of the value of each entry; empty if not worthwhile
 	};
-	std::vector<ValueCodes> valueCodes; // by column, for grouped models
+	std::vector<ValueCodes> valueCodes; // by column, for grouped models and logistic regression
 	RealVector expFactors; // exp(delta * value) for each distinct value of the updated column
+	RealVector expBuffer;  // logistic regression: xBeta, then exp(xBeta), of the updated sparse column
 
 	void setupValueCodes();
 
@@ -1211,6 +1228,8 @@ public:
         : Storage<RealType>(y, offs) { }
 
 	const static bool precomputeHessian = false;
+
+	const static bool hasLogisticRows = true; // denomPid[k] == 1 + offsExpXBeta[k]
 
 	static RealType getDenomNullValue () { return static_cast<RealType>(1); }
 
