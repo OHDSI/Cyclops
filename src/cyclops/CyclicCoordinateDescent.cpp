@@ -124,6 +124,11 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 	    if (copy.hBeta[j] != 0.0) allBetaZero = false;
 	}
 	xBetaKnown = allBetaZero;
+
+	// Cold starts (resetBeta) in a clone must begin where the original's do, such as the intercept
+	// at the log-odds of the outcome, and fixed coefficients stay fixed
+	startingBeta = copy.startingBeta;
+	fixBeta = copy.fixBeta;
 }
 
 CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {

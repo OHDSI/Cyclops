@@ -133,6 +133,11 @@ void AbstractCrossValidationDriver::drive(
         nThreads = 1;
     }
 
+	// More threads than folds to compute would only hold unused copies of the model
+	if (nThreads > allArguments.crossValidation.foldToCompute) {
+		nThreads = std::max(1, allArguments.crossValidation.foldToCompute);
+	}
+
 	std::ostringstream stream2;
 	stream2 << "Using " << nThreads << " thread(s)";
 	logger->writeLine(stream2);
@@ -152,11 +157,10 @@ void AbstractCrossValidationDriver::drive(
 	std::vector<AbstractSelector*> selectorPool;
 
 	ccdPool.push_back(&ccd);
-	selectorPool.push_back(&selector);
+	selectorPool.push_back(&selector); // folds read the fold assignments of doCrossValidationStep()
 
 	for (int i = 1; i < nThreads; ++i) {
 		ccdPool.push_back(ccd.clone(allArguments.computeDevice));
-		selectorPool.push_back(selector.clone());
 	}
 
 	// Check of poor allocation
@@ -186,7 +190,6 @@ void AbstractCrossValidationDriver::drive(
 	// Clean up
 	for (int i = 1; i < nThreads; ++i) {
 		delete ccdPool[i];
-		delete selectorPool[i];
 	}
 	ccd.setHeldOutRowsUnused(false); // later fits keep every row up to date
 
@@ -310,32 +313,30 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 		// 		boost::make_counting_iterator(arguments.foldToCompute),
 		// 		nThreads);
 
-		auto scheduler = TaskScheduler<IncrementableIterator<size_t>>(
-		    IncrementableIterator<size_t>(0),
-		    IncrementableIterator<size_t>(arguments.foldToCompute),
-		    nThreads);
+		// Fold assignments of each repetition, made once in the order of a serial run; tasks only read them
+		const int foldsPerRepetition = (arguments.fold > 0) ? arguments.fold : 1;
+		const int nRepetitions = (arguments.foldToCompute + foldsPerRepetition - 1) / foldsPerRepetition;
+		std::vector<bsccs::unique_ptr<AbstractSelector>> repetitionSelectors;
+		selector.reseed();
+		for (int r = 0; r < nRepetitions; ++r) {
+			selector.permute();
+			repetitionSelectors.emplace_back(selector.clone());
+			if (!repetitionSelectors.back()) {
+				std::ostringstream errorStream;
+				errorStream << "Memory allocation error in multi-threaded cross validation driver";
+				error->throwError(errorStream);
+			}
+		}
 
-		auto runTask =
-				[step, coldStart, nThreads, &ccdPool, &selectorPool,
+		auto oneTask =
+				[step, coldStart, &ccdPool, &repetitionSelectors, foldsPerRepetition,
 				 &arguments, &allArguments, &predLogLikelihood,
 				 &weightsExclude, &logger, usePartitions, &repetitionPartitions //, &lock
 				 //    ,&ccd, &selector
 				 ](int task, size_t uniqueId) {
 
 			auto ccdTask = ccdPool[uniqueId];
-			auto selectorTask = selectorPool[uniqueId];
-
-			// Bring selector up-to-date
-			if (task == 0 || nThreads > 1) {
-				selectorTask->reseed();
-			}
-			int i = (nThreads == 1) ? task : 0;
-			for ( ; i <= task; ++i) {
-				int fold = i % arguments.fold;
-				if (fold == 0) {
-					selectorTask->permute();
-				}
-			}
+			auto selectorTask = repetitionSelectors[task / foldsPerRepetition].get();
 
 			int fold = task % arguments.fold;
 			ccdTask->getFold(fold);
@@ -422,10 +423,6 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 			if (write) logger->writeLine(stream);
 		};
 
-		auto oneTask = [&runTask, &scheduler](int task) {
-			runTask(task, scheduler.getThreadIndex(task));
-		};
-
 /*
 		// Run all task in serial
 		for (int i = 0; i < arguments.foldToCompute; i++) {
@@ -436,7 +433,18 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 		if (nThreads > 1) {
 			ccd.getProgressLogger().setConcurrent(true);
 		}
-		scheduler.execute(oneTask);
+		if (coldStart) { // a fold's result does not depend on which model copy runs it
+			// Tasks start in order, so only the partitions of the repetitions in progress are alive
+			executeDynamic(arguments.foldToCompute, nThreads, oneTask);
+		} else { // each copy warm-starts from its previous fold, so keep the fixed assignment
+			auto scheduler = TaskScheduler<IncrementableIterator<size_t>>(
+			    IncrementableIterator<size_t>(0),
+			    IncrementableIterator<size_t>(arguments.foldToCompute),
+			    nThreads);
+			scheduler.execute([&scheduler, &oneTask](int task) {
+				oneTask(task, scheduler.getThreadIndex(task));
+			});
+		}
 		if (nThreads > 1) {
 			ccd.getProgressLogger().setConcurrent(false);
 			ccd.getProgressLogger().flush();

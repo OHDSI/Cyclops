@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <thread>
 #include <mutex>
+#include <atomic>
+#include <vector>
 #include "tinythread/tinythread.h"
 
 #if defined(_WIN32) || defined(__WIN32__) || defined(__WINDOWS__) || defined(WIN_BUILD)
@@ -140,6 +142,65 @@ private:
 	const size_t nThreads;
 	const size_t chunkSize;
 };
+
+#ifdef USE_TTHREAD
+namespace threading {
+namespace tthread {
+    template <typename Worker>
+    struct worker_arguments {
+        Worker* worker;
+        size_t index;
+    };
+
+    template <typename Worker>
+    void run_worker(void *a) {
+        try {
+            auto args = bsccs::unique_ptr<worker_arguments<Worker>>(
+                static_cast<worker_arguments<Worker>*>(a));
+            (*args->worker)(args->index);
+        } catch (...) {
+        }
+    }
+}
+}
+#endif
+
+// Runs function(task, worker) for task = 0, ..., taskCount - 1 on min(nThreads, taskCount) workers;
+// each worker takes the next unstarted task when it finishes one, and worker 0 is the calling thread
+template <typename BinaryFunction>
+void executeDynamic(size_t taskCount, size_t nThreads, BinaryFunction function) {
+
+    nThreads = std::max(static_cast<size_t>(1), std::min(nThreads, taskCount));
+    std::atomic<size_t> next(0);
+    auto worker = [&next, taskCount, &function](size_t index) {
+        for (size_t task = next++; task < taskCount; task = next++) {
+            function(task, index);
+        }
+    };
+
+#ifdef USE_TTHREAD
+    std::vector<tthread::thread*> workers;
+    for (size_t i = 1; i < nThreads; ++i) {
+        workers.emplace_back(new tthread::thread(
+            threading::tthread::run_worker<decltype(worker)>,
+            new threading::tthread::worker_arguments<decltype(worker)>{&worker, i}));
+    }
+    worker(0);
+    for (size_t i = 0; i < workers.size(); ++i) {
+        workers[i]->join();
+        delete workers[i];
+    }
+#else
+    std::vector<std::thread> workers;
+    for (size_t i = 1; i < nThreads; ++i) {
+        workers.emplace_back(worker, i);
+    }
+    worker(0);
+    for (size_t i = 0; i < workers.size(); ++i) {
+        workers[i].join();
+    }
+#endif
+}
 
 } // namespace bsccs
 
