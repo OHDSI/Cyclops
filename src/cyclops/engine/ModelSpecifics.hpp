@@ -526,6 +526,22 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *c
         }
     }
 
+	trainingRowsOnly = false;
+	activePartition.reset(); // setFoldPartition() follows
+	if (BaseModel::hasLogisticRows && heldOutRowsUnused && useCrossValidation) {
+		bool binary = true;
+		for (size_t k = 0; k < K && binary; ++k) {
+			binary = inWeights[k] == 0.0 || inWeights[k] == 1.0;
+		}
+		if (binary) {
+			trainingRow.resize(K);
+			for (size_t k = 0; k < K; ++k) {
+				trainingRow[k] = inWeights[k] != 0.0;
+			}
+			trainingRowsOnly = true;
+		}
+	}
+
 #ifdef DEBUG_COX
 	cerr << "Done with set weights" << endl;
 #endif
@@ -534,6 +550,17 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *c
 
 template<class BaseModel, typename RealType>
 void ModelSpecifics<BaseModel, RealType>::computeXjY(bool useCrossValidation) {
+	if (BaseModel::hasLogisticRows && useCrossValidation && activePartition) {
+		for (size_t j = 0; j < J; ++j) {
+			switch (hX.getFormatType(j)) {
+				case INDICATOR : hXjY[j] = computeXjYOverTrainingEntries<IndicatorIterator<RealType>>(j); break;
+				case SPARSE : hXjY[j] = computeXjYOverTrainingEntries<SparseIterator<RealType>>(j); break;
+				case DENSE : hXjY[j] = computeXjYOverTrainingEntries<DenseIterator<RealType>>(j); break;
+				case INTERCEPT : hXjY[j] = computeXjYOverTrainingEntries<InterceptIterator<RealType>>(j); break;
+			}
+		}
+		return;
+	}
 	for (size_t j = 0; j < J; ++j) {
 		hXjY[j] = 0;
 
@@ -1272,6 +1299,47 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	    const RealType* expXBeta = offsExpXBeta.data();
 	    const RealType* weight = hNWeight.data();
 
+	    if (Weights::isWeighted && activePartition) {
+	        // 0/1 weights with a fold partition: the training entries are two contiguous ranges
+	        const TrainingEntries t = getTrainingEntries<IteratorType>(index);
+	        for (int r = 0; r < 4; r += 2) {
+	            for (int q = t.range[r]; q < t.range[r + 1]; ++q) {
+	                const int i = t.rows[q];
+	                const RealType e = expXBeta[i];
+	                const RealType p = (e <= std::numeric_limits<RealType>::max()) ?
+	                    e / (static_cast<RealType>(1) + e) : static_cast<RealType>(1);
+	                const RealType w = p * (static_cast<RealType>(1) - p);
+	                if (IteratorType::isIndicator) {
+	                    gradient += p;
+	                    hessian += w;
+	                } else {
+	                    const RealType x = t.values[IteratorType::isSparse ? q : i];
+	                    gradient += p * x;
+	                    hessian += w * x * x;
+	                }
+	            }
+	        }
+	    } else if (Weights::isWeighted && trainingRowsOnly) {
+	        // 0/1 weights: a 1-byte mask selects the training rows instead of multiplying by the weight
+	        // (no branch: a held-out row is a random 10-33% of entries). Each sum adds the same terms in
+	        // the same order as the weighted loop (0 * term == +-0), so the result is bitwise identical.
+	        const uint8_t* train = trainingRow.data();
+	        for (int q = 0; q < n; ++q) {
+	            const int i = IteratorType::isSparse ? rows[q] : q;
+	            const RealType e = expXBeta[i];
+	            const RealType p = (e <= std::numeric_limits<RealType>::max()) ?
+	                e / (static_cast<RealType>(1) + e) : static_cast<RealType>(1);
+	            const RealType w = p * (static_cast<RealType>(1) - p);
+	            if (IteratorType::isIndicator) {
+	                gradient += train[i] ? p : static_cast<RealType>(0);
+	                hessian += train[i] ? w : static_cast<RealType>(0);
+	            } else {
+	                const RealType x = values[q];
+	                gradient += train[i] ? p * x : static_cast<RealType>(0);
+	                hessian += train[i] ? w * x * x : static_cast<RealType>(0);
+	            }
+	        }
+	    } else
 	    for (int q = 0; q < n; ++q) {
 	        const int i = IteratorType::isSparse ? rows[q] : q;
 	        const RealType e = expXBeta[i];
@@ -2139,7 +2207,55 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
             }
             codes = valueCodes[index].codes.data();
         }
-        if (!IteratorType::isIndicator && !multiply) {
+        if (Weights::isWeighted && activePartition) {
+            // training entries only; held-out rows keep stale xBeta and exp(xBeta) (see
+            // setHeldOutRowsUnused()). Each row gets the same operations as below.
+            const TrainingEntries t = getTrainingEntries<IteratorType>(index);
+            RealType* xBeta = hXBeta.data();
+            RealType* expXBeta = offsExpXBeta.data();
+            if (!IteratorType::isIndicator && !multiply) {
+                const size_t n = static_cast<size_t>(t.range[1] - t.range[0]) + (t.range[3] - t.range[2]);
+                if (expBuffer.size() < n) {
+                    expBuffer.resize(n);
+                }
+                RealType* buffer = expBuffer.data();
+                size_t m = 0;
+                for (int r = 0; r < 4; r += 2) {
+                    for (int q = t.range[r]; q < t.range[r + 1]; ++q) {
+                        const int k = t.rows[q];
+                        const RealType v = xBeta[k] + realDelta * t.values[IteratorType::isSparse ? q : k];
+                        xBeta[k] = v;
+                        buffer[m++] = v;
+                    }
+                }
+                for (size_t q = 0; q < n; ++q) {
+                    buffer[q] = vectorizableExp(buffer[q]);
+                }
+                m = 0;
+                for (int r = 0; r < 4; r += 2) {
+                    for (int q = t.range[r]; q < t.range[r + 1]; ++q) {
+                        expXBeta[t.rows[q]] = buffer[m++];
+                    }
+                }
+            } else {
+                for (int r = 0; r < 4; r += 2) {
+                    for (int q = t.range[r]; q < t.range[r + 1]; ++q) {
+                        const int k = t.rows[q];
+                        xBeta[k] += IteratorType::isIndicator ? realDelta :
+                            realDelta * t.values[IteratorType::isSparse ? q : k];
+                        const RealType oldEntry = expXBeta[k];
+                        RealType newEntry;
+                        if (multiply && oldEntry >= minEntry && oldEntry <= maxEntry) { // not 0, subnormal, inf or NaN
+                            newEntry = oldEntry * (IteratorType::isIndicator ? factor :
+                                expFactors[t.codes[IteratorType::isSparse ? q : k]]);
+                        } else {
+                            newEntry = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
+                        }
+                        expXBeta[k] = newEntry;
+                    }
+                }
+            }
+        } else if (!IteratorType::isIndicator && !multiply) {
             // exp(xBeta) for every entry, by vectorizableExp(); a sparse column through a buffer
             const int n = it.size();
             const RealType* values = hX.getDataVector(index);
@@ -2598,6 +2714,178 @@ void ModelSpecifics<BaseModel,RealType>::setupStratumSegments() {
             segments.offsets.push_back(n);
         }
     }
+}
+
+template <class BaseModel,typename RealType>
+FoldPartitionPtr ModelSpecifics<BaseModel,RealType>::makeFoldPartition(const std::vector<int>& segmentOfRow,
+                                                                       int folds) const {
+    if (!BaseModel::hasLogisticRows || segmentOfRow.size() != K || folds < 1) {
+        return nullptr;
+    }
+    // Single precision keeps the 0/1-mask fold fits (bitwise equal to the weighted ones): reordered float
+    // sums move its erratic stopping cycles (cvPLP ps_s: 3805 -> 4062 fold cycles, selected variance +0.11%)
+    if (sizeof(RealType) < sizeof(double)) {
+        return nullptr;
+    }
+    const int nSegments = folds + 2; // held out in fold 0, ..., fold folds - 1; always in training; never
+    for (int s : segmentOfRow) {
+        if (s < 0 || s >= nSegments) {
+            return nullptr;
+        }
+    }
+
+    auto partition = std::make_shared<LogisticFoldPartition>();
+    LogisticFoldPartition& p = *partition;
+    p.data = &hX;
+    p.folds = folds;
+    p.segmentOfRow = segmentOfRow;
+    const int* segment = p.segmentOfRow.data();
+
+    // Rows by segment, for DENSE and INTERCEPT columns
+    p.rowSegments.assign(nSegments + 1, 0);
+    for (size_t k = 0; k < K; ++k) {
+        ++p.rowSegments[segment[k] + 1];
+    }
+    for (int s = 0; s < nSegments; ++s) {
+        p.rowSegments[s + 1] += p.rowSegments[s];
+    }
+    std::vector<int> next(p.rowSegments.begin(), p.rowSegments.end() - 1);
+    p.rowOrder.resize(K);
+    for (size_t k = 0; k < K; ++k) {
+        p.rowOrder[next[segment[k]]++] = static_cast<int>(k);
+    }
+
+    // INDICATOR and SPARSE columns, stable-partitioned by segment
+    const bool haveCodes = valueCodes.size() == static_cast<size_t>(J);
+    p.rowsStart.assign(J, 0);
+    p.valuesStart.assign(J, 0);
+    p.codesStart.assign(J, 0);
+    size_t nRows = 0, nValues = 0, nCodes = 0;
+    for (size_t j = 0; j < J; ++j) {
+        const FormatType format = hX.getFormatType(j);
+        if (format == INDICATOR || format == SPARSE) {
+            const size_t n = hX.getNumberOfEntries(j);
+            p.rowsStart[j] = nRows;
+            nRows += n;
+            if (format == SPARSE) {
+                p.valuesStart[j] = nValues;
+                nValues += n;
+                if (haveCodes && !valueCodes[j].codes.empty()) {
+                    p.codesStart[j] = nCodes;
+                    nCodes += n;
+                }
+            }
+        }
+    }
+    p.rows.resize(nRows);
+    p.values.resize(nValues);
+    p.codes.resize(nCodes);
+    p.segments.assign(J * (nSegments + 1), 0);
+
+    for (size_t j = 0; j < J; ++j) {
+        const FormatType format = hX.getFormatType(j);
+        if (format != INDICATOR && format != SPARSE) {
+            continue;
+        }
+        const int n = static_cast<int>(hX.getNumberOfEntries(j));
+        const int* columnRows = hX.getCompressedColumnVector(j);
+        int* offsets = &p.segments[j * (nSegments + 1)];
+        for (int q = 0; q < n; ++q) {
+            ++offsets[segment[columnRows[q]] + 1];
+        }
+        for (int s = 0; s < nSegments; ++s) {
+            offsets[s + 1] += offsets[s];
+        }
+        std::copy(offsets, offsets + nSegments, next.begin());
+        int* rows = p.rows.data() + p.rowsStart[j];
+        for (int q = 0; q < n; ++q) {
+            rows[next[segment[columnRows[q]]]++] = columnRows[q];
+        }
+        if (format == SPARSE) {
+            std::copy(offsets, offsets + nSegments, next.begin());
+            const RealType* x = hX.getDataVector(j);
+            RealType* values = p.values.data() + p.valuesStart[j];
+            const bool coded = haveCodes && !valueCodes[j].codes.empty();
+            const uint16_t* columnCodes = coded ? valueCodes[j].codes.data() : nullptr;
+            uint16_t* codes = coded ? p.codes.data() + p.codesStart[j] : nullptr;
+            for (int q = 0; q < n; ++q) {
+                const int position = next[segment[columnRows[q]]]++;
+                values[position] = x[q];
+                if (coded) {
+                    codes[position] = columnCodes[q];
+                }
+            }
+        }
+    }
+
+    p.bytes = sizeof(int) * (p.segmentOfRow.size() + p.rowOrder.size() + p.rowSegments.size() +
+        p.segments.size() + p.rows.size()) + sizeof(size_t) * 3 * J + sizeof(RealType) * p.values.size() +
+        sizeof(uint16_t) * p.codes.size();
+    return partition;
+}
+
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::setFoldPartition(FoldPartitionPtr partition, int fold) {
+    activePartition.reset();
+    partitionFold = -1;
+    if (!BaseModel::hasLogisticRows || !partition || !trainingRowsOnly) {
+        return;
+    }
+    auto p = std::dynamic_pointer_cast<const LogisticFoldPartition>(partition);
+    if (!p || p->data != &hX || p->segmentOfRow.size() != K || fold < 0 || fold >= p->folds) {
+        return;
+    }
+    // The training segments must be exactly the weight-1 rows
+    for (size_t k = 0; k < K; ++k) {
+        const int s = p->segmentOfRow[k];
+        const bool training = s != fold && s != p->folds + 1;
+        if (training != (trainingRow[k] != 0)) {
+            return;
+        }
+    }
+    activePartition = p;
+    partitionFold = fold;
+}
+
+template <class BaseModel,typename RealType> template <class IteratorType>
+typename ModelSpecifics<BaseModel,RealType>::TrainingEntries
+ModelSpecifics<BaseModel,RealType>::getTrainingEntries(int index) const {
+    const LogisticFoldPartition& p = *activePartition;
+    const int folds = p.folds;
+    const int fold = partitionFold;
+    TrainingEntries t;
+    const int* offsets;
+    if (IteratorType::isSparse) {
+        t.rows = p.rows.data() + p.rowsStart[index];
+        t.values = IteratorType::isIndicator ? nullptr : p.values.data() + p.valuesStart[index];
+        t.codes = (IteratorType::isIndicator || p.codes.empty()) ? nullptr : p.codes.data() + p.codesStart[index];
+        offsets = &p.segments[index * (folds + 3)];
+    } else {
+        t.rows = p.rowOrder.data();
+        t.values = IteratorType::isIndicator ? nullptr : hX.getDataVector(index);
+        t.codes = (IteratorType::isIndicator || valueCodes.size() != static_cast<size_t>(J) ||
+            valueCodes[index].codes.empty()) ? nullptr : valueCodes[index].codes.data();
+        offsets = p.rowSegments.data();
+    }
+    // segments 0 .. fold - 1 and fold + 1 .. folds (always in training); not fold, not folds + 1 (never)
+    t.range[0] = offsets[0];
+    t.range[1] = offsets[fold];
+    t.range[2] = offsets[fold + 1];
+    t.range[3] = offsets[folds + 1];
+    return t;
+}
+
+template <class BaseModel,typename RealType> template <class IteratorType>
+RealType ModelSpecifics<BaseModel,RealType>::computeXjYOverTrainingEntries(int index) const {
+    const TrainingEntries t = getTrainingEntries<IteratorType>(index);
+    RealType sum = static_cast<RealType>(0);
+    for (int r = 0; r < 4; r += 2) {
+        for (int q = t.range[r]; q < t.range[r + 1]; ++q) {
+            const int k = t.rows[q];
+            sum += IteratorType::isIndicator ? hY[k] : t.values[IteratorType::isSparse ? q : k] * hY[k];
+        }
+    }
+    return sum;
 }
 
 template <class BaseModel,typename RealType>

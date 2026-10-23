@@ -132,6 +132,19 @@ public:
 
 	void setWeights(double* weights);
 
+	// Call after setWeights() in a cross-validation fold fit: rows with weight 0 may keep stale xBeta
+	// until getNewPredictiveLogLikelihood(); the next setWeights() clears it
+	void setHeldOutRowsUnused(bool unused);
+
+	// Cross-validation: see AbstractModelSpecifics::makeFoldPartition()
+	FoldPartitionPtr makeFoldPartition(const std::vector<int>& segmentOfRow, int folds) const;
+
+	// Call after setWeights() and setHeldOutRowsUnused(true): the fold fit iterates the training
+	// segments of `partition`; the next setWeights() or clearFoldPartition() drops it
+	void setFoldPartition(FoldPartitionPtr partition, int fold);
+
+	void clearFoldPartition();
+
 	void setCensorWeights(double* weights); // ESK: New function
 
 	std::vector<double> getWeights();
@@ -424,6 +437,9 @@ protected:
 
 	bool validWeights;
 	bool useCrossValidation;
+	bool heldOutRowsUnused = false;
+	FoldPartitionPtr foldPartition;
+	int foldPartitionFold = -1;
 	bool doLogisticRegression;
 	DoubleVector hWeights; // Make DoubleVector and delegate to ModelSpecifics
     DoubleVector cWeights; // ESK

@@ -231,6 +231,51 @@ protected:
 		}
 	}
 
+	// hasLogisticRows cross-validation fold fits whose weights are all 0 or 1: the gradient sums the
+	// weight-1 rows without reading weights
+	void setHeldOutRowsUnused(bool unused) { heldOutRowsUnused = unused; }
+	bool heldOutRowsUnused = false;   // requested by the cross-validation driver
+	bool trainingRowsOnly = false;    // set by setWeights(): skip the rows with trainingRow[k] == 0
+	std::vector<uint8_t> trainingRow; // 1 for weight-1 rows, 0 for weight-0 rows
+
+	// Cross-validation repetition: the rows of every column stable-partitioned by segment (see
+	// makeFoldPartition()), so that a fold fit reads its training entries as two contiguous ranges
+	struct LogisticFoldPartition : public AbstractFoldPartition {
+		const void* data = nullptr;      // the CompressedDataMatrix it indexes
+		int folds = 0;
+		std::vector<int> segmentOfRow;   // K
+		std::vector<int> rowOrder;       // K rows by (segment, row): the entries of DENSE and INTERCEPT columns
+		std::vector<int> rowSegments;    // folds + 3 offsets into rowOrder
+		std::vector<int> segments;       // J * (folds + 3) offsets of the segments within each column
+		std::vector<size_t> rowsStart;   // J: first entry of an INDICATOR or SPARSE column in rows
+		std::vector<int> rows;           // rows of INDICATOR and SPARSE entries, by column, then segment, then row
+		std::vector<size_t> valuesStart; // J: first entry of a SPARSE column in values
+		RealVector values;               // values of SPARSE entries, in the order of rows
+		std::vector<size_t> codesStart;  // J: first entry of a SPARSE column with value codes in codes
+		std::vector<uint16_t> codes;     // their value codes, in the order of rows
+	};
+	std::shared_ptr<const LogisticFoldPartition> activePartition; // in use by this fold fit
+	int partitionFold = -1;
+
+	FoldPartitionPtr makeFoldPartition(const std::vector<int>& segmentOfRow, int folds) const;
+
+	void setFoldPartition(FoldPartitionPtr partition, int fold);
+
+	// Training entries of column index in the active partition: [range[0], range[1]) and
+	// [range[2], range[3]) of rows; values and codes by entry for sparse, by row for dense columns
+	struct TrainingEntries {
+		const int* rows;
+		const RealType* values;
+		const uint16_t* codes;
+		int range[4];
+	};
+
+	template <class IteratorType>
+	TrainingEntries getTrainingEntries(int index) const;
+
+	template <class IteratorType>
+	RealType computeXjYOverTrainingEntries(int index) const;
+
 	void computeAccumlatedNumerator(bool useWeights);
 
 	void computeAccumlatedDenominator(bool useWeights);

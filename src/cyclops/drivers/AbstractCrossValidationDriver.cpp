@@ -8,6 +8,7 @@
 #include <numeric>
 #include <cmath>
 #include <iterator>
+#include <mutex>
 
 // #include "boost/iterator/counting_iterator.hpp"
 
@@ -16,6 +17,59 @@
 #include "AbstractCrossValidationDriver.h"
 
 namespace bsccs {
+
+// The fold partition of one cross-validation repetition: built by its first task, shared read-only by
+// its tasks, released when the last one finishes
+struct RepetitionPartition {
+	std::mutex lock;
+	bool built = false;
+	FoldPartitionPtr partition;
+	int remaining = 0; // tasks of this repetition not yet finished
+};
+
+// Segment of each row (see AbstractModelSpecifics::makeFoldPartition()) from the selector's weights for
+// every fold of its current permutation; nullptr unless every weight is 0 or 1 and each row is held out
+// in one fold, every fold or none
+static FoldPartitionPtr buildFoldPartition(CyclicCoordinateDescent& ccd, AbstractSelector& selector,
+                                           int folds, std::vector<double>* weightsExclude) {
+	std::vector<double> weights;
+	std::vector<int> zeros, heldOutIn;
+	for (int fold = 0; fold < folds; ++fold) {
+		selector.getWeights(fold, weights);
+		if (weightsExclude) {
+			for (size_t k = 0; k < weightsExclude->size(); ++k) {
+				if (weightsExclude->at(k) == 1.0) {
+					weights[k] = 0.0;
+				}
+			}
+		}
+		if (fold == 0) {
+			zeros.assign(weights.size(), 0);
+			heldOutIn.assign(weights.size(), -1);
+		}
+		for (size_t k = 0; k < weights.size(); ++k) {
+			if (weights[k] == 0.0) {
+				++zeros[k];
+				heldOutIn[k] = fold;
+			} else if (weights[k] != 1.0) {
+				return nullptr;
+			}
+		}
+	}
+	std::vector<int> segment(zeros.size());
+	for (size_t k = 0; k < zeros.size(); ++k) {
+		if (zeros[k] == 0) {
+			segment[k] = folds;      // in every training set
+		} else if (zeros[k] == 1) {
+			segment[k] = heldOutIn[k];
+		} else if (zeros[k] == folds) {
+			segment[k] = folds + 1;  // in none
+		} else {
+			return nullptr;
+		}
+	}
+	return ccd.makeFoldPartition(segment, folds);
+}
 
 AbstractCrossValidationDriver::AbstractCrossValidationDriver(
 			loggers::ProgressLoggerPtr _logger,
@@ -134,6 +188,7 @@ void AbstractCrossValidationDriver::drive(
 		delete ccdPool[i];
 		delete selectorPool[i];
 	}
+	ccd.setHeldOutRowsUnused(false); // later fits keep every row up to date
 
 	// Report results
 	std::ostringstream stream1;
@@ -238,6 +293,18 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 		auto& weightsExclude = this->weightsExclude;
 		auto& logger = this->logger;
 
+		// Fold fits with 0/1 weights may leave held-out rows stale (models that support it): their xBeta is
+		// recomputed before the predictive log likelihood. Logistic regression also shares, per repetition,
+		// the entries of every column grouped by fold, so that fold fits read only their training rows.
+		const bool usePartitions = arguments.fold > 0; // not the weight-based search
+
+		// One partition per repetition, built when its first task needs it
+		const int repetitions = usePartitions ? (arguments.foldToCompute + arguments.fold - 1) / arguments.fold : 0;
+		std::vector<RepetitionPartition> repetitionPartitions(repetitions);
+		for (int r = 0; r < repetitions; ++r) {
+			repetitionPartitions[r].remaining = std::min(arguments.fold, arguments.foldToCompute - r * arguments.fold);
+		}
+
 		// auto scheduler = TaskScheduler<decltype(boost::make_counting_iterator(0))>(
 		// 		boost::make_counting_iterator(0),
 		// 		boost::make_counting_iterator(arguments.foldToCompute),
@@ -248,15 +315,13 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 		    IncrementableIterator<size_t>(arguments.foldToCompute),
 		    nThreads);
 
-		auto oneTask =
+		auto runTask =
 				[step, coldStart, nThreads, &ccdPool, &selectorPool,
 				 &arguments, &allArguments, &predLogLikelihood,
-				 &weightsExclude, &logger //, &lock
+				 &weightsExclude, &logger, usePartitions, &repetitionPartitions //, &lock
 				 //    ,&ccd, &selector
-				 , &scheduler
-				 ](int task) {
+				 ](int task, size_t uniqueId) {
 
-			const auto uniqueId = scheduler.getThreadIndex(task);
 			auto ccdTask = ccdPool[uniqueId];
 			auto selectorTask = selectorPool[uniqueId];
 
@@ -286,6 +351,21 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 				}
 			}
 			ccdTask->setWeights(&weights[0]);
+			ccdTask->setHeldOutRowsUnused(true); // xBeta is recomputed before the predictive log likelihood
+
+			FoldPartitionPtr partition;
+			if (usePartitions) {
+				RepetitionPartition& entry = repetitionPartitions[task / arguments.fold];
+				std::lock_guard<std::mutex> guard(entry.lock);
+				if (!entry.built) {
+					entry.partition = buildFoldPartition(*ccdTask, *selectorTask, arguments.fold, weightsExclude);
+					entry.built = true;
+				}
+				partition = entry.partition;
+			}
+			if (partition) {
+				ccdTask->setFoldPartition(partition, fold);
+			}
 
 			std::ostringstream stream;
 			stream << "Running at " << ccdTask->getPriorInfo() << " ";
@@ -325,9 +405,25 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 				predLogLikelihood[task] = std::numeric_limits<double>::quiet_NaN();
 			}
 
+			if (partition) {
+				ccdTask->clearFoldPartition();
+				partition.reset();
+			}
+			if (usePartitions) {
+				RepetitionPartition& entry = repetitionPartitions[task / arguments.fold];
+				std::lock_guard<std::mutex> guard(entry.lock);
+				if (--entry.remaining == 0) {
+					entry.partition.reset(); // the repetition's last fold fit is done
+				}
+			}
+
 			bool write = true;
 
 			if (write) logger->writeLine(stream);
+		};
+
+		auto oneTask = [&runTask, &scheduler](int task) {
+			runTask(task, scheduler.getThreadIndex(task));
 		};
 
 /*

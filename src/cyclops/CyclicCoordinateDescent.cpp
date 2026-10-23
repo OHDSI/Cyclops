@@ -280,10 +280,14 @@ void CyclicCoordinateDescent::computeNEvents() {
 							useCrossValidation, i);
 		}
 	} else {
+		modelSpecifics.setHeldOutRowsUnused(heldOutRowsUnused);
 		modelSpecifics.setWeights(
 				hWeights.size() > 0 ? hWeights.data() : nullptr,
 				cWeights.size() > 0 ? cWeights.data() : nullptr,
 				useCrossValidation);
+		if (foldPartition) {
+			modelSpecifics.setFoldPartition(foldPartition, foldPartitionFold);
+		}
 	}
 /*
 	//modelSpecifics.setWeights(
@@ -585,7 +589,35 @@ std::vector<double> CyclicCoordinateDescent::getCensorWeights() {
     return cWeights; // Makes copy
 }
 
+void CyclicCoordinateDescent::setHeldOutRowsUnused(bool unused) {
+	if (unused != heldOutRowsUnused) {
+		heldOutRowsUnused = unused;
+		validWeights = false;
+	}
+}
+
+FoldPartitionPtr CyclicCoordinateDescent::makeFoldPartition(const std::vector<int>& segmentOfRow, int folds) const {
+	return modelSpecifics.makeFoldPartition(segmentOfRow, folds);
+}
+
+void CyclicCoordinateDescent::setFoldPartition(FoldPartitionPtr partition, int fold) {
+	foldPartition = partition;
+	foldPartitionFold = fold;
+	validWeights = false;
+}
+
+void CyclicCoordinateDescent::clearFoldPartition() {
+	foldPartition.reset();
+	foldPartitionFold = -1;
+	modelSpecifics.setFoldPartition(nullptr, -1); // the fold fit falls back to its 0/1 weights
+}
+
 void CyclicCoordinateDescent::setWeights(double* iWeights) {
+
+	heldOutRowsUnused = false;
+	if (foldPartition) {
+		clearFoldPartition();
+	}
 
 	if (iWeights == NULL) {
 		if (hWeights.size() != 0) {

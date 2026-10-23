@@ -12,6 +12,7 @@
 #include <cmath>
 #include <map>
 #include <cstddef>
+#include <memory>
 
 #include "Types.h"
 #include "ModelData.h"
@@ -33,6 +34,13 @@ enum class ModelType; // forward declaration
 // #define DEBUG_COX // Uncomment to get output for Cox model
 // #define DEBUG_COX_MIN
 // #define DEBUG_POISSON
+
+// The entries of every column grouped by cross-validation fold; see ModelSpecifics::LogisticFoldPartition
+struct AbstractFoldPartition {
+	virtual ~AbstractFoldPartition() {}
+	size_t bytes = 0;
+};
+typedef std::shared_ptr<const AbstractFoldPartition> FoldPartitionPtr;
 
 class AbstractModelSpecifics {
 public:
@@ -176,6 +184,22 @@ public:
 	virtual void setFold(int fold) {};
 
 	virtual void setHXBeta() {};
+
+	// Cross-validation fold fits: rows with weight 0 are held out, and nothing reads their xBeta or
+	// exp(xBeta) before getNewPredictiveLogLikelihood() recomputes both from beta, so a model may
+	// leave them stale. Takes effect at the next setWeights().
+	virtual void setHeldOutRowsUnused(bool unused) {};
+
+	// Cross-validation: segmentOfRow[k] = s < folds if row k is held out in fold s only, folds if it is
+	// in every training set and folds + 1 if in none. Returns the entries of every column grouped by
+	// segment, to be shared read-only by the fold fits of one repetition, or nullptr if not supported.
+	virtual FoldPartitionPtr makeFoldPartition(const std::vector<int>& segmentOfRow, int folds) const {
+		return nullptr;
+	}
+
+	// After setWeights() with setHeldOutRowsUnused(true): fit fold `fold` over the training segments of
+	// `partition` if they are exactly the weight-1 rows; nullptr stops using it
+	virtual void setFoldPartition(FoldPartitionPtr partition, int fold) {};
 
 	virtual std::vector<double> getBeta() {
 		std::vector<double> blah;
