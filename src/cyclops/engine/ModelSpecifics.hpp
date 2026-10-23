@@ -765,6 +765,18 @@ double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* we
 	    for (size_t k = 0; k < K; ++k) {
 	        logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], &accDenomPid[0], hPid, k); // TODO Going to crash with ties
 	    }
+	} else if (BaseModel::hasLogisticRows && !legacy) {
+	    // Bernoulli log-likelihood y log p + (1 - y) log(1 - p) = y xBeta - log(1 + exp(xBeta)), in double
+	    // and from xBeta, so saturated rows stay finite; rows with weight 0 are skipped. The legacy score,
+	    // kept by createControl(fitter = "legacy"), is y log p: the held-out controls contribute nothing.
+	    double sum = 0.0;
+	    for (size_t k = 0; k < K; ++k) {
+	        if (weights[k] != 0.0) {
+	            const double xb = static_cast<double>(hXBeta[k]);
+	            sum += weights[k] * (hY[k] * xb - (std::max(xb, 0.0) + std::log1p(std::exp(-std::abs(xb)))));
+	        }
+	    }
+	    return sum;
 	} else { // TODO Unnecessary code duplication
 	    for (size_t k = 0; k < K; ++k) { // TODO Is index of K correct?
 	        logLikelihood += BaseModel::logPredLikeContrib(hY[k], weights[k], hXBeta[k], &denomPid[0], hPid, k);

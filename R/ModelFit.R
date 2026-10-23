@@ -678,9 +678,11 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              \code{"legacy"} runs the code of Cyclops 3.7, to reproduce earlier results: for
 #'                              logistic regression (\code{"lr"}), the grouped models (\code{"cpr"}, \code{"sccs"},
 #'                              \code{"clr"}, \code{"clr_efron"}, \code{"clr_exact"}), \code{"cox"} models on the
-#'                              CPU, profile likelihoods and confidence intervals. Bug fixes apply to every fitter.
-#'                              \code{"cox_counting"} models need another fitter. \code{"super"} is reserved for
-#'                              result-changing improvements to \code{"lr"} fits and currently runs the same code as \code{"default"}
+#'                              CPU, profile likelihoods and confidence intervals. Bug fixes apply to every fitter,
+#'                              except that \code{"legacy"} keeps the earlier cross-validation score of
+#'                              \code{"lr"} models (held-out cases only). \code{"cox_counting"} models need another
+#'                              fitter. \code{"super"} is reserved for result-changing improvements to \code{"lr"}
+#'                              fits and currently runs the same code as \code{"default"}
 #' @param doItAll               Currently unused
 #' @param syncCV                Currently unused
 #'
