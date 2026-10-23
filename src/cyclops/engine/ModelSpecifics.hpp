@@ -72,12 +72,15 @@ namespace bsccs {
 
 #define NEW_LOOPS
 
-// exp(x) for x clamped to [-708, 709], within 1 ulp of std::exp: x = k ln(2) + r with |r| <= ln(2) / 2
-// (Cody-Waite), a degree-13 Taylor polynomial in r, times 2^k set in the exponent bits. Branch-free,
-// so loops over it vectorize.
+// exp(x) within 1 ulp of std::exp on [-708, 709]: x = k ln(2) + r with |r| <= ln(2) / 2 (Cody-Waite), a
+// degree-13 Taylor polynomial in r, times 2^k set in the exponent bits. Outside that range it returns 0 or
+// +inf, never a clamped value: a finite stand-in for exp(xBeta) would pass the finite-value guard of the
+// multiplicative updates and be carried forward (a wrong optimum reported as SUCCESS). Branch-free, so
+// loops over it vectorize.
 template <typename RealType>
 inline RealType vectorizableExp(const RealType value) {
-    const double x = std::min(std::max(static_cast<double>(value), -708.0), 709.0);
+    const double v = static_cast<double>(value);
+    const double x = (v >= -708.0) ? ((v <= 709.0) ? v : 709.0) : -708.0; // NaN -> -708, then NaN below
     const double invLn2 = 1.4426950408889634, ln2Hi = 6.93147180369123816490e-01, ln2Lo = 1.90821492927058770002e-10;
     const double k = std::rint(x * invLn2);
     const double r = (x - k * ln2Hi) - k * ln2Lo;
@@ -98,7 +101,9 @@ inline RealType vectorizableExp(const RealType value) {
     const uint64_t bits = static_cast<uint64_t>(static_cast<int64_t>(k) + 1023) << 52;
     double scale;
     std::memcpy(&scale, &bits, sizeof(scale));
-    return static_cast<RealType>(q * scale);
+    const double result = (v < -708.0) ? 0.0 :
+        ((v > 709.0) ? std::numeric_limits<double>::infinity() : ((v == v) ? q * scale : v));
+    return static_cast<RealType>(result);
 }
 
 template <class BaseModel,typename RealType>
@@ -714,6 +719,16 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 			for (size_t i = 0; i < N; i++) {
 				// Weights modified in computeNEvents()
 				logLikelihood -= BaseModel::logLikeDenominatorContrib(hNWeight[i], accDenomPid[i]);
+			}
+		} else if (BaseModel::hasLogisticRows && !legacy) {
+			// Rows of weight 0 are skipped (held-out rows of a cross-validation fold may carry stale values),
+			// and log(1 + exp(xBeta)) is taken from xBeta where exp(xBeta) overflows
+			for (size_t i = 0; i < N; i++) {
+				if (hNWeight[i] != 0) {
+					logLikelihood -= (denomPid[i] <= std::numeric_limits<RealType>::max()) ?
+						BaseModel::logLikeDenominatorContrib(hNWeight[i], denomPid[i]) :
+						hNWeight[i] * static_cast<double>(hXBeta[i]);
+				}
 			}
 		} else {  // TODO Unnecessary code duplication
 			for (size_t i = 0; i < N; i++) {
