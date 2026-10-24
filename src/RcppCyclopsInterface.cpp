@@ -651,6 +651,21 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
 	args.resetCoefficients = resetCoefficients;
 }
 
+// Mode-finding options added after .cyclopsSetControl(); an option missing from the list keeps its value
+// [[Rcpp::export(".cyclopsSetModeControl")]]
+void cyclopsSetModeControl(SEXP inRcppCcdInterface, const List& options) {
+	using namespace bsccs;
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	ModeFindingArguments& modeFinding = interface->getArguments().modeFinding;
+
+	if (options.containsElementNamed("activeSetEvery")) {
+		modeFinding.activeSetEvery = as<int>(options["activeSetEvery"]);
+	}
+	if (options.containsElementNamed("activeSetThreshold")) {
+		modeFinding.activeSetThreshold = as<double>(options["activeSetThreshold"]);
+	}
+}
+
 // [[Rcpp::export(".cyclopsRunCrossValidation")]]
 List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface) {
 	using namespace bsccs;

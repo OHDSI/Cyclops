@@ -82,6 +82,8 @@ struct ModeFindingArguments {
 	int maxBoundCount;
 	bool doItAll;
 	AlgorithmType algorithmType;
+	int activeSetEvery = 0; // 0: every cycle visits all coordinates; see CyclicCoordinateDescent::update()
+	double activeSetThreshold = 0.01; // active-set cycling: relative step size below which a coordinate is skipped
 
 	ModeFindingArguments() :
 		tolerance(1E-6),

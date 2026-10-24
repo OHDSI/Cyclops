@@ -27,6 +27,8 @@ createControl(
   maxBoundCount = 5,
   algorithm = "ccd",
   fitter = "default",
+  activeSetEvery = NULL,
+  activeSetThreshold = NULL,
   doItAll = TRUE,
   syncCV = FALSE
 )
@@ -98,6 +100,16 @@ except that \code{"legacy"} keeps the earlier cross-validation score of
 \code{"lr"} models (held-out cases only). \code{"cox_counting"} models need another
 fitter. \code{"super"} is reserved for result-changing improvements to \code{"lr"}
 fits and currently runs the same code as \code{"default"}}
+
+\item{activeSetEvery}{Integer: active-set cycling, which needs \code{convergenceType = "kkt"}. Cycles
+between full sweeps skip coordinates that did not move, with a full sweep at
+least every \code{activeSetEvery} cycles; 0 turns it off. \code{NULL} (default)
+means 0}
+
+\item{activeSetThreshold}{Numeric: with active-set cycling, cycles between full sweeps also skip
+coordinates whose last step, in standard-error units, was below this fraction of
+the largest step of the last full sweep; with 0, they skip only coordinates with
+a Laplace prior that are 0 and did not move. \code{NULL} (default) means 0.01}
 
 \item{doItAll}{Currently unused}
 

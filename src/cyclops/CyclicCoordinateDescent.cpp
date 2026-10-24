@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <map>
 #include <time.h>
 #include <set>
@@ -725,6 +726,9 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	const int qnQ = 0;
 
 	initialBound = arguments.initialBound;
+	// Active-set cycling relies on the full sweeps of the kkt criterion; other criteria sweep every cycle
+	activeSetEvery = (convergenceType == KKT) ? arguments.activeSetEvery : 0;
+	activeSetThreshold = arguments.activeSetThreshold;
 
 	int count = 0;
 	bool done = false;
@@ -1055,8 +1059,10 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
 
     bool converged = epsilon > 0 && conv < epsilon && !stepsLimited;
     if (convergenceType == KKT && !illconditioned) { // several cycles in a row
-        kktConsecutive = converged ? kktConsecutive + 1 : 0;
-        converged = kktConsecutive >= kktConsecutiveNeeded;
+        if (lastCycleFull) { // with active-set cycling, only full sweeps count
+            kktConsecutive = converged ? kktConsecutive + 1 : 0;
+        }
+        converged = kktConsecutive >= kktConsecutiveNeeded && lastCycleFull;
         if (converged) {
             // The statistic was taken as each coordinate was visited, before its update; on correlated
             // designs it understates the residual at the end of the cycle, so check that point itself
@@ -1181,6 +1187,17 @@ void CyclicCoordinateDescent::findMode(
 
 	trackKkt = convergenceType == KKT;
 	kktConsecutive = 0;
+	nextCycleFull = true;
+	lastCycleFull = true;
+	cyclesSinceFull = 0;
+	if (activeSetEvery != 0) {
+		activeSetCandidate.resize(J);
+		for (int j = 0; j < J; ++j) {
+			activeSetCandidate[j] = jointPrior->getSupportsKktSwindle(j) ? 1 : 0;
+		}
+		lastStepSE.assign(J, std::numeric_limits<double>::infinity());
+		activeSetTau = 0.0;
+	}
 
 	std::vector<double> allDelta;
     double lastLogPosterior; // = getLogLikelihood() + getLogPrior();
@@ -1296,18 +1313,29 @@ void CyclicCoordinateDescent::findMode(
 	    		}
 	    		hBeta = modelSpecifics.getBeta();
 	    	} else if (threads > 1 && modelSpecifics.supportsConcurrentGradients()) {
-	    		cycleWithConcurrentGradients(log);
+	    		cycleWithConcurrentGradients(log); // always a full sweep
+	    		lastCycleFull = true;
 	    	} else {
 
 	    		// Do a complete cycle in serial
+	    		const bool fullSweep = activeSetEvery == 0 || nextCycleFull;
+	    		cycleMaxStepSE = 0.0;
 	    		for(int index = 0; index < J; index++) {
 
 	    			if (!fixBeta[index]) {
+						if (!fullSweep && !inActiveSet(index)) {
+							log(index);
+							continue;
+						}
 						double delta = ccdUpdateBeta(index);
 						if (trackKkt) {
 							accumulateKkt(index, delta, lastGradientHessian);
 						}
 						delta = applyBounds(delta, index);
+						if (activeSetEvery != 0) {
+							lastStepSE[index] = std::abs(delta) * std::sqrt(std::max(lastGradientHessian.second, 0.0));
+							cycleMaxStepSE = std::max(cycleMaxStepSE, lastStepSE[index]);
+						}
 					//	std::cout << "index: " << index << " delta: " << delta << "\n";
 						if (delta != 0.0) {
 							sufficientStatisticsKnown = false;
@@ -1315,6 +1343,10 @@ void CyclicCoordinateDescent::findMode(
 						}
 				}
 	    			log(index);
+	    		}
+	    		lastCycleFull = fullSweep;
+	    		if (fullSweep) {
+	    			activeSetTau = activeSetThreshold * cycleMaxStepSE;
 	    		}
 	    	}
 	    }
@@ -1349,6 +1381,13 @@ void CyclicCoordinateDescent::findMode(
                 	   } else {
                 		   done = performCheckConvergence(convergenceType, epsilon, maxIterations, iteration, &lastObjFunc);
                 	   }
+                   }
+
+                   if (activeSetEvery != 0) {
+                       cyclesSinceFull = lastCycleFull ? 0 : cyclesSinceFull + 1;
+                       nextCycleFull = iteration < activeSetStart ||
+                           cyclesSinceFull + 1 >= activeSetEvery ||
+                           (epsilon > 0 && getKktCriterion() < epsilon); // possibly converged: check all
                    }
 
                    return done;

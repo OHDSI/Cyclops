@@ -444,6 +444,26 @@ protected:
 	bool trackKkt = false;
 	priors::GradientHessian lastGradientHessian; // as passed to getDelta() by ccdUpdateBeta()
 
+	// Active-set cycling (with "kkt" convergence): between full sweeps, cycles visit only coordinates
+	// without a Laplace prior, Laplace coordinates away from zero and those that moved when last visited;
+	// with a threshold > 0, only those whose last step, in standard-error units, was at least that
+	// fraction of the largest step of the last full sweep
+	int activeSetEvery = 0; // 0: off; k > 1: a full sweep at least every k cycles
+	const int activeSetStart = 2; // first cycles that are full sweeps
+	bool nextCycleFull = true;
+	bool lastCycleFull = true;
+	int cyclesSinceFull = 0;
+	std::vector<char> activeSetCandidate; // Laplace coordinates, which can stay at zero
+	std::vector<double> lastStepSE; // |delta| sqrt(h) when last visited
+	double activeSetThreshold = 0.0;
+	double activeSetTau = 0.0; // activeSetThreshold times the largest step in the last full sweep
+	double cycleMaxStepSE = 0.0;
+	bool inActiveSet(int index) const {
+		if (activeSetThreshold > 0.0) {
+			return lastStepSE[index] >= activeSetTau;
+		}
+		return !activeSetCandidate[index] || hBeta[index] != 0.0 || lastStepSE[index] > 0.0;
+	}
 	std::vector<bool> fixBeta;
 
 	int N; // Number of patients

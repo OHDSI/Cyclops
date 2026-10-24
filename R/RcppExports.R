@@ -121,6 +121,10 @@
     invisible(.Call(`_Cyclops_cyclopsSetControl`, inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount, algorithm, doItAll, syncCV))
 }
 
+.cyclopsSetModeControl <- function(inRcppCcdInterface, options) {
+    invisible(.Call(`_Cyclops_cyclopsSetModeControl`, inRcppCcdInterface, options))
+}
+
 .cyclopsRunCrossValidation <- function(inRcppCcdInterface) {
     .Call(`_Cyclops_cyclopsRunCrossValidationl`, inRcppCcdInterface)
 }
