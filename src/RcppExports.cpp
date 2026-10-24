@@ -402,6 +402,17 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// cyclopsSetCvControl
+void cyclopsSetCvControl(SEXP inRcppCcdInterface, const List& options);
+RcppExport SEXP _Cyclops_cyclopsSetCvControl(SEXP inRcppCcdInterfaceSEXP, SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const List& >::type options(optionsSEXP);
+    cyclopsSetCvControl(inRcppCcdInterface, options);
+    return R_NilValue;
+END_RCPP
+}
 // cyclopsRunCrossValidationl
 List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface);
 RcppExport SEXP _Cyclops_cyclopsRunCrossValidationl(SEXP inRcppCcdInterfaceSEXP) {
@@ -1060,6 +1071,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetConvergenceType", (DL_FUNC) &_Cyclops_cyclopsGetConvergenceType, 1},
     {"_Cyclops_cyclopsSetControl", (DL_FUNC) &_Cyclops_cyclopsSetControl, 23},
     {"_Cyclops_cyclopsSetModeControl", (DL_FUNC) &_Cyclops_cyclopsSetModeControl, 2},
+    {"_Cyclops_cyclopsSetCvControl", (DL_FUNC) &_Cyclops_cyclopsSetCvControl, 2},
     {"_Cyclops_cyclopsRunCrossValidationl", (DL_FUNC) &_Cyclops_cyclopsRunCrossValidationl, 1},
     {"_Cyclops_cyclopsCacheForJava", (DL_FUNC) &_Cyclops_cyclopsCacheForJava, 1},
     {"_Cyclops_cyclopsClearCacheForJava", (DL_FUNC) &_Cyclops_cyclopsClearCacheForJava, 0},

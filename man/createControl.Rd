@@ -27,6 +27,11 @@ createControl(
   maxBoundCount = 5,
   algorithm = "ccd",
   fitter = "default",
+  cvConvergenceType = NULL,
+  cvTolerance = NULL,
+  cvMaxIterations = NULL,
+  cvMinIterations = NULL,
+  cvWarmStart = NULL,
   activeSetEvery = NULL,
   activeSetThreshold = NULL,
   doItAll = TRUE,
@@ -101,10 +106,29 @@ except that \code{"legacy"} keeps the earlier cross-validation score of
 fitter. \code{"super"} is reserved for result-changing improvements to \code{"lr"}
 fits and currently runs the same code as \code{"default"}}
 
-\item{activeSetEvery}{Integer: active-set cycling, which needs \code{convergenceType = "kkt"}. Cycles
-between full sweeps skip coordinates that did not move, with a full sweep at
-least every \code{activeSetEvery} cycles; 0 turns it off. \code{NULL} (default)
-means 0}
+\item{cvConvergenceType}{String: convergence criterion of the cross-validation fold fits only.
+\code{NULL} (default) means that of the final fit}
+
+\item{cvTolerance}{Numeric: tolerance of the cross-validation fold fits only. \code{NULL} (default)
+means 3e-3 with \code{cvConvergenceType = "kkt"}, 1e-6 with another
+\code{cvConvergenceType}, and \code{tolerance} without one}
+
+\item{cvMaxIterations}{Integer: maximum iterations of the cross-validation fold fits only.
+\code{NULL} (default) means 5000 with \code{cvConvergenceType = "kkt"}, 1000 with
+another \code{cvConvergenceType}, and \code{maxIterations} without one}
+
+\item{cvMinIterations}{Integer: minimum iterations of a cross-validation fold fit when
+\code{cvConvergenceType}, \code{cvTolerance} or \code{cvMaxIterations} applies;
+\code{NULL} (default) means 5}
+
+\item{cvWarmStart}{Logical: start each cross-validation fold fit from that fold's solution at the
+nearest hyperparameter already tried; results do not depend on \code{threads}.
+\code{NULL} (default) means \code{FALSE}}
+
+\item{activeSetEvery}{Integer: active-set cycling, which needs \code{convergenceType = "kkt"} or
+\code{cvConvergenceType = "kkt"}. Cycles between full sweeps skip coordinates
+that did not move, with a full sweep at least every \code{activeSetEvery}
+cycles; 0 turns it off. \code{NULL} (default) means 0}
 
 \item{activeSetThreshold}{Numeric: with active-set cycling, cycles between full sweeps also skip
 coordinates whose last step, in standard-error units, was below this fraction of

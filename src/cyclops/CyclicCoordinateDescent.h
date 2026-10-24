@@ -464,6 +464,7 @@ protected:
 		}
 		return !activeSetCandidate[index] || hBeta[index] != 0.0 || lastStepSE[index] > 0.0;
 	}
+	int minIterations = 0; // of the current update(); no convergence (SUCCESS) before this many cycles
 	std::vector<bool> fixBeta;
 
 	int N; // Number of patients

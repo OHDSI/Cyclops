@@ -691,10 +691,24 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              \code{"lr"} models (held-out cases only). \code{"cox_counting"} models need another
 #'                              fitter. \code{"super"} is reserved for result-changing improvements to \code{"lr"}
 #'                              fits and currently runs the same code as \code{"default"}
-#' @param activeSetEvery        Integer: active-set cycling, which needs \code{convergenceType = "kkt"}. Cycles
-#'                              between full sweeps skip coordinates that did not move, with a full sweep at
-#'                              least every \code{activeSetEvery} cycles; 0 turns it off. \code{NULL} (default)
-#'                              means 0
+#' @param cvConvergenceType     String: convergence criterion of the cross-validation fold fits only.
+#'                              \code{NULL} (default) means that of the final fit
+#' @param cvTolerance           Numeric: tolerance of the cross-validation fold fits only. \code{NULL} (default)
+#'                              means 3e-3 with \code{cvConvergenceType = "kkt"}, 1e-6 with another
+#'                              \code{cvConvergenceType}, and \code{tolerance} without one
+#' @param cvMaxIterations       Integer: maximum iterations of the cross-validation fold fits only.
+#'                              \code{NULL} (default) means 5000 with \code{cvConvergenceType = "kkt"}, 1000 with
+#'                              another \code{cvConvergenceType}, and \code{maxIterations} without one
+#' @param cvMinIterations       Integer: minimum iterations of a cross-validation fold fit when
+#'                              \code{cvConvergenceType}, \code{cvTolerance} or \code{cvMaxIterations} applies;
+#'                              \code{NULL} (default) means 5
+#' @param cvWarmStart           Logical: start each cross-validation fold fit from that fold's solution at the
+#'                              nearest hyperparameter already tried; results do not depend on \code{threads}.
+#'                              \code{NULL} (default) means \code{FALSE}
+#' @param activeSetEvery        Integer: active-set cycling, which needs \code{convergenceType = "kkt"} or
+#'                              \code{cvConvergenceType = "kkt"}. Cycles between full sweeps skip coordinates
+#'                              that did not move, with a full sweep at least every \code{activeSetEvery}
+#'                              cycles; 0 turns it off. \code{NULL} (default) means 0
 #' @param activeSetThreshold    Numeric: with active-set cycling, cycles between full sweeps also skip
 #'                              coordinates whose last step, in standard-error units, was below this fraction of
 #'                              the largest step of the last full sweep; with 0, they skip only coordinates with
@@ -736,6 +750,11 @@ createControl <- function(maxIterations = NULL,
                           maxBoundCount = 5,
                           algorithm = "ccd",
                           fitter = "default",
+                          cvConvergenceType = NULL,
+                          cvTolerance = NULL,
+                          cvMaxIterations = NULL,
+                          cvMinIterations = NULL,
+                          cvWarmStart = NULL,
                           activeSetEvery = NULL,
                           activeSetThreshold = NULL,
                           doItAll = TRUE,
@@ -756,6 +775,11 @@ createControl <- function(maxIterations = NULL,
     stopifnot(is.null(convergenceType) || convergenceType %in% validConvergenceNames)
     stopifnot(is.null(tolerance) || tolerance > 0)
     stopifnot(is.null(maxIterations) || maxIterations >= 1)
+    stopifnot(is.null(cvConvergenceType) || cvConvergenceType %in% validConvergenceNames)
+    stopifnot(is.null(cvTolerance) || cvTolerance > 0)
+    stopifnot(is.null(cvMaxIterations) || cvMaxIterations >= 1)
+    stopifnot(is.null(cvMinIterations) || cvMinIterations >= 0)
+    stopifnot(is.null(cvWarmStart) || is.logical(cvWarmStart))
     stopifnot(is.null(activeSetEvery) || activeSetEvery == 0 || activeSetEvery > 1)
     stopifnot(is.null(activeSetThreshold) || (activeSetThreshold >= 0 && activeSetThreshold < 1))
 
@@ -781,6 +805,11 @@ createControl <- function(maxIterations = NULL,
                    maxBoundCount = maxBoundCount,
                    algorithm = algorithm,
                    fitter = fitter,
+                   cvConvergenceType = cvConvergenceType,
+                   cvTolerance = cvTolerance,
+                   cvMaxIterations = cvMaxIterations,
+                   cvMinIterations = cvMinIterations,
+                   cvWarmStart = cvWarmStart,
                    activeSetEvery = activeSetEvery,
                    activeSetThreshold = activeSetThreshold,
                    doItAll = doItAll,
@@ -925,7 +954,8 @@ getCrossValidationInfo <- function(object) {
 
 # Fills in the settings that createControl() leaves NULL; a setting given to createControl() wins
 .resolveControl <- function(control) {
-    settings <- list(convergenceType = "gradient", activeSetEvery = 0, activeSetThreshold = 0.01)
+    settings <- list(convergenceType = "gradient", cvConvergenceType = NULL, cvMinIterations = 5,
+                     cvWarmStart = FALSE, activeSetEvery = 0, activeSetThreshold = 0.01)
     for (name in names(settings)) {
         if (is.null(control[[name]])) {
             control[name] <- list(settings[[name]])
@@ -938,10 +968,30 @@ getCrossValidationInfo <- function(object) {
     if (is.null(control$maxIterations)) {
         control$maxIterations <- if (kkt) 5000 else 1000
     }
-    if (control$activeSetEvery != 0 && control$convergenceType != "kkt") {
-        stop("activeSetEvery needs convergenceType = \"kkt\"", call. = FALSE)
+    if (!is.null(control$cvConvergenceType)) { # fold fits with their own rule get its defaults; kkt folds stop earlier
+        cvKkt <- control$cvConvergenceType == "kkt"
+        if (is.null(control$cvTolerance)) {
+            control$cvTolerance <- if (cvKkt) 3E-3 else 1E-6
+        }
+        if (is.null(control$cvMaxIterations)) {
+            control$cvMaxIterations <- if (cvKkt) 5000 else 1000
+        }
+    }
+    if (control$activeSetEvery != 0 && control$convergenceType != "kkt" &&
+        !identical(control$cvConvergenceType, "kkt")) {
+        stop("activeSetEvery needs convergenceType = \"kkt\" or cvConvergenceType = \"kkt\"", call. = FALSE)
     }
     control
+}
+
+# Cross-validation options of a resolved control
+.cvControlOptions <- function(control) {
+    valueOr <- function(value, default) if (is.null(value)) default else value
+    list(convergenceType = valueOr(control$cvConvergenceType, ""),
+         tolerance = valueOr(control$cvTolerance, -1),
+         maxIterations = as.integer(valueOr(control$cvMaxIterations, -1)),
+         minIterations = as.integer(control$cvMinIterations),
+         warmStart = control$cvWarmStart)
 }
 
 # Mode-finding options of a resolved control
@@ -972,6 +1022,7 @@ getCrossValidationInfo <- function(object) {
                            control$selectorType, control$initialBound, control$maxBoundCount,
                            control$algorithm, control$doItAll, control$syncCV
                           )
+        .cyclopsSetCvControl(cyclopsInterfacePtr, .cvControlOptions(control))
         .cyclopsSetModeControl(cyclopsInterfacePtr, .modeControlOptions(control))
         return(control)
     }

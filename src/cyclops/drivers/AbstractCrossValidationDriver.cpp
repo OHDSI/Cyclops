@@ -11,6 +11,7 @@
 #include <cmath>
 #include <iterator>
 #include <mutex>
+#include <limits>
 
 // #include "boost/iterator/counting_iterator.hpp"
 
@@ -188,8 +189,13 @@ void AbstractCrossValidationDriver::drive(
 
 	failedFolds = 0;
 
+	// With warm starts, each fold starts from its own solution at the nearest hyperparameter tried
+	foldSolutions.assign(allArguments.crossValidation.foldToCompute, std::vector<FoldSolution>());
+
 	// Delegate to auto or grid loop
     maxPoint = doCrossValidationLoop(ccd, selector, allArguments, nThreads, ccdPool, selectorPool);
+
+	std::vector<std::vector<FoldSolution>>().swap(foldSolutions);
 
 	// Clean up
 	for (int i = 1; i < nThreads; ++i) {
@@ -237,6 +243,21 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
     bool coldStart = allArguments.resetCoefficients;
 
 	predLogLikelihood.resize(arguments.foldToCompute);
+
+	// Fold fits may use their own stopping rule; the final fit keeps allArguments.modeFinding
+	ModeFindingArguments foldModeFinding = allArguments.modeFinding;
+	if (arguments.foldConvergenceType >= 0) {
+		foldModeFinding.convergenceType = arguments.foldConvergenceType;
+	}
+	if (arguments.foldTolerance > 0.0) {
+		foldModeFinding.tolerance = arguments.foldTolerance;
+	}
+	if (arguments.foldMaxIterations > 0) {
+		foldModeFinding.maxIterations = arguments.foldMaxIterations;
+	}
+	if (arguments.foldConvergenceType >= 0 || arguments.foldTolerance > 0.0 || arguments.foldMaxIterations > 0) {
+		foldModeFinding.minIterations = arguments.foldMinIterations;
+	}
 
 	// GPU using syncCV
 	//if (false) {
@@ -333,9 +354,13 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 			}
 		}
 
+		auto& foldSolutions = this->foldSolutions;
+		const bool warmStart = arguments.warmStart && !ccd.GPU();
+
 		auto oneTask =
 				[step, coldStart, &ccdPool, &repetitionSelectors, foldsPerRepetition,
-				 &arguments, &allArguments, &predLogLikelihood,
+				 &arguments, &foldModeFinding, &predLogLikelihood,
+				 &foldSolutions, warmStart,
 				 &weightsExclude, &logger, usePartitions, &repetitionPartitions //, &lock
 				 //    ,&ccd, &selector
 				 ](int task, size_t uniqueId) {
@@ -382,25 +407,60 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 			stream << "\tFold #" << (fold + 1)
 								  << " Rep #" << (task / arguments.fold + 1) << " pred log like = ";
 
-			if (coldStart) {
+			bool warmStarted = false;
+			if (warmStart) { // from this fold's solution at the nearest hyperparameter tried, whichever thread ran it
+				const FoldSolution* nearest = nullptr;
+				double nearestDistance = std::numeric_limits<double>::infinity();
+				for (const auto& solution : foldSolutions[task]) {
+					double distance = 0.0; // in log hyperparameters
+					for (size_t i = 0; i < hyperprior.size(); ++i) {
+						distance += std::abs(std::log(hyperprior[i] / solution.hyperprior[i]));
+					}
+					if (distance < nearestDistance) {
+						nearestDistance = distance;
+						nearest = &solution;
+					}
+				}
+				if (nearest != nullptr) {
+					std::vector<double> beta(ccdTask->getBetaSize(), 0.0);
+					for (const auto& entry : nearest->beta) {
+						beta[entry.first] = entry.second;
+					}
+					ccdTask->setBeta(beta);
+					warmStarted = true;
+				}
+			}
+			if (!warmStarted && (coldStart || warmStart)) {
 				ccdTask->resetBeta();
 			}
 
-			ccdTask->update(allArguments.modeFinding);
+			ccdTask->update(foldModeFinding);
 
-			int criterion = allArguments.modeFinding.convergenceType;
+			int criterion = foldModeFinding.convergenceType;
 			if (ccdTask->getUpdateReturnFlag() == POOR_BLR_STEP && criterion == GRADIENT) {
 				// As fitCyclopsModel() does for a single fit, continue under a criterion that sees every coefficient
-				ModeFindingArguments langeModeFinding = allArguments.modeFinding;
+				ModeFindingArguments langeModeFinding = foldModeFinding;
 				langeModeFinding.convergenceType = LANGE;
 				ccdTask->update(langeModeFinding);
 				criterion = LANGE;
 			}
 
-			// A start that a whole cycle leaves exactly unchanged is already the mode; update() flags it
-			// POOR_BLR_STEP, which signals a problem only under the gradient criterion
+			// A start that a whole cycle leaves exactly unchanged is already the mode, as a warm start from a
+			// nearby hyperparameter often is; update() flags it POOR_BLR_STEP, which signals a problem only
+			// under the gradient criterion
 			const bool converged = ccdTask->getUpdateReturnFlag() == SUCCESS ||
 				(ccdTask->getUpdateReturnFlag() == POOR_BLR_STEP && criterion != GRADIENT);
+
+			if (warmStart && converged) { // failed fits are not used as starts
+				FoldSolution solution{hyperprior, {}};
+				for (int j = 0; j < ccdTask->getBetaSize(); ++j) {
+					const double beta = ccdTask->getBeta(j);
+					if (beta != 0.0) {
+						solution.beta.emplace_back(j, beta);
+					}
+				}
+				foldSolutions[task].push_back(std::move(solution));
+			}
 
 			if (converged) {
 
@@ -452,7 +512,7 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 		if (nThreads > 1) {
 			ccd.getProgressLogger().setConcurrent(true);
 		}
-		if (coldStart) { // a fold's result does not depend on which model copy runs it
+		if (coldStart || warmStart) { // a fold's result does not depend on which model copy runs it
 			// Tasks start in order, so only the partitions of the repetitions in progress are alive
 			try {
 				executeDynamic(arguments.foldToCompute, nThreads, oneTask);

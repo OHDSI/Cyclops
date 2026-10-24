@@ -82,6 +82,11 @@ protected:
 	std::vector<double>* weightsExclude;
 	std::vector<double> savedWeights; // before cross-validation; empty when unweighted
 	int failedFolds = 0; // fold fits left out of their mean predictive log-likelihood
+	struct FoldSolution {
+	    std::vector<double> hyperprior;
+	    std::vector<std::pair<int, double>> beta; // non-zero coefficients
+	};
+	std::vector<std::vector<FoldSolution>> foldSolutions; // of each fold, at the hyperparameters tried
 };
 
 } // namespace

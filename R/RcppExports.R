@@ -125,6 +125,10 @@
     invisible(.Call(`_Cyclops_cyclopsSetModeControl`, inRcppCcdInterface, options))
 }
 
+.cyclopsSetCvControl <- function(inRcppCcdInterface, options) {
+    invisible(.Call(`_Cyclops_cyclopsSetCvControl`, inRcppCcdInterface, options))
+}
+
 .cyclopsRunCrossValidation <- function(inRcppCcdInterface) {
     .Call(`_Cyclops_cyclopsRunCrossValidationl`, inRcppCcdInterface)
 }

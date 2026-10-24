@@ -666,6 +666,31 @@ void cyclopsSetModeControl(SEXP inRcppCcdInterface, const List& options) {
 	}
 }
 
+// Cross-validation options; an option missing from the list keeps its value
+// [[Rcpp::export(".cyclopsSetCvControl")]]
+void cyclopsSetCvControl(SEXP inRcppCcdInterface, const List& options) {
+	using namespace bsccs;
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	CrossValidationArguments& cv = interface->getArguments().crossValidation;
+
+	if (options.containsElementNamed("convergenceType")) {
+		const std::string type = as<std::string>(options["convergenceType"]);
+		cv.foldConvergenceType = type.empty() ? -1 : RcppCcdInterface::parseConvergenceType(type);
+	}
+	if (options.containsElementNamed("tolerance")) {
+		cv.foldTolerance = as<double>(options["tolerance"]);
+	}
+	if (options.containsElementNamed("maxIterations")) {
+		cv.foldMaxIterations = as<int>(options["maxIterations"]);
+	}
+	if (options.containsElementNamed("minIterations")) {
+		cv.foldMinIterations = as<int>(options["minIterations"]);
+	}
+	if (options.containsElementNamed("warmStart")) {
+		cv.warmStart = as<bool>(options["warmStart"]);
+	}
+}
+
 // [[Rcpp::export(".cyclopsRunCrossValidation")]]
 List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface) {
 	using namespace bsccs;

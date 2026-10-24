@@ -727,8 +727,10 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 
 	initialBound = arguments.initialBound;
 	// Active-set cycling relies on the full sweeps of the kkt criterion; other criteria sweep every cycle
+	// (cross-validation fold fits may use another criterion than the final fit)
 	activeSetEvery = (convergenceType == KKT) ? arguments.activeSetEvery : 0;
 	activeSetThreshold = arguments.activeSetThreshold;
+	minIterations = arguments.minIterations;
 
 	int count = 0;
 	bool done = false;
@@ -761,6 +763,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	        done = true;
 	    }
 	}
+	minIterations = 0;
 }
 
 typedef std::tuple<
@@ -1076,6 +1079,7 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
             }
         }
     }
+    converged = converged && (poorBlr || illconditioned || iteration >= minIterations);
 
     if (converged) {
         if (poorBlr) {

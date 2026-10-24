@@ -44,6 +44,11 @@ struct CrossValidationArguments {
     double startingVariance;
     SelectorType selectorType;
     bool syncCV;
+    int foldConvergenceType;    // fold fits only; -1 = as the final fit
+    double foldTolerance;       // fold fits only; <= 0 = as the final fit
+    int foldMaxIterations;      // fold fits only; <= 0 = as the final fit
+    int foldMinIterations;      // fold fits only, when one of the three above is set
+    bool warmStart;             // each fold starts from its own solution at the nearest hyperparameter tried
 
     CrossValidationArguments() :
         doCrossValidation(false),
@@ -57,7 +62,12 @@ struct CrossValidationArguments {
         doFitAtOptimal(true),
         startingVariance(-1),   // Use default from Genkins et al.
         selectorType(SelectorType::BY_PID),
-		syncCV(false)
+		syncCV(false),
+		foldConvergenceType(-1),
+		foldTolerance(-1.0),
+		foldMaxIterations(-1),
+		foldMinIterations(5),
+		warmStart(false)
         { }
 };
 
@@ -84,6 +94,7 @@ struct ModeFindingArguments {
 	AlgorithmType algorithmType;
 	int activeSetEvery = 0; // 0: every cycle visits all coordinates; see CyclicCoordinateDescent::update()
 	double activeSetThreshold = 0.01; // active-set cycling: relative step size below which a coordinate is skipped
+	int minIterations; // no convergence (SUCCESS) before this many cycles
 
 	ModeFindingArguments() :
 		tolerance(1E-6),
@@ -94,7 +105,8 @@ struct ModeFindingArguments {
 		swindleMultipler(10),
 		initialBound(2.0),
 		maxBoundCount(5),
-		algorithmType(AlgorithmType::CCD)
+		algorithmType(AlgorithmType::CCD),
+		minIterations(0)
 	    { }
 };
 
