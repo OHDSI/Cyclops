@@ -344,6 +344,14 @@ protected:
 
 	double ccdUpdateBeta(int index);
 
+	double scaledKktResidual(int index, double rawDelta, const priors::GradientHessian& gh) const;
+
+	void accumulateKkt(int index, double rawDelta, const priors::GradientHessian& gh);
+
+	double getKktCriterion() const;
+
+	double computeKktResidual();
+
 	void cycleWithConcurrentGradients(const std::function<void(int)>& log);
 
 
@@ -423,6 +431,19 @@ protected:
 	bool boundLimitedStep = false; // a step in the current cycle was cut short by its bound
 	DoubleVector lastStep;         // previous step of each coefficient, to detect period-2 oscillation
 	std::vector<int> flipCount;    // consecutive steps that reversed sign without shrinking
+
+	// "kkt" convergence: size of the minimum-norm subgradient s_j of the objective over the
+	// coordinates of a cycle, each evaluated where ccdUpdateBeta() computed its gradient
+	struct KktCycleStats {
+		double maxScaled = 0.0; // max_j |s_j| / sqrt(h_j), h_j the curvature of the objective
+		bool undefined = false; // a NaN gradient
+	};
+	KktCycleStats kktCycle;
+	const int kktConsecutiveNeeded = 2; // cycles in a row below the tolerance
+	int kktConsecutive = 0;
+	bool trackKkt = false;
+	priors::GradientHessian lastGradientHessian; // as passed to getDelta() by ccdUpdateBeta()
+
 	std::vector<bool> fixBeta;
 
 	int N; // Number of patients

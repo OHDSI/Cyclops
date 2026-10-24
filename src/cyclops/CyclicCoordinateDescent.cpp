@@ -1016,6 +1016,19 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
             }
         }
         *lastObjFunc = thisObjFunc;
+    } else if (convergenceType == KKT) {
+        if (kktCycle.undefined) {
+            std::ostringstream stream;
+            stream << "\nWarning: problem is ill-conditioned for this choice of\n"
+                   << "\t prior (" << jointPrior->getDescription() << ") or\n"
+                   << "\t initial bounding box (" << initialBound << ")\n"
+                   << "Enforcing convergence!";
+            logger->writeLine(stream);
+            conv = 0.0;
+            illconditioned = true;
+        } else {
+            conv = getKktCriterion();
+        }
     } else { // ZHANG_OLES
         conv = computeZhangOlesConvergenceCriterion();
         saveXBeta();
@@ -1040,7 +1053,25 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
     // in the first cycles after ILLCONDITIONED retries shrink the initial bound
     const bool stepsLimited = boundLimitedStep && convergenceType != ONE_STEP && !illconditioned;
 
-    if (epsilon > 0 && conv < epsilon && !stepsLimited) {
+    bool converged = epsilon > 0 && conv < epsilon && !stepsLimited;
+    if (convergenceType == KKT && !illconditioned) { // several cycles in a row
+        kktConsecutive = converged ? kktConsecutive + 1 : 0;
+        converged = kktConsecutive >= kktConsecutiveNeeded;
+        if (converged) {
+            // The statistic was taken as each coordinate was visited, before its update; on correlated
+            // designs it understates the residual at the end of the cycle, so check that point itself
+            const double residual = computeKktResidual();
+            if (!(residual < epsilon)) {
+                converged = false;
+                kktConsecutive = 0;
+                if (noiseLevel > QUIET) {
+                    stream << "(kkt residual at the end of the cycle: " << residual << ") ";
+                }
+            }
+        }
+    }
+
+    if (converged) {
         if (poorBlr) {
             lastReturnFlag = POOR_BLR_STEP;
         } else if (illconditioned) {
@@ -1089,9 +1120,15 @@ void CyclicCoordinateDescent::findMode(
 		int qnQ, bool doItAll
 		) {
 
-	if (convergenceType < GRADIENT || convergenceType > ZHANG_OLES) {
+	if (convergenceType < GRADIENT || convergenceType > KKT) {
 	    std::ostringstream stream;
 		stream << "Unknown convergence criterion: " << convergenceType;
+		error->throwError(stream);
+	}
+
+	if (convergenceType == KKT && (algorithmType == AlgorithmType::MM || usingGPU || usingCUDA || syncCV)) {
+	    std::ostringstream stream;
+		stream << "Convergence criterion kkt needs the CPU ccd algorithm";
 		error->throwError(stream);
 	}
 
@@ -1138,9 +1175,12 @@ void CyclicCoordinateDescent::findMode(
 		} else {
 			lastObjFunc = getObjectiveFunction(convergenceType);
 		}
-	} else { // ZHANG_OLES
+	} else if (convergenceType == ZHANG_OLES) {
 		saveXBeta();
 	}
+
+	trackKkt = convergenceType == KKT;
+	kktConsecutive = 0;
 
 	std::vector<double> allDelta;
     double lastLogPosterior; // = getLogLikelihood() + getLogPrior();
@@ -1206,6 +1246,7 @@ void CyclicCoordinateDescent::findMode(
 	    };
 
 	    boundLimitedStep = false;
+	    kktCycle = KktCycleStats();
 
 	    if (algorithmType == AlgorithmType::MM) {
             // Do delta computation in parallel
@@ -1263,6 +1304,9 @@ void CyclicCoordinateDescent::findMode(
 
 	    			if (!fixBeta[index]) {
 						double delta = ccdUpdateBeta(index);
+						if (trackKkt) {
+							accumulateKkt(index, delta, lastGradientHessian);
+						}
 						delta = applyBounds(delta, index);
 					//	std::cout << "index: " << index << " delta: " << delta << "\n";
 						if (delta != 0.0) {
@@ -1749,14 +1793,22 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 					g.first = 0.0;
 					g.second = 0.0;
 				}
-				if (finish(run[r], jointPrior->getDelta(g, hBeta, run[r], *this), true)) {
+				const double delta = jointPrior->getDelta(g, hBeta, run[r], *this);
+				if (trackKkt) {
+					accumulateKkt(run[r], delta, g);
+				}
+				if (finish(run[r], delta, true)) {
 					break;
 				}
 			}
 			index = run[std::min(r, run.size() - 1)] + 1;
 		} else {
 			const bool candidate = isCandidate(index);
-			finish(index, ccdUpdateBeta(index), candidate);
+			const double delta = ccdUpdateBeta(index);
+			if (trackKkt) {
+				accumulateKkt(index, delta, lastGradientHessian);
+			}
+			finish(index, delta, candidate);
 			++index;
 		}
 	}
@@ -1781,8 +1833,49 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	    gh.first = 0.0;
 	    gh.second = 0.0;
 	}
+	lastGradientHessian = gh;
 
 	return jointPrior->getDelta(gh, hBeta, index, *this);
+}
+
+double CyclicCoordinateDescent::scaledKktResidual(int index, double rawDelta,
+                                                  const priors::GradientHessian& gh) const {
+	const auto residual = jointPrior->getKktResidual(index, gh.first, hBeta[index]);
+	double size = residual.first;
+	double curvature = gh.second + residual.second;
+	if (std::isnan(size)) { // prior without a residual: its Newton step in units of curvature
+		size = std::abs(rawDelta) * gh.second;
+		curvature = gh.second;
+	}
+	return curvature > 0.0 ? size / std::sqrt(curvature) : size; // in standard-error units; NaN if undefined
+}
+
+void CyclicCoordinateDescent::accumulateKkt(int index, double rawDelta, const priors::GradientHessian& gh) {
+	const double scaled = scaledKktResidual(index, rawDelta, gh);
+	if (std::isnan(scaled)) {
+		kktCycle.undefined = true;
+		return;
+	}
+	kktCycle.maxScaled = std::max(kktCycle.maxScaled, scaled);
+}
+
+double CyclicCoordinateDescent::computeKktResidual() {
+	double maxScaled = 0.0;
+	for (int index = 0; index < J; ++index) {
+		if (!fixBeta[index]) {
+			const double rawDelta = ccdUpdateBeta(index); // no update: the step and its gradient only
+			const double scaled = scaledKktResidual(index, rawDelta, lastGradientHessian);
+			if (std::isnan(scaled)) {
+				return scaled;
+			}
+			maxScaled = std::max(maxScaled, scaled);
+		}
+	}
+	return maxScaled;
+}
+
+double CyclicCoordinateDescent::getKktCriterion() const {
+	return kktCycle.maxScaled; // in standard-error units
 }
 
 void CyclicCoordinateDescent::axpyXBeta(const double beta, const int j) {

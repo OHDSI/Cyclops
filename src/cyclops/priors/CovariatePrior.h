@@ -154,6 +154,13 @@ public:
 
 	virtual double getKktBoundary() const = 0; // pure virtual
 
+	// For the "kkt" convergence criterion: the size of the minimum-norm subgradient of
+	// (-log likelihood - log prior) in this coordinate, given the -log likelihood gradient and beta,
+	// and the curvature of -log prior at beta; NaN when the prior does not provide it
+	virtual GradientHessian getKktResidual(double gradient, double beta) const {
+		return GradientHessian(std::numeric_limits<double>::quiet_NaN(), 0.0);
+	}
+
 	virtual std::vector<VariancePtr> getVarianceParameters() const = 0 ; // pure virtual
 
 	static PriorPtr makePrior(PriorType priorType, double variance);
@@ -195,6 +202,10 @@ public:
 
 	double getDelta(GradientHessian gh,const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
 		return -(gh.first / gh.second); // No regularization
+	}
+
+	GradientHessian getKktResidual(double gradient, double beta) const {
+		return GradientHessian(std::abs(gradient), 0.0);
 	}
 
 	bool getSupportsKktSwindle() const {
@@ -290,6 +301,13 @@ public:
 	double getKktBoundary() const {
 	    double lambda = getLambda();
 		return lambda;
+	}
+
+	GradientHessian getKktResidual(double gradient, double beta) const {
+		const double lambda = getLambda();
+		const double residual = (beta == 0.0) ? std::max(std::abs(gradient) - lambda, 0.0) :
+			std::abs(gradient + (beta > 0.0 ? lambda : -lambda));
+		return GradientHessian(residual, 0.0);
 	}
 
 	double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const {
@@ -412,6 +430,10 @@ public:
 
 	double getDelta(const GradientHessian gh, const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const;
 
+	GradientHessian getKktResidual(double gradient, double beta) const {
+		return CovariatePrior::getKktResidual(gradient, beta);
+	}
+
 private:
 	double getEpsilon() const {
 		return convertVarianceToHyperparameter(variance2.get());
@@ -471,6 +493,11 @@ public:
 		double beta = betaVector[index];
 		return - (gh.first + (beta / sigma2Beta)) /
 				  (gh.second + (1.0 / sigma2Beta));
+	}
+
+	GradientHessian getKktResidual(double gradient, double beta) const {
+		const double sigma2Beta = getVariance();
+		return GradientHessian(std::abs(gradient + beta / sigma2Beta), 1.0 / sigma2Beta);
 	}
 
 	std::vector<VariancePtr> getVarianceParameters() const {
@@ -620,6 +647,10 @@ public:
     double logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const;
 
     double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const;
+
+    GradientHessian getKktResidual(double gradient, double beta) const {
+        return CovariatePrior::getKktResidual(gradient, beta);
+    }
 
     std::vector<VariancePtr> getVarianceParameters() const {
         auto tmp = NormalPrior::getVarianceParameters();

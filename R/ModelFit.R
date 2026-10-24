@@ -646,9 +646,13 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @description
 #' \code{createControl} creates a Cyclops control object for use with \code{\link{fitCyclopsModel}}.
 #'
-#' @param maxIterations			Integer: maximum iterations of Cyclops to attempt before returning a failed-to-converge error
-#' @param tolerance					Numeric: maximum relative change in convergence criterion from successive iterations to achieve convergence
-#' @param convergenceType		String: name of convergence criterion to employ (described in more detail below)
+#' @param maxIterations			Integer: maximum iterations of Cyclops to attempt before returning a failed-to-converge error.
+#'                              \code{NULL} (default) means 1000, or 5000 with \code{convergenceType = "kkt"}
+#' @param tolerance					Numeric: maximum relative change in convergence criterion from successive iterations to achieve
+#'                              convergence. \code{NULL} (default) means 1e-6, or 1e-4 with \code{convergenceType = "kkt"},
+#'                              which measures it in standard-error units
+#' @param convergenceType		String: name of convergence criterion to employ (described in more detail below).
+#'                              \code{NULL} (default) means \code{"gradient"}
 #' @param cvType						String: name of cross validation search.
 #' 													Option \code{"auto"} selects an auto-search following BBR.
 #' 													Option \code{"grid"} selects a grid-search cross validation
@@ -692,15 +696,19 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'
 #' Todo: Describe convegence types
 #'
+#' Convergence type \code{"kkt"} stops when the largest minimum-norm subgradient of the
+#' log posterior over a cycle, in standard-error units, is below \code{tolerance} for two full cycles in a row
+#' and then at the point returned.
+#'
 #' @return
 #' A Cyclops control object of class inheriting from \code{"cyclopsControl"} for use with \code{\link{fitCyclopsModel}}.
 #'
 #' @template elaborateExample
 #'
 #' @export
-createControl <- function(maxIterations = 1000,
-                          tolerance = 1E-6,
-                          convergenceType = "gradient",
+createControl <- function(maxIterations = NULL,
+                          tolerance = NULL,
+                          convergenceType = NULL,
                           cvType = "auto",
                           fold = 10,
                           lowerLimit = 0.01,
@@ -734,6 +742,10 @@ createControl <- function(maxIterations = 1000,
     validAlgorithmNames = c("ccd", "mm")
     stopifnot(algorithm %in% validAlgorithmNames)
     stopifnot(fitter %in% c("legacy", "default", "super"))
+    validConvergenceNames <- c("gradient", "lange", "mittal", "zhang", "onestep", "kkt")
+    stopifnot(is.null(convergenceType) || convergenceType %in% validConvergenceNames)
+    stopifnot(is.null(tolerance) || tolerance > 0)
+    stopifnot(is.null(maxIterations) || maxIterations >= 1)
 
     structure(list(maxIterations = maxIterations,
                    tolerance = tolerance,
@@ -897,9 +909,28 @@ getCrossValidationInfo <- function(object) {
          point = values[-1])
 }
 
+# Fills in the settings that createControl() leaves NULL; a setting given to createControl() wins
+.resolveControl <- function(control) {
+    settings <- list(convergenceType = "gradient")
+    for (name in names(settings)) {
+        if (is.null(control[[name]])) {
+            control[name] <- list(settings[[name]])
+        }
+    }
+    kkt <- control$convergenceType == "kkt" # in standard-error units; an honest rule needs more cycles
+    if (is.null(control$tolerance)) {
+        control$tolerance <- if (kkt) 1E-4 else 1E-6
+    }
+    if (is.null(control$maxIterations)) {
+        control$maxIterations <- if (kkt) 5000 else 1000
+    }
+    control
+}
+
 .setControl <- function(cyclopsInterfacePtr, control) {
     if (!missing(control)) {
         stopifnot(inherits(control, "cyclopsControl"))
+        control <- .resolveControl(control)
 
         if (is.null(control$seed)) {
             control$seed <- as.integer(Sys.time())

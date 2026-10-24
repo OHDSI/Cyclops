@@ -5,9 +5,9 @@
 \title{Create a Cyclops control object}
 \usage{
 createControl(
-  maxIterations = 1000,
-  tolerance = 1e-06,
-  convergenceType = "gradient",
+  maxIterations = NULL,
+  tolerance = NULL,
+  convergenceType = NULL,
   cvType = "auto",
   fold = 10,
   lowerLimit = 0.01,
@@ -32,11 +32,15 @@ createControl(
 )
 }
 \arguments{
-\item{maxIterations}{Integer: maximum iterations of Cyclops to attempt before returning a failed-to-converge error}
+\item{maxIterations}{Integer: maximum iterations of Cyclops to attempt before returning a failed-to-converge error.
+\code{NULL} (default) means 1000, or 5000 with \code{convergenceType = "kkt"}}
 
-\item{tolerance}{Numeric: maximum relative change in convergence criterion from successive iterations to achieve convergence}
+\item{tolerance}{Numeric: maximum relative change in convergence criterion from successive iterations to achieve
+convergence. \code{NULL} (default) means 1e-6, or 1e-4 with \code{convergenceType = "kkt"},
+which measures it in standard-error units}
 
-\item{convergenceType}{String: name of convergence criterion to employ (described in more detail below)}
+\item{convergenceType}{String: name of convergence criterion to employ (described in more detail below).
+\code{NULL} (default) means \code{"gradient"}}
 
 \item{cvType}{String: name of cross validation search.
 Option \code{"auto"} selects an auto-search following BBR.
@@ -99,7 +103,11 @@ fits and currently runs the same code as \code{"default"}}
 
 \item{syncCV}{Currently unused
 
-Todo: Describe convegence types}
+Todo: Describe convegence types
+
+Convergence type \code{"kkt"} stops when the largest minimum-norm subgradient of the
+log posterior over a cycle, in standard-error units, is below \code{tolerance} for two full cycles in a row
+and then at the point returned.}
 }
 \value{
 A Cyclops control object of class inheriting from \code{"cyclopsControl"} for use with \code{\link{fitCyclopsModel}}.

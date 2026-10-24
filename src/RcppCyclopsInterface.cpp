@@ -958,6 +958,8 @@ bsccs::ConvergenceType RcppCcdInterface::parseConvergenceType(const std::string&
 		type = ZHANG_OLES;
 	} else if (convergenceName == "onestep") {
 	    type = ONE_STEP;
+	} else if (convergenceName == "kkt") {
+	    type = KKT;
 	} else {
 		handleError("Invalid convergence type.");
 	}
