@@ -138,6 +138,12 @@ Changes:
       (1.2x when the optimum lies between the first two variances tried), single fits are 2x faster,
       and the selected variance lies closer to the optimum of the cross-validation curve (within
       3-17% against 30-46% below it)
+34. cross-validation with `resetCoefficients = FALSE` (the default, which PatientLevelPrediction
+    uses) starts each fold fit from that fold's solution at the nearest variance already tried
+    (`cvWarmStart` now defaults to `TRUE` there), so results no longer depend on `threads`: each
+    model copy continued from whichever fold fit it ran last. Results change within the convergence
+    tolerance, also with one thread, at about the same speed. `fitter = "legacy"` keeps the
+    earlier behaviour
 
 Cyclops v3.7.1
 ==============

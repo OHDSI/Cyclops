@@ -77,7 +77,11 @@ with results identical to one thread); default = 1 (auto = -1)}
 
 \item{seed}{Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time}}.}
 
-\item{resetCoefficients}{Logical: Reset all coefficients to 0 between model fits under cross-validation}
+\item{resetCoefficients}{Logical: start every cross-validation fold fit from the starting coefficients.
+With \code{FALSE} (default), \code{cvWarmStart} defaults to \code{TRUE}, so each
+fold fit starts from that fold's solution at the nearest hyperparameter already
+tried and results do not depend on \code{threads}. Under \code{fitter = "legacy"},
+each model copy instead continues from the last fold fit it ran, as in Cyclops 3.7}
 
 \item{startingVariance}{Numeric: Starting variance for auto-search cross-validation; default = -1 (use estimate based on data)}
 
@@ -143,7 +147,8 @@ for logistic regression with \code{fitter = "super"} and \code{FALSE} otherwise}
 \item{cvWarmStart}{Logical: start each cross-validation fold fit from that fold's solution at the
 nearest hyperparameter already tried; results do not depend on \code{threads}.
 \code{NULL} (default) means \code{TRUE} for logistic regression with
-\code{fitter = "super"} and \code{FALSE} otherwise}
+\code{fitter = "super"}, and otherwise \code{TRUE} with \code{resetCoefficients =
+                             FALSE} except under \code{fitter = "legacy"}}
 
 \item{activeSetEvery}{Integer: active-set cycling, which needs \code{convergenceType = "kkt"} or
 \code{cvConvergenceType = "kkt"}. Cycles between full sweeps skip coordinates

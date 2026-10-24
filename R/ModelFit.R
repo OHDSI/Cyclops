@@ -668,7 +668,11 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              for Cox models (building risk-set indices and gradients of coefficients at zero,
 #'                              with results identical to one thread); default = 1 (auto = -1)
 #' @param seed                  Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time}}.
-#' @param resetCoefficients     Logical: Reset all coefficients to 0 between model fits under cross-validation
+#' @param resetCoefficients     Logical: start every cross-validation fold fit from the starting coefficients.
+#'                              With \code{FALSE} (default), \code{cvWarmStart} defaults to \code{TRUE}, so each
+#'                              fold fit starts from that fold's solution at the nearest hyperparameter already
+#'                              tried and results do not depend on \code{threads}. Under \code{fitter = "legacy"},
+#'                              each model copy instead continues from the last fold fit it ran, as in Cyclops 3.7
 #' @param startingVariance      Numeric: Starting variance for auto-search cross-validation; default = -1 (use estimate based on data)
 #' @param useKKTSwindle Logical: Use the Karush-Kuhn-Tucker conditions to limit search
 #' @param tuneSwindle    Numeric: Size multiplier for active set
@@ -719,7 +723,8 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param cvWarmStart           Logical: start each cross-validation fold fit from that fold's solution at the
 #'                              nearest hyperparameter already tried; results do not depend on \code{threads}.
 #'                              \code{NULL} (default) means \code{TRUE} for logistic regression with
-#'                              \code{fitter = "super"} and \code{FALSE} otherwise
+#'                              \code{fitter = "super"}, and otherwise \code{TRUE} with \code{resetCoefficients =
+#'                              FALSE} except under \code{fitter = "legacy"}
 #' @param activeSetEvery        Integer: active-set cycling, which needs \code{convergenceType = "kkt"} or
 #'                              \code{cvConvergenceType = "kkt"}. Cycles between full sweeps skip coordinates
 #'                              that did not move, with a full sweep at least every \code{activeSetEvery}
@@ -995,9 +1000,10 @@ getCrossValidationInfo <- function(object) {
              cvSearchDirection = "down", cvRefine = TRUE, cvWarmStart = TRUE,
              activeSetEvery = if (!is.null(nCovariates) && nCovariates >= .activeSetMinCovariates) 10 else 0,
              activeSetThreshold = 0.01, adaptiveIntercept = FALSE)
-    } else {
+    } else { # warm starts make fold fits without resetCoefficients independent of threads
+        warmStart <- !isTRUE(control$resetCoefficients) && !identical(.fitter(control), "legacy")
         list(convergenceType = "gradient", cvConvergenceType = NULL, cvMinIterations = 5,
-             cvSearchDirection = "auto", cvRefine = FALSE, cvWarmStart = FALSE,
+             cvSearchDirection = "auto", cvRefine = FALSE, cvWarmStart = warmStart,
              activeSetEvery = 0, activeSetThreshold = 0.01, adaptiveIntercept = FALSE)
     }
 }

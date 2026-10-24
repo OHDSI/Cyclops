@@ -93,6 +93,24 @@ test_that("Cross-validation options of the fold fits do not depend on the number
     expect_identical(coef(default), coef(explicit))
 })
 
+test_that("Cross-validation without resetCoefficients does not depend on the number of threads", {
+    cyclopsData <- simulateLr()
+    prior <- createPrior("laplace", exclude = c(0), useCrossValidation = TRUE)
+    fits <- lapply(c(1, 3), function(threads) { # as PatientLevelPrediction calls it
+        fitCyclopsModel(cyclopsData, prior = prior, forceNewObject = TRUE,
+                        control = createControl(cvType = "auto", fold = 3, seed = 1, startingVariance = 0.01,
+                                                noiseLevel = "silent", threads = threads))
+    })
+    expect_identical(fits[[2]]$variance, fits[[1]]$variance)
+    expect_identical(coef(fits[[2]]), coef(fits[[1]]))
+
+    warmStart <- function(...) Cyclops:::.resolveControl(createControl(...), "lr", 10)$cvWarmStart
+    expect_true(warmStart())
+    expect_false(warmStart(resetCoefficients = TRUE))
+    expect_false(warmStart(fitter = "legacy"))
+    expect_false(warmStart(cvWarmStart = FALSE))
+})
+
 test_that("Cross-validation with the super fitter does not depend on the number of threads", {
     cyclopsData <- simulateLr()
     prior <- createPrior("laplace", exclude = c(0), useCrossValidation = TRUE)

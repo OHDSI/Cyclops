@@ -66,10 +66,10 @@ test_that("The super fitter changes only logistic regression, and createControl(
                       activeSetEvery = 0))
     expect_equal(resolve("lr", 1000)$activeSetEvery, 10)
     for (modelType in c("cpr", "clr", "cox")) {
-        expect_equal(resolve(modelType, 5000)[c("convergenceType", "tolerance", "maxIterations", "cvWarmStart",
-                                                "activeSetEvery", "adaptiveIntercept")],
+        expect_equal(resolve(modelType, 5000)[c("convergenceType", "tolerance", "maxIterations", "activeSetEvery",
+                                                "adaptiveIntercept")],
                      list(convergenceType = "gradient", tolerance = 1E-6, maxIterations = 1000,
-                          cvWarmStart = FALSE, activeSetEvery = 0, adaptiveIntercept = FALSE))
+                          activeSetEvery = 0, adaptiveIntercept = FALSE))
     }
     expect_equal(resolve("lr", 10, convergenceType = "lange", maxIterations = 50)[c("convergenceType",
                                                                                  "tolerance", "maxIterations")],
@@ -88,7 +88,7 @@ test_that("The super fitter changes only logistic regression, and createControl(
     expect_equal(default[c("convergenceType", "tolerance", "cvTolerance", "cvMaxIterations", "activeSetEvery",
                            "cvWarmStart")],
                  list(convergenceType = "gradient", tolerance = 1E-6, cvTolerance = 3E-3, cvMaxIterations = 5000,
-                      activeSetEvery = 20, cvWarmStart = FALSE))
+                      activeSetEvery = 20, cvWarmStart = TRUE)) # resetCoefficients = FALSE
     expect_null(Cyclops:::.resolveControl(createControl(cvTolerance = 1E-8), "lr", 10)$cvConvergenceType)
 
     # Without "kkt", the fitter's settings that need it lapse
