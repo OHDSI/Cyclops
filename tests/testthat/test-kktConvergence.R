@@ -70,6 +70,12 @@ test_that("The super fitter changes only logistic regression, and createControl(
                       activeSetEvery = 20, cvWarmStart = FALSE))
     expect_null(Cyclops:::.resolveControl(createControl(cvTolerance = 1E-8), "lr", 10)$cvConvergenceType)
 
+    # Without "kkt", the fitter's settings that need it lapse
+    lapsed <- resolve("lr", 5000, convergenceType = "lange", cvConvergenceType = "lange")
+    expect_equal(lapsed$activeSetEvery, 0)
+    expect_error(resolve("lr", 5000, convergenceType = "lange", cvConvergenceType = "lange", activeSetEvery = 10),
+                 "activeSetEvery")
+
     # A tolerance without its convergence type would be read in the units of "kkt"
     expect_warning(control <- resolve("lr", 10, tolerance = 1E-8), "tolerance is ignored")
     expect_equal(control$tolerance, 1E-4)

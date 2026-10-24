@@ -1003,9 +1003,11 @@ getCrossValidationInfo <- function(object) {
                 "its \"kkt\" criterion measures the tolerance in standard-error units", call. = FALSE)
         control["tolerance"] <- list(NULL)
     }
+    filled <- character(0)
     for (name in names(settings)) {
         if (is.null(control[[name]])) {
             control[name] <- list(settings[[name]])
+            filled <- c(filled, name)
         }
     }
     kkt <- control$convergenceType == "kkt" # in standard-error units; an honest rule needs more cycles
@@ -1024,9 +1026,12 @@ getCrossValidationInfo <- function(object) {
             control$cvMaxIterations <- if (cvKkt) 5000 else 1000
         }
     }
-    if (control$activeSetEvery != 0 && control$convergenceType != "kkt" &&
-        !identical(control$cvConvergenceType, "kkt")) {
-        stop("activeSetEvery needs convergenceType = \"kkt\" or cvConvergenceType = \"kkt\"", call. = FALSE)
+    if (control$convergenceType != "kkt" && !identical(control$cvConvergenceType, "kkt")) {
+        # the fitter's settings that need "kkt" lapse; given ones are an error
+        if ("activeSetEvery" %in% filled) control$activeSetEvery <- 0
+        if (control$activeSetEvery != 0) {
+            stop("activeSetEvery needs convergenceType = \"kkt\" or cvConvergenceType = \"kkt\"", call. = FALSE)
+        }
     }
     control
 }
