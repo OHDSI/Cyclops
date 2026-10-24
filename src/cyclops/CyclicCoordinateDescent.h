@@ -352,6 +352,10 @@ protected:
 
 	double computeKktResidual();
 
+	void setUpAdaptiveIntercept(AlgorithmType algorithmType, double epsilon);
+
+	void trackInterceptGradient(int index, double delta, double hessian);
+
 	void cycleWithConcurrentGradients(const std::function<void(int)>& log);
 
 
@@ -464,6 +468,28 @@ protected:
 		}
 		return !activeSetCandidate[index] || hBeta[index] != 0.0 || lastStepSE[index] > 0.0;
 	}
+
+	// Adaptive extra intercept steps (logistic regression with an unpenalized intercept column, serial
+	// cycles, "kkt" convergence): an extra Newton step on the intercept whenever its predicted gain
+	// g0^2 / (2 h0) per row of work (2 K) reaches adaptiveInterceptRatio times the gain per row of work of
+	// the coordinate steps in the previous cycle; g0, the intercept gradient, is tracked to first order from
+	// the coordinate steps. In sparse models those gains are near zero, so the rule also needs g0 / sqrt(h0)
+	// above the tolerance; without that floor it took a step after almost every coordinate.
+	bool adaptiveIntercept = false;
+	static constexpr double adaptiveInterceptRatio = 0.25;
+	int interceptIndex = -1; // in the current findMode(); -1 when off
+	double interceptFloor = 0.0; // the tolerance, in standard-error units
+	std::vector<double> interceptMomentRatio; // sum_i x_ij / sum_i x_ij^2 by column
+	std::vector<double> columnRows; // stored entries by column (K for dense and intercept)
+	struct AdaptiveInterceptState {
+		double gradient = 0.0; // tracked change of the intercept gradient since its last step
+		double hessian = 0.0;  // intercept curvature at its last regular step
+		double gain = 0.0;     // predicted gain of this cycle's coordinate steps
+		double cost = 0.0;     // their rows of work
+		double rate = 0.0;     // gain / cost of the previous cycle
+		long extraSteps = 0;
+	};
+	AdaptiveInterceptState interceptState;
 	int minIterations = 0; // of the current update(); no convergence (SUCCESS) before this many cycles
 	std::vector<bool> fixBeta;
 

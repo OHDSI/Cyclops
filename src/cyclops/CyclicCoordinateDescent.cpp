@@ -29,6 +29,25 @@
 
 namespace bsccs {
 
+namespace {
+// sum_i x_ij / sum_i x_ij^2 over the stored entries of column j (1 for indicator and intercept columns)
+template <typename RealType>
+double columnFirstOverSecondMoment(const CompressedDataMatrix<RealType>& X, int j) {
+	const FormatType format = X.getFormatType(j);
+	if (format != SPARSE && format != DENSE) {
+		return 1.0;
+	}
+	const size_t n = (format == DENSE) ? X.getNumberOfRows() : X.getNumberOfEntries(j);
+	const RealType* x = X.getDataVector(j);
+	double s1 = 0.0, s2 = 0.0;
+	for (size_t i = 0; i < n; ++i) {
+		s1 += x[i];
+		s2 += static_cast<double>(x[i]) * x[i];
+	}
+	return (s2 > 0.0) ? s1 / s2 : 1.0;
+}
+} // namespace
+
 using namespace std; // TODO Bad form
 
 CyclicCoordinateDescent::CyclicCoordinateDescent(
@@ -730,6 +749,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	// (cross-validation fold fits may use another criterion than the final fit)
 	activeSetEvery = (convergenceType == KKT) ? arguments.activeSetEvery : 0;
 	activeSetThreshold = arguments.activeSetThreshold;
+	adaptiveIntercept = (convergenceType == KKT) && arguments.adaptiveIntercept; // its floor is a kkt tolerance
 	minIterations = arguments.minIterations;
 
 	int count = 0;
@@ -1202,6 +1222,7 @@ void CyclicCoordinateDescent::findMode(
 		lastStepSE.assign(J, std::numeric_limits<double>::infinity());
 		activeSetTau = 0.0;
 	}
+	setUpAdaptiveIntercept(algorithmType, epsilon);
 
 	std::vector<double> allDelta;
     double lastLogPosterior; // = getLogLikelihood() + getLogPrior();
@@ -1345,12 +1366,20 @@ void CyclicCoordinateDescent::findMode(
 							sufficientStatisticsKnown = false;
 							updateSufficientStatistics(delta, index);
 						}
+						if (interceptIndex >= 0) {
+							trackInterceptGradient(index, delta, lastGradientHessian.second);
+						}
 				}
 	    			log(index);
 	    		}
 	    		lastCycleFull = fullSweep;
 	    		if (fullSweep) {
 	    			activeSetTau = activeSetThreshold * cycleMaxStepSE;
+	    		}
+	    		if (interceptIndex >= 0) { // the reference gain per row of work for the next cycle
+	    			interceptState.rate = (interceptState.cost > 0.0) ? interceptState.gain / interceptState.cost : 0.0;
+	    			interceptState.gain = 0.0;
+	    			interceptState.cost = 0.0;
 	    		}
 	    	}
 	    }
@@ -1550,6 +1579,11 @@ void CyclicCoordinateDescent::findMode(
     }
 
 	lastIterationCount = iteration;
+	if (interceptIndex >= 0 && noiseLevel > QUIET) {
+		std::ostringstream stream;
+		stream << "Extra intercept steps: " << interceptState.extraSteps;
+		logger->writeLine(stream);
+	}
 //	std::cout << "iterations: " << lastIterationCount << " lastObjFunc: " << lastObjFunc << '\n';
 
 	updateCount += 1;
@@ -1915,6 +1949,70 @@ double CyclicCoordinateDescent::computeKktResidual() {
 		}
 	}
 	return maxScaled;
+}
+
+void CyclicCoordinateDescent::setUpAdaptiveIntercept(AlgorithmType algorithmType, double epsilon) {
+	interceptIndex = -1;
+	if (!adaptiveIntercept || algorithmType != AlgorithmType::CCD || usingGPU || usingCUDA || syncCV ||
+		hXI.getModelType() != ModelType::LOGISTIC) {
+		return;
+	}
+	for (int j = 0; j < J; ++j) {
+		if (hXI.getColumnType(j) == INTERCEPT) {
+			if (!fixBeta[j] && !jointPrior->getIsRegularized(j)) {
+				interceptIndex = j;
+			}
+			break;
+		}
+	}
+	if (interceptIndex < 0) {
+		return;
+	}
+	if (interceptMomentRatio.size() != static_cast<size_t>(J)) { // the data do not change
+		interceptMomentRatio.resize(J);
+		columnRows.resize(J);
+		const auto* data64 = dynamic_cast<const ModelData<double>*>(&hXI);
+		const auto* data32 = dynamic_cast<const ModelData<float>*>(&hXI);
+		for (int j = 0; j < J; ++j) {
+			interceptMomentRatio[j] = data64 ? columnFirstOverSecondMoment(data64->getX(), j) :
+				(data32 ? columnFirstOverSecondMoment(data32->getX(), j) : 1.0);
+			const FormatType format = hXI.getColumnType(j);
+			columnRows[j] = (format == DENSE || format == INTERCEPT) ? static_cast<double>(K) :
+				static_cast<double>(hXI.getNumberOfEntries(j));
+		}
+	}
+	interceptState = AdaptiveInterceptState();
+	interceptFloor = epsilon;
+}
+
+void CyclicCoordinateDescent::trackInterceptGradient(int index, double delta, double hessian) {
+	AdaptiveInterceptState& s = interceptState;
+	if (index == interceptIndex) {
+		s.gradient = 0.0;
+		s.hessian = hessian;
+		return;
+	}
+	// first-order change of the intercept gradient: sum_i w_i x_ij delta ~ h_j delta sum_i x_ij / sum_i x_ij^2
+	s.gradient += interceptMomentRatio[index] * hessian * delta;
+	s.gain += 0.5 * hessian * delta * delta;
+	s.cost += (delta != 0.0) ? 2.0 * columnRows[index] : columnRows[index]; // gradient (+ update) rows
+	const double rate = (s.rate > 0.0) ? s.rate : s.gain / s.cost;
+	if (s.hessian > 0.0 &&
+		std::abs(s.gradient) >= interceptFloor * std::sqrt(s.hessian) && // else within the tolerance already
+		s.gradient * s.gradient / (2.0 * s.hessian) >= adaptiveInterceptRatio * rate * 2.0 * static_cast<double>(K)) {
+		// an extra Newton step on the intercept; its update takes one exp() for logistic regression
+		double interceptDelta = ccdUpdateBeta(interceptIndex);
+		if (trackKkt) {
+			accumulateKkt(interceptIndex, interceptDelta, lastGradientHessian);
+		}
+		interceptDelta = applyBounds(interceptDelta, interceptIndex);
+		if (interceptDelta != 0.0) {
+			sufficientStatisticsKnown = false;
+			updateSufficientStatistics(interceptDelta, interceptIndex);
+		}
+		s.gradient = 0.0;
+		++s.extraSteps;
+	}
 }
 
 double CyclicCoordinateDescent::getKktCriterion() const {

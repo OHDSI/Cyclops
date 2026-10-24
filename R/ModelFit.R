@@ -729,6 +729,13 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              coordinates whose last step, in standard-error units, was below this fraction of
 #'                              the largest step of the last full sweep; with 0, they skip only coordinates with
 #'                              a Laplace prior that are 0 and did not move. \code{NULL} (default) means 0.01
+#' @param adaptiveIntercept     Logical: for logistic regression with an unpenalized intercept, which needs
+#'                              \code{convergenceType = "kkt"} or \code{cvConvergenceType = "kkt"}: take an extra
+#'                              Newton step on the intercept during a cycle whenever its predicted gain per row
+#'                              of work reaches a quarter of that of the coordinate steps in the previous cycle
+#'                              and its gradient, in standard-error units, exceeds the tolerance. With many
+#'                              covariates the intercept otherwise lags behind them. \code{NULL} (default) means
+#'                              \code{FALSE}
 #' @param doItAll               Currently unused
 #' @param syncCV                Currently unused
 #'
@@ -775,6 +782,7 @@ createControl <- function(maxIterations = NULL,
                           cvWarmStart = NULL,
                           activeSetEvery = NULL,
                           activeSetThreshold = NULL,
+                          adaptiveIntercept = NULL,
                           doItAll = TRUE,
                           syncCV = FALSE) {
     validCVNames = c("grid", "auto")
@@ -802,6 +810,7 @@ createControl <- function(maxIterations = NULL,
     stopifnot(is.null(cvWarmStart) || is.logical(cvWarmStart))
     stopifnot(is.null(activeSetEvery) || activeSetEvery == 0 || activeSetEvery > 1)
     stopifnot(is.null(activeSetThreshold) || (activeSetThreshold >= 0 && activeSetThreshold < 1))
+    stopifnot(is.null(adaptiveIntercept) || is.logical(adaptiveIntercept))
 
     structure(list(maxIterations = maxIterations,
                    tolerance = tolerance,
@@ -834,6 +843,7 @@ createControl <- function(maxIterations = NULL,
                    cvWarmStart = cvWarmStart,
                    activeSetEvery = activeSetEvery,
                    activeSetThreshold = activeSetThreshold,
+                   adaptiveIntercept = adaptiveIntercept,
                    doItAll = doItAll,
                    syncCV = syncCV),
               class = "cyclopsControl")
@@ -984,11 +994,11 @@ getCrossValidationInfo <- function(object) {
         list(convergenceType = "kkt", cvConvergenceType = "kkt", cvMinIterations = 5,
              cvSearchDirection = "down", cvRefine = TRUE, cvWarmStart = TRUE,
              activeSetEvery = if (!is.null(nCovariates) && nCovariates >= .activeSetMinCovariates) 10 else 0,
-             activeSetThreshold = 0.01)
+             activeSetThreshold = 0.01, adaptiveIntercept = FALSE)
     } else {
         list(convergenceType = "gradient", cvConvergenceType = NULL, cvMinIterations = 5,
              cvSearchDirection = "auto", cvRefine = FALSE, cvWarmStart = FALSE,
-             activeSetEvery = 0, activeSetThreshold = 0.01)
+             activeSetEvery = 0, activeSetThreshold = 0.01, adaptiveIntercept = FALSE)
     }
 }
 
@@ -1029,8 +1039,12 @@ getCrossValidationInfo <- function(object) {
     if (control$convergenceType != "kkt" && !identical(control$cvConvergenceType, "kkt")) {
         # the fitter's settings that need "kkt" lapse; given ones are an error
         if ("activeSetEvery" %in% filled) control$activeSetEvery <- 0
+        if ("adaptiveIntercept" %in% filled) control$adaptiveIntercept <- FALSE
         if (control$activeSetEvery != 0) {
             stop("activeSetEvery needs convergenceType = \"kkt\" or cvConvergenceType = \"kkt\"", call. = FALSE)
+        }
+        if (control$adaptiveIntercept) {
+            stop("adaptiveIntercept needs convergenceType = \"kkt\" or cvConvergenceType = \"kkt\"", call. = FALSE)
         }
     }
     control
@@ -1051,7 +1065,8 @@ getCrossValidationInfo <- function(object) {
 # Mode-finding options of a resolved control
 .modeControlOptions <- function(control) {
     list(activeSetEvery = as.integer(control$activeSetEvery),
-         activeSetThreshold = as.numeric(control$activeSetThreshold))
+         activeSetThreshold = as.numeric(control$activeSetThreshold),
+         adaptiveIntercept = as.logical(control$adaptiveIntercept))
 }
 
 .setControl <- function(cyclopsInterfacePtr, control, cyclopsData = NULL) {

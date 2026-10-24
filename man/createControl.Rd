@@ -36,6 +36,7 @@ createControl(
   cvWarmStart = NULL,
   activeSetEvery = NULL,
   activeSetThreshold = NULL,
+  adaptiveIntercept = NULL,
   doItAll = TRUE,
   syncCV = FALSE
 )
@@ -154,6 +155,14 @@ with \code{fitter = "super"} and at least 1000 covariates, and 0 otherwise}
 coordinates whose last step, in standard-error units, was below this fraction of
 the largest step of the last full sweep; with 0, they skip only coordinates with
 a Laplace prior that are 0 and did not move. \code{NULL} (default) means 0.01}
+
+\item{adaptiveIntercept}{Logical: for logistic regression with an unpenalized intercept, which needs
+\code{convergenceType = "kkt"} or \code{cvConvergenceType = "kkt"}: take an extra
+Newton step on the intercept during a cycle whenever its predicted gain per row
+of work reaches a quarter of that of the coordinate steps in the previous cycle
+and its gradient, in standard-error units, exceeds the tolerance. With many
+covariates the intercept otherwise lags behind them. \code{NULL} (default) means
+\code{FALSE}}
 
 \item{doItAll}{Currently unused}
 

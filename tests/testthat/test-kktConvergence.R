@@ -33,6 +33,27 @@ test_that("kkt convergence and active-set cycling find the tight optimum", {
     expect_error(createControl(cvConvergenceType = "newton"))
 })
 
+test_that("Adaptive intercept steps reach the tight optimum", {
+    set.seed(321)
+    sim <- simulateCyclopsData(nstrata = 1, nrows = 3000, ncovars = 300, eCovarsPerRow = 30, model = "logistic")
+    data <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = "lr", addIntercept = TRUE, quiet = TRUE)
+    prior <- createPrior("laplace", 0.05, exclude = 0)
+    fitWith <- function(...) {
+        fitCyclopsModel(data, prior = prior, forceNewObject = TRUE, warnings = FALSE,
+                        control = createControl(...))
+    }
+    tight <- fitWith(convergenceType = "lange", tolerance = 1E-13, maxIterations = 10000)
+    log <- capture.output(adaptive <- fitWith(convergenceType = "kkt", tolerance = 1E-6, adaptiveIntercept = TRUE,
+                                              noiseLevel = "noisy"))
+    steps <- as.numeric(sub(".*: ", "", grep("Extra intercept steps", log, value = TRUE)))
+    expect_gt(steps, 0)
+    expect_equal(adaptive$return_flag, "SUCCESS")
+    expect_equal(coef(adaptive), coef(tight), tolerance = 1E-5)
+    expect_equal(coef(adaptive) != 0, coef(tight) != 0)
+    expect_error(fitWith(adaptiveIntercept = TRUE), "convergenceType")
+    expect_error(createControl(adaptiveIntercept = "yes"))
+})
+
 test_that("The super fitter changes only logistic regression, and createControl() arguments override it", {
     resolve <- function(modelType, nCovariates, ...) {
         Cyclops:::.resolveControl(createControl(fitter = "super", ...), modelType, nCovariates)
@@ -46,9 +67,9 @@ test_that("The super fitter changes only logistic regression, and createControl(
     expect_equal(resolve("lr", 1000)$activeSetEvery, 10)
     for (modelType in c("cpr", "clr", "cox")) {
         expect_equal(resolve(modelType, 5000)[c("convergenceType", "tolerance", "maxIterations", "cvWarmStart",
-                                                "activeSetEvery")],
+                                                "activeSetEvery", "adaptiveIntercept")],
                      list(convergenceType = "gradient", tolerance = 1E-6, maxIterations = 1000,
-                          cvWarmStart = FALSE, activeSetEvery = 0))
+                          cvWarmStart = FALSE, activeSetEvery = 0, adaptiveIntercept = FALSE))
     }
     expect_equal(resolve("lr", 10, convergenceType = "lange", maxIterations = 50)[c("convergenceType",
                                                                                  "tolerance", "maxIterations")],
@@ -72,9 +93,11 @@ test_that("The super fitter changes only logistic regression, and createControl(
 
     # Without "kkt", the fitter's settings that need it lapse
     lapsed <- resolve("lr", 5000, convergenceType = "lange", cvConvergenceType = "lange")
-    expect_equal(lapsed$activeSetEvery, 0)
+    expect_equal(lapsed[c("activeSetEvery", "adaptiveIntercept")], list(activeSetEvery = 0, adaptiveIntercept = FALSE))
     expect_error(resolve("lr", 5000, convergenceType = "lange", cvConvergenceType = "lange", activeSetEvery = 10),
                  "activeSetEvery")
+    expect_error(resolve("lr", 5000, convergenceType = "lange", cvConvergenceType = "lange", adaptiveIntercept = TRUE),
+                 "adaptiveIntercept")
 
     # A tolerance without its convergence type would be read in the units of "kkt"
     expect_warning(control <- resolve("lr", 10, tolerance = 1E-8), "tolerance is ignored")

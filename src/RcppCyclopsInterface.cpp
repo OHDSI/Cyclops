@@ -664,6 +664,9 @@ void cyclopsSetModeControl(SEXP inRcppCcdInterface, const List& options) {
 	if (options.containsElementNamed("activeSetThreshold")) {
 		modeFinding.activeSetThreshold = as<double>(options["activeSetThreshold"]);
 	}
+	if (options.containsElementNamed("adaptiveIntercept")) {
+		modeFinding.adaptiveIntercept = as<bool>(options["adaptiveIntercept"]);
+	}
 }
 
 // Cross-validation options; an option missing from the list keeps its value

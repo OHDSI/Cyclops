@@ -98,6 +98,7 @@ struct ModeFindingArguments {
 	AlgorithmType algorithmType;
 	int activeSetEvery = 0; // 0: every cycle visits all coordinates; see CyclicCoordinateDescent::update()
 	double activeSetThreshold = 0.01; // active-set cycling: relative step size below which a coordinate is skipped
+	bool adaptiveIntercept = false; // extra intercept steps; see CyclicCoordinateDescent::trackInterceptGradient()
 	int minIterations; // no convergence (SUCCESS) before this many cycles
 
 	ModeFindingArguments() :
