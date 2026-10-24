@@ -66,6 +66,20 @@ protected:
 			std::vector<CyclicCoordinateDescent*>& ccdPool,
 			std::vector<AbstractSelector*>& selectorPool);
 
+	void refineSearch(
+			CyclicCoordinateDescent& ccd,
+			AbstractSelector& selector,
+			const CCDArguments& allArguments,
+			int nThreads,
+			std::vector<CyclicCoordinateDescent*>& ccdPool,
+			std::vector<AbstractSelector*>& selectorPool,
+			int dim,
+			int& step,
+			std::vector<double>& triedValues,
+			std::vector<std::vector<double>>& triedScores,
+			std::vector<double>& currentOptimal,
+			double& currentOptimalValue);
+
 // 	double doCrossValidationStep(
 // 			CyclicCoordinateDescent& ccd,
 // 			AbstractSelector& selector,

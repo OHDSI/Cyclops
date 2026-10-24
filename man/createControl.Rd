@@ -31,6 +31,8 @@ createControl(
   cvTolerance = NULL,
   cvMaxIterations = NULL,
   cvMinIterations = NULL,
+  cvSearchDirection = NULL,
+  cvRefine = NULL,
   cvWarmStart = NULL,
   activeSetEvery = NULL,
   activeSetThreshold = NULL,
@@ -120,6 +122,14 @@ another \code{cvConvergenceType}, and \code{maxIterations} without one}
 \item{cvMinIterations}{Integer: minimum iterations of a cross-validation fold fit when
 \code{cvConvergenceType}, \code{cvTolerance} or \code{cvMaxIterations} applies;
 \code{NULL} (default) means 5}
+
+\item{cvSearchDirection}{String: first step of the auto-search from \code{startingVariance}: \code{"up"},
+\code{"down"}, or \code{"auto"} (up below a variance of 1 and down above, as in
+BBR). \code{NULL} (default) means \code{"auto"}}
+
+\item{cvRefine}{Logical: after the auto-search stops, evaluate its estimate and refine it by
+quadratic fits to the best point and its two neighbours, until the step is under
+15\% (at most three more evaluations). \code{NULL} (default) means \code{FALSE}}
 
 \item{cvWarmStart}{Logical: start each cross-validation fold fit from that fold's solution at the
 nearest hyperparameter already tried; results do not depend on \code{threads}.

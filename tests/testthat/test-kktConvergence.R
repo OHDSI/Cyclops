@@ -29,5 +29,6 @@ test_that("kkt convergence and active-set cycling find the tight optimum", {
     expect_error(createControl(convergenceType = "kkt", activeSetEvery = 1))
     expect_error(createControl(convergenceType = "kkt", activeSetEvery = -1))
     expect_error(createControl(activeSetThreshold = 1))
+    expect_error(createControl(cvSearchDirection = "sideways"))
     expect_error(createControl(cvConvergenceType = "newton"))
 })

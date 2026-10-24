@@ -78,8 +78,8 @@ test_that("Cross-validation options of the fold fits do not depend on the number
     prior <- createPrior("laplace", exclude = c(0), useCrossValidation = TRUE)
     fits <- lapply(c(1, 3), function(threads) {
         fitCyclopsModel(cyclopsData, prior = prior, forceNewObject = TRUE,
-                        control = cvControl(threads, cvConvergenceType = "lange", cvTolerance = 1e-7,
-                                            cvWarmStart = TRUE))
+                        control = cvControl(threads, cvSearchDirection = "down", cvConvergenceType = "lange",
+                                            cvTolerance = 1e-7, cvWarmStart = TRUE, cvRefine = TRUE))
     })
     expect_identical(fits[[2]]$variance, fits[[1]]$variance)
     expect_identical(coef(fits[[2]]), coef(fits[[1]]))
@@ -87,7 +87,8 @@ test_that("Cross-validation options of the fold fits do not depend on the number
     # Defaults reproduce the explicit settings of the default fitter
     default <- fitCyclopsModel(cyclopsData, prior = prior, forceNewObject = TRUE, control = cvControl(1))
     explicit <- fitCyclopsModel(cyclopsData, prior = prior, forceNewObject = TRUE,
-                                control = cvControl(1, cvWarmStart = FALSE))
+                                control = cvControl(1, cvSearchDirection = "auto", cvWarmStart = FALSE,
+                                                    cvRefine = FALSE))
     expect_identical(default$variance, explicit$variance)
     expect_identical(coef(default), coef(explicit))
 })

@@ -44,11 +44,13 @@ struct CrossValidationArguments {
     double startingVariance;
     SelectorType selectorType;
     bool syncCV;
+    int searchDirection;        // auto-search: 0 = up below variance 1 and down above (BBR), 1 = up, -1 = down
     int foldConvergenceType;    // fold fits only; -1 = as the final fit
     double foldTolerance;       // fold fits only; <= 0 = as the final fit
     int foldMaxIterations;      // fold fits only; <= 0 = as the final fit
     int foldMinIterations;      // fold fits only, when one of the three above is set
     bool warmStart;             // each fold starts from its own solution at the nearest hyperparameter tried
+    bool refineSearch;          // auto-search: refine the result by local quadratic fits around the best point
 
     CrossValidationArguments() :
         doCrossValidation(false),
@@ -63,11 +65,13 @@ struct CrossValidationArguments {
         startingVariance(-1),   // Use default from Genkins et al.
         selectorType(SelectorType::BY_PID),
 		syncCV(false),
+		searchDirection(0),
 		foldConvergenceType(-1),
 		foldTolerance(-1.0),
 		foldMaxIterations(-1),
 		foldMinIterations(5),
-		warmStart(false)
+		warmStart(false),
+		refineSearch(false)
         { }
 };
 

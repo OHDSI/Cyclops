@@ -702,6 +702,12 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param cvMinIterations       Integer: minimum iterations of a cross-validation fold fit when
 #'                              \code{cvConvergenceType}, \code{cvTolerance} or \code{cvMaxIterations} applies;
 #'                              \code{NULL} (default) means 5
+#' @param cvSearchDirection     String: first step of the auto-search from \code{startingVariance}: \code{"up"},
+#'                              \code{"down"}, or \code{"auto"} (up below a variance of 1 and down above, as in
+#'                              BBR). \code{NULL} (default) means \code{"auto"}
+#' @param cvRefine              Logical: after the auto-search stops, evaluate its estimate and refine it by
+#'                              quadratic fits to the best point and its two neighbours, until the step is under
+#'                              15% (at most three more evaluations). \code{NULL} (default) means \code{FALSE}
 #' @param cvWarmStart           Logical: start each cross-validation fold fit from that fold's solution at the
 #'                              nearest hyperparameter already tried; results do not depend on \code{threads}.
 #'                              \code{NULL} (default) means \code{FALSE}
@@ -754,6 +760,8 @@ createControl <- function(maxIterations = NULL,
                           cvTolerance = NULL,
                           cvMaxIterations = NULL,
                           cvMinIterations = NULL,
+                          cvSearchDirection = NULL,
+                          cvRefine = NULL,
                           cvWarmStart = NULL,
                           activeSetEvery = NULL,
                           activeSetThreshold = NULL,
@@ -779,6 +787,8 @@ createControl <- function(maxIterations = NULL,
     stopifnot(is.null(cvTolerance) || cvTolerance > 0)
     stopifnot(is.null(cvMaxIterations) || cvMaxIterations >= 1)
     stopifnot(is.null(cvMinIterations) || cvMinIterations >= 0)
+    stopifnot(is.null(cvSearchDirection) || cvSearchDirection %in% c("auto", "up", "down"))
+    stopifnot(is.null(cvRefine) || is.logical(cvRefine))
     stopifnot(is.null(cvWarmStart) || is.logical(cvWarmStart))
     stopifnot(is.null(activeSetEvery) || activeSetEvery == 0 || activeSetEvery > 1)
     stopifnot(is.null(activeSetThreshold) || (activeSetThreshold >= 0 && activeSetThreshold < 1))
@@ -809,6 +819,8 @@ createControl <- function(maxIterations = NULL,
                    cvTolerance = cvTolerance,
                    cvMaxIterations = cvMaxIterations,
                    cvMinIterations = cvMinIterations,
+                   cvSearchDirection = cvSearchDirection,
+                   cvRefine = cvRefine,
                    cvWarmStart = cvWarmStart,
                    activeSetEvery = activeSetEvery,
                    activeSetThreshold = activeSetThreshold,
@@ -955,7 +967,8 @@ getCrossValidationInfo <- function(object) {
 # Fills in the settings that createControl() leaves NULL; a setting given to createControl() wins
 .resolveControl <- function(control) {
     settings <- list(convergenceType = "gradient", cvConvergenceType = NULL, cvMinIterations = 5,
-                     cvWarmStart = FALSE, activeSetEvery = 0, activeSetThreshold = 0.01)
+                     cvSearchDirection = "auto", cvRefine = FALSE, cvWarmStart = FALSE,
+                     activeSetEvery = 0, activeSetThreshold = 0.01)
     for (name in names(settings)) {
         if (is.null(control[[name]])) {
             control[name] <- list(settings[[name]])
@@ -987,7 +1000,9 @@ getCrossValidationInfo <- function(object) {
 # Cross-validation options of a resolved control
 .cvControlOptions <- function(control) {
     valueOr <- function(value, default) if (is.null(value)) default else value
-    list(convergenceType = valueOr(control$cvConvergenceType, ""),
+    list(searchDirection = control$cvSearchDirection,
+         refine = control$cvRefine,
+         convergenceType = valueOr(control$cvConvergenceType, ""),
          tolerance = valueOr(control$cvTolerance, -1),
          maxIterations = as.integer(valueOr(control$cvMaxIterations, -1)),
          minIterations = as.integer(control$cvMinIterations),

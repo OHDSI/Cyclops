@@ -673,6 +673,18 @@ void cyclopsSetCvControl(SEXP inRcppCcdInterface, const List& options) {
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 	CrossValidationArguments& cv = interface->getArguments().crossValidation;
 
+	if (options.containsElementNamed("searchDirection")) {
+		const std::string direction = as<std::string>(options["searchDirection"]);
+		if (direction == "auto") {
+			cv.searchDirection = 0;
+		} else if (direction == "up") {
+			cv.searchDirection = 1;
+		} else if (direction == "down") {
+			cv.searchDirection = -1;
+		} else {
+			Rcpp::stop("Unknown cross-validation search direction: " + direction);
+		}
+	}
 	if (options.containsElementNamed("convergenceType")) {
 		const std::string type = as<std::string>(options["convergenceType"]);
 		cv.foldConvergenceType = type.empty() ? -1 : RcppCcdInterface::parseConvergenceType(type);
@@ -688,6 +700,9 @@ void cyclopsSetCvControl(SEXP inRcppCcdInterface, const List& options) {
 	}
 	if (options.containsElementNamed("warmStart")) {
 		cv.warmStart = as<bool>(options["warmStart"]);
+	}
+	if (options.containsElementNamed("refine")) {
+		cv.refineSearch = as<bool>(options["refine"]);
 	}
 }
 
