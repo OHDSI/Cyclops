@@ -221,7 +221,7 @@ fitCyclopsModel <- function(cyclopsData,
         control$cvRepetitions <- .getNumberOfRepetitions(getNumberOfRows(cyclopsData))
     }
 
-    control <- .setControl(cyclopsData$cyclopsInterfacePtr, control)
+    control <- .setControl(cyclopsData$cyclopsInterfacePtr, control, cyclopsData)
     threads <- control$threads
 
     if (!is.null(startingCoefficients)) {
@@ -652,7 +652,8 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              convergence. \code{NULL} (default) means 1e-6, or 1e-4 with \code{convergenceType = "kkt"},
 #'                              which measures it in standard-error units
 #' @param convergenceType		String: name of convergence criterion to employ (described in more detail below).
-#'                              \code{NULL} (default) means \code{"gradient"}
+#'                              \code{NULL} (default) means \code{"gradient"}, or \code{"kkt"} for logistic regression with
+#'                              \code{fitter = "super"}
 #' @param cvType						String: name of cross validation search.
 #' 													Option \code{"auto"} selects an auto-search following BBR.
 #' 													Option \code{"grid"} selects a grid-search cross validation
@@ -689,10 +690,15 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              CPU, profile likelihoods and confidence intervals. Bug fixes apply to every fitter,
 #'                              except that \code{"legacy"} keeps the earlier cross-validation score of
 #'                              \code{"lr"} models (held-out cases only). \code{"cox_counting"} models need another
-#'                              fitter. \code{"super"} is reserved for result-changing improvements to \code{"lr"}
-#'                              fits and currently runs the same code as \code{"default"}
+#'                              fitter. \code{"super"} runs the code of \code{"default"} and changes how \code{"lr"}
+#'                              models are fit through the defaults of \code{convergenceType} and the
+#'                              arguments below: the \code{"kkt"} convergence criterion, cross-validation fold
+#'                              fits to a looser \code{"kkt"} tolerance that start from each fold's previous
+#'                              solution, an auto-search that steps down first and refines its result, and
+#'                              active-set cycling for 1000 or more covariates
 #' @param cvConvergenceType     String: convergence criterion of the cross-validation fold fits only.
-#'                              \code{NULL} (default) means that of the final fit
+#'                              \code{NULL} (default) means that of the final fit, or \code{"kkt"} for logistic
+#'                              regression with \code{fitter = "super"}
 #' @param cvTolerance           Numeric: tolerance of the cross-validation fold fits only. \code{NULL} (default)
 #'                              means 3e-3 with \code{cvConvergenceType = "kkt"}, 1e-6 with another
 #'                              \code{cvConvergenceType}, and \code{tolerance} without one
@@ -704,17 +710,21 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              \code{NULL} (default) means 5
 #' @param cvSearchDirection     String: first step of the auto-search from \code{startingVariance}: \code{"up"},
 #'                              \code{"down"}, or \code{"auto"} (up below a variance of 1 and down above, as in
-#'                              BBR). \code{NULL} (default) means \code{"auto"}
+#'                              BBR). \code{NULL} (default) means \code{"down"} for logistic regression with
+#'                              \code{fitter = "super"} and \code{"auto"} otherwise
 #' @param cvRefine              Logical: after the auto-search stops, evaluate its estimate and refine it by
 #'                              quadratic fits to the best point and its two neighbours, until the step is under
-#'                              15% (at most three more evaluations). \code{NULL} (default) means \code{FALSE}
+#'                              15% (at most three more evaluations). \code{NULL} (default) means \code{TRUE}
+#'                              for logistic regression with \code{fitter = "super"} and \code{FALSE} otherwise
 #' @param cvWarmStart           Logical: start each cross-validation fold fit from that fold's solution at the
 #'                              nearest hyperparameter already tried; results do not depend on \code{threads}.
-#'                              \code{NULL} (default) means \code{FALSE}
+#'                              \code{NULL} (default) means \code{TRUE} for logistic regression with
+#'                              \code{fitter = "super"} and \code{FALSE} otherwise
 #' @param activeSetEvery        Integer: active-set cycling, which needs \code{convergenceType = "kkt"} or
 #'                              \code{cvConvergenceType = "kkt"}. Cycles between full sweeps skip coordinates
 #'                              that did not move, with a full sweep at least every \code{activeSetEvery}
-#'                              cycles; 0 turns it off. \code{NULL} (default) means 0
+#'                              cycles; 0 turns it off. \code{NULL} (default) means 10 for logistic regression
+#'                              with \code{fitter = "super"} and at least 1000 covariates, and 0 otherwise
 #' @param activeSetThreshold    Numeric: with active-set cycling, cycles between full sweeps also skip
 #'                              coordinates whose last step, in standard-error units, was below this fraction of
 #'                              the largest step of the last full sweep; with 0, they skip only coordinates with
@@ -964,11 +974,35 @@ getCrossValidationInfo <- function(object) {
          point = values[-1])
 }
 
-# Fills in the settings that createControl() leaves NULL; a setting given to createControl() wins
-.resolveControl <- function(control) {
-    settings <- list(convergenceType = "gradient", cvConvergenceType = NULL, cvMinIterations = 5,
-                     cvSearchDirection = "auto", cvRefine = FALSE, cvWarmStart = FALSE,
-                     activeSetEvery = 0, activeSetThreshold = 0.01)
+# Settings that createControl() leaves to the fitter. fitter = "super" changes logistic regression only: the
+# "kkt" convergence criterion, cross-validation fold fits by "kkt" at a looser tolerance, a search that steps
+# down first and refines its result, per-fold warm starts, and active-set cycling for models with many
+# covariates. A setting given to createControl() wins.
+.fitterSettings <- function(control, modelType = NULL, nCovariates = NULL) {
+    super <- identical(.fitter(control), "super") && identical(modelType, "lr")
+    if (super) {
+        list(convergenceType = "kkt", cvConvergenceType = "kkt", cvMinIterations = 5,
+             cvSearchDirection = "down", cvRefine = TRUE, cvWarmStart = TRUE,
+             activeSetEvery = if (!is.null(nCovariates) && nCovariates >= .activeSetMinCovariates) 10 else 0,
+             activeSetThreshold = 0.01)
+    } else {
+        list(convergenceType = "gradient", cvConvergenceType = NULL, cvMinIterations = 5,
+             cvSearchDirection = "auto", cvRefine = FALSE, cvWarmStart = FALSE,
+             activeSetEvery = 0, activeSetThreshold = 0.01)
+    }
+}
+
+# Active-set cycling pays off only with many covariates (it lost with a support of about 100)
+.activeSetMinCovariates <- 1000
+
+.resolveControl <- function(control, modelType = NULL, nCovariates = NULL) {
+    settings <- .fitterSettings(control, modelType, nCovariates)
+    if (identical(.fitter(control), "super") && identical(modelType, "lr") &&
+        !is.null(control$tolerance) && is.null(control$convergenceType)) {
+        warning("tolerance is ignored without convergenceType under fitter = \"super\": ",
+                "its \"kkt\" criterion measures the tolerance in standard-error units", call. = FALSE)
+        control["tolerance"] <- list(NULL)
+    }
     for (name in names(settings)) {
         if (is.null(control[[name]])) {
             control[name] <- list(settings[[name]])
@@ -1015,10 +1049,12 @@ getCrossValidationInfo <- function(object) {
          activeSetThreshold = as.numeric(control$activeSetThreshold))
 }
 
-.setControl <- function(cyclopsInterfacePtr, control) {
+.setControl <- function(cyclopsInterfacePtr, control, cyclopsData = NULL) {
     if (!missing(control)) {
         stopifnot(inherits(control, "cyclopsControl"))
-        control <- .resolveControl(control)
+        control <- .resolveControl(control,
+                                   modelType = if (is.null(cyclopsData)) NULL else cyclopsData$modelType,
+                                   nCovariates = if (is.null(cyclopsData)) NULL else getNumberOfCovariates(cyclopsData))
 
         if (is.null(control$seed)) {
             control$seed <- as.integer(Sys.time())
@@ -1480,7 +1516,7 @@ fixedGridProfileLogLikelihood <- function(object, parm, x, includePenalty,
 aconfint <- function(object, parm, level = 0.95, control,
                      overrideNoRegularization = FALSE, ...) {
     .checkInterface(object$cyclopsData, testOnly = TRUE)
-    .setControl(object$cyclopsData$cyclopsInterfacePtr, control)
+    .setControl(object$cyclopsData$cyclopsInterfacePtr, control, object$cyclopsData)
     cf <- coef(object)
     if (missing(parm)) {
         parm <- names(cf)
@@ -1515,7 +1551,7 @@ aconfint <- function(object, parm, level = 0.95, control,
 #' @export
 vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, ...) {
     .checkInterface(object$cyclopsData, testOnly = TRUE)
-    .setControl(object$cyclopsData$cyclopsInterfacePtr, control)
+    .setControl(object$cyclopsData$cyclopsInterfacePtr, control, object$cyclopsData)
     fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsData$cyclopsInterfacePtr, NULL)
     if (.cyclopsGetHasOffset(object$cyclopsData)) {
         fisherInformation <- fisherInformation[2:nrow(fisherInformation), 2:ncol(fisherInformation)]

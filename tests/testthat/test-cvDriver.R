@@ -92,3 +92,15 @@ test_that("Cross-validation options of the fold fits do not depend on the number
     expect_identical(default$variance, explicit$variance)
     expect_identical(coef(default), coef(explicit))
 })
+
+test_that("Cross-validation with the super fitter does not depend on the number of threads", {
+    cyclopsData <- simulateLr()
+    prior <- createPrior("laplace", exclude = c(0), useCrossValidation = TRUE)
+    fits <- lapply(c(1, 3), function(threads) {
+        fitCyclopsModel(cyclopsData, prior = prior, forceNewObject = TRUE,
+                        control = cvControl(threads, fitter = "super"))
+    })
+    expect_equal(fits[[1]]$return_flag, "SUCCESS")
+    expect_identical(fits[[2]]$variance, fits[[1]]$variance)
+    expect_identical(coef(fits[[2]]), coef(fits[[1]]))
+})

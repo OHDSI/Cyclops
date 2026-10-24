@@ -34,9 +34,9 @@ Changes:
     updates of `lr`, `cpr`, `sccs`, `clr`, `clr_efron` and `clr_exact` (items 16 and 24), held-out rows
     in `lr` cross-validation (item 25), the cross-validation score of `lr` (item 26), and the
     profile-likelihood and `confint()` searches (items 22 and 23; their values then depend on `threads`
-    again). The bug fixes in this release apply to every fitter. `"super"` is reserved for
-    result-changing improvements to `lr` fits and currently runs the same code as `"default"`.
-    `cox_counting` models need a fitter other than `"legacy"`
+    again). The bug fixes in this release apply to every fitter. `"super"` runs the code of
+    `"default"` and changes how `lr` models are fit (item 33). `cox_counting` models need a fitter
+    other than `"legacy"`
 14. `cpr`, `sccs` and `clr` fits are about 2.3x faster, with identical results: per-stratum numerators
     that only Cox models read are no longer filled, the gradient and the `xBeta` update walk each
     column's entries one stratum at a time, and the convergence check of every model computes the
@@ -114,6 +114,30 @@ Changes:
 32. `convertToCyclopsData(checkRowIds = FALSE)` stops for covariate rowIds that are not among the
     outcome rowIds (they were assigned to the first row), and `fixedCoefficients` given to one fit no
     longer stay fixed in later fits on the same data
+33. `createControl(fitter = "super")` fits `lr` models to a stopping rule that measures the distance
+    to the optimum, and cross-validates them faster; other models are fit as under `"default"`.
+    `convergenceType`, `tolerance` and `maxIterations` now default to `NULL`: `"gradient"`, 1e-6 and
+    1000 as before, or `"kkt"`, 1e-4 and 5000 for `lr` under `"super"`:
+    - the new `convergenceType = "kkt"` stops when the largest minimum-norm subgradient of the log
+      posterior, in standard-error units, is below `tolerance` (default 1e-4) over two full cycles and
+      then at the point returned; `maxIterations` defaults to 5000 under it. The `"gradient"` criterion
+      can stop at a turning point far from the optimum and report `SUCCESS`. Under `"super"`, a
+      `tolerance` given without `convergenceType` is ignored with a warning, since `"kkt"` measures it
+      in other units
+    - cross-validation fold fits stop by `"kkt"` at 3e-3 and start from their own solution at the
+      nearest variance tried; the auto-search steps down first from `startingVariance` and refines its
+      result by up to three local quadratic fits
+    - with 1000 or more covariates, the cycles between full sweeps skip coefficients that are 0 or
+      barely moved
+    - each of these settings is also a new `createControl()` argument, which applies under every
+      fitter and to every model when given: `cvConvergenceType`, `cvTolerance`, `cvMaxIterations`,
+      `cvMinIterations`, `cvSearchDirection`, `cvRefine`, `cvWarmStart`, `activeSetEvery` and
+      `activeSetThreshold`. Their default, `NULL`, leaves the choice to the fitter
+    - in benchmarks with propensity-score data (20,000-100,000 rows, 4,000-13,000 covariates),
+      cross-validation as `CohortMethod::createPs()` runs it is 5-10x faster than under `"default"`
+      (1.2x when the optimum lies between the first two variances tried), single fits are 2x faster,
+      and the selected variance lies closer to the optimum of the cross-validation curve (within
+      3-17% against 30-46% below it)
 
 Cyclops v3.7.1
 ==============

@@ -32,3 +32,63 @@ test_that("kkt convergence and active-set cycling find the tight optimum", {
     expect_error(createControl(cvSearchDirection = "sideways"))
     expect_error(createControl(cvConvergenceType = "newton"))
 })
+
+test_that("The super fitter changes only logistic regression, and createControl() arguments override it", {
+    resolve <- function(modelType, nCovariates, ...) {
+        Cyclops:::.resolveControl(createControl(fitter = "super", ...), modelType, nCovariates)
+    }
+    lr <- resolve("lr", 999)
+    expect_equal(lr[c("convergenceType", "tolerance", "maxIterations", "cvConvergenceType", "cvTolerance",
+                      "cvSearchDirection", "cvRefine", "cvWarmStart", "activeSetEvery")],
+                 list(convergenceType = "kkt", tolerance = 1E-4, maxIterations = 5000, cvConvergenceType = "kkt",
+                      cvTolerance = 3E-3, cvSearchDirection = "down", cvRefine = TRUE, cvWarmStart = TRUE,
+                      activeSetEvery = 0))
+    expect_equal(resolve("lr", 1000)$activeSetEvery, 10)
+    for (modelType in c("cpr", "clr", "cox")) {
+        expect_equal(resolve(modelType, 5000)[c("convergenceType", "tolerance", "maxIterations", "cvWarmStart",
+                                                "activeSetEvery")],
+                     list(convergenceType = "gradient", tolerance = 1E-6, maxIterations = 1000,
+                          cvWarmStart = FALSE, activeSetEvery = 0))
+    }
+    expect_equal(resolve("lr", 10, convergenceType = "lange", maxIterations = 50)[c("convergenceType",
+                                                                                 "tolerance", "maxIterations")],
+                 list(convergenceType = "lange", tolerance = 1E-6, maxIterations = 50))
+    expect_equal(resolve("cpr", 10, convergenceType = "kkt")[c("tolerance", "maxIterations")],
+                 list(tolerance = 1E-4, maxIterations = 5000))
+
+    # Arguments win over the fitter, and fold fits with their own rule get its defaults
+    explicit <- resolve("lr", 5000, cvWarmStart = FALSE, cvRefine = FALSE, cvSearchDirection = "auto",
+                        activeSetEvery = 0, cvConvergenceType = "lange")
+    expect_equal(explicit[c("cvWarmStart", "cvRefine", "cvSearchDirection", "activeSetEvery", "cvConvergenceType",
+                            "cvTolerance", "cvMaxIterations")],
+                 list(cvWarmStart = FALSE, cvRefine = FALSE, cvSearchDirection = "auto", activeSetEvery = 0,
+                      cvConvergenceType = "lange", cvTolerance = 1E-6, cvMaxIterations = 1000))
+    default <- Cyclops:::.resolveControl(createControl(cvConvergenceType = "kkt", activeSetEvery = 20), "lr", 10)
+    expect_equal(default[c("convergenceType", "tolerance", "cvTolerance", "cvMaxIterations", "activeSetEvery",
+                           "cvWarmStart")],
+                 list(convergenceType = "gradient", tolerance = 1E-6, cvTolerance = 3E-3, cvMaxIterations = 5000,
+                      activeSetEvery = 20, cvWarmStart = FALSE))
+    expect_null(Cyclops:::.resolveControl(createControl(cvTolerance = 1E-8), "lr", 10)$cvConvergenceType)
+
+    # A tolerance without its convergence type would be read in the units of "kkt"
+    expect_warning(control <- resolve("lr", 10, tolerance = 1E-8), "tolerance is ignored")
+    expect_equal(control$tolerance, 1E-4)
+    expect_warning(resolve("lr", 10, tolerance = 1E-8, convergenceType = "gradient"), NA)
+    expect_warning(resolve("cpr", 10, tolerance = 1E-8), NA)
+})
+
+test_that("The super fitter reaches the optimum of logistic regression", {
+    set.seed(123)
+    sim <- simulateCyclopsData(nstrata = 1, nrows = 2000, ncovars = 1200, eCovarsPerRow = 4, model = "logistic")
+    data <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = "lr", quiet = TRUE)
+    prior <- createPrior("laplace", 0.05, exclude = 0)
+    tight <- fitCyclopsModel(data, prior = prior, forceNewObject = TRUE, warnings = FALSE,
+                             control = createControl(convergenceType = "lange", tolerance = 1E-13,
+                                                     maxIterations = 10000))
+    super <- fitCyclopsModel(data, prior = prior, forceNewObject = TRUE,
+                             control = createControl(fitter = "super"))
+    expect_equal(super$return_flag, "SUCCESS")
+    expect_equal(coef(super), coef(tight), tolerance = 1E-3)
+    expect_equal(super$log_likelihood + super$log_prior, tight$log_likelihood + tight$log_prior,
+                 tolerance = 1E-7)
+})
