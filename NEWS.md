@@ -129,15 +129,20 @@ Changes:
       result by up to three local quadratic fits
     - with 1000 or more covariates, the cycles between full sweeps skip coefficients that are 0 or
       barely moved
+    - the intercept takes extra Newton steps during a cycle when they pay for their work and its
+      gradient exceeds the tolerance. Updated once per cycle, it lags behind thousands of
+      covariates; on high-prevalence data fits converge 5-19x faster (one that reached 5000 cycles
+      now converges in 290)
     - each of these settings is also a new `createControl()` argument, which applies under every
       fitter and to every model when given: `cvConvergenceType`, `cvTolerance`, `cvMaxIterations`,
-      `cvMinIterations`, `cvSearchDirection`, `cvRefine`, `cvWarmStart`, `activeSetEvery` and
-      `activeSetThreshold`. Their default, `NULL`, leaves the choice to the fitter
+      `cvMinIterations`, `cvSearchDirection`, `cvRefine`, `cvWarmStart`, `activeSetEvery`,
+      `activeSetThreshold` and `adaptiveIntercept`. Their default, `NULL`, leaves the choice to the
+      fitter
     - in benchmarks with propensity-score data (20,000-100,000 rows, 4,000-13,000 covariates),
-      cross-validation as `CohortMethod::createPs()` runs it is 5-10x faster than under `"default"`
-      (1.2x when the optimum lies between the first two variances tried), single fits are 2x faster,
-      and the selected variance lies closer to the optimum of the cross-validation curve (within
-      3-17% against 30-46% below it)
+      cross-validation as `CohortMethod::createPs()` runs it is about 11-14x faster than under
+      `"default"` (2.6x when the optimum lies between the first two variances tried), as
+      PatientLevelPrediction runs it 2-5x, single fits 3-5x, and the selected variance lies closer
+      to the optimum of the cross-validation curve (within 3-17% against 30-46% below it)
 34. cross-validation with `resetCoefficients = FALSE` (the default, which PatientLevelPrediction
     uses) starts each fold fit from that fold's solution at the nearest variance already tried
     (`cvWarmStart` now defaults to `TRUE` there), so results no longer depend on `threads`: each

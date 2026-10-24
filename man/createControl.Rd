@@ -115,8 +115,8 @@ fitter. \code{"super"} runs the code of \code{"default"} and changes how \code{"
 models are fit through the defaults of \code{convergenceType} and the
 arguments below: the \code{"kkt"} convergence criterion, cross-validation fold
 fits to a looser \code{"kkt"} tolerance that start from each fold's previous
-solution, an auto-search that steps down first and refines its result, and
-active-set cycling for 1000 or more covariates}
+solution, an auto-search that steps down first and refines its result,
+active-set cycling for 1000 or more covariates, and adaptive intercept steps}
 
 \item{cvConvergenceType}{String: convergence criterion of the cross-validation fold fits only.
 \code{NULL} (default) means that of the final fit, or \code{"kkt"} for logistic
@@ -167,7 +167,8 @@ Newton step on the intercept during a cycle whenever its predicted gain per row
 of work reaches a quarter of that of the coordinate steps in the previous cycle
 and its gradient, in standard-error units, exceeds the tolerance. With many
 covariates the intercept otherwise lags behind them. \code{NULL} (default) means
-\code{FALSE}}
+\code{TRUE} for logistic regression with \code{fitter = "super"} and \code{FALSE}
+otherwise}
 
 \item{doItAll}{Currently unused}
 

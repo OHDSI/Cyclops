@@ -698,8 +698,8 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              models are fit through the defaults of \code{convergenceType} and the
 #'                              arguments below: the \code{"kkt"} convergence criterion, cross-validation fold
 #'                              fits to a looser \code{"kkt"} tolerance that start from each fold's previous
-#'                              solution, an auto-search that steps down first and refines its result, and
-#'                              active-set cycling for 1000 or more covariates
+#'                              solution, an auto-search that steps down first and refines its result,
+#'                              active-set cycling for 1000 or more covariates, and adaptive intercept steps
 #' @param cvConvergenceType     String: convergence criterion of the cross-validation fold fits only.
 #'                              \code{NULL} (default) means that of the final fit, or \code{"kkt"} for logistic
 #'                              regression with \code{fitter = "super"}
@@ -740,7 +740,8 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              of work reaches a quarter of that of the coordinate steps in the previous cycle
 #'                              and its gradient, in standard-error units, exceeds the tolerance. With many
 #'                              covariates the intercept otherwise lags behind them. \code{NULL} (default) means
-#'                              \code{FALSE}
+#'                              \code{TRUE} for logistic regression with \code{fitter = "super"} and \code{FALSE}
+#'                              otherwise
 #' @param doItAll               Currently unused
 #' @param syncCV                Currently unused
 #'
@@ -991,15 +992,15 @@ getCrossValidationInfo <- function(object) {
 
 # Settings that createControl() leaves to the fitter. fitter = "super" changes logistic regression only: the
 # "kkt" convergence criterion, cross-validation fold fits by "kkt" at a looser tolerance, a search that steps
-# down first and refines its result, per-fold warm starts, and active-set cycling for models with many
-# covariates. A setting given to createControl() wins.
+# down first and refines its result, per-fold warm starts, active-set cycling for models with many covariates
+# and adaptive intercept steps. A setting given to createControl() wins.
 .fitterSettings <- function(control, modelType = NULL, nCovariates = NULL) {
     super <- identical(.fitter(control), "super") && identical(modelType, "lr")
     if (super) {
         list(convergenceType = "kkt", cvConvergenceType = "kkt", cvMinIterations = 5,
              cvSearchDirection = "down", cvRefine = TRUE, cvWarmStart = TRUE,
              activeSetEvery = if (!is.null(nCovariates) && nCovariates >= .activeSetMinCovariates) 10 else 0,
-             activeSetThreshold = 0.01, adaptiveIntercept = FALSE)
+             activeSetThreshold = 0.01, adaptiveIntercept = TRUE)
     } else { # warm starts make fold fits without resetCoefficients independent of threads
         warmStart <- !isTRUE(control$resetCoefficients) && !identical(.fitter(control), "legacy")
         list(convergenceType = "gradient", cvConvergenceType = NULL, cvMinIterations = 5,

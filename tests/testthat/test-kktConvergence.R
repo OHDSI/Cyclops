@@ -60,10 +60,10 @@ test_that("The super fitter changes only logistic regression, and createControl(
     }
     lr <- resolve("lr", 999)
     expect_equal(lr[c("convergenceType", "tolerance", "maxIterations", "cvConvergenceType", "cvTolerance",
-                      "cvSearchDirection", "cvRefine", "cvWarmStart", "activeSetEvery")],
+                      "cvSearchDirection", "cvRefine", "cvWarmStart", "activeSetEvery", "adaptiveIntercept")],
                  list(convergenceType = "kkt", tolerance = 1E-4, maxIterations = 5000, cvConvergenceType = "kkt",
                       cvTolerance = 3E-3, cvSearchDirection = "down", cvRefine = TRUE, cvWarmStart = TRUE,
-                      activeSetEvery = 0))
+                      activeSetEvery = 0, adaptiveIntercept = TRUE))
     expect_equal(resolve("lr", 1000)$activeSetEvery, 10)
     for (modelType in c("cpr", "clr", "cox")) {
         expect_equal(resolve(modelType, 5000)[c("convergenceType", "tolerance", "maxIterations", "activeSetEvery",
