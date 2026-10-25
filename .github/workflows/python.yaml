@@ -1,0 +1,158 @@
+# Python bindings: unit tests, R-parity tests, and wheels.
+#
+# Scoped with `paths` so it stays out of the way of the R workflows, which are
+# unaffected by anything under python/ or src/cyclops/api/.
+
+name: Python
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'python/**'
+      - 'src/**'
+      - '.github/workflows/python.yaml'
+  pull_request:
+    branches: ['**']
+    paths:
+      - 'python/**'
+      - 'src/**'
+      - '.github/workflows/python.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pipx install ruff
+      - name: Ruff
+        working-directory: python
+        run: ruff check src tests
+
+  # ---------------------------------------------------------------------------
+  # Unit tests across the supported platform/interpreter matrix.
+  # ---------------------------------------------------------------------------
+  test:
+    name: ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ['3.9', '3.12']
+        include:
+          # The oldest and newest supported interpreters carry the signal; the
+          # middle versions add build time without adding coverage.
+          - os: ubuntu-latest
+            python: '3.13'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install Eigen (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libeigen3-dev
+
+      - name: Install Eigen (macOS)
+        if: runner.os == 'macOS'
+        run: brew install eigen
+
+      - name: Install
+        working-directory: python
+        run: python -m pip install -v ".[test]"
+
+      - name: Test
+        working-directory: python
+        run: pytest tests -v -m "not parity"
+
+  # ---------------------------------------------------------------------------
+  # The R package is the numerical ground truth. This job builds it from the
+  # same tree and compares fits coefficient by coefficient.
+  # ---------------------------------------------------------------------------
+  parity:
+    name: Parity with R
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: |
+            any::jsonlite
+            any::testthat
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Eigen
+        run: sudo apt-get update && sudo apt-get install -y libeigen3-dev
+
+      - name: Install the R package from this tree
+        run: R CMD INSTALL .
+
+      # Guards the core changes under src/cyclops/ against regressing R.
+      - name: R test-suite
+        run: |
+          Rscript -e 'library(testthat); library(Cyclops);
+            test_dir("tests/testthat", env = asNamespace("Cyclops"),
+                     reporter = "summary", stop_on_failure = TRUE)'
+
+      - name: Install the Python package
+        working-directory: python
+        run: python -m pip install -v ".[test]"
+
+      - name: Parity tests
+        working-directory: python
+        run: pytest tests -v -m parity
+
+  # ---------------------------------------------------------------------------
+  # Wheels. Not built on every push: the test job already compiles the core on
+  # every supported platform, so this only checks packaging. Run it on demand.
+  # ---------------------------------------------------------------------------
+  wheels:
+    name: Wheels on ${{ matrix.os }}
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ${{ matrix.os }}
+    needs: [test]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # package-dir is python/, but cibuildwheel copies the whole working
+      # directory into its build containers, so the C++ core at src/ comes along
+      # and CYCLOPS_ROOT resolves to the repository root as it does locally.
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.21
+        with:
+          package-dir: python
+        env:
+          CIBW_BEFORE_ALL_LINUX: >-
+            (yum install -y eigen3-devel || apk add --no-cache eigen-dev || true)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: ./wheelhouse/*.whl
