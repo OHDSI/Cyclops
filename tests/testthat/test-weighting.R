@@ -344,6 +344,31 @@ test_that("Cross-validation with zero-weights refits with the weights", {
     expect_equal(coef(cv), coef(fixed), tolerance = 1E-6)
 })
 
+test_that("Cross-validation with real-valued weights refits with the weights (issue #93)", {
+    set.seed(123)
+    n <- 2000
+    p <- 10
+    x <- matrix(rbinom(n * p, 1, 0.3), n, p)
+    y <- rbinom(n, 1, plogis(-1 + drop(x %*% rnorm(p, 0, 0.5))))
+    w <- runif(n, 0.2, 3)
+    control <- createControl(seed = 1, noiseLevel = "silent", tolerance = 1E-10)
+    fitAt <- function(prior, weights = NULL, dataWeights = NULL) {
+        fitCyclopsModel(createCyclopsData(y ~ x, modelType = "lr", weights = dataWeights), prior = prior,
+                        control = control, weights = weights, warnings = FALSE)
+    }
+
+    cv <- fitAt(createPrior("laplace", useCrossValidation = TRUE), weights = w)
+    variance <- cv$variance[1]
+    weighted <- fitAt(createPrior("laplace", variance = variance), weights = w)
+    unweighted <- fitAt(createPrior("laplace", variance = variance))
+    expect_equal(coef(cv), coef(weighted), tolerance = 1E-8)
+    expect_gt(max(abs(coef(cv) - coef(unweighted))), 1E-2) # the weights matter at this variance
+
+    # Weights given to createCyclopsData()
+    cvData <- fitAt(createPrior("laplace", useCrossValidation = TRUE), dataWeights = w)
+    expect_equal(coef(cvData), coef(cv))
+})
+
 # # currently broken
 # test_that("Small conditional logistic regression with weighting", {
 #
