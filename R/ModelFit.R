@@ -805,7 +805,7 @@ createControl <- function(maxIterations = NULL,
     stopifnot(fitter %in% c("legacy", "default", "super"))
     validConvergenceNames <- c("gradient", "lange", "mittal", "zhang", "onestep", "kkt")
     stopifnot(is.null(convergenceType) || convergenceType %in% validConvergenceNames)
-    stopifnot(is.null(tolerance) || tolerance > 0)
+    stopifnot(is.null(tolerance) || tolerance >= 0) # 0 runs maxIterations cycles
     stopifnot(is.null(maxIterations) || maxIterations >= 1)
     stopifnot(is.null(cvConvergenceType) || cvConvergenceType %in% validConvergenceNames)
     stopifnot(is.null(cvTolerance) || cvTolerance > 0)

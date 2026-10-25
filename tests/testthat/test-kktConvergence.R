@@ -33,6 +33,20 @@ test_that("kkt convergence and active-set cycling find the tight optimum", {
     expect_error(createControl(cvConvergenceType = "newton"))
 })
 
+test_that("A tolerance of 0 runs maxIterations cycles", {
+    set.seed(123)
+    sim <- simulateCyclopsData(nstrata = 1, nrows = 500, ncovars = 20, model = "logistic")
+    data <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = "lr", quiet = TRUE)
+    for (convergenceType in c("gradient", "kkt")) {
+        fit <- fitCyclopsModel(data, prior = createPrior("laplace", 0.1, exclude = 0), forceNewObject = TRUE,
+                               warnings = FALSE, control = createControl(convergenceType = convergenceType,
+                                                                         tolerance = 0, maxIterations = 7))
+        expect_equal(fit$return_flag, "MAX_ITERATIONS")
+        expect_equal(fit$iterations, 7)
+    }
+    expect_error(createControl(tolerance = -1E-6))
+})
+
 test_that("Adaptive intercept steps reach the tight optimum", {
     set.seed(321)
     sim <- simulateCyclopsData(nstrata = 1, nrows = 3000, ncovars = 300, eCovarsPerRow = 30, model = "logistic")
