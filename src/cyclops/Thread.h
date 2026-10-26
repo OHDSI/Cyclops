@@ -7,6 +7,7 @@
 #include <atomic>
 #include <exception>
 #include <vector>
+#include <cfenv>
 #include "tinythread/tinythread.h"
 
 #if defined(_WIN32) || defined(__WIN32__) || defined(__WINDOWS__) || defined(WIN_BUILD)
@@ -38,14 +39,20 @@ namespace threading {
 namespace threading {
 namespace tthread {
 
+    // Windows threads start with the system's floating-point control word, not the caller's (R sets
+    // 64-bit x87 precision), so the arguments, built in the calling thread, carry its floating-point
+    // environment for the worker to install before it computes anything.
     template <typename ItType, typename Function>
     struct for_each_arguments {
         ItType begin;
         ItType end;
         Function function;
+        std::fenv_t environment;
 
         for_each_arguments(ItType begin, ItType end, Function function)
-            : begin(begin), end(end), function(function) { }
+            : begin(begin), end(end), function(function) {
+            std::fegetenv(&environment);
+        }
     };
 
     template <typename ItType, typename Function>
@@ -56,6 +63,7 @@ namespace tthread {
                 static_cast<ArgType*>(a)
             );
 
+            std::fesetenv(&args->environment);
             std::for_each(args->begin, args->end, args->function);
        } catch (...) {
        }
@@ -147,10 +155,16 @@ private:
 #ifdef USE_TTHREAD
 namespace threading {
 namespace tthread {
+    // Carries the calling thread's floating-point environment, as for_each_arguments does
     template <typename Worker>
     struct worker_arguments {
         Worker* worker;
         size_t index;
+        std::fenv_t environment;
+
+        worker_arguments(Worker* worker, size_t index) : worker(worker), index(index) {
+            std::fegetenv(&environment);
+        }
     };
 
     template <typename Worker>
@@ -158,6 +172,7 @@ namespace tthread {
         try {
             auto args = bsccs::unique_ptr<worker_arguments<Worker>>(
                 static_cast<worker_arguments<Worker>*>(a));
+            std::fesetenv(&args->environment);
             (*args->worker)(args->index);
         } catch (...) {
         }
