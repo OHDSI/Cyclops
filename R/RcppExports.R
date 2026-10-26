@@ -121,6 +121,14 @@
     invisible(.Call(`_Cyclops_cyclopsSetControl`, inRcppCcdInterface, maxIterations, tolerance, convergenceType, useAutoSearch, fold, foldToCompute, lowerLimit, upperLimit, gridSteps, noiseLevel, threads, seed, resetCoefficients, startingVariance, useKKTSwindle, swindleMultipler, selectorType, initialBound, maxBoundCount, algorithm, doItAll, syncCV))
 }
 
+.cyclopsSetModeControl <- function(inRcppCcdInterface, options) {
+    invisible(.Call(`_Cyclops_cyclopsSetModeControl`, inRcppCcdInterface, options))
+}
+
+.cyclopsSetCvControl <- function(inRcppCcdInterface, options) {
+    invisible(.Call(`_Cyclops_cyclopsSetCvControl`, inRcppCcdInterface, options))
+}
+
 .cyclopsRunCrossValidation <- function(inRcppCcdInterface) {
     .Call(`_Cyclops_cyclopsRunCrossValidationl`, inRcppCcdInterface)
 }
@@ -149,8 +157,8 @@
     .Call(`_Cyclops_cyclopsLogModel`, inRcppCcdInterface)
 }
 
-.cyclopsInitializeModel <- function(inModelData, modelType, computeDevice, computeMLE = FALSE, coxFitter = "efficient") {
-    .Call(`_Cyclops_cyclopsInitializeModel`, inModelData, modelType, computeDevice, computeMLE, coxFitter)
+.cyclopsInitializeModel <- function(inModelData, modelType, computeDevice, computeMLE = FALSE, fitter = "default") {
+    .Call(`_Cyclops_cyclopsInitializeModel`, inModelData, modelType, computeDevice, computeMLE, fitter)
 }
 
 .cyclopsGetLogLikelihoodHessianDiagonal <- function(inRcppCcdInterface, sexpCovariates) {

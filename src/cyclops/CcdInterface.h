@@ -44,6 +44,13 @@ struct CrossValidationArguments {
     double startingVariance;
     SelectorType selectorType;
     bool syncCV;
+    int searchDirection;        // auto-search: 0 = up below variance 1 and down above (BBR), 1 = up, -1 = down
+    int foldConvergenceType;    // fold fits only; -1 = as the final fit
+    double foldTolerance;       // fold fits only; <= 0 = as the final fit
+    int foldMaxIterations;      // fold fits only; <= 0 = as the final fit
+    int foldMinIterations;      // fold fits only, when one of the three above is set
+    bool warmStart;             // each fold starts from its own solution at the nearest hyperparameter tried
+    bool refineSearch;          // auto-search: refine the result by local quadratic fits around the best point
 
     CrossValidationArguments() :
         doCrossValidation(false),
@@ -57,7 +64,14 @@ struct CrossValidationArguments {
         doFitAtOptimal(true),
         startingVariance(-1),   // Use default from Genkins et al.
         selectorType(SelectorType::BY_PID),
-		syncCV(false)
+		syncCV(false),
+		searchDirection(0),
+		foldConvergenceType(-1),
+		foldTolerance(-1.0),
+		foldMaxIterations(-1),
+		foldMinIterations(5),
+		warmStart(false),
+		refineSearch(false)
         { }
 };
 
@@ -82,6 +96,10 @@ struct ModeFindingArguments {
 	int maxBoundCount;
 	bool doItAll;
 	AlgorithmType algorithmType;
+	int activeSetEvery = 0; // 0: every cycle visits all coordinates; see CyclicCoordinateDescent::update()
+	double activeSetThreshold = 0.01; // active-set cycling: relative step size below which a coordinate is skipped
+	bool adaptiveIntercept = false; // extra intercept steps; see CyclicCoordinateDescent::trackInterceptGradient()
+	int minIterations; // no convergence (SUCCESS) before this many cycles
 
 	ModeFindingArguments() :
 		tolerance(1E-6),
@@ -92,7 +110,8 @@ struct ModeFindingArguments {
 		swindleMultipler(10),
 		initialBound(2.0),
 		maxBoundCount(5),
-		algorithmType(AlgorithmType::CCD)
+		algorithmType(AlgorithmType::CCD),
+		minIterations(0)
 	    { }
 };
 
@@ -135,7 +154,7 @@ struct CCDArguments {
 	// Needed for model specification
 	int modelType;
 	std::string modelName;
-	std::string coxFitter; // "efficient" (one risk-set group per event time) or "legacy"
+	std::string fitter; // "legacy" (Cyclops 3.7 kernels), "default" or "super", from createControl(fitter = )
 
 	NoiseLevels noiseLevel;
 
@@ -196,6 +215,16 @@ public:
             const std::vector<double>& startBetas,
             std::vector<double>* betas,
             bool chain);
+
+    void evaluateProfileModelLegacy(
+            CyclicCoordinateDescent *ccd,
+            int index,
+            const std::vector<double>& x0s,
+            const std::vector<double>& points,
+            std::vector<double>& values,
+            std::vector<double>* derivatives,
+            int nThreads,
+            bool includePenalty);
 
     double runCrossValidation(
             CyclicCoordinateDescent *ccd,

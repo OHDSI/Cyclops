@@ -29,8 +29,14 @@ Changes:
     replicate)
 12. `runBootstrap()` resamples only rows (or strata, or subjects) with non-zero weight; it also drew
     held-out ones, so each replicate had a random number of draws from the fit
-13. `createControl(coxFitter = "legacy")` fits `cox` models with the engine of Cyclops 3.7, to reproduce
-    earlier results; the default, `"efficient"`, is the new engine
+13. `createControl(fitter = )` chooses the fitting code. `"default"` runs the current code. `"legacy"`
+    runs the code of Cyclops 3.7, to reproduce earlier results: the `cox` engine, the `exp(xBeta)`
+    updates of `lr`, `cpr`, `sccs`, `clr`, `clr_efron` and `clr_exact` (items 16 and 24), held-out rows
+    in `lr` cross-validation (item 25), the cross-validation score of `lr` (item 26), and the
+    profile-likelihood and `confint()` searches (items 22 and 23; their values then depend on `threads`
+    again). The bug fixes in this release apply to every fitter. `"super"` runs the code of
+    `"default"` and changes how `lr` models are fit (item 33). `cox_counting` models need a fitter
+    other than `"legacy"`
 14. `cpr`, `sccs` and `clr` fits are about 2.3x faster, with identical results: per-stratum numerators
     that only Cox models read are no longer filled, the gradient and the `xBeta` update walk each
     column's entries one stratum at a time, and the convergence check of every model computes the
@@ -74,6 +80,75 @@ Changes:
     regularized, and nearly flat profiles. Each bound starts from the estimate, so bounds no longer
     depend on their order or on `threads`; with more than one thread, `fixedCoefficients` also stay
     fixed
+24. `lr` fits are 1.3-2.4x faster per cycle, with the same number of cycles: an indicator column
+    updates `exp(xBeta)` by one `exp()` factor, the gradient is computed from `exp(xBeta)` alone, and
+    continuous columns use tables of `exp()` factors (few distinct values) or a vectorizable `exp()`.
+    Coefficients change in the last bits (by about 1e-13). Denominators are set to `1 + exp(xBeta)`
+    instead of being updated by differences, which drifted after large moves (such as a distant
+    starting value) to a wrong optimum reported as `SUCCESS`, and rows with `xBeta` above about 709
+    no longer give `NaN`
+25. `lr` cross-validation fold fits leave out their held-out rows (they processed them with weight
+    0). Together with item 24, cross-validated `lr` fits are 3.3-3.7x faster in benchmarks with
+    20,000-100,000 rows and 4,000-13,000 covariates (8x where `threads > 1` also met the problem of
+    item 27). Fold results change in the last bits
+26. `lr` cross-validation scores held-out rows by their Bernoulli log-likelihood. It counted only the
+    held-out cases (`y log p`), leaving out the controls, so the selected variance changes (by -1.2% to
+    +3.0% in benchmarks with propensity-score data). `getCyclopsPredictiveLogLikelihood()` changes in
+    the same way. `fitter = "legacy"` keeps the earlier score
+27. cross-validation with `threads > 1` gives the same results as with one thread when
+    `resetCoefficients = TRUE`: the model copies of other threads started the intercept at 0 and let
+    `fixedCoefficients` vary. With `resetCoefficients = TRUE`, folds also go to threads as they become
+    free (10 folds on 8 threads ran on 5)
+28. `threads > 1` no longer slows down fits of models other than `cox` and `cox_counting` (by 8-60%,
+    and several-fold for fits of a few cycles, such as the final fit after cross-validation)
+29. cross-validation compares hyperparameters over the folds computed at all of them, and warns when
+    fold fits fail. A hyperparameter at which no fold fit converged ends the search at the best one
+    tried; the final model was fit at a variance of `NaN`. When no fold fit converges at all,
+    `fitCyclopsModel()` stops with an error. Fold fits that stop with `POOR_BLR_STEP` continue under
+    the Lange criterion, and when the final fit stops with `POOR_BLR_STEP`, only the final fit is
+    repeated (the whole cross-validation was)
+30. single-precision fits sum the convergence objective and the log-likelihood in double precision
+31. a coefficient whose steps of at least 1 keep reversing without shrinking (seen with nearly
+    saturated rows) has its step bound reduced, so the fit converges instead of running to
+    `maxIterations`
+32. `convertToCyclopsData(checkRowIds = FALSE)` stops for covariate rowIds that are not among the
+    outcome rowIds (they were assigned to the first row), and `fixedCoefficients` given to one fit no
+    longer stay fixed in later fits on the same data
+33. `createControl(fitter = "super")` fits `lr` models to a stopping rule that measures the distance
+    to the optimum, and cross-validates them faster; other models are fit as under `"default"`.
+    `convergenceType`, `tolerance` and `maxIterations` now default to `NULL`: `"gradient"`, 1e-6 and
+    1000 as before, or `"kkt"`, 1e-4 and 5000 for `lr` under `"super"`:
+    - the new `convergenceType = "kkt"` stops when the largest minimum-norm subgradient of the log
+      posterior, in standard-error units, is below `tolerance` (default 1e-4) over two full cycles and
+      then at the point returned; `maxIterations` defaults to 5000 under it. The `"gradient"` criterion
+      can stop at a turning point far from the optimum and report `SUCCESS`. Under `"super"`, a
+      `tolerance` given without `convergenceType` is ignored with a warning, since `"kkt"` measures it
+      in other units
+    - cross-validation fold fits stop by `"kkt"` at 3e-3 and start from their own solution at the
+      nearest variance tried; the auto-search steps down first from `startingVariance` and refines its
+      result by up to three local quadratic fits
+    - with 1000 or more covariates, the cycles between full sweeps skip coefficients that are 0 or
+      barely moved
+    - the intercept takes extra Newton steps during a cycle when they pay for their work and its
+      gradient exceeds the tolerance. Updated once per cycle, it lags behind thousands of
+      covariates; on high-prevalence data fits converge 5-19x faster (one that reached 5000 cycles
+      now converges in 290)
+    - each of these settings is also a new `createControl()` argument, which applies under every
+      fitter and to every model when given: `cvConvergenceType`, `cvTolerance`, `cvMaxIterations`,
+      `cvMinIterations`, `cvSearchDirection`, `cvRefine`, `cvWarmStart`, `activeSetEvery`,
+      `activeSetThreshold` and `adaptiveIntercept`. Their default, `NULL`, leaves the choice to the
+      fitter
+    - in benchmarks with propensity-score data (20,000-100,000 rows, 4,000-13,000 covariates),
+      cross-validation as `CohortMethod::createPs()` runs it is about 11-14x faster than under
+      `"default"` (2.6x when the optimum lies between the first two variances tried), as
+      PatientLevelPrediction runs it 2-5x, single fits 3-5x, and the selected variance lies closer
+      to the optimum of the cross-validation curve (within 3-17% against 30-46% below it)
+34. cross-validation with `resetCoefficients = FALSE` (the default, which PatientLevelPrediction
+    uses) starts each fold fit from that fold's solution at the nearest variance already tried
+    (`cvWarmStart` now defaults to `TRUE` there), so results no longer depend on `threads`: each
+    model copy continued from whichever fold fit it ran last. Results change within the convergence
+    tolerance, also with one thread, at about the same speed. `fitter = "legacy"` keeps the
+    earlier behaviour
 
 Cyclops v3.7.1
 ==============

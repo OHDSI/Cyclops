@@ -391,6 +391,28 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// cyclopsSetModeControl
+void cyclopsSetModeControl(SEXP inRcppCcdInterface, const List& options);
+RcppExport SEXP _Cyclops_cyclopsSetModeControl(SEXP inRcppCcdInterfaceSEXP, SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const List& >::type options(optionsSEXP);
+    cyclopsSetModeControl(inRcppCcdInterface, options);
+    return R_NilValue;
+END_RCPP
+}
+// cyclopsSetCvControl
+void cyclopsSetCvControl(SEXP inRcppCcdInterface, const List& options);
+RcppExport SEXP _Cyclops_cyclopsSetCvControl(SEXP inRcppCcdInterfaceSEXP, SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const List& >::type options(optionsSEXP);
+    cyclopsSetCvControl(inRcppCcdInterface, options);
+    return R_NilValue;
+END_RCPP
+}
 // cyclopsRunCrossValidationl
 List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface);
 RcppExport SEXP _Cyclops_cyclopsRunCrossValidationl(SEXP inRcppCcdInterfaceSEXP) {
@@ -470,8 +492,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsInitializeModel
-List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, const std::string& computeDevice, bool computeMLE, const std::string& coxFitter);
-RcppExport SEXP _Cyclops_cyclopsInitializeModel(SEXP inModelDataSEXP, SEXP modelTypeSEXP, SEXP computeDeviceSEXP, SEXP computeMLESEXP, SEXP coxFitterSEXP) {
+List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, const std::string& computeDevice, bool computeMLE, const std::string& fitter);
+RcppExport SEXP _Cyclops_cyclopsInitializeModel(SEXP inModelDataSEXP, SEXP modelTypeSEXP, SEXP computeDeviceSEXP, SEXP computeMLESEXP, SEXP fitterSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -479,8 +501,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::string& >::type modelType(modelTypeSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type computeDevice(computeDeviceSEXP);
     Rcpp::traits::input_parameter< bool >::type computeMLE(computeMLESEXP);
-    Rcpp::traits::input_parameter< const std::string& >::type coxFitter(coxFitterSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsInitializeModel(inModelData, modelType, computeDevice, computeMLE, coxFitter));
+    Rcpp::traits::input_parameter< const std::string& >::type fitter(fitterSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsInitializeModel(inModelData, modelType, computeDevice, computeMLE, fitter));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1048,6 +1070,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsSetConvergenceType", (DL_FUNC) &_Cyclops_cyclopsSetConvergenceType, 2},
     {"_Cyclops_cyclopsGetConvergenceType", (DL_FUNC) &_Cyclops_cyclopsGetConvergenceType, 1},
     {"_Cyclops_cyclopsSetControl", (DL_FUNC) &_Cyclops_cyclopsSetControl, 23},
+    {"_Cyclops_cyclopsSetModeControl", (DL_FUNC) &_Cyclops_cyclopsSetModeControl, 2},
+    {"_Cyclops_cyclopsSetCvControl", (DL_FUNC) &_Cyclops_cyclopsSetCvControl, 2},
     {"_Cyclops_cyclopsRunCrossValidationl", (DL_FUNC) &_Cyclops_cyclopsRunCrossValidationl, 1},
     {"_Cyclops_cyclopsCacheForJava", (DL_FUNC) &_Cyclops_cyclopsCacheForJava, 1},
     {"_Cyclops_cyclopsClearCacheForJava", (DL_FUNC) &_Cyclops_cyclopsClearCacheForJava, 0},

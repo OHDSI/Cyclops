@@ -5,9 +5,9 @@
 \title{Create a Cyclops control object}
 \usage{
 createControl(
-  maxIterations = 1000,
-  tolerance = 1e-06,
-  convergenceType = "gradient",
+  maxIterations = NULL,
+  tolerance = NULL,
+  convergenceType = NULL,
   cvType = "auto",
   fold = 10,
   lowerLimit = 0.01,
@@ -26,17 +26,32 @@ createControl(
   initialBound = 2,
   maxBoundCount = 5,
   algorithm = "ccd",
-  coxFitter = "efficient",
+  fitter = "default",
+  cvConvergenceType = NULL,
+  cvTolerance = NULL,
+  cvMaxIterations = NULL,
+  cvMinIterations = NULL,
+  cvSearchDirection = NULL,
+  cvRefine = NULL,
+  cvWarmStart = NULL,
+  activeSetEvery = NULL,
+  activeSetThreshold = NULL,
+  adaptiveIntercept = NULL,
   doItAll = TRUE,
   syncCV = FALSE
 )
 }
 \arguments{
-\item{maxIterations}{Integer: maximum iterations of Cyclops to attempt before returning a failed-to-converge error}
+\item{maxIterations}{Integer: maximum iterations of Cyclops to attempt before returning a failed-to-converge error.
+\code{NULL} (default) means 1000, or 5000 with \code{convergenceType = "kkt"}}
 
-\item{tolerance}{Numeric: maximum relative change in convergence criterion from successive iterations to achieve convergence}
+\item{tolerance}{Numeric: maximum relative change in convergence criterion from successive iterations to achieve
+convergence. \code{NULL} (default) means 1e-6, or 1e-4 with \code{convergenceType = "kkt"},
+which measures it in standard-error units}
 
-\item{convergenceType}{String: name of convergence criterion to employ (described in more detail below)}
+\item{convergenceType}{String: name of convergence criterion to employ (described in more detail below).
+\code{NULL} (default) means \code{"gradient"}, or \code{"kkt"} for logistic regression with
+\code{fitter = "super"}}
 
 \item{cvType}{String: name of cross validation search.
 Option \code{"auto"} selects an auto-search following BBR.
@@ -62,7 +77,11 @@ with results identical to one thread); default = 1 (auto = -1)}
 
 \item{seed}{Numeric: Specify random number generator seed. A null value sets seed via \code{\link{Sys.time}}.}
 
-\item{resetCoefficients}{Logical: Reset all coefficients to 0 between model fits under cross-validation}
+\item{resetCoefficients}{Logical: start every cross-validation fold fit from the starting coefficients.
+With \code{FALSE} (default), \code{cvWarmStart} defaults to \code{TRUE}, so each
+fold fit starts from that fold's solution at the nearest hyperparameter already
+tried and results do not depend on \code{threads}. Under \code{fitter = "legacy"},
+each model copy instead continues from the last fold fit it ran, as in Cyclops 3.7}
 
 \item{startingVariance}{Numeric: Starting variance for auto-search cross-validation; default = -1 (use estimate based on data)}
 
@@ -85,16 +104,81 @@ the average number of rows per stratum is smaller than the number of strata;
 
 \item{algorithm}{String: name of fitting algorithm to employ; default is \code{ccd}}
 
-\item{coxFitter}{String: engine for \code{"cox"} models on the CPU. \code{"efficient"} (default)
-uses one risk-set group per event time; \code{"legacy"} uses the engine of
-Cyclops 3.7, for reproducing earlier results. Estimates agree up to rounding.
-\code{"cox_counting"} models need \code{"efficient"}}
+\item{fitter}{String: which fitting code to run. \code{"default"} runs the current code.
+\code{"legacy"} runs the code of Cyclops 3.7, to reproduce earlier results: for
+logistic regression (\code{"lr"}), the grouped models (\code{"cpr"}, \code{"sccs"},
+\code{"clr"}, \code{"clr_efron"}, \code{"clr_exact"}), \code{"cox"} models on the
+CPU, profile likelihoods and confidence intervals. Bug fixes apply to every fitter,
+except that \code{"legacy"} keeps the earlier cross-validation score of
+\code{"lr"} models (held-out cases only). \code{"cox_counting"} models need another
+fitter. \code{"super"} runs the code of \code{"default"} and changes how \code{"lr"}
+models are fit through the defaults of \code{convergenceType} and the
+arguments below: the \code{"kkt"} convergence criterion, cross-validation fold
+fits to a looser \code{"kkt"} tolerance that start from each fold's previous
+solution, an auto-search that steps down first and refines its result,
+active-set cycling for 1000 or more covariates, and adaptive intercept steps}
+
+\item{cvConvergenceType}{String: convergence criterion of the cross-validation fold fits only.
+\code{NULL} (default) means that of the final fit, or \code{"kkt"} for logistic
+regression with \code{fitter = "super"}}
+
+\item{cvTolerance}{Numeric: tolerance of the cross-validation fold fits only. \code{NULL} (default)
+means 3e-3 with \code{cvConvergenceType = "kkt"}, 1e-6 with another
+\code{cvConvergenceType}, and \code{tolerance} without one}
+
+\item{cvMaxIterations}{Integer: maximum iterations of the cross-validation fold fits only.
+\code{NULL} (default) means 5000 with \code{cvConvergenceType = "kkt"}, 1000 with
+another \code{cvConvergenceType}, and \code{maxIterations} without one}
+
+\item{cvMinIterations}{Integer: minimum iterations of a cross-validation fold fit when
+\code{cvConvergenceType}, \code{cvTolerance} or \code{cvMaxIterations} applies;
+\code{NULL} (default) means 5}
+
+\item{cvSearchDirection}{String: first step of the auto-search from \code{startingVariance}: \code{"up"},
+\code{"down"}, or \code{"auto"} (up below a variance of 1 and down above, as in
+BBR). \code{NULL} (default) means \code{"down"} for logistic regression with
+\code{fitter = "super"} and \code{"auto"} otherwise}
+
+\item{cvRefine}{Logical: after the auto-search stops, evaluate its estimate and refine it by
+quadratic fits to the best point and its two neighbours, until the step is under
+15\% (at most three more evaluations). \code{NULL} (default) means \code{TRUE}
+for logistic regression with \code{fitter = "super"} and \code{FALSE} otherwise}
+
+\item{cvWarmStart}{Logical: start each cross-validation fold fit from that fold's solution at the
+nearest hyperparameter already tried; results do not depend on \code{threads}.
+\code{NULL} (default) means \code{TRUE} for logistic regression with
+\code{fitter = "super"}, and otherwise \code{TRUE} with \code{resetCoefficients =
+                             FALSE} except under \code{fitter = "legacy"}}
+
+\item{activeSetEvery}{Integer: active-set cycling, which needs \code{convergenceType = "kkt"} or
+\code{cvConvergenceType = "kkt"}. Cycles between full sweeps skip coordinates
+that did not move, with a full sweep at least every \code{activeSetEvery}
+cycles; 0 turns it off. \code{NULL} (default) means 10 for logistic regression
+with \code{fitter = "super"} and at least 1000 covariates, and 0 otherwise}
+
+\item{activeSetThreshold}{Numeric: with active-set cycling, cycles between full sweeps also skip
+coordinates whose last step, in standard-error units, was below this fraction of
+the largest step of the last full sweep; with 0, they skip only coordinates with
+a Laplace prior that are 0 and did not move. \code{NULL} (default) means 0.01}
+
+\item{adaptiveIntercept}{Logical: for logistic regression with an unpenalized intercept, which needs
+\code{convergenceType = "kkt"} or \code{cvConvergenceType = "kkt"}: take an extra
+Newton step on the intercept during a cycle whenever its predicted gain per row
+of work reaches a quarter of that of the coordinate steps in the previous cycle
+and its gradient, in standard-error units, exceeds the tolerance. With many
+covariates the intercept otherwise lags behind them. \code{NULL} (default) means
+\code{TRUE} for logistic regression with \code{fitter = "super"} and \code{FALSE}
+otherwise}
 
 \item{doItAll}{Currently unused}
 
 \item{syncCV}{Currently unused
 
-Todo: Describe convegence types}
+Todo: Describe convegence types
+
+Convergence type \code{"kkt"} stops when the largest minimum-norm subgradient of the
+log posterior over a cycle, in standard-error units, is below \code{tolerance} for two full cycles in a row
+and then at the point returned.}
 }
 \value{
 A Cyclops control object of class inheriting from \code{"cyclopsControl"} for use with \code{\link{fitCyclopsModel}}.

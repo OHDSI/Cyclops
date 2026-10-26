@@ -12,6 +12,9 @@
 #include <cstdlib>
 #include <iterator>
 #include <algorithm>
+#include <limits>
+#include <memory>
+#include <map>
 
 #include "Types.h"
 #include "Thread.h"
@@ -59,6 +62,96 @@ void AutoSearchCrossValidationDriver::logResults(const CCDArguments& allArgument
 	outLog.close();
 }
 
+// The search stops after a few points spaced by factors of 10 and returns the maximum of a quadratic that
+// it has not evaluated, which can lie far from the optimum of the cross-validation curve. This evaluates
+// that point and refits a quadratic to the best point and its two neighbours, until the next step is under
+// 15% (at most three more evaluations, each warm-started when warm starts are on).
+void AutoSearchCrossValidationDriver::refineSearch(
+			CyclicCoordinateDescent& ccd,
+			AbstractSelector& selector,
+			const CCDArguments& allArguments,
+			int nThreads,
+			std::vector<CyclicCoordinateDescent*>& ccdPool,
+			std::vector<AbstractSelector*>& selectorPool,
+			int dim,
+			int& step,
+			std::vector<double>& triedValues,
+			std::vector<std::vector<double>>& triedScores,
+			std::vector<double>& currentOptimal,
+			double& currentOptimalValue) {
+
+	const int maxExtra = 3;
+	const double stopByX = log(1.15);
+
+	for (int extra = 0; extra < maxExtra; ++extra) {
+		const double x = currentOptimal[dim];
+		bool alreadyTried = false;
+		for (double t : triedValues) {
+			alreadyTried = alreadyTried || std::abs(log(t) - log(x)) < 1E-9;
+		}
+		if (alreadyTried) {
+			break;
+		}
+
+		ccd.setHyperprior(dim, x);
+		selector.reseed();
+		std::vector<double> predLogLikelihood;
+		doCrossValidationStep(ccd, selector, allArguments, step, nThreads, ccdPool, selectorPool,
+		                      predLogLikelihood);
+		++step;
+		triedValues.push_back(x);
+		triedScores.push_back(predLogLikelihood);
+
+		std::vector<double> means, stdDevs;
+		computeCommonFoldEstimates(triedScores, means, stdDevs);
+		std::map<double, UniModalSearch::MS> byX;
+		for (size_t p = 0; p < triedValues.size(); ++p) {
+			if (means[p] == means[p]) {
+				byX[triedValues[p]] = UniModalSearch::MS(means[p], stdDevs[p]);
+			}
+		}
+		if (byX.empty()) {
+			break;
+		}
+		auto best = byX.begin();
+		for (auto it = byX.begin(); it != byX.end(); ++it) {
+			if (it->second.m > best->second.m) {
+				best = it;
+			}
+		}
+
+		std::ostringstream stream;
+		stream << "Refinement at " << x << ": AvgPred = " << means.back() << "; best " << best->first;
+
+		if (best == byX.begin() || std::next(best) == byX.end()) { // the best point is not bracketed
+			currentOptimal[dim] = best->first;
+			currentOptimalValue = best->second.m;
+			stream << "; stopping at " << currentOptimal[dim];
+			logger->writeLine(stream);
+			break;
+		}
+
+		std::map<double, UniModalSearch::MS> local(std::prev(best), std::next(std::next(best)));
+		QuadrCoefs coefs = QuadrLogFit(local);
+		if (!(coefs.c2 < 0.0)) { // not concave: keep the best point
+			currentOptimal[dim] = best->first;
+			currentOptimalValue = best->second.m;
+			stream << "; not concave, stopping at " << currentOptimal[dim];
+			logger->writeLine(stream);
+			break;
+		}
+		double next = exp(-coefs.c1 / coefs.c2 / 2);
+		next = std::min(std::max(next, std::prev(best)->first), std::next(best)->first);
+		currentOptimal[dim] = next;
+		currentOptimalValue = -coefs.c1 * coefs.c1 / coefs.c2 / 4 + coefs.c0;
+		stream << "; next " << next;
+		logger->writeLine(stream);
+		if (std::abs(log(next) - log(best->first)) < stopByX) {
+			break;
+		}
+	}
+}
+
 // This is specific to auto-search
 MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 			CyclicCoordinateDescent& ccd,
@@ -99,8 +192,15 @@ MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 
 	    for (int dim = 0; dim < nDim; ++dim) {
 
-	        // Local search
-	        UniModalSearch searcher(10, 0.01, log(1.5));
+	        // Local search. The searcher is rebuilt after each step, so that every hyperparameter tried is
+	        // compared over the same folds (computeCommonFoldEstimates()). The first step goes up from a
+	        // variance below firstCut and down otherwise.
+	        const double firstCut = (arguments.searchDirection == 0) ? 1.0 :
+	            (arguments.searchDirection > 0) ? std::numeric_limits<double>::infinity() : 0.0;
+	        std::vector<double> triedValues;
+	        std::vector<std::vector<double>> triedScores;
+	        std::unique_ptr<UniModalSearch> searcher;
+	        bool searchFailed = false;
 
 	        int step = 0;
 	        bool dimFinished = false;
@@ -113,11 +213,32 @@ MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 	            std::vector<double> predLogLikelihood;
 
 	            // Newly re-located code
-	            double pointEstimate = doCrossValidationStep(ccd, selector, allArguments, step,
-                                                          nThreads, ccdPool, selectorPool,
-                                                          predLogLikelihood);
+	            doCrossValidationStep(ccd, selector, allArguments, step,
+                                      nThreads, ccdPool, selectorPool,
+                                      predLogLikelihood);
 
-	            double stdDevEstimate = computeStDev(predLogLikelihood, pointEstimate);
+	            const double tried = currentOptimal[dim];
+	            size_t current = std::find(triedValues.begin(), triedValues.end(), tried) - triedValues.begin();
+	            if (current == triedValues.size()) {
+	                triedValues.push_back(tried);
+	                triedScores.push_back(predLogLikelihood);
+	            } else {
+	                triedScores[current] = predLogLikelihood;
+	            }
+
+	            std::vector<double> means, stdDevs;
+	            computeCommonFoldEstimates(triedScores, means, stdDevs);
+	            searcher.reset(new UniModalSearch(10, 0.01, log(1.5), firstCut));
+	            int nScored = 0;
+	            for (size_t p = 0; p < triedValues.size(); ++p) {
+	                if (means[p] == means[p]) { // a hyperparameter without any computed fold is left out
+	                    searcher->tried(triedValues[p], means[p], stdDevs[p]);
+	                    ++nScored;
+	                }
+	            }
+
+	            double pointEstimate = means[current];
+	            double stdDevEstimate = stdDevs[current];
 /*
 	            std::cout << "predLikelihoods: ";
 	            for (auto x : predLogLikelihood) {
@@ -127,19 +248,43 @@ MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 */
 	            std::ostringstream stream;
 	            stream << "AvgPred = " << pointEstimate << " with stdev = " << stdDevEstimate << std::endl;
-	            searcher.tried(currentOptimal[dim], pointEstimate, stdDevEstimate);
-	            StepValue next = searcher.step();
+
+	            if (!(pointEstimate == pointEstimate)) {
+	                // No fold fit converged at this hyperparameter: stop at the best one with converged folds
+	                if (nScored == 0) {
+	                    std::ostringstream errorStream;
+	                    errorStream << "Cross-validation failed: no fold fit converged at " << tried;
+	                    error->throwError(errorStream);
+	                }
+	                currentOptimal[dim] = searcher->bestx();
+	                currentOptimalValue = searcher->besty();
+	                stream << "No fold fit converged at " << tried << "; stopping at " << currentOptimal[dim];
+	                logger->writeLine(stream);
+	                dimFinished = true;
+	                searchFailed = true;
+	                step++;
+	                continue;
+	            }
+
+	            StepValue next = searcher->step();
 	            stream << "Completed at " << currentOptimal[dim] << std::endl;
 	            stream << "Next point at " << next.second << " with value " << next.expected << " and continue = " << next.first;
 	            logger->writeLine(stream);
 
-	            currentOptimal[dim] = next.second;
-	            currentOptimalValue = next.expected;
-	            if (!next.first) {
+	            if (next.second > 0.0 && next.second < std::numeric_limits<double>::infinity()) {
+	                currentOptimal[dim] = next.second;
+	                currentOptimalValue = next.expected;
+	                if (!next.first) {
+	                    dimFinished = true;
+	                }
+	            } else { // never search at a non-finite hyperparameter: stop at the best one tried
+	                currentOptimal[dim] = searcher->bestx();
+	                currentOptimalValue = searcher->besty();
 	                dimFinished = true;
+	                searchFailed = true;
 	            }
 	            std::ostringstream stream1;
-	            stream1 << searcher;
+	            stream1 << *searcher;
 	            logger->writeLine(stream1);
 	            step++;
 	            if (step >= maxSteps) {
@@ -148,6 +293,11 @@ MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 	                logger->writeLine(stream);
 	                dimFinished = true;
 	            }
+	        }
+
+	        if (arguments.refineSearch && !searchFailed) {
+	            refineSearch(ccd, selector, allArguments, nThreads, ccdPool, selectorPool, dim, step,
+	                         triedValues, triedScores, currentOptimal, currentOptimalValue);
 	        }
 	    }
 

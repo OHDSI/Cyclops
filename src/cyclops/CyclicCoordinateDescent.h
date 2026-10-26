@@ -132,6 +132,19 @@ public:
 
 	void setWeights(double* weights);
 
+	// Call after setWeights() in a cross-validation fold fit: rows with weight 0 may keep stale xBeta
+	// until getNewPredictiveLogLikelihood(); the next setWeights() clears it
+	void setHeldOutRowsUnused(bool unused);
+
+	// Cross-validation: see AbstractModelSpecifics::makeFoldPartition()
+	FoldPartitionPtr makeFoldPartition(const std::vector<int>& segmentOfRow, int folds) const;
+
+	// Call after setWeights() and setHeldOutRowsUnused(true): the fold fit iterates the training
+	// segments of `partition`; the next setWeights() or clearFoldPartition() drops it
+	void setFoldPartition(FoldPartitionPtr partition, int fold);
+
+	void clearFoldPartition();
+
 	void setCensorWeights(double* weights); // ESK: New function
 
 	std::vector<double> getWeights();
@@ -165,6 +178,10 @@ public:
 	string getCrossValidationInfo() const;
 
 	void setCrossValidationInfo(string info);
+
+	int getCrossValidationFailedFolds() const { return crossValidationFailedFolds; }
+
+	void setCrossValidationFailedFolds(int count) { crossValidationFailedFolds = count; }
 
 	// string getBootStrapInfo() const;
 	//
@@ -327,6 +344,18 @@ protected:
 
 	double ccdUpdateBeta(int index);
 
+	double scaledKktResidual(int index, double rawDelta, const priors::GradientHessian& gh) const;
+
+	void accumulateKkt(int index, double rawDelta, const priors::GradientHessian& gh);
+
+	double getKktCriterion() const;
+
+	double computeKktResidual();
+
+	void setUpAdaptiveIntercept(AlgorithmType algorithmType, double epsilon);
+
+	void trackInterceptGradient(int index, double delta, double hessian);
+
 	void cycleWithConcurrentGradients(const std::function<void(int)>& log);
 
 
@@ -404,6 +433,64 @@ protected:
 // 	DoubleVector& hXBetaSave; // Delegate
 	DoubleVector hDelta;
 	bool boundLimitedStep = false; // a step in the current cycle was cut short by its bound
+	DoubleVector lastStep;         // previous step of each coefficient, to detect period-2 oscillation
+	std::vector<int> flipCount;    // consecutive steps that reversed sign without shrinking
+
+	// "kkt" convergence: size of the minimum-norm subgradient s_j of the objective over the
+	// coordinates of a cycle, each evaluated where ccdUpdateBeta() computed its gradient
+	struct KktCycleStats {
+		double maxScaled = 0.0; // max_j |s_j| / sqrt(h_j), h_j the curvature of the objective
+		bool undefined = false; // a NaN gradient
+	};
+	KktCycleStats kktCycle;
+	const int kktConsecutiveNeeded = 2; // cycles in a row below the tolerance
+	int kktConsecutive = 0;
+	bool trackKkt = false;
+	priors::GradientHessian lastGradientHessian; // as passed to getDelta() by ccdUpdateBeta()
+
+	// Active-set cycling (with "kkt" convergence): between full sweeps, cycles visit only coordinates
+	// without a Laplace prior, Laplace coordinates away from zero and those that moved when last visited;
+	// with a threshold > 0, only those whose last step, in standard-error units, was at least that
+	// fraction of the largest step of the last full sweep
+	int activeSetEvery = 0; // 0: off; k > 1: a full sweep at least every k cycles
+	const int activeSetStart = 2; // first cycles that are full sweeps
+	bool nextCycleFull = true;
+	bool lastCycleFull = true;
+	int cyclesSinceFull = 0;
+	std::vector<char> activeSetCandidate; // Laplace coordinates, which can stay at zero
+	std::vector<double> lastStepSE; // |delta| sqrt(h) when last visited
+	double activeSetThreshold = 0.0;
+	double activeSetTau = 0.0; // activeSetThreshold times the largest step in the last full sweep
+	double cycleMaxStepSE = 0.0;
+	bool inActiveSet(int index) const {
+		if (activeSetThreshold > 0.0) {
+			return lastStepSE[index] >= activeSetTau;
+		}
+		return !activeSetCandidate[index] || hBeta[index] != 0.0 || lastStepSE[index] > 0.0;
+	}
+
+	// Adaptive extra intercept steps (logistic regression with an unpenalized intercept column, serial
+	// cycles, "kkt" convergence): an extra Newton step on the intercept whenever its predicted gain
+	// g0^2 / (2 h0) per row of work (2 K) reaches adaptiveInterceptRatio times the gain per row of work of
+	// the coordinate steps in the previous cycle; g0, the intercept gradient, is tracked to first order from
+	// the coordinate steps. In sparse models those gains are near zero, so the rule also needs g0 / sqrt(h0)
+	// above the tolerance; without that floor it took a step after almost every coordinate.
+	bool adaptiveIntercept = false;
+	static constexpr double adaptiveInterceptRatio = 0.25;
+	int interceptIndex = -1; // in the current findMode(); -1 when off
+	double interceptFloor = 0.0; // the tolerance, in standard-error units
+	std::vector<double> interceptMomentRatio; // sum_i x_ij / sum_i x_ij^2 by column
+	std::vector<double> columnRows; // stored entries by column (K for dense and intercept)
+	struct AdaptiveInterceptState {
+		double gradient = 0.0; // tracked change of the intercept gradient since its last step
+		double hessian = 0.0;  // intercept curvature at its last regular step
+		double gain = 0.0;     // predicted gain of this cycle's coordinate steps
+		double cost = 0.0;     // their rows of work
+		double rate = 0.0;     // gain / cost of the previous cycle
+		long extraSteps = 0;
+	};
+	AdaptiveInterceptState interceptState;
+	int minIterations = 0; // of the current update(); no convergence (SUCCESS) before this many cycles
 	std::vector<bool> fixBeta;
 
 	int N; // Number of patients
@@ -424,6 +511,9 @@ protected:
 
 	bool validWeights;
 	bool useCrossValidation;
+	bool heldOutRowsUnused = false;
+	FoldPartitionPtr foldPartition;
+	int foldPartitionFold = -1;
 	bool doLogisticRegression;
 	DoubleVector hWeights; // Make DoubleVector and delegate to ModelSpecifics
     DoubleVector cWeights; // ESK
@@ -449,6 +539,7 @@ protected:
 	SetBetaContainer setBetaList;
 
 	string crossValidationInfo;
+	int crossValidationFailedFolds = 0; // fold fits left out of their mean predictive log-likelihood
 	string bootStrapInfo;
 	std::vector<double> bootStrapInfoVector;
 

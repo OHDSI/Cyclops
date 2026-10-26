@@ -43,6 +43,11 @@ public:
 
 	virtual double getKktBoundary(const int index) const = 0; // pure virtual
 
+	// See CovariatePrior::getKktResidual(); NaN when not provided
+	virtual GradientHessian getKktResidual(const int index, double gradient, double beta) const {
+		return GradientHessian(std::numeric_limits<double>::quiet_NaN(), 0.0);
+	}
+
 	virtual PriorType getPriorType(const int index) {return PriorType::NONE;};
 
 //  	virtual JointPrior* clone() const = 0; // pure virtual
@@ -150,6 +155,10 @@ public:
 
 	double getKktBoundary(const int index) const {
 		return listPriors[index]->getKktBoundary();
+	}
+
+	GradientHessian getKktResidual(const int index, double gradient, double beta) const {
+		return listPriors[index]->getKktResidual(gradient, beta);
 	}
 
 	bool getSupportsKktSwindle(void) const {
@@ -641,6 +650,10 @@ public:
 
 	double getKktBoundary(const int index) const {
 		return singlePrior->getKktBoundary();
+	}
+
+	GradientHessian getKktResidual(const int index, double gradient, double beta) const {
+		return singlePrior->getKktResidual(gradient, beta);
 	}
 
 	PriorType getPriorType(int index) {

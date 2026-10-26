@@ -106,7 +106,8 @@ enum ConvergenceType {
 	LANGE,
 	MITTAL,
 	ONE_STEP,
-	ZHANG_OLES
+	ZHANG_OLES,
+	KKT // size of the minimum-norm subgradient over a cycle
 };
 
 enum NoiseLevels {

@@ -11,6 +11,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <stdexcept>
 
 #include <vector>
 #include <map>
@@ -832,6 +833,18 @@ protected:
 
     typedef bsccs::unordered_map<IdType,size_t> RowIdMap;
     RowIdMap rowIdMap;
+
+    // Row of a covariate rowId; a rowId that is not among the outcome rowIds is an error (operator[] would
+    // silently insert it as row 0)
+    size_t mapRowId(IdType rowId) const {
+        const auto it = rowIdMap.find(rowId);
+        if (it == rowIdMap.end()) {
+            std::ostringstream stream;
+            stream << "Covariate rowId " << rowId << " is not among the outcome rowIds";
+            throw std::range_error(stream.str());
+        }
+        return it->second;
+    }
 
 
     mutable bool touchedY;
