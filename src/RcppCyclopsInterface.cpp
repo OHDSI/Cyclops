@@ -850,8 +850,7 @@ List cyclopsLogModel(SEXP inRcppCcdInterface) {
 
 // [[Rcpp::export(".cyclopsInitializeModel")]]
 List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, const std::string& computeDevice,
-                            bool computeMLE = false, const std::string& coxFitter = "efficient",
-                            const std::string& logisticFitter = "efficient") {
+                            bool computeMLE = false, const std::string& fitter = "efficient") {
 	using namespace bsccs;
 
 	XPtr<AbstractModelData> rcppModelData(inModelData);
@@ -860,8 +859,7 @@ List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, cons
 
 	interface->getArguments().modelName = modelType;
 	interface->getArguments().computeDevice.name = computeDevice;
-	interface->getArguments().coxFitter = coxFitter;
-	interface->getArguments().logisticFitter = logisticFitter;
+	interface->getArguments().fitter = fitter;
 	if (computeMLE) {
 		interface->getArguments().computeMLE = true;
 	}
@@ -1245,8 +1243,7 @@ void RcppCcdInterface::initializeModelImpl(
 
 	*model = AbstractModelSpecifics::factory(modelType, **modelData,
                                           deviceType, deviceName,
-                                          arguments.coxFitter == "legacy",
-                                          arguments.logisticFitter == "legacy");
+                                          arguments.fitter == "legacy");
 	if (*model == nullptr) {
 		handleError("Invalid model type.");
 	}

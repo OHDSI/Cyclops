@@ -135,8 +135,7 @@ struct CCDArguments {
 	// Needed for model specification
 	int modelType;
 	std::string modelName;
-	std::string coxFitter; // "efficient" (one risk-set group per event time) or "legacy"
-	std::string logisticFitter; // "efficient" (fitted probability per row) or "legacy"
+	std::string fitter; // "efficient" (newer cox and lr engines) or "legacy" (those of Cyclops 3.7)
 
 	NoiseLevels noiseLevel;
 

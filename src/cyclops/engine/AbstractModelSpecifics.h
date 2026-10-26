@@ -124,8 +124,7 @@ public:
                                            const AbstractModelData& modelData,
                                            const DeviceType deviceType,
                                            const std::string& deviceName,
-                                           const bool legacyCox = false,
-                                           const bool legacyLogistic = false);
+                                           const bool legacy = false);
 
 	virtual const std::vector<double> getXBeta() = 0;
 

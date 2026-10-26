@@ -29,7 +29,7 @@ Changes:
     replicate)
 12. `runBootstrap()` resamples only rows (or strata, or subjects) with non-zero weight; it also drew
     held-out ones, so each replicate had a random number of draws from the fit
-13. `createControl(coxFitter = "legacy")` fits `cox` models with the engine of Cyclops 3.7, to reproduce
+13. `createControl(fitter = "legacy")` fits `cox` models with the engine of Cyclops 3.7, to reproduce
     earlier results; the default, `"efficient"`, is the new engine
 14. `cpr`, `sccs` and `clr` fits are about 2.3x faster, with identical results: per-stratum numerators
     that only Cox models read are no longer filled, the gradient and the `xBeta` update walk each
@@ -79,8 +79,8 @@ Changes:
     `exp()` per indicator column. Estimates agree with the engine of Cyclops 3.7 up to rounding. On
     simulated data with 25,000 to 1.6 million rows and 2,000 to 32,000 binary covariates, a single
     L1 fit is 1.7-3.5x faster and automatic cross-validation 2.1-4.1x, with the same iterations and
-    log-likelihood. `createControl(logisticFitter = "legacy")` keeps the engine of Cyclops 3.7, to
-    reproduce earlier results; the default, `"efficient"`, is the new engine. GPU fits are unchanged
+    log-likelihood. `createControl(fitter = "legacy")` keeps the engine of Cyclops 3.7 for `lr`
+    models too. GPU fits are unchanged
 
 Cyclops v3.7.1
 ==============

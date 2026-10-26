@@ -99,12 +99,12 @@ fitCyclopsModel <- function(cyclopsData,
         stop("Data are incompletely loaded")
     }
 
-    coxFitter <- .coxFitter(control)
-    if (coxFitter == "legacy" && cyclopsData$modelType == "cox_counting") {
-        stop("The legacy Cox fitter does not handle start times; use createControl(coxFitter = \"efficient\")")
+    fitter <- .fitter(control)
+    if (fitter == "legacy" && cyclopsData$modelType == "cox_counting") {
+        stop("The legacy Cox fitter does not handle start times; use createControl(fitter = \"efficient\")")
     }
     .checkInterface(cyclopsData, computeDevice =  computeDevice, forceNewObject = forceNewObject,
-                    coxFitter = coxFitter, logisticFitter = .logisticFitter(control))
+                    fitter = fitter)
 
     # Set up prior
     stopifnot(inherits(prior, "cyclopsPrior"))
@@ -454,22 +454,17 @@ clearCyclopsModelCache <- function() {
     }
 }
 
-.coxFitter <- function(control) { # controls created before coxFitter existed lack it
-    if (is.null(control$coxFitter)) "efficient" else control$coxFitter
-}
-
-.logisticFitter <- function(control) { # controls created before logisticFitter existed lack it
-    if (is.null(control$logisticFitter)) "efficient" else control$logisticFitter
+.fitter <- function(control) { # controls created before fitter existed lack it
+    if (is.null(control$fitter)) "efficient" else control$fitter
 }
 
 .checkInterface <- function(x, computeDevice = "native", forceNewObject = FALSE, testOnly = FALSE,
-                            coxFitter = NULL, logisticFitter = NULL) {
+                            fitter = NULL) {
     if (forceNewObject
         || is.null(x$cyclopsInterfacePtr)
         || !inherits(x$cyclopsInterfacePtr, "externalptr")
         || .isRcppPtrNull(x$cyclopsInterfacePtr)
-        || (!is.null(coxFitter) && !identical(x$coxFitter, coxFitter))
-        || (!is.null(logisticFitter) && !identical(x$logisticFitter, logisticFitter))
+        || (!is.null(fitter) && !identical(x$fitter, fitter))
         #|| .cyclopsGetComputeDevice(x$cyclopsInterfacePtr) != computeDevice TODO is this necessary?
     ) {
 
@@ -482,19 +477,14 @@ clearCyclopsModelCache <- function() {
         }
 
         # Build interface
-        if (is.null(coxFitter)) {
-            coxFitter <- "efficient"
-        }
-        if (is.null(logisticFitter)) {
-            logisticFitter <- "efficient"
+        if (is.null(fitter)) {
+            fitter <- "efficient"
         }
         interface <- .cyclopsInitializeModel(x$cyclopsDataPtr, modelType = x$modelType, computeDevice,
-                                             computeMLE = TRUE, coxFitter = coxFitter,
-                                             logisticFitter = logisticFitter)
+                                             computeMLE = TRUE, fitter = fitter)
         # TODO Check for errors
         assign("cyclopsInterfacePtr", interface$interface, x)
-        assign("coxFitter", coxFitter, x)
-        assign("logisticFitter", logisticFitter, x)
+        assign("fitter", fitter, x)
     }
 }
 
@@ -656,13 +646,12 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param initialBound          Numeric: Starting trust-region size
 #' @param maxBoundCount         Numeric: Maximum number of tries to decrease initial trust-region size
 #' @param algorithm             String: name of fitting algorithm to employ; default is `ccd`
-#' @param coxFitter             String: engine for \code{"cox"} models on the CPU. \code{"efficient"} (default)
-#'                              uses one risk-set group per event time; \code{"legacy"} uses the engine of
-#'                              Cyclops 3.7, for reproducing earlier results. Estimates agree up to rounding.
+#' @param fitter                String: engine for \code{"cox"} and \code{"lr"} models on the CPU.
+#'                              \code{"efficient"} (default) uses one risk-set group per event time for
+#'                              \code{"cox"} and keeps the fitted probability of each row for \code{"lr"};
+#'                              \code{"legacy"} uses the engines of Cyclops 3.7, for reproducing earlier
+#'                              results. Estimates agree up to rounding. Other models ignore it, and
 #'                              \code{"cox_counting"} models need \code{"efficient"}
-#' @param logisticFitter        String: engine for \code{"lr"} models on the CPU. \code{"efficient"} (default)
-#'                              keeps the fitted probability of each row; \code{"legacy"} uses the engine of
-#'                              Cyclops 3.7, for reproducing earlier results. Estimates agree up to rounding.
 #' @param doItAll               Currently unused
 #' @param syncCV                Currently unused
 #'
@@ -695,8 +684,7 @@ createControl <- function(maxIterations = 1000,
                           initialBound = 2.0,
                           maxBoundCount = 5,
                           algorithm = "ccd",
-                          coxFitter = "efficient",
-                          logisticFitter = "efficient",
+                          fitter = "efficient",
                           doItAll = TRUE,
                           syncCV = FALSE) {
     validCVNames = c("grid", "auto")
@@ -710,8 +698,7 @@ createControl <- function(maxIterations = 1000,
 
     validAlgorithmNames = c("ccd", "mm")
     stopifnot(algorithm %in% validAlgorithmNames)
-    stopifnot(coxFitter %in% c("efficient", "legacy"))
-    stopifnot(logisticFitter %in% c("efficient", "legacy"))
+    stopifnot(fitter %in% c("efficient", "legacy"))
 
     structure(list(maxIterations = maxIterations,
                    tolerance = tolerance,
@@ -734,8 +721,7 @@ createControl <- function(maxIterations = 1000,
                    initialBound = initialBound,
                    maxBoundCount = maxBoundCount,
                    algorithm = algorithm,
-                   coxFitter = coxFitter,
-                   logisticFitter = logisticFitter,
+                   fitter = fitter,
                    doItAll = doItAll,
                    syncCV = syncCV),
               class = "cyclopsControl")
@@ -1209,8 +1195,7 @@ getCyclopsProfileLogLikelihood <- function(object,
                 grid <- profile$point
                 profile <- tibble()
                 interface <- .cyclopsInitializeModel(object$cyclopsData$cyclopsDataPtr, modelType = object$cyclopsData$modelType, "native", computeMLE = TRUE,
-                                                     coxFitter = if (is.null(object$cyclopsData$coxFitter)) "efficient" else object$cyclopsData$coxFitter,
-                                                     logisticFitter = if (is.null(object$cyclopsData$logisticFitter)) "efficient" else object$cyclopsData$logisticFitter)
+                                                     fitter = if (is.null(object$cyclopsData$fitter)) "efficient" else object$cyclopsData$fitter)
                 assign("cyclopsInterfacePtr", interface$interface, object)
                 resetsPerformed <- resetsPerformed + 1
                 starts <- NULL

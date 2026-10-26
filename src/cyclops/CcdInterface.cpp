@@ -174,8 +174,7 @@ void CcdInterface::setDefaultArguments(void) {
 	arguments.reportRawEstimates = false;
 	arguments.reportDifference = false;
 	arguments.modelName = "sccs";
-	arguments.coxFitter = "efficient";
-	arguments.logisticFitter = "efficient";
+	arguments.fitter = "efficient";
 	arguments.fileFormat = "generic";
 	//arguments.outputFormat = "estimates";
 	arguments.computeMLE = false;
