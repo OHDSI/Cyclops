@@ -74,6 +74,13 @@ Changes:
     regularized, and nearly flat profiles. Each bound starts from the estimate, so bounds no longer
     depend on their order or on `threads`; with more than one thread, `fixedCoefficients` also stay
     fixed
+24. `lr` fits keep the fitted probability of each row: a coefficient's gradient and Hessian are sums of
+    probabilities over its column, and an update scales the odds of the rows in its column, with one
+    `exp()` per indicator column. Estimates agree with the engine of Cyclops 3.7 up to rounding. On
+    simulated data with 25,000 to 1.6 million rows and 2,000 to 32,000 binary covariates, a single
+    L1 fit is 1.7-3.5x faster and automatic cross-validation 2.1-4.1x, with the same iterations and
+    log-likelihood. `createControl(logisticFitter = "legacy")` keeps the engine of Cyclops 3.7, to
+    reproduce earlier results; the default, `"efficient"`, is the new engine. GPU fits are unchanged
 
 Cyclops v3.7.1
 ==============

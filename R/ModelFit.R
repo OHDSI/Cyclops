@@ -104,7 +104,7 @@ fitCyclopsModel <- function(cyclopsData,
         stop("The legacy Cox fitter does not handle start times; use createControl(coxFitter = \"efficient\")")
     }
     .checkInterface(cyclopsData, computeDevice =  computeDevice, forceNewObject = forceNewObject,
-                    coxFitter = coxFitter)
+                    coxFitter = coxFitter, logisticFitter = .logisticFitter(control))
 
     # Set up prior
     stopifnot(inherits(prior, "cyclopsPrior"))
@@ -458,13 +458,18 @@ clearCyclopsModelCache <- function() {
     if (is.null(control$coxFitter)) "efficient" else control$coxFitter
 }
 
+.logisticFitter <- function(control) { # controls created before logisticFitter existed lack it
+    if (is.null(control$logisticFitter)) "efficient" else control$logisticFitter
+}
+
 .checkInterface <- function(x, computeDevice = "native", forceNewObject = FALSE, testOnly = FALSE,
-                            coxFitter = NULL) {
+                            coxFitter = NULL, logisticFitter = NULL) {
     if (forceNewObject
         || is.null(x$cyclopsInterfacePtr)
         || !inherits(x$cyclopsInterfacePtr, "externalptr")
         || .isRcppPtrNull(x$cyclopsInterfacePtr)
         || (!is.null(coxFitter) && !identical(x$coxFitter, coxFitter))
+        || (!is.null(logisticFitter) && !identical(x$logisticFitter, logisticFitter))
         #|| .cyclopsGetComputeDevice(x$cyclopsInterfacePtr) != computeDevice TODO is this necessary?
     ) {
 
@@ -480,11 +485,16 @@ clearCyclopsModelCache <- function() {
         if (is.null(coxFitter)) {
             coxFitter <- "efficient"
         }
+        if (is.null(logisticFitter)) {
+            logisticFitter <- "efficient"
+        }
         interface <- .cyclopsInitializeModel(x$cyclopsDataPtr, modelType = x$modelType, computeDevice,
-                                             computeMLE = TRUE, coxFitter = coxFitter)
+                                             computeMLE = TRUE, coxFitter = coxFitter,
+                                             logisticFitter = logisticFitter)
         # TODO Check for errors
         assign("cyclopsInterfacePtr", interface$interface, x)
         assign("coxFitter", coxFitter, x)
+        assign("logisticFitter", logisticFitter, x)
     }
 }
 
@@ -650,6 +660,9 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              uses one risk-set group per event time; \code{"legacy"} uses the engine of
 #'                              Cyclops 3.7, for reproducing earlier results. Estimates agree up to rounding.
 #'                              \code{"cox_counting"} models need \code{"efficient"}
+#' @param logisticFitter        String: engine for \code{"lr"} models on the CPU. \code{"efficient"} (default)
+#'                              keeps the fitted probability of each row; \code{"legacy"} uses the engine of
+#'                              Cyclops 3.7, for reproducing earlier results. Estimates agree up to rounding.
 #' @param doItAll               Currently unused
 #' @param syncCV                Currently unused
 #'
@@ -683,6 +696,7 @@ createControl <- function(maxIterations = 1000,
                           maxBoundCount = 5,
                           algorithm = "ccd",
                           coxFitter = "efficient",
+                          logisticFitter = "efficient",
                           doItAll = TRUE,
                           syncCV = FALSE) {
     validCVNames = c("grid", "auto")
@@ -697,6 +711,7 @@ createControl <- function(maxIterations = 1000,
     validAlgorithmNames = c("ccd", "mm")
     stopifnot(algorithm %in% validAlgorithmNames)
     stopifnot(coxFitter %in% c("efficient", "legacy"))
+    stopifnot(logisticFitter %in% c("efficient", "legacy"))
 
     structure(list(maxIterations = maxIterations,
                    tolerance = tolerance,
@@ -720,6 +735,7 @@ createControl <- function(maxIterations = 1000,
                    maxBoundCount = maxBoundCount,
                    algorithm = algorithm,
                    coxFitter = coxFitter,
+                   logisticFitter = logisticFitter,
                    doItAll = doItAll,
                    syncCV = syncCV),
               class = "cyclopsControl")
@@ -1193,7 +1209,8 @@ getCyclopsProfileLogLikelihood <- function(object,
                 grid <- profile$point
                 profile <- tibble()
                 interface <- .cyclopsInitializeModel(object$cyclopsData$cyclopsDataPtr, modelType = object$cyclopsData$modelType, "native", computeMLE = TRUE,
-                                                     coxFitter = if (is.null(object$cyclopsData$coxFitter)) "efficient" else object$cyclopsData$coxFitter)
+                                                     coxFitter = if (is.null(object$cyclopsData$coxFitter)) "efficient" else object$cyclopsData$coxFitter,
+                                                     logisticFitter = if (is.null(object$cyclopsData$logisticFitter)) "efficient" else object$cyclopsData$logisticFitter)
                 assign("cyclopsInterfacePtr", interface$interface, object)
                 resetsPerformed <- resetsPerformed + 1
                 starts <- NULL

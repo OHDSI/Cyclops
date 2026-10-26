@@ -27,6 +27,7 @@ createControl(
   maxBoundCount = 5,
   algorithm = "ccd",
   coxFitter = "efficient",
+  logisticFitter = "efficient",
   doItAll = TRUE,
   syncCV = FALSE
 )
@@ -89,6 +90,10 @@ the average number of rows per stratum is smaller than the number of strata;
 uses one risk-set group per event time; \code{"legacy"} uses the engine of
 Cyclops 3.7, for reproducing earlier results. Estimates agree up to rounding.
 \code{"cox_counting"} models need \code{"efficient"}}
+
+\item{logisticFitter}{String: engine for \code{"lr"} models on the CPU. \code{"efficient"} (default)
+keeps the fitted probability of each row; \code{"legacy"} uses the engine of
+Cyclops 3.7, for reproducing earlier results. Estimates agree up to rounding.}
 
 \item{doItAll}{Currently unused}
 

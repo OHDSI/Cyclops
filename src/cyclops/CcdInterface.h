@@ -136,6 +136,7 @@ struct CCDArguments {
 	int modelType;
 	std::string modelName;
 	std::string coxFitter; // "efficient" (one risk-set group per event time) or "legacy"
+	std::string logisticFitter; // "efficient" (fitted probability per row) or "legacy"
 
 	NoiseLevels noiseLevel;
 
