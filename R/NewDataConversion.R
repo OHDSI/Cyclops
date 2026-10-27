@@ -20,6 +20,17 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
     return(.isSorted(data, columnNames, ascending))
 }
 
+# The end of each row's (startTime, time] interval may also be called endTime
+.renameEndTime <- function(outcomes) {
+    if ("endTime" %in% colnames(outcomes)) {
+        if ("time" %in% colnames(outcomes)) {
+            stop("Give the end of each row's interval as time or endTime, not both", call. = FALSE)
+        }
+        outcomes <- rename(outcomes, time = "endTime")
+    }
+    outcomes
+}
+
 #' Convert data from two data frames or ffdf objects into a CyclopsData object
 #'
 #' @description
@@ -43,7 +54,11 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'   \verb{rowId}  	\tab(integer) \tab Row ID is used to link multiple covariates (x) to a single outcome (y) \cr
 #'   \verb{y}    \tab(real) \tab The outcome variable \cr
 #'   \verb{time}    \tab(real) \tab For models that use time (e.g. Poisson or Cox regression) this contains time \cr
-#'                  \tab        \tab(e.g. number of days) \cr
+#'                  \tab        \tab(e.g. number of days); it may instead be called \verb{endTime} \cr
+#'   \verb{startTime}    \tab(real) \tab (optional) For \code{"cox_counting"} models, the start of the \code{(startTime, time]} \cr
+#'                  \tab        \tab (or \code{(startTime, endTime]}) risk interval of each row; rows without it are at risk \cr
+#'                  \tab        \tab from time 0 \cr
+#'   \verb{subjectId}    \tab(integer) \tab (optional) For Cox models, rows with the same subject stay in one cross-validation fold \cr
 #'   \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
 #'   \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided.
 #' }
@@ -127,6 +142,8 @@ convertToCyclopsData.data.frame <- function(outcomes,
     if (!is.null(checkSorting))
         warning("The 'checkSorting' argument has been deprecated. Sorting is now always checked")
 
+    outcomes <- .renameEndTime(outcomes)
+
     if ((modelType == "clr" | modelType == "cpr") & addIntercept) {
         if (!quiet)
             warning("Intercepts are not allowed in conditional models, removing intercept", call. = FALSE)
@@ -137,11 +154,14 @@ convertToCyclopsData.data.frame <- function(outcomes,
         if (any(outcomes$time <= 0))
             stop("time cannot be non-positive", call. = FALSE)
 
+    if (modelType == "cox" && "startTime" %in% colnames(outcomes) && any(outcomes$startTime != 0))
+        stop("Cox models require start times of 0; use modelType = \"cox_counting\" for start times", call. = FALSE)
+
     if (modelType == "lr" | modelType == "pr") {
         outcomes$stratumId <- NULL
         covariates$stratumId <- NULL
     }
-    if ((modelType == "cox" | modelType == "cox_time" | modelType == "fgr") & !"stratumId" %in% colnames(outcomes)) {
+    if ((modelType == "cox" | modelType == "cox_time" | modelType == "fgr" | modelType == "cox_counting") & !"stratumId" %in% colnames(outcomes)) {
         outcomes$stratumId <- 0
         covariates$stratumId <- 0
     }
@@ -172,9 +192,9 @@ convertToCyclopsData.data.frame <- function(outcomes,
         }
     }
 
-    if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr") {
+    if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr" | modelType == "cox_counting") {
 
-        if ((modelType == "cox" | modelType == "cox_time") & length(unique(outcomes$y)) > 2) {
+        if ((modelType == "cox" | modelType == "cox_time" | modelType == "cox_counting") & length(unique(outcomes$y)) > 2) {
             stop("Cox model only accepts one outcome type")
         }
 # <<<<<<< HEAD
@@ -244,7 +264,15 @@ convertToCyclopsData.data.frame <- function(outcomes,
                            y = outcomes$y,
                            time = if ("time" %in% colnames(outcomes)) outcomes$time else NULL)
 
-    if (addIntercept & (modelType != "cox" & modelType != "cox_time" & modelType != "fgr")) {
+    if (modelType == "cox_counting" && "startTime" %in% colnames(outcomes)) {
+        .loadCyclopsDataStartTime(dataPtr, outcomes$startTime)
+    }
+
+    if ((modelType == "cox" | modelType == "cox_counting") && "subjectId" %in% colnames(outcomes)) {
+        .loadCyclopsDataSubjectId(dataPtr, bit64::as.integer64(outcomes$subjectId))
+    }
+
+    if (addIntercept & (modelType != "cox" & modelType != "cox_time" & modelType != "fgr" & modelType != "cox_counting")) {
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
     }
 
@@ -320,6 +348,8 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     if (!is.null(checkSorting))
         warning("The 'checkSorting' argument has been deprecated. Sorting is now always checked")
 
+    outcomes <- .renameEndTime(outcomes)
+
     if ((modelType == "clr" | modelType == "cpr") & addIntercept) {
         if (!quiet) {
             warning("Intercepts are not allowed in conditional models, removing intercept", call. = FALSE)
@@ -349,7 +379,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
 #                 covariates <- covariates[order(covariates$covariateId, covariates$stratumId,covariates$rowId),]
 #             }
 # =======
-    if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr") {
+    if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr" | modelType == "cox_counting") {
         if (providedNoStrata) {
             outcomes <- outcomes %>%
                 mutate(stratumId = 0)
@@ -393,9 +423,9 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
             arrange(.data$covariateId, .data$stratumId, .data$rowId)
     }
 
-    if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr") {
+    if (modelType == "cox" | modelType == "cox_time" | modelType == "fgr" | modelType == "cox_counting") {
 
-        if ((modelType == "cox" | modelType == "cox_time") &
+        if ((modelType == "cox" | modelType == "cox_time" | modelType == "cox_counting") &
             (select(outcomes, "y") %>% distinct() %>% count() %>% collect() > 2)) {
             stop("Cox model only accepts one outcome type")
         }
@@ -421,13 +451,25 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         outcomes$stratumId <- NULL
     }
 
+    if (modelType == "cox" && "startTime" %in% colnames(outcomes) && any(outcomes$startTime != 0)) {
+        stop("Cox models require start times of 0; use modelType = \"cox_counting\" for start times", call. = FALSE)
+    }
+
     loadNewSqlCyclopsDataY(object = dataPtr,
                            stratumId = if ("stratumId" %in% colnames(outcomes)) outcomes$stratumId else NULL,
                            rowId = outcomes$rowId,
                            y = outcomes$y,
                            time = if ("time" %in% colnames(outcomes)) (select(outcomes, time) %>% pull()) else NULL)
 
-    if (addIntercept & (modelType != "cox" & modelType != "cox_time" & modelType != "fgr")) {
+    if (modelType == "cox_counting" && "startTime" %in% colnames(outcomes)) {
+        .loadCyclopsDataStartTime(dataPtr, outcomes$startTime)
+    }
+
+    if ((modelType == "cox" | modelType == "cox_counting") && "subjectId" %in% colnames(outcomes)) {
+        .loadCyclopsDataSubjectId(dataPtr, bit64::as.integer64(outcomes$subjectId))
+    }
+
+    if (addIntercept & (modelType != "cox" & modelType != "cox_time" & modelType != "fgr" & modelType != "cox_counting")) {
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
     }
 

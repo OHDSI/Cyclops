@@ -23,36 +23,57 @@
 #' \code{residuals.cyclopsFit} computes model residuals for Cox model-based Cyclops objects
 #'
 #' @param object    A Cyclops model fit object
-#' @param parm      A specification of which parameters require residuals,
-#'                  either a vector of numbers or covariateId names
 #' @param type      Character string indicating the type of residual desires. Possible
-#'                  values are "schoenfeld".
+#'                  values are "schoenfeld" and "scaledsch" (scaled Schoenfeld residuals, which
+#'                  need all parameters and \code{vcov()})
+#' @param parm      A specification of which parameters require residuals,
+#'                  either a vector of numbers or covariateId names; default is all
 #' @param ...		Additional parameters for compatibility with S3 parent function
+#'
+#' @return One residual per event, ordered by stratum and time and named by event time: a vector
+#' for one parameter, otherwise a matrix with one column per parameter
 #'
 #' @importFrom stats residuals
 #'
 #' @export
-residuals.cyclopsFit <- function(object, parm = NULL, type = "schoenfeld", ...) {
+residuals.cyclopsFit <- function(object, type = "schoenfeld", parm = NULL, ...) {
 
     .checkInterface(object$cyclopsData, testOnly = TRUE)
 
-    if (object$cyclopsData$modelType != "cox") {
+    if (object$cyclopsData$modelType != "cox" && object$cyclopsData$modelType != "cox_counting") {
         stop("Residuals for only Cox models are currently implemented")
     }
-    if (type != "schoenfeld") {
+    if (type != "schoenfeld" && type != "scaledsch") {
         stop("Only Schoenfeld residuals are currently implemented")
     }
 
-    if (getNumberOfCovariates(object$cyclopsData) != 1) {
-        stop("Only single-covariate models are currently implemented")
+    covariateIds <- getCovariateIds(object$cyclopsData)
+    covariates <- if (is.null(parm)) covariateIds else .checkCovariates(object$cyclopsData, parm)
+    if (type == "scaledsch" && length(covariates) != length(covariateIds)) {
+        stop("Scaled Schoenfeld residuals need all parameters")
     }
 
-    res <- .cyclopsGetSchoenfeldResiduals(object$interface, NULL)
+    # One covariate at a time; every call returns the events in the same order
+    columns <- lapply(seq_along(covariates), function(j) {
+        .cyclopsGetSchoenfeldResiduals(object$interface, covariates[j])
+    })
+    res <- columns[[1]]
+    ord <- order(res$strata, res$times)
+    result <- matrix(unlist(lapply(columns, function(column) column$residuals[ord])),
+                     ncol = length(columns))
+    colnames(result) <- names(coef(object))[match(as.character(covariates), as.character(covariateIds))]
 
-    res <- res[order(res$strata, res$times),]
+    if (type == "scaledsch") { # as in survival: residuals %*% variance * events + coefficients
+        nEvents <- nrow(result)
+        result <- result %*% vcov(object) * nEvents + rep(coef(object), each = nEvents)
+    }
 
-    result <- res$residuals
-    names(result) <- res$times
+    if (ncol(result) == 1) {
+        result <- result[, 1]
+        names(result) <- res$times[ord]
+    } else {
+        rownames(result) <- res$times[ord]
+    }
 
     tbl <- table(res$strata)
     if (dim(tbl) > 1) {
@@ -72,14 +93,14 @@ residuals.cyclopsFit <- function(object, parm = NULL, type = "schoenfeld", ...) 
 #' @param object    A Cyclops model fit object
 #' @param parm      A specification of which parameters require a proportionality test,
 #'                  either a vector of numbers or covariateId names
-#' @param transform Same as `transform` in `cox.zph`
+#' @param transform Same as `transform` in `cox.zph`, computed over the rows with positive weight
 #'
 #' @export
 testProportionality <- function(object, parm = NULL, transform = "km") {
 
     .checkInterface(object$cyclopsData, testOnly = TRUE)
 
-    if (object$cyclopsData$modelType != "cox") {
+    if (object$cyclopsData$modelType != "cox" && object$cyclopsData$modelType != "cox_counting") {
         stop("Proportionality test for only Cox models are currently implemented")
     }
 
@@ -90,7 +111,18 @@ testProportionality <- function(object, parm = NULL, transform = "km") {
 
     times <- getTimeVector(object$cyclopsData)
     y <- getYVector(object$cyclopsData)
-    survY <- survival::Surv(time = times, event = y)
+    startTimes <- getStartTimeVector(object$cyclopsData)
+
+    # As cox.zph on the rows in the fit: held-out rows (weight 0) stay out of the time transform
+    weights <- .cyclopsGetWeights(object$interface)
+    inFit <- if (length(weights) > 0) weights > 0 else rep(TRUE, length(times))
+    times <- times[inFit]
+    y <- y[inFit]
+    if (length(startTimes) > 0) {
+        survY <- survival::Surv(startTimes[inFit], times, y) # Kaplan-Meier with delayed entry
+    } else {
+        survY <- survival::Surv(time = times, event = y)
+    }
     if (is.character(transform)) {
         tname <- transform
         ttimes <- switch(transform, identity = times, rank = rank(times),
@@ -110,7 +142,8 @@ testProportionality <- function(object, parm = NULL, transform = "km") {
         }
         ttimes <- transform(times)
     }
-    transformedTimes <- ttimes - mean(ttimes[y == 1])
+    transformedTimes <- rep(0, length(inFit)) # not used for held-out rows
+    transformedTimes[inFit] <- ttimes - mean(ttimes[y == 1])
 
     res <- .cyclopsTestProportionality(object$interface, NULL, transformedTimes)
     nCovariates <- 1 # TODO Remove

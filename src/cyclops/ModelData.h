@@ -11,6 +11,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <stdexcept>
 
 #include <vector>
 #include <map>
@@ -95,6 +96,8 @@ public:
 
     virtual std::vector<double> copyTimeVector() const = 0;
 
+    virtual std::vector<double> copyStartTimeVector() const = 0;
+
     virtual std::vector<double> copyZVector() const = 0;
 
     virtual std::vector<double> univariableCorrelation(
@@ -133,6 +136,12 @@ public:
             const std::vector<double>& y,
             const std::vector<double>& time
     ) = 0;
+
+    virtual void loadStartTime(const std::vector<double>& startTime) = 0;
+
+    virtual void loadSubjectId(const std::vector<IdType>& subjectId) = 0;
+
+    virtual const IntVector& getSubjectIndexVectorRef() const = 0;
 
     virtual int loadX(
             const IdType covariateId,
@@ -302,6 +311,14 @@ public:
 		const std::vector<double>& time
 	);
 
+	void loadStartTime(const std::vector<double>& startTime);
+
+	void loadSubjectId(const std::vector<IdType>& subjectId);
+
+	const IntVector& getSubjectIndexVectorRef() const {
+		return subjectIndex;
+	}
+
 	int loadX(
 		const IdType covariateId,
 		const std::vector<IdType>& rowId,
@@ -346,6 +363,10 @@ public:
 		return offs;
 	}
 
+	const RealVector& getStartTimeVectorRef() const {
+		return startTime;
+	}
+
 	const RealVector& getYVectorRef() const {
 		return y;
 	}
@@ -388,6 +409,10 @@ public:
 	    std::vector<double> copy(offs.size());
 	    std::copy(std::begin(offs), std::end(offs), std::begin(copy));
 	    return copy;
+	}
+
+	std::vector<double> copyStartTimeVector() const {
+	    return std::vector<double>(std::begin(startTime), std::end(startTime));
 	}
 
 	RealVector& getZVectorRef() {
@@ -802,6 +827,8 @@ protected:
 	RealVector y;
 	RealVector z; // TODO Remove
 	RealVector offs; // TODO Rename to 'time'
+	RealVector startTime; // counting-process entry times; empty when all rows start at the origin
+	IntVector subjectIndex; // subject of each row for cross-validation folds; empty: one subject per row
 	IntVector nevents; // TODO Where are these used?
 	std::string conditionId;
 	std::vector<std::string> labels; // TODO Change back to 'long'
@@ -827,6 +854,18 @@ protected:
 
     typedef bsccs::unordered_map<IdType,size_t> RowIdMap;
     RowIdMap rowIdMap;
+
+    // Row of a covariate rowId; a rowId that is not among the outcome rowIds is an error (operator[] would
+    // silently insert it as row 0)
+    size_t mapRowId(IdType rowId) const {
+        const auto it = rowIdMap.find(rowId);
+        if (it == rowIdMap.end()) {
+            std::ostringstream stream;
+            stream << "Covariate rowId " << rowId << " is not among the outcome rowIds";
+            throw std::range_error(stream.str());
+        }
+        return it->second;
+    }
 
     // Lazily built by getStratumIndexRef() when `pid` is empty.
     mutable IntVector identityPid;

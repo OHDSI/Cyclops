@@ -204,7 +204,9 @@ public:
                            std::vector<double>* derivatives,
                            int threads, bool includePenalty) {
         return CcdInterface::evaluateProfileModel(ccd_, &source_, id, points, values,
-                                                  derivatives, threads, includePenalty);
+                                                  derivatives, threads, includePenalty,
+                                                  /*startPoints=*/{}, /*startBetas=*/{},
+                                                  /*betas=*/nullptr, /*chain=*/false);
     }
 
     void setNoiseLevel(bsccs::NoiseLevels level) {
@@ -661,6 +663,9 @@ void Model::Impl::applyOptions() {
     arguments.crossValidation.gridSteps = options.grid_steps;
     arguments.crossValidation.startingVariance = options.starting_variance;
     arguments.crossValidation.syncCV = options.sync_cv;
+    // createControl()'s cvWarmStart default under fitter = "default": each fold
+    // fit starts from that fold's solution at the nearest variance already tried.
+    arguments.crossValidation.warmStart = !options.reset_coefficients;
 
     // "auto" selector resolution, copied from fitCyclopsModel(): row-wise for
     // the unstratified likelihoods, otherwise whichever partition has more

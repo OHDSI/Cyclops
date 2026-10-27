@@ -43,7 +43,7 @@ void HierarchyGridSearchCrossValidationDriver::resetForOptimal(
 		const CCDArguments& arguments) {
 
 
-	ccd.setWeights(NULL);
+	restoreWeights(ccd, arguments);
 	ccd.setHyperprior(maxPoint);
 	ccd.setClassHyperprior(maxPointClass);
 	ccd.resetBeta(); // Cold-start
@@ -67,6 +67,8 @@ void HierarchyGridSearchCrossValidationDriver::changeParameter(CyclicCoordinateD
 void HierarchyGridSearchCrossValidationDriver::drive(CyclicCoordinateDescent& ccd,
 		AbstractSelector& selector,
 		const CCDArguments& allArguments) {
+
+	savedWeights = ccd.getWeights(); // restored for the final fit, see restoreWeights()
 
     const auto& arguments = allArguments.crossValidation;
 

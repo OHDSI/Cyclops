@@ -145,6 +145,44 @@ void ModelData<RealType>::loadY(
 }
 
 template <typename RealType>
+void ModelData<RealType>::loadStartTime(const std::vector<double>& oStartTime) {
+
+    if (oStartTime.size() != y.size() || oStartTime.size() != offs.size()) {
+        std::ostringstream stream;
+        stream << "Mismatched start time dimensions";
+        error->throwError(stream);
+    }
+
+    for (size_t i = 0; i < oStartTime.size(); ++i) {
+        if (!(oStartTime[i] < offs[i])) {
+            std::ostringstream stream;
+            stream << "Start times must be less than stop times";
+            error->throwError(stream);
+        }
+    }
+
+    copyAssign(startTime, oStartTime);
+}
+
+template <typename RealType>
+void ModelData<RealType>::loadSubjectId(const std::vector<IdType>& oSubjectId) {
+
+    if (oSubjectId.size() != y.size()) {
+        std::ostringstream stream;
+        stream << "Mismatched subject ID dimensions";
+        error->throwError(stream);
+    }
+
+    // Consecutive indices in order of first appearance, so one row per subject gives index = row
+    unordered_map<IdType, int> index;
+    subjectIndex.resize(oSubjectId.size());
+    for (size_t i = 0; i < oSubjectId.size(); ++i) {
+        const int next = static_cast<int>(index.size());
+        subjectIndex[i] = index.insert(std::make_pair(oSubjectId[i], next)).first->second;
+    }
+}
+
+template <typename RealType>
 int ModelData<RealType>::loadMultipleX(
 		const std::vector<int64_t>& covariateIds,
 		const std::vector<int64_t>& rowIds,
@@ -212,7 +250,7 @@ int ModelData<RealType>::loadMultipleX(
 		        stream << *rowIdItr << " - " << *columnIdItr;
 		        throw std::range_error(stream.str());
 		    }
-		    const auto mappedRow = (useRowMap) ? rowIdMap[*rowIdItr] : *rowIdItr;
+		    const auto mappedRow = (useRowMap) ? mapRowId(*rowIdItr) : *rowIdItr;
 		    if (hasCovariateValues) {
                 if (*covariateValueItr != 0.0) {
                     if (format == INDICATOR && *covariateValueItr != 1.0) {
@@ -335,7 +373,7 @@ int ModelData<RealType>::loadX(
                     stream << *rowIdItr << " - " << covariateId;
                     throw std::range_error(stream.str());
                 }
-                const auto mappedRow = (useRowMap) ? rowIdMap[*rowIdItr] : *rowIdItr;
+                const auto mappedRow = (useRowMap) ? mapRowId(*rowIdItr) : *rowIdItr;
                 if (hasCovariateValues) {
                     if (*covariateValueItr != 0.0) {
                         if (newType == INDICATOR && *covariateValueItr != 1.0) {

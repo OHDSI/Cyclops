@@ -106,7 +106,8 @@ enum ConvergenceType {
 	LANGE,
 	MITTAL,
 	ONE_STEP,
-	ZHANG_OLES
+	ZHANG_OLES,
+	KKT // size of the minimum-norm subgradient over a cycle
 };
 
 enum NoiseLevels {
@@ -140,6 +141,7 @@ enum class ModelType {
 	COX_RAW,
 	TIME_VARYING_COX,
 	FINE_GRAY, // ESK: Added Fine-Gray
+	COX_COUNTING, // Cox with (start, stop] counting-process data
 	SIZE_OF_ENUM // Keep at end
 };
 
@@ -173,6 +175,7 @@ enum class SelectorType {
 	DEFAULT,
 	BY_PID,
 	BY_ROW,
+	BY_SUBJECT, // all rows of a subject together (Cox models with subject ids)
 	SIZE_OF_ENUM // Keep at end
 };
 

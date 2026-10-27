@@ -316,6 +316,59 @@ test_that("Large Cox regression with weighting",{
     expect_equivalent(coef(fitCyclops), coef(fitCoxph), tolerance = tolerance)
 })
 
+test_that("Cross-validation with zero-weights refits with the weights", {
+    set.seed(11)
+    n <- 400
+    p <- 20 # mostly null covariates, so cross-validation selects real shrinkage
+    x <- matrix(rnorm(n * p), n)
+    eta <- drop(x %*% c(0.5, -0.4, 0.3, rep(0, p - 3)))
+    time <- rexp(n, exp(eta))
+    censor <- rexp(n, 0.5)
+    data <- data.frame(time = pmin(time, censor), status = as.numeric(time <= censor), x)
+    weights <- rep(1, n)
+    weights[1:150] <- 0 # held-out rows
+    formula <- reformulate(paste0("X", 1:p), response = "Surv(time, status)")
+
+    cv <- fitCyclopsModel(createCyclopsData(formula, data = data, modelType = "cox"),
+                          weights = weights,
+                          prior = createPrior("laplace", useCrossValidation = TRUE),
+                          control = createControl(cvRepetitions = 1, noiseLevel = "silent",
+                                                  seed = 1, tolerance = 1E-10))
+    variance <- cv$variance[1]
+    expect_lt(variance, 1) # finite, so the coefficients depend on the selected variance
+
+    fixed <- fitCyclopsModel(createCyclopsData(formula, data = data, modelType = "cox"),
+                             weights = weights,
+                             prior = createPrior("laplace", variance = variance),
+                             control = createControl(noiseLevel = "silent", tolerance = 1E-10))
+    expect_equal(coef(cv), coef(fixed), tolerance = 1E-6)
+})
+
+test_that("Cross-validation with real-valued weights refits with the weights (issue #93)", {
+    set.seed(123)
+    n <- 2000
+    p <- 10
+    x <- matrix(rbinom(n * p, 1, 0.3), n, p)
+    y <- rbinom(n, 1, plogis(-1 + drop(x %*% rnorm(p, 0, 0.5))))
+    w <- runif(n, 0.2, 3)
+    control <- createControl(seed = 1, noiseLevel = "silent", tolerance = 1E-10)
+    fitAt <- function(prior, weights = NULL, dataWeights = NULL) {
+        fitCyclopsModel(createCyclopsData(y ~ x, modelType = "lr", weights = dataWeights), prior = prior,
+                        control = control, weights = weights, warnings = FALSE)
+    }
+
+    cv <- fitAt(createPrior("laplace", useCrossValidation = TRUE), weights = w)
+    variance <- cv$variance[1]
+    weighted <- fitAt(createPrior("laplace", variance = variance), weights = w)
+    unweighted <- fitAt(createPrior("laplace", variance = variance))
+    expect_equal(coef(cv), coef(weighted), tolerance = 1E-8)
+    expect_gt(max(abs(coef(cv) - coef(unweighted))), 1E-2) # the weights matter at this variance
+
+    # Weights given to createCyclopsData()
+    cvData <- fitAt(createPrior("laplace", useCrossValidation = TRUE), dataWeights = w)
+    expect_equal(coef(cvData), coef(cv))
+})
+
 # # currently broken
 # test_that("Small conditional logistic regression with weighting", {
 #

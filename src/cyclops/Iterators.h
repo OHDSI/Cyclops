@@ -114,7 +114,7 @@ class IndicatorIterator {
     inline Index index() const { return mIndices[mId]; }
 	inline Index nextIndex() const { return mIndices[mId + 1]; }
     inline operator bool() const { return (mId < mEnd); }
-	inline bool inRange(const Scalar i) const { return (mId < i); }
+	inline bool inRange(const Index i) const { return (mId < i); }
     inline Index size() const { return mEnd; }
 	inline Scalar multiply(const Scalar x) const { return x; }
 	inline Scalar multiply(const Scalar x, const Index index) { return x; }
@@ -210,7 +210,7 @@ class SparseIterator {
     inline Index index() const { return mIndices[mId]; }
 	inline Index nextIndex() const { return mIndices[mId + 1]; }
     inline operator bool() const { return (mId < mEnd); }
-	inline bool inRange(const Scalar i) const { return (mId < i); }
+	inline bool inRange(const Index i) const { return (mId < i); }
     inline Index size() const { return mEnd; }
 	inline Scalar multiply(const Scalar x) const { return x * mValues[mId]; }
 	inline Scalar multiply(const Scalar x, const Index index) const { return x * mValues[index]; }
@@ -271,7 +271,7 @@ public:
 	}
 
     inline DenseView& operator++() {
-    	if (mIterator.index() == mId) {
+    	if (mIterator && mIterator.index() == mId) {
     		++mIterator;
     	}
     	++mId;
@@ -283,7 +283,7 @@ public:
     }
 
     inline const Scalar value() const {
-    	if (mIterator.index() == mId) {
+    	if (mIterator && mIterator.index() == mId) {
     		return mIterator.value();
     	} else {
     		return static_cast<Scalar>(0.0);
@@ -385,7 +385,7 @@ class DenseIterator {
     inline Index index() const { return mId; }
 	inline Index nextIndex() const { return mId + 1; }
     inline operator bool() const { return (mId < mEnd); }
-	inline bool inRange(const Scalar i) const { return (mId < i); }
+	inline bool inRange(const Index i) const { return (mId < i); }
     inline Index size() const { return mEnd; }
 	inline Scalar multiply(const Scalar x) const { return x * mValues[mId]; }
 	inline Scalar multiply(const Scalar x, const Index index) const { return x * mValues[index]; }
@@ -474,7 +474,7 @@ class InterceptIterator {
     inline Index index() const { return mId; }
 	inline Index nextIndex() const { return mId + 1; }
     inline operator bool() const { return (mId < mEnd); }
-	inline bool inRange(const Scalar i) const { return (mId < i); }
+	inline bool inRange(const Index i) const { return (mId < i); }
     inline Index size() const { return mEnd; }
 	inline Scalar multiply(const Scalar x) const { return x; }
 	inline Scalar multiply(const Scalar x, const Index index) const { return x; }

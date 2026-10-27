@@ -14,6 +14,7 @@
 #include <stdexcept>
 #include <thread>
 #include <complex>
+#include <cstdint>
 
 //#define CYCLOPS_DEBUG_TIMING
 //#define CYCLOPS_DEBUG_TIMING_GPU_COX
@@ -49,6 +50,10 @@ public:
     typedef typename CompressedDataMatrix<RealType>::RealVector RealVector;
 
     Storage(const RealVector& y, const RealVector& offs) : hY(y), hOffs(offs) { }
+
+    // Independent rows whose denominator is 1 + exp(xBeta) (logistic regression); only
+    // LogisticRegression sets this, so the specialized kernels leave all other models untouched
+    const static bool hasLogisticRows = false;
 
 protected:
     const RealVector& hY;
@@ -197,6 +202,8 @@ protected:
 
 	void computeFisherInformation(int indexOne, int indexTwo, double *oinfo, bool useWeights);
 
+	void makeDirty();
+
 	void computeSchoenfeldResiduals(int indexOne,
                                  std::vector<double>* residuals, std::vector<double>* times,
                                  std::vector<int>* strata,
@@ -207,6 +214,67 @@ protected:
 	void updateXBeta(double delta, int index, bool useWeights);
 
 	void computeRemainingStatistics(bool useWeights);
+
+	void resumStratumDenominators();
+	double denomMove = 0.0;                 // log-scale movement since the last exact summation
+	std::vector<double> columnMaxAbsX;      // max |x| per column
+
+	// hasLogisticRows: the gradient needs only offsExpXBeta, so updateXBeta() does not store
+	// denomPid = 1 + offsExpXBeta; every reader of denomPid calls ensureDenominators() first
+	bool denominatorsStale = false;
+	void ensureDenominators() {
+		if (BaseModel::hasLogisticRows && denominatorsStale) {
+			for (size_t k = 0; k < K; ++k) {
+				denomPid[k] = static_cast<RealType>(1) + offsExpXBeta[k];
+			}
+			denominatorsStale = false;
+		}
+	}
+
+	// hasLogisticRows cross-validation fold fits whose weights are all 0 or 1: the gradient sums the
+	// weight-1 rows without reading weights
+	void setHeldOutRowsUnused(bool unused) { heldOutRowsUnused = unused; }
+	bool heldOutRowsUnused = false;   // requested by the cross-validation driver
+	bool trainingRowsOnly = false;    // set by setWeights(): skip the rows with trainingRow[k] == 0
+	std::vector<uint8_t> trainingRow; // 1 for weight-1 rows, 0 for weight-0 rows
+
+	// Cross-validation repetition: the rows of every column stable-partitioned by segment (see
+	// makeFoldPartition()), so that a fold fit reads its training entries as two contiguous ranges
+	struct LogisticFoldPartition : public AbstractFoldPartition {
+		const void* data = nullptr;      // the CompressedDataMatrix it indexes
+		int folds = 0;
+		std::vector<int> segmentOfRow;   // K
+		std::vector<int> rowOrder;       // K rows by (segment, row): the entries of DENSE and INTERCEPT columns
+		std::vector<int> rowSegments;    // folds + 3 offsets into rowOrder
+		std::vector<int> segments;       // J * (folds + 3) offsets of the segments within each column
+		std::vector<size_t> rowsStart;   // J: first entry of an INDICATOR or SPARSE column in rows
+		std::vector<int> rows;           // rows of INDICATOR and SPARSE entries, by column, then segment, then row
+		std::vector<size_t> valuesStart; // J: first entry of a SPARSE column in values
+		RealVector values;               // values of SPARSE entries, in the order of rows
+		std::vector<size_t> codesStart;  // J: first entry of a SPARSE column with value codes in codes
+		std::vector<uint16_t> codes;     // their value codes, in the order of rows
+	};
+	std::shared_ptr<const LogisticFoldPartition> activePartition; // in use by this fold fit
+	int partitionFold = -1;
+
+	FoldPartitionPtr makeFoldPartition(const std::vector<int>& segmentOfRow, int folds) const;
+
+	void setFoldPartition(FoldPartitionPtr partition, int fold);
+
+	// Training entries of column index in the active partition: [range[0], range[1]) and
+	// [range[2], range[3]) of rows; values and codes by entry for sparse, by row for dense columns
+	struct TrainingEntries {
+		const int* rows;
+		const RealType* values;
+		const uint16_t* codes;
+		int range[4];
+	};
+
+	template <class IteratorType>
+	TrainingEntries getTrainingEntries(int index) const;
+
+	template <class IteratorType>
+	RealType computeXjYOverTrainingEntries(int index) const;
 
 	void computeAccumlatedNumerator(bool useWeights);
 
@@ -248,6 +316,26 @@ protected:
 	void setPidForAccumulationImpl(const AnyRealType* weights);
 
 	void setupSparseIndices(const int max);
+
+	// Entries of a sparse or indicator column split into runs that fall in one stratum
+	struct StratumSegments {
+		std::vector<int> offsets; // first entry of each run, then the number of entries
+		std::vector<int> strata;  // stratum of each run
+	};
+	std::vector<StratumSegments> stratumSegments; // by column, for grouped models
+
+	void setupStratumSegments();
+
+	// Sparse columns with few distinct values: the value of each entry as an index into a table
+	struct ValueCodes {
+		RealVector values;            // distinct values
+		std::vector<uint16_t> codes;  // index of the value of each entry; empty if not worthwhile
+	};
+	std::vector<ValueCodes> valueCodes; // by column, for grouped models and logistic regression
+	RealVector expFactors; // exp(delta * value) for each distinct value of the updated column
+	RealVector expBuffer;  // logistic regression: xBeta, then exp(xBeta), of the updated sparse column
+
+	void setupValueCodes();
 
 	bool initializeAccumulationVectors(void);
 
@@ -329,6 +417,8 @@ private:
 	template <class IteratorTypeOne, class IteratorTypeTwo, class Weights>
 	void computeFisherInformationImpl(int indexOne, int indexTwo, double *oinfo, Weights w);
 
+	void computeRiskSetFisherInformation(int indexOne, int indexTwo, double *oinfo);
+
 	template <class IteratorType, class Weights>
 	void getSchoenfeldResidualsImpl(int index,
                                  std::vector<double>* residuals,
@@ -392,6 +482,9 @@ struct GroupedData {
 public:
 	const static bool hasStrataCrossTerms = true;
 
+	// Stratum contributes n_s * log(denominator), so Fisher information scales with n_s
+	const static bool fisherInformationScalesWithEvents = true;
+
 	const static bool hasNtoKIndices = true;
 
 	const static bool exactTies = false;
@@ -406,11 +499,15 @@ public:
 struct GroupedWithTiesData : GroupedData {
 public:
 	const static bool exactTies = true;
+
+	const static bool fisherInformationScalesWithEvents = false;
 };
 
 struct OrderedData {
 public:
 	const static bool hasStrataCrossTerms = true;
+
+	const static bool fisherInformationScalesWithEvents = false;
 
 	const static bool hasNtoKIndices = false;
 
@@ -429,6 +526,8 @@ struct OrderedWithTiesData {
 public:
 	const static bool hasStrataCrossTerms = true;
 
+	const static bool fisherInformationScalesWithEvents = false;
+
 	const static bool hasNtoKIndices = false;
 
 	const static bool exactTies = false;
@@ -445,6 +544,8 @@ public:
 struct IndependentData {
 public:
 	const static bool hasStrataCrossTerms = false;
+
+	const static bool fisherInformationScalesWithEvents = false;
 
 	const static bool hasNtoKIndices = false;
 
@@ -476,7 +577,7 @@ struct NoFixedLikelihoodTerms {
 
     template <typename RealType>
 	RealType logLikeFixedTermsContrib(RealType yi, RealType offseti, RealType logoffseti) {
-   	throw new std::logic_error("Not model-specific");
+   	throw std::logic_error("Not model-specific");
 		return static_cast<RealType>(0);
 	}
 };
@@ -592,7 +693,7 @@ public:
 	        RealType nEvents,
 	        RealType x, RealType xBeta, RealType y) {
 
-	    throw new std::logic_error("3rd derivatives are not yet implemented");
+	    throw std::logic_error("3rd derivatives are not yet implemented");
 	}
 };
 
@@ -671,7 +772,7 @@ public:
 	        RealType nEvents,
 	        RealType x, RealType xBeta, RealType y) {
 
-	    throw new std::logic_error("3rd derivatives are not yet implemented");
+	    throw std::logic_error("3rd derivatives are not yet implemented");
 	}
 
 	template <class IteratorType, class WeightOperationType>
@@ -851,7 +952,7 @@ public:
 	        RealType nEvents,
 	        RealType x, RealType xBeta, RealType y) {
 
-	    throw new std::logic_error("3rd derivatives are not yet implemented");
+	    throw std::logic_error("3rd derivatives are not yet implemented");
 	}
 
 	template <class IteratorType, class WeightOperationType>
@@ -910,7 +1011,7 @@ public:
 	const static bool likelihoodHasFixedTerms = false;
 
 	RealType logLikeFixedTermsContrib(RealType yi, RealType offseti, RealType logoffseti) {
-        throw new std::logic_error("Not model-specific");
+        throw std::logic_error("Not model-specific");
 		return static_cast<RealType>(0);
 	}
 
@@ -988,6 +1089,8 @@ public:
 
 	const static bool efron = true;
 
+	const static bool fisherInformationScalesWithEvents = false;
+
     typedef typename Storage<RealType>::RealVector RealVector;
     EfronConditionalLogisticRegression(const RealVector& y, const RealVector& offs)
         : Storage<RealType>(y, offs) { }
@@ -996,7 +1099,7 @@ public:
 	const static bool likelihoodHasFixedTerms = false;
 
 	RealType logLikeFixedTermsContrib(RealType yi, RealType offseti, RealType logoffseti) {
-        throw new std::logic_error("Not model-specific");
+        throw std::logic_error("Not model-specific");
 		return static_cast<RealType>(0);
 	}
 
@@ -1088,7 +1191,7 @@ public:
 	const static bool exactCLR = true;
 
 	RealType logLikeFixedTermsContrib(RealType yi, RealType offseti, RealType logoffseti) {
-        throw new std::logic_error("Not model-specific");
+        throw std::logic_error("Not model-specific");
 		return static_cast<RealType>(0);
 	}
 
@@ -1172,6 +1275,8 @@ public:
         : Storage<RealType>(y, offs) { }
 
 	const static bool precomputeHessian = false;
+
+	const static bool hasLogisticRows = true; // denomPid[k] == 1 + offsExpXBeta[k]
 
 	static RealType getDenomNullValue () { return static_cast<RealType>(1); }
 
@@ -1300,7 +1405,7 @@ public:
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 
-        throw new std::logic_error("cox model not yet support");
+        throw std::logic_error("cox model not yet support");
 
     	const RealType g = numerator / denominator;
 
@@ -1426,7 +1531,7 @@ public:
 
 // 	    std::cout << "TODO" << std::endl;
 
-        throw new std::logic_error("breslow cox model not yet support");
+        throw std::logic_error("breslow cox model not yet support");
 
     	const RealType g = numerator / denominator;
 
@@ -1534,7 +1639,7 @@ public:
                                                           RealType xBeta, RealType y) {
 
 
-        throw new std::logic_error("breslow cox model not yet support");
+        throw std::logic_error("breslow cox model not yet support");
 
         const RealType g = numerator / denominator;
 
@@ -1627,7 +1732,7 @@ public:
 
 	template <class XType>
 	static RealType gradientNumerator2Contrib(XType x, RealType predictor) {
-        throw new std::logic_error("Not model-specific");
+        throw std::logic_error("Not model-specific");
 		return static_cast<RealType>(0);
 	}
 
@@ -1677,7 +1782,7 @@ public:
 	        RealType weight, RealType x, RealType xBeta,
 	        RealType y, RealType norm) {
 
-	    throw new std::logic_error("Not model-specific");
+	    throw std::logic_error("Not model-specific");
 	}
 
 	template <class IteratorType, class WeightOperationType>
@@ -1690,12 +1795,12 @@ public:
     }
 
 	RealType getOffsExpXBeta(const RealType offs, const RealType xBeta) {
-        throw new std::logic_error("Not model-specific");
+        throw std::logic_error("Not model-specific");
 		return static_cast<RealType>(0);
     }
 
 	RealType getOffsExpXBeta(const  RealType* offs, RealType xBeta, RealType y, int k) {
-        throw new std::logic_error("Not model-specific");
+        throw std::logic_error("Not model-specific");
 		return static_cast<RealType>(0);
 	}
 
@@ -1794,7 +1899,7 @@ public:
 	        RealType nEvents,
 	        RealType x, RealType xBeta, RealType y) {
 
-	    throw new std::logic_error("3rd derivatives are not yet implemented");
+	    throw std::logic_error("3rd derivatives are not yet implemented");
 	}
 
 	template <class IteratorType, class Weights>
@@ -1803,7 +1908,7 @@ public:
 	        RealType expXBeta, RealType denominator,
 	        RealType weight, RealType x, RealType xBeta, RealType y, RealType norm) {
 
-	    throw new std::logic_error("Not model-specific");
+	    throw std::logic_error("Not model-specific");
 	}
 
 	template <class IteratorType, class WeightOperationType>

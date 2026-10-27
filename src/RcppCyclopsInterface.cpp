@@ -49,6 +49,7 @@ namespace bsccs {
  	{ModelType::COX_RAW, "cox_raw"},
 	{ModelType::TIME_VARYING_COX, "cox_time"},
  	{ModelType::FINE_GRAY, "fgr"},
+ 	{ModelType::COX_COUNTING, "cox_counting"},
  };
 
 void RcppCcdInterface::logResultsToFile(const std::string& fileName, bool withASE) {
@@ -78,7 +79,8 @@ std::vector<std::string> cyclopsGetRemoveInterceptNames() {
 		modelTypeNames[ModelType::COX],
 		modelTypeNames[ModelType::COX_RAW],
 		modelTypeNames[ModelType::TIME_VARYING_COX],
-        modelTypeNames[ModelType::FINE_GRAY]
+        modelTypeNames[ModelType::FINE_GRAY],
+        modelTypeNames[ModelType::COX_COUNTING]
 	};
 	return names;
 }
@@ -90,7 +92,8 @@ std::vector<std::string> cyclopsGetIsSurvivalNames() {
 		modelTypeNames[ModelType::COX],
 		modelTypeNames[ModelType::COX_RAW],
 		modelTypeNames[ModelType::TIME_VARYING_COX],
-        modelTypeNames[ModelType::FINE_GRAY]
+        modelTypeNames[ModelType::FINE_GRAY],
+        modelTypeNames[ModelType::COX_COUNTING]
 	};
 	return names;
 }
@@ -103,7 +106,8 @@ std::vector<std::string> cyclopsGetUseOffsetNames() {
 		modelTypeNames[ModelType::COX],
 		modelTypeNames[ModelType::COX_RAW],
 		modelTypeNames[ModelType::TIME_VARYING_COX],
-        modelTypeNames[ModelType::FINE_GRAY]
+        modelTypeNames[ModelType::FINE_GRAY],
+        modelTypeNames[ModelType::COX_COUNTING]
 	};
 	return names;
 }
@@ -166,6 +170,14 @@ void cyclopsSetWeights(SEXP inRcppCcdInterface,
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
     interface->getCcd().setWeights(&weights[0]);
+}
+
+// [[Rcpp::export(".cyclopsGetWeights")]]
+std::vector<double> cyclopsGetWeights(SEXP inRcppCcdInterface) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+    return interface->getCcd().getWeights(); // empty when every row has weight 1
 }
 
 // [[Rcpp::export(".cyclopsSetCensorWeights")]]
@@ -481,7 +493,11 @@ DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface,
                                  SEXP inCovariate,
                                  const std::vector<double> points,
                                  int threads, bool includePenalty,
-                                 bool returnDerivatives) {
+                                 bool returnDerivatives,
+                                 const std::vector<double>& startPoints,
+                                 const std::vector<double>& startBetas,
+                                 bool returnBetas,
+                                 bool chain) {
     using namespace bsccs;
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
@@ -490,28 +506,35 @@ DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface,
     std::memcpy(&covariate, &bitCovariate, sizeof(double));
     //const IdType covariate = as<IdType>(inCovariate);
 
+    const int J = interface->getCcd().getBetaSize();
+    if (startBetas.size() != startPoints.size() * J) {
+        interface->handleError("Starting solutions do not match the starting points");
+    }
+
     std::vector<double> values(points.size());
+    std::vector<double> derivatives(returnDerivatives ? points.size() : 0);
+    std::vector<double> betas;
 
-    if (!returnDerivatives) {
-        interface->evaluateProfileModel(covariate, points, values, nullptr, threads, includePenalty);
+    interface->evaluateProfileModel(covariate, points, values,
+                                    returnDerivatives ? &derivatives : nullptr,
+                                    threads, includePenalty, startPoints, startBetas,
+                                    returnBetas ? &betas : nullptr, chain);
 
-        return DataFrame::create(
-            Rcpp::Named("point") = points,
-            Rcpp::Named("value") = values
-        );
-
-    } else {
-
-        std::vector<double> derivatives(points.size());
-
-        interface->evaluateProfileModel(covariate, points, values, &derivatives, threads, includePenalty);
-
-        return DataFrame::create(
+    DataFrame result = returnDerivatives ?
+        DataFrame::create(
             Rcpp::Named("point") = points,
             Rcpp::Named("value") = values,
-            Rcpp::Named("derivative") = derivatives
-        );
+            Rcpp::Named("derivative") = derivatives) :
+        DataFrame::create(
+            Rcpp::Named("point") = points,
+            Rcpp::Named("value") = values);
+
+    if (returnBetas) {
+        NumericMatrix solutions(J, points.size());
+        std::copy(betas.begin(), betas.end(), solutions.begin());
+        result.attr("betas") = solutions;
     }
+    return result;
 }
 
 // [[Rcpp::export(".cyclopsProfileModel")]]
@@ -626,6 +649,64 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
 	args.threads = threads;
 	args.seed = seed;
 	args.resetCoefficients = resetCoefficients;
+}
+
+// Mode-finding options added after .cyclopsSetControl(); an option missing from the list keeps its value
+// [[Rcpp::export(".cyclopsSetModeControl")]]
+void cyclopsSetModeControl(SEXP inRcppCcdInterface, const List& options) {
+	using namespace bsccs;
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	ModeFindingArguments& modeFinding = interface->getArguments().modeFinding;
+
+	if (options.containsElementNamed("activeSetEvery")) {
+		modeFinding.activeSetEvery = as<int>(options["activeSetEvery"]);
+	}
+	if (options.containsElementNamed("activeSetThreshold")) {
+		modeFinding.activeSetThreshold = as<double>(options["activeSetThreshold"]);
+	}
+	if (options.containsElementNamed("adaptiveIntercept")) {
+		modeFinding.adaptiveIntercept = as<bool>(options["adaptiveIntercept"]);
+	}
+}
+
+// Cross-validation options; an option missing from the list keeps its value
+// [[Rcpp::export(".cyclopsSetCvControl")]]
+void cyclopsSetCvControl(SEXP inRcppCcdInterface, const List& options) {
+	using namespace bsccs;
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	CrossValidationArguments& cv = interface->getArguments().crossValidation;
+
+	if (options.containsElementNamed("searchDirection")) {
+		const std::string direction = as<std::string>(options["searchDirection"]);
+		if (direction == "auto") {
+			cv.searchDirection = 0;
+		} else if (direction == "up") {
+			cv.searchDirection = 1;
+		} else if (direction == "down") {
+			cv.searchDirection = -1;
+		} else {
+			Rcpp::stop("Unknown cross-validation search direction: " + direction);
+		}
+	}
+	if (options.containsElementNamed("convergenceType")) {
+		const std::string type = as<std::string>(options["convergenceType"]);
+		cv.foldConvergenceType = type.empty() ? -1 : RcppCcdInterface::parseConvergenceType(type);
+	}
+	if (options.containsElementNamed("tolerance")) {
+		cv.foldTolerance = as<double>(options["tolerance"]);
+	}
+	if (options.containsElementNamed("maxIterations")) {
+		cv.foldMaxIterations = as<int>(options["maxIterations"]);
+	}
+	if (options.containsElementNamed("minIterations")) {
+		cv.foldMinIterations = as<int>(options["minIterations"]);
+	}
+	if (options.containsElementNamed("warmStart")) {
+		cv.warmStart = as<bool>(options["warmStart"]);
+	}
+	if (options.containsElementNamed("refine")) {
+		cv.refineSearch = as<bool>(options["refine"]);
+	}
 }
 
 // [[Rcpp::export(".cyclopsRunCrossValidation")]]
@@ -827,7 +908,7 @@ List cyclopsLogModel(SEXP inRcppCcdInterface) {
 
 // [[Rcpp::export(".cyclopsInitializeModel")]]
 List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, const std::string& computeDevice,
-                            bool computeMLE = false) {
+                            bool computeMLE = false, const std::string& fitter = "default") {
 	using namespace bsccs;
 
 	XPtr<AbstractModelData> rcppModelData(inModelData);
@@ -836,6 +917,7 @@ List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, cons
 
 	interface->getArguments().modelName = modelType;
 	interface->getArguments().computeDevice.name = computeDevice;
+	interface->getArguments().fitter = fitter;
 	if (computeMLE) {
 		interface->getArguments().computeMLE = true;
 	}
@@ -934,6 +1016,8 @@ bsccs::ConvergenceType RcppCcdInterface::parseConvergenceType(const std::string&
 		type = ZHANG_OLES;
 	} else if (convergenceName == "onestep") {
 	    type = ONE_STEP;
+	} else if (convergenceName == "kkt") {
+	    type = KKT;
 	} else {
 		handleError("Invalid convergence type.");
 	}
@@ -983,6 +1067,8 @@ bsccs::SelectorType RcppCcdInterface::parseSelectorType(const std::string& selec
 		selectorType = SelectorType::BY_PID;
 	} else if (selectorName == "byRow") {
 		selectorType = SelectorType::BY_ROW;
+	} else if (selectorName == "bySubject") {
+		selectorType = SelectorType::BY_SUBJECT;
 	} else {
 		handleError("Invalid selector type.");
 	}
@@ -1216,7 +1302,8 @@ void RcppCcdInterface::initializeModelImpl(
 	    ? DeviceType::CPU : DeviceType::GPU;
 
 	*model = AbstractModelSpecifics::factory(modelType, **modelData,
-                                          deviceType, deviceName);
+                                          deviceType, deviceName,
+                                          arguments.fitter == "legacy");
 	if (*model == nullptr) {
 		handleError("Invalid model type.");
 	}

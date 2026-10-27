@@ -5,6 +5,8 @@
  *      Author: msuchard
  */
 
+#include <algorithm>
+
 #include "Rcpp.h"
 #include "RcppModelData.h"
 #include "Timer.h"
@@ -479,6 +481,25 @@ std::vector<double> cyclopsGetTimeVector(Environment object) {
     // return (data->getTimeVectorRef());
 }
 
+// [[Rcpp::export("getStartTimeVector")]]
+std::vector<double> cyclopsGetStartTimeVector(Environment object) {
+    XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);
+    return data->copyStartTimeVector(); // empty when every row starts at the time origin
+}
+
+// [[Rcpp::export(".cyclopsGetStratumVector")]]
+std::vector<int> cyclopsGetStratumVector(Environment object) {
+    XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);
+    return data->getPidVectorSTL();
+}
+
+// [[Rcpp::export(".cyclopsGetNumberOfSubjects")]]
+int cyclopsGetNumberOfSubjects(Environment object) {
+    XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);
+    const auto& subjects = data->getSubjectIndexVectorRef();
+    return subjects.empty() ? 0 : *std::max_element(subjects.begin(), subjects.end()) + 1;
+}
+
 // [[Rcpp::export(".cyclopsFinalizeData")]]
 void cyclopsFinalizeData(
         Environment x,
@@ -579,6 +600,26 @@ void cyclopsLoadDataY(Environment x,
     data->loadY(reinterpret_cast<const std::vector<int64_t>&>(stratumId),
                 reinterpret_cast<const std::vector<int64_t>&>(rowId),
                 y, time);
+}
+
+// [[Rcpp::export(".loadCyclopsDataStartTime")]]
+void cyclopsLoadDataStartTime(Environment x,
+                              const std::vector<double>& startTime) {
+
+    using namespace bsccs;
+    XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
+
+    data->loadStartTime(startTime);
+}
+
+// [[Rcpp::export(".loadCyclopsDataSubjectId")]]
+void cyclopsLoadDataSubjectId(Environment x,
+                              const std::vector<double>& subjectId) {
+
+    using namespace bsccs;
+    XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
+
+    data->loadSubjectId(reinterpret_cast<const std::vector<int64_t>&>(subjectId));
 }
 
 // [[Rcpp::export(".loadCyclopsDataMultipleX")]]

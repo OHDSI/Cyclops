@@ -12,7 +12,7 @@ testProportionality(object, parm = NULL, transform = "km")
 \item{parm}{A specification of which parameters require a proportionality test,
 either a vector of numbers or covariateId names}
 
-\item{transform}{Same as \code{transform} in \code{cox.zph}}
+\item{transform}{Same as \code{transform} in \code{cox.zph}, computed over the rows with positive weight}
 }
 \description{
 \code{testProportionality} tests the hazard ratio proportionality assumption

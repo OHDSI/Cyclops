@@ -143,6 +143,17 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// cyclopsGetWeights
+std::vector<double> cyclopsGetWeights(SEXP inRcppCcdInterface);
+RcppExport SEXP _Cyclops_cyclopsGetWeights(SEXP inRcppCcdInterfaceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetWeights(inRcppCcdInterface));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsSetCensorWeights
 void cyclopsSetCensorWeights(SEXP inRcppCcdInterface, NumericVector& weights);
 RcppExport SEXP _Cyclops_cyclopsSetCensorWeights(SEXP inRcppCcdInterfaceSEXP, SEXP weightsSEXP) {
@@ -280,8 +291,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsGetProfileLikelihood
-DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface, SEXP inCovariate, const std::vector<double> points, int threads, bool includePenalty, bool returnDerivatives);
-RcppExport SEXP _Cyclops_cyclopsGetProfileLikelihood(SEXP inRcppCcdInterfaceSEXP, SEXP inCovariateSEXP, SEXP pointsSEXP, SEXP threadsSEXP, SEXP includePenaltySEXP, SEXP returnDerivativesSEXP) {
+DataFrame cyclopsGetProfileLikelihood(SEXP inRcppCcdInterface, SEXP inCovariate, const std::vector<double> points, int threads, bool includePenalty, bool returnDerivatives, const std::vector<double>& startPoints, const std::vector<double>& startBetas, bool returnBetas, bool chain);
+RcppExport SEXP _Cyclops_cyclopsGetProfileLikelihood(SEXP inRcppCcdInterfaceSEXP, SEXP inCovariateSEXP, SEXP pointsSEXP, SEXP threadsSEXP, SEXP includePenaltySEXP, SEXP returnDerivativesSEXP, SEXP startPointsSEXP, SEXP startBetasSEXP, SEXP returnBetasSEXP, SEXP chainSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -291,7 +302,11 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type threads(threadsSEXP);
     Rcpp::traits::input_parameter< bool >::type includePenalty(includePenaltySEXP);
     Rcpp::traits::input_parameter< bool >::type returnDerivatives(returnDerivativesSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsGetProfileLikelihood(inRcppCcdInterface, inCovariate, points, threads, includePenalty, returnDerivatives));
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type startPoints(startPointsSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type startBetas(startBetasSEXP);
+    Rcpp::traits::input_parameter< bool >::type returnBetas(returnBetasSEXP);
+    Rcpp::traits::input_parameter< bool >::type chain(chainSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetProfileLikelihood(inRcppCcdInterface, inCovariate, points, threads, includePenalty, returnDerivatives, startPoints, startBetas, returnBetas, chain));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -376,6 +391,28 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// cyclopsSetModeControl
+void cyclopsSetModeControl(SEXP inRcppCcdInterface, const List& options);
+RcppExport SEXP _Cyclops_cyclopsSetModeControl(SEXP inRcppCcdInterfaceSEXP, SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const List& >::type options(optionsSEXP);
+    cyclopsSetModeControl(inRcppCcdInterface, options);
+    return R_NilValue;
+END_RCPP
+}
+// cyclopsSetCvControl
+void cyclopsSetCvControl(SEXP inRcppCcdInterface, const List& options);
+RcppExport SEXP _Cyclops_cyclopsSetCvControl(SEXP inRcppCcdInterfaceSEXP, SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const List& >::type options(optionsSEXP);
+    cyclopsSetCvControl(inRcppCcdInterface, options);
+    return R_NilValue;
+END_RCPP
+}
 // cyclopsRunCrossValidationl
 List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface);
 RcppExport SEXP _Cyclops_cyclopsRunCrossValidationl(SEXP inRcppCcdInterfaceSEXP) {
@@ -455,8 +492,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsInitializeModel
-List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, const std::string& computeDevice, bool computeMLE);
-RcppExport SEXP _Cyclops_cyclopsInitializeModel(SEXP inModelDataSEXP, SEXP modelTypeSEXP, SEXP computeDeviceSEXP, SEXP computeMLESEXP) {
+List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, const std::string& computeDevice, bool computeMLE, const std::string& fitter);
+RcppExport SEXP _Cyclops_cyclopsInitializeModel(SEXP inModelDataSEXP, SEXP modelTypeSEXP, SEXP computeDeviceSEXP, SEXP computeMLESEXP, SEXP fitterSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -464,7 +501,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::string& >::type modelType(modelTypeSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type computeDevice(computeDeviceSEXP);
     Rcpp::traits::input_parameter< bool >::type computeMLE(computeMLESEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsInitializeModel(inModelData, modelType, computeDevice, computeMLE));
+    Rcpp::traits::input_parameter< const std::string& >::type fitter(fitterSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsInitializeModel(inModelData, modelType, computeDevice, computeMLE, fitter));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -803,6 +841,39 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsGetStartTimeVector
+std::vector<double> cyclopsGetStartTimeVector(Environment object);
+RcppExport SEXP _Cyclops_cyclopsGetStartTimeVector(SEXP objectSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type object(objectSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetStartTimeVector(object));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cyclopsGetStratumVector
+std::vector<int> cyclopsGetStratumVector(Environment object);
+RcppExport SEXP _Cyclops_cyclopsGetStratumVector(SEXP objectSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type object(objectSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetStratumVector(object));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cyclopsGetNumberOfSubjects
+int cyclopsGetNumberOfSubjects(Environment object);
+RcppExport SEXP _Cyclops_cyclopsGetNumberOfSubjects(SEXP objectSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type object(objectSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetNumberOfSubjects(object));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsFinalizeData
 void cyclopsFinalizeData(Environment x, bool addIntercept, SEXP sexpOffsetCovariate, bool offsetAlreadyOnLogScale, bool sortCovariates, SEXP sexpCovariatesDense, bool magicFlag);
 RcppExport SEXP _Cyclops_cyclopsFinalizeData(SEXP xSEXP, SEXP addInterceptSEXP, SEXP sexpOffsetCovariateSEXP, SEXP offsetAlreadyOnLogScaleSEXP, SEXP sortCovariatesSEXP, SEXP sexpCovariatesDenseSEXP, SEXP magicFlagSEXP) {
@@ -830,6 +901,28 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::vector<double>& >::type y(ySEXP);
     Rcpp::traits::input_parameter< const std::vector<double>& >::type time(timeSEXP);
     cyclopsLoadDataY(x, stratumId, rowId, y, time);
+    return R_NilValue;
+END_RCPP
+}
+// cyclopsLoadDataStartTime
+void cyclopsLoadDataStartTime(Environment x, const std::vector<double>& startTime);
+RcppExport SEXP _Cyclops_cyclopsLoadDataStartTime(SEXP xSEXP, SEXP startTimeSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type startTime(startTimeSEXP);
+    cyclopsLoadDataStartTime(x, startTime);
+    return R_NilValue;
+END_RCPP
+}
+// cyclopsLoadDataSubjectId
+void cyclopsLoadDataSubjectId(Environment x, const std::vector<double>& subjectId);
+RcppExport SEXP _Cyclops_cyclopsLoadDataSubjectId(SEXP xSEXP, SEXP subjectIdSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type subjectId(subjectIdSEXP);
+    cyclopsLoadDataSubjectId(x, subjectId);
     return R_NilValue;
 END_RCPP
 }
@@ -959,6 +1052,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetFixedBeta", (DL_FUNC) &_Cyclops_cyclopsGetFixedBeta, 2},
     {"_Cyclops_cyclopsGetIsRegularized", (DL_FUNC) &_Cyclops_cyclopsGetIsRegularized, 2},
     {"_Cyclops_cyclopsSetWeights", (DL_FUNC) &_Cyclops_cyclopsSetWeights, 2},
+    {"_Cyclops_cyclopsGetWeights", (DL_FUNC) &_Cyclops_cyclopsGetWeights, 1},
     {"_Cyclops_cyclopsSetCensorWeights", (DL_FUNC) &_Cyclops_cyclopsSetCensorWeights, 2},
     {"_Cyclops_cyclopsGetNewPredictiveLogLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetNewPredictiveLogLikelihood, 2},
     {"_Cyclops_cyclopsGetLogLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetLogLikelihood, 1},
@@ -970,12 +1064,14 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsSetPrior", (DL_FUNC) &_Cyclops_cyclopsSetPrior, 6},
     {"_Cyclops_cyclopsTestParameterizedPrior", (DL_FUNC) &_Cyclops_cyclopsTestParameterizedPrior, 4},
     {"_Cyclops_cyclopsSetParameterizedPrior", (DL_FUNC) &_Cyclops_cyclopsSetParameterizedPrior, 5},
-    {"_Cyclops_cyclopsGetProfileLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetProfileLikelihood, 6},
+    {"_Cyclops_cyclopsGetProfileLikelihood", (DL_FUNC) &_Cyclops_cyclopsGetProfileLikelihood, 10},
     {"_Cyclops_cyclopsProfileModel", (DL_FUNC) &_Cyclops_cyclopsProfileModel, 6},
     {"_Cyclops_cyclopsPredictModel", (DL_FUNC) &_Cyclops_cyclopsPredictModel, 1},
     {"_Cyclops_cyclopsSetConvergenceType", (DL_FUNC) &_Cyclops_cyclopsSetConvergenceType, 2},
     {"_Cyclops_cyclopsGetConvergenceType", (DL_FUNC) &_Cyclops_cyclopsGetConvergenceType, 1},
     {"_Cyclops_cyclopsSetControl", (DL_FUNC) &_Cyclops_cyclopsSetControl, 23},
+    {"_Cyclops_cyclopsSetModeControl", (DL_FUNC) &_Cyclops_cyclopsSetModeControl, 2},
+    {"_Cyclops_cyclopsSetCvControl", (DL_FUNC) &_Cyclops_cyclopsSetCvControl, 2},
     {"_Cyclops_cyclopsRunCrossValidationl", (DL_FUNC) &_Cyclops_cyclopsRunCrossValidationl, 1},
     {"_Cyclops_cyclopsCacheForJava", (DL_FUNC) &_Cyclops_cyclopsCacheForJava, 1},
     {"_Cyclops_cyclopsClearCacheForJava", (DL_FUNC) &_Cyclops_cyclopsClearCacheForJava, 0},
@@ -983,7 +1079,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsRunBootstrap", (DL_FUNC) &_Cyclops_cyclopsRunBootstrap, 4},
     {"_Cyclops_cyclopsGetLogLikelihoodGradient", (DL_FUNC) &_Cyclops_cyclopsGetLogLikelihoodGradient, 1},
     {"_Cyclops_cyclopsLogModel", (DL_FUNC) &_Cyclops_cyclopsLogModel, 1},
-    {"_Cyclops_cyclopsInitializeModel", (DL_FUNC) &_Cyclops_cyclopsInitializeModel, 4},
+    {"_Cyclops_cyclopsInitializeModel", (DL_FUNC) &_Cyclops_cyclopsInitializeModel, 5},
     {"_Cyclops_cyclopsGetLogLikelihoodHessianDiagonal", (DL_FUNC) &_Cyclops_cyclopsGetLogLikelihoodHessianDiagonal, 2},
     {"_Cyclops_listGPUDevices", (DL_FUNC) &_Cyclops_listGPUDevices, 0},
     {"_Cyclops_getDefaultGPUDevice", (DL_FUNC) &_Cyclops_getDefaultGPUDevice, 0},
@@ -1013,8 +1109,13 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetMeanOffset", (DL_FUNC) &_Cyclops_cyclopsGetMeanOffset, 1},
     {"_Cyclops_cyclopsGetYVector", (DL_FUNC) &_Cyclops_cyclopsGetYVector, 1},
     {"_Cyclops_cyclopsGetTimeVector", (DL_FUNC) &_Cyclops_cyclopsGetTimeVector, 1},
+    {"_Cyclops_cyclopsGetStartTimeVector", (DL_FUNC) &_Cyclops_cyclopsGetStartTimeVector, 1},
+    {"_Cyclops_cyclopsGetStratumVector", (DL_FUNC) &_Cyclops_cyclopsGetStratumVector, 1},
+    {"_Cyclops_cyclopsGetNumberOfSubjects", (DL_FUNC) &_Cyclops_cyclopsGetNumberOfSubjects, 1},
     {"_Cyclops_cyclopsFinalizeData", (DL_FUNC) &_Cyclops_cyclopsFinalizeData, 7},
     {"_Cyclops_cyclopsLoadDataY", (DL_FUNC) &_Cyclops_cyclopsLoadDataY, 5},
+    {"_Cyclops_cyclopsLoadDataStartTime", (DL_FUNC) &_Cyclops_cyclopsLoadDataStartTime, 2},
+    {"_Cyclops_cyclopsLoadDataSubjectId", (DL_FUNC) &_Cyclops_cyclopsLoadDataSubjectId, 2},
     {"_Cyclops_cyclopsLoadDataMultipleX", (DL_FUNC) &_Cyclops_cyclopsLoadDataMultipleX, 8},
     {"_Cyclops_cyclopsLoadDataX", (DL_FUNC) &_Cyclops_cyclopsLoadDataX, 7},
     {"_Cyclops_cyclopsLoadDataStratTimeEffects", (DL_FUNC) &_Cyclops_cyclopsLoadDataStratTimeEffects, 5},
