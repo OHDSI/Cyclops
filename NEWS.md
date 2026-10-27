@@ -159,6 +159,9 @@ Changes:
 38. correct `vcov()` and `getSEs()` for `fgr` models: the Fisher information now sums over the
     Fine-Gray risk sets, including subjects with an earlier competing event weighted by the ratio
     of censoring weights (it returned meaningless values)
+39. stratified `fgr` models keep each subject with a competing event in the risk sets of its own
+    stratum only; the backwards scans of the denominator, gradient and Fisher information carried
+    them into other strata, biasing estimates and standard errors
 
 Cyclops v3.7.1
 ==============

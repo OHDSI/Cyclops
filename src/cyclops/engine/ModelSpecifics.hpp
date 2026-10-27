@@ -1264,16 +1264,16 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
                 RealType totalNumer = static_cast<RealType>(0);
                 RealType totalNumer2 = static_cast<RealType>(0);
 
-                auto backReset = end(accReset) - 1;
+                auto backReset = accReset.rbegin() + 1; // first pid of the last stratum
 
                 for ( ; revIt; ) {
 
                     int i = revIt.index();
 
-                    if (static_cast<signed int>(*backReset) == i) {
+                    while (backReset != accReset.rend() && i < *backReset) { // entered an earlier stratum
                         totalNumer = static_cast<RealType>(0);
                         totalNumer2 = static_cast<RealType>(0);
-                        --backReset;
+                        ++backReset;
                     }
 
                     totalNumer += (hY[hNtoK[i]] > static_cast<RealType>(1)) ? numerPid[i] / hYWeight[hNtoK[i]] : 0;
@@ -1296,11 +1296,11 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 
                         const int next = revIt ? revIt.index() : -1;
                         for (--i; i > next; --i) {
-                            //if (*reset <= i) { // TODO MAS: This is not correct (only need for stratified models)
-                            //    accNumerPid  = static_cast<RealType>(0);
-                            //    accNumerPid2 = static_cast<RealType>(0);
-                            //    ++reset;
-                            //}
+                            if (backReset != accReset.rend() && i < *backReset) { // entered the previous stratum
+                                totalNumer = static_cast<RealType>(0);
+                                totalNumer2 = static_cast<RealType>(0);
+                                ++backReset;
+                            }
 
                            decNumerPid = (hY[hNtoK[i]] == static_cast<RealType>(1)) ? hYWeight[hNtoK[i]] * totalNumer : 0;
                            decNumerPid2 = (hY[hNtoK[i]] == static_cast<RealType>(1)) ? hYWeight[hNtoK[i]] * totalNumer2 : 0;
@@ -1872,11 +1872,11 @@ void ModelSpecifics<BaseModel,RealType>::computeRiskSetFisherInformation(int ind
 		totalTwo = static_cast<RealType>(0);
 		totalBoth = static_cast<RealType>(0);
 
-		auto reset = begin(accReset);
+		auto reset = accReset.rbegin() + 1; // first pid of the last stratum
 
 		for (int i = (N - 1); i >= 0; i--) {
 
-			if (static_cast<unsigned int>(*reset) == i) {
+			if (reset != accReset.rend() && i < *reset) { // entered the previous stratum
 				totalOne = static_cast<RealType>(0);
 				totalTwo = static_cast<RealType>(0);
 				totalBoth = static_cast<RealType>(0);
@@ -2611,12 +2611,12 @@ void ModelSpecifics<BaseModel,RealType>::computeAccumlatedDenominator(bool useWe
             // RealType backDenom = static_cast<RealType>(0);
             RealType totalDenom = static_cast<RealType>(0);
 
-        auto reset = begin(accReset);
+        auto reset = accReset.rbegin() + 1; // first pid of the last stratum
 
             //Q: How can we change int to size_t w/o errors
             for (int i = (N - 1); i >= 0; i--) {
 
-                if (static_cast<unsigned int>(*reset) == i) { // TODO Check with SPARSE
+                if (reset != accReset.rend() && i < *reset) { // entered the previous stratum
                     totalDenom = static_cast<RealType>(0);
                     ++reset;
                 }

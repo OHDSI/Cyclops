@@ -149,3 +149,74 @@ test_that("vcov for fgr with tied times inverts the curvature of the log-likelih
     }))
     expect_equal(unname(vcov(fit)), solve(-hessian), tolerance = 1E-5)
 })
+
+simulateStrataOfCompetingRisks <- function() {
+    data <- do.call(rbind, lapply(1:3, function(s) {
+        cbind(simulateCompetingRisks(100 + 50 * s, 200 + s), stratum = s)
+    }))
+    data$fg <- getFineGrayWeights(data$time, data$status)$surv
+    data$censorWeight <- NA # censoring is estimated within each stratum
+    for (s in 1:3) {
+        inStratum <- data$stratum == s
+        data$censorWeight[inStratum] <- getFineGrayWeights(data$time[inStratum], data$status[inStratum])$weights
+    }
+    data
+}
+
+createStratumData <- function(data, s) {
+    stratumData <- data[data$stratum == s, ]
+    createCyclopsData(fg ~ x1 + x2, data = stratumData, modelType = "fgr",
+                      censorWeights = stratumData$censorWeight)
+}
+
+test_that("stratified fgr with stratum-specific coefficients matches per-stratum fits", {
+    data <- simulateStrataOfCompetingRisks()
+    control <- createControl(tolerance = 1E-10, noiseLevel = "silent")
+    perStratum <- lapply(1:3, function(s) fitCyclopsModel(createStratumData(data, s), control = control))
+
+    for (s in 1:3) {
+        data[[paste0("x1_", s)]] <- ifelse(data$stratum == s, data$x1, 0)
+        data[[paste0("x2_", s)]] <- ifelse(data$stratum == s, data$x2, 0)
+    }
+    fit <- fitCyclopsModel(createCyclopsData(fg ~ x1_1 + x2_1 + x1_2 + x2_2 + x1_3 + x2_3 + strata(stratum),
+                                             data = data, modelType = "fgr",
+                                             censorWeights = data$censorWeight), control = control)
+    expect_equal(fit$log_likelihood, sum(sapply(perStratum, function(f) f$log_likelihood)), tolerance = 1E-8)
+    for (s in 1:3) {
+        names <- paste0(c("x1_", "x2_"), s)
+        expect_equal(unname(coef(fit)[names]), unname(coef(perStratum[[s]])), tolerance = 1E-6)
+        expect_equal(unname(vcov(fit)[names, names]), unname(vcov(perStratum[[s]])), tolerance = 1E-6)
+    }
+})
+
+test_that("stratified fgr with shared coefficients sums per-stratum fits and matches coxph", {
+    data <- simulateStrataOfCompetingRisks()
+    control <- createControl(tolerance = 1E-10, noiseLevel = "silent")
+
+    expanded <- do.call(rbind, lapply(1:3, function(s) { # censoring weights within each stratum
+        finegray(Surv(time, factor(status)) ~ x1 + x2 + stratum,
+                 data = data[data$stratum == s, c("time", "status", "x1", "x2", "stratum")], etype = "1")
+    }))
+    gold <- coxph(Surv(fgstart, fgstop, fgstatus) ~ x1 + x2 + strata(stratum), data = expanded,
+                  weights = fgwt, ties = "breslow")
+
+    fit <- fitCyclopsModel(createCyclopsData(fg ~ x1 + x2 + strata(stratum), data = data, modelType = "fgr",
+                                             censorWeights = data$censorWeight), control = control)
+    expect_equal(unname(coef(fit)), unname(coef(gold)), tolerance = 1E-6)
+    expect_equal(unname(vcov(fit)), unname(gold$naive.var), tolerance = 1E-6)
+    logLikAt <- function(s, beta) {
+        fitCyclopsModel(createStratumData(data, s), startingCoefficients = beta,
+                        fixedCoefficients = c(TRUE, TRUE), control = control)$log_likelihood
+    }
+    expect_equal(fit$log_likelihood, sum(sapply(1:3, logLikAt, beta = coef(fit))), tolerance = 1E-8)
+
+    # an indicator column, whose gaps span the strata boundaries
+    outcomes <- data.frame(rowId = seq_len(nrow(data)), stratumId = data$stratum, time = data$time,
+                           y = data$status, censorWeights = data$censorWeight)
+    covariates <- rbind(data.frame(rowId = outcomes$rowId, covariateId = 1, covariateValue = data$x1),
+                        data.frame(rowId = which(data$x2 == 1), covariateId = 2, covariateValue = 1))
+    fit <- fitCyclopsModel(convertToCyclopsData(outcomes, covariates, modelType = "fgr", quiet = TRUE),
+                           control = control)
+    expect_equal(unname(coef(fit)), unname(coef(gold)), tolerance = 1E-6)
+    expect_equal(unname(vcov(fit)), unname(gold$naive.var), tolerance = 1E-6)
+})
