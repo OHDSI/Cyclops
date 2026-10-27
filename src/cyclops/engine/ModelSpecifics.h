@@ -442,6 +442,46 @@ protected:
 	std::vector<ValueCodes> valueCodes; // by column, for grouped models and logistic regression
 	RealVector expFactors; // exp(delta * value) for each distinct value of the updated column
 	RealVector expBuffer;  // logistic regression: xBeta, then exp(xBeta), of the updated sparse column
+	// Lazy intercept (logistic regression, fitter = "super"): exp(xBeta) of every row is pendingFactor times
+	// offsExpXBeta, and xBeta is hXBeta plus pendingShift, until flushIntercept(). Gradients read
+	// p = (B e) / (1 + B e); flushIntercept() stores e * B, the same product, so the p that gradients read
+	// is unchanged by it except in rows whose e is not a normal number (recomputed: a new drift epoch)
+	bool lazyIntercept = false;
+	RealType pendingFactor = static_cast<RealType>(1);
+	RealType pendingShift = static_cast<RealType>(0);
+public:
+	bool setLazyIntercept(bool on) {
+		flushIntercept();
+		lazyIntercept = on && BaseModel::hasLogisticRows && !legacy;
+		return lazyIntercept;
+	}
+	void flushIntercept() {
+		if (pendingFactor == static_cast<RealType>(1) && pendingShift == static_cast<RealType>(0)) {
+			return;
+		}
+		const RealType minEntry = std::numeric_limits<RealType>::min();
+		const RealType maxEntry = std::numeric_limits<RealType>::max();
+		bool recomputed = false;
+		for (size_t k = 0; k < K; ++k) {
+			hXBeta[k] += pendingShift;
+			const RealType oldEntry = offsExpXBeta[k];
+			if (oldEntry >= minEntry && oldEntry <= maxEntry) {
+				offsExpXBeta[k] = oldEntry * pendingFactor;
+			} else {
+				const size_t row = flushRow(k);
+				offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[row], row);
+				recomputed = true;
+			}
+		}
+		pendingFactor = static_cast<RealType>(1);
+		pendingShift = static_cast<RealType>(0);
+		denominatorsStale = true;
+		if (recomputed) {
+			restartDrift();
+		}
+	}
+protected:
+	size_t flushRow(size_t k) const { return k; } // the row at position k of the per-row state
 
 	void setupValueCodes();
 

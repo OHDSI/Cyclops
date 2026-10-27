@@ -215,6 +215,10 @@ public:
 	// `partition` if they are exactly the weight-1 rows; nullptr stops using it
 	virtual void setFoldPartition(FoldPartitionPtr partition, int fold) {};
 
+	// Lazy intercept moves (see ModelSpecifics): switch on or off, and apply the pending move to every row
+	virtual bool setLazyIntercept(bool on) { return false; }
+	virtual void flushIntercept() {}
+
 	// Bounds on how far the gradient of any Laplace indicator column can have moved since an earlier call
 	// with the same epoch (see CyclicCoordinateDescent::certifiedZero()). Every total is an upper bound
 	// that only grows within an epoch, rounded outward at each addition, so that a difference of two

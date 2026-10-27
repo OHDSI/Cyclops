@@ -1223,6 +1223,10 @@ void CyclicCoordinateDescent::findMode(
 		activeSetTau = 0.0;
 	}
 	setUpAdaptiveIntercept(algorithmType, epsilon);
+	// fitter = "super": intercept steps move a pending factor, applied to every row once per cycle (switched
+	// off otherwise, which also applies a move left pending by an interrupted fit)
+	const bool lazyIntercept = modelSpecifics.setLazyIntercept(
+		interceptIndex >= 0 && convergenceType == KKT && noiseLevel <= QUIET);
 	setUpZeroCertificates(algorithmType);
 
 	std::vector<double> allDelta;
@@ -1391,6 +1395,7 @@ void CyclicCoordinateDescent::findMode(
 	    			log(index);
 	    		}
 	    		lastCycleFull = fullSweep;
+	    		modelSpecifics.flushIntercept();
 	    		if (fullSweep) {
 	    			activeSetTau = activeSetThreshold * cycleMaxStepSE;
 	    		}
@@ -1595,6 +1600,9 @@ void CyclicCoordinateDescent::findMode(
             done = check();
         }
     }
+	if (lazyIntercept) {
+		modelSpecifics.setLazyIntercept(false); // applies the pending move
+	}
 
 	lastIterationCount = iteration;
 	if (interceptIndex >= 0 && noiseLevel > QUIET) {
@@ -2061,11 +2069,12 @@ bool CyclicCoordinateDescent::certifiedZero(int index) const {
 		const double highDown = (drift.highDown[c.split] - c.highDown) * (1.0 + 4.0 * eps);
 		const double growth = highUp + highDown;
 		if (growth < 1.0) {
-			// p(1 - p) as computed from e = exp(xBeta) is within 3 eps of the exact one in each row
-			const double hessian = c.hessian * (1.0 + (rows + 4.0) * eps) + 3.0 * eps * rows;
+			// p(1 - p) as computed from B e (B: a pending lazy intercept move) is within 4 eps of the exact
+			// one in each row
+			const double hessian = c.hessian * (1.0 + (rows + 4.0) * eps) + 4.0 * eps * rows;
 			const double expGrowth = 1.0 / (1.0 - growth);
-			// p in each update since (6 eps per row), and p read from e at both ends (2 eps per row each)
-			const double rounding = 6.0 * eps * rows * (drift.updates - c.updates) + 4.0 * eps * rows;
+			// p in each update since (8 eps per row), and p read as (B e) / (1 + B e) at both ends (3 eps each)
+			const double rounding = 8.0 * eps * rows * (drift.updates - c.updates) + 6.0 * eps * rows;
 			const double all = (expGrowth * (lowUp + lowDown) + hessian * (expGrowth - 1.0)) * (1.0 + 1E-12) + rounding;
 			const double sidedUp = (highUp * (hessian + all) + lowUp) * (1.0 + 1E-12) + rounding;
 			const double sidedDown = (highDown * (hessian + all) + lowDown) * (1.0 + 1E-12) + rounding;

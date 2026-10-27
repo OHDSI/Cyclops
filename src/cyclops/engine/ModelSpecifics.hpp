@@ -140,6 +140,7 @@ AbstractModelSpecifics* ModelSpecifics<BaseModel,RealType>::clone(ComputeDeviceA
 
 template <class BaseModel, typename RealType>
 double ModelSpecifics<BaseModel,RealType>::getGradientObjective(bool useCrossValidation) {
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
 
 #ifdef CYCLOPS_DEBUG_TIMING
     auto start = bsccs::chrono::steady_clock::now();
@@ -345,6 +346,7 @@ const std::vector<double> ModelSpecifics<BaseModel,RealType>::getXBetaSave() {
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::zeroXBeta() {
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
 	std::fill(std::begin(hXBeta), std::end(hXBeta), 0.0);
 }
 
@@ -361,6 +363,7 @@ void ModelSpecifics<BaseModel,RealType>::saveXBeta() {
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeXBeta(double* beta, bool useWeights) {
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
 
     if (!hXt) {
         initializeMmXt();
@@ -442,6 +445,7 @@ void ModelSpecifics<BaseModel,RealType>::axpy(RealType* y, const RealType alpha,
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::axpyXBeta(const double beta, const int j) {
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
 
 #ifdef CYCLOPS_DEBUG_TIMING
     auto start = bsccs::chrono::steady_clock::now();
@@ -476,6 +480,7 @@ void ModelSpecifics<BaseModel,RealType>::axpyXBeta(const double beta, const int 
 // ESK: Added cWeights (censoring weights) as an input
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *cenWeights, bool useCrossValidation) {
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
 	// Set K weights
 	if (hKWeight.size() != K) {
 		hKWeight.resize(K);
@@ -703,6 +708,7 @@ void ModelSpecifics<BaseModel,RealType>::computeFixedTermsInGradientAndHessian(b
 
 template <class BaseModel,typename RealType>
 double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidation) {
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto start = bsccs::chrono::steady_clock::now();
@@ -762,6 +768,7 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 
 template <class BaseModel,typename RealType>
 double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* weights) {
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
 
 	ensureDenominators();
 
@@ -1335,7 +1342,9 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	    const RealType* expXBeta = offsExpXBeta.data();
 	    const RealType* weight = hNWeight.data();
 	    RealType largestW = static_cast<RealType>(0); // of the rows summed, for updateXBetaImpl()
-	    auto sums = [&](auto trackTag) {
+	    const RealType factorB = pendingFactor; // a pending lazy intercept move (1: none)
+	    auto sums = [&](auto scaledTag, auto trackTag) {
+	        constexpr bool scaled = decltype(scaledTag)::value;
 	        constexpr bool track = decltype(trackTag)::value; // largestW only for the drift bounds
 
 	    if (Weights::isWeighted && activePartition) {
@@ -1344,7 +1353,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	        for (int r = 0; r < 4; r += 2) {
 	            for (int q = t.range[r]; q < t.range[r + 1]; ++q) {
 	                const int i = t.rows[q];
-	                const RealType e = expXBeta[i];
+	                const RealType e = scaled ? factorB * expXBeta[i] : expXBeta[i];
 	                const RealType p = (e <= std::numeric_limits<RealType>::max()) ?
 	                    e / (static_cast<RealType>(1) + e) : static_cast<RealType>(1);
 	                const RealType w = p * (static_cast<RealType>(1) - p);
@@ -1366,7 +1375,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	        const uint8_t* train = trainingRow.data();
 	        for (int q = 0; q < n; ++q) {
 	            const int i = IteratorType::isSparse ? rows[q] : q;
-	            const RealType e = expXBeta[i];
+	            const RealType e = scaled ? factorB * expXBeta[i] : expXBeta[i];
 	            const RealType p = (e <= std::numeric_limits<RealType>::max()) ?
 	                e / (static_cast<RealType>(1) + e) : static_cast<RealType>(1);
 	            const RealType w = p * (static_cast<RealType>(1) - p);
@@ -1383,7 +1392,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	    } else
 	    for (int q = 0; q < n; ++q) {
 	        const int i = IteratorType::isSparse ? rows[q] : q;
-	        const RealType e = expXBeta[i];
+	        const RealType e = scaled ? factorB * expXBeta[i] : expXBeta[i];
 	        const RealType p = (e <= std::numeric_limits<RealType>::max()) ?
 	            e / (static_cast<RealType>(1) + e) : static_cast<RealType>(1);
 	        const RealType w = p * (static_cast<RealType>(1) - p);
@@ -1398,10 +1407,10 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	        }
 	    }
 	    };
-	    if (driftTracking) {
-	        sums(std::true_type());
+	    if (factorB != static_cast<RealType>(1)) {
+	        driftTracking ? sums(std::true_type(), std::true_type()) : sums(std::true_type(), std::false_type());
 	    } else {
-	        sums(std::false_type());
+	        driftTracking ? sums(std::false_type(), std::true_type()) : sums(std::false_type(), std::false_type());
 	    }
 	    if (IteratorType::isIndicator) { // see updateXBetaImpl()
 	        lastHessianIndex = index;
@@ -2376,7 +2385,20 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
             lastHessianVersion == expVersion && lastHessian >= 0.0 &&
             lastHessian <= std::numeric_limits<double>::max();
         ++expVersion;
-        if (Weights::isWeighted && activePartition) {
+        if (lazyIntercept && IteratorType::isIndicator && !IteratorType::isSparse && multiply &&
+            pendingFactor * factor >= minEntry && pendingFactor * factor <= maxEntry) {
+            // the intercept: every row's odds move by the same factor, kept pending (flushIntercept());
+            // the factor that gradients see changes from B to fl(B f), within 2 eps of f, which the growth
+            // margin below covers. A product that is not a normal number moves the rows instead (below),
+            // which the pending factor composes with
+            pendingFactor *= factor;
+            pendingShift += realDelta;
+        } else if ((pendingFactor != static_cast<RealType>(1) || pendingShift != static_cast<RealType>(0)) &&
+                   !(IteratorType::isIndicator && multiply)) {
+            flushIntercept(); // a column that recomputes exp(xBeta) of its rows: apply the pending move first
+            updateXBetaImpl<IteratorType, Weights>(realDelta, index);
+            return;
+        } else if (Weights::isWeighted && activePartition) {
             // training entries only; held-out rows keep stale xBeta and exp(xBeta) (see
             // setHeldOutRowsUnused()). Each row gets the same operations as below.
             const TrainingEntries t = getTrainingEntries<IteratorType>(index);
@@ -2479,7 +2501,7 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
             double moveUp = 0.0, moveDown = 0.0, moveMaxUp = 0.0, moveMaxDown = 0.0;
             const bool measuredAny = !recomputedE.empty();
             for (const auto& entry : recomputedE) {
-                const double change = readP(entry.second) - readP(entry.first);
+                const double change = readP(pendingFactor * entry.second) - readP(pendingFactor * entry.first); // as gradients read p
                 const double rise = std::max(change, 0.0);
                 const double fall = std::max(-change, 0.0);
                 moveUp += rise;
@@ -2508,11 +2530,11 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
                 const double n = lastHessianEntries;
                 const double growth = ((f >= 1.0) ? f - 1.0 : 1.0 / f - 1.0) * (1.0 + 4.0 * eps);
                 const double logFactor = std::abs(static_cast<double>(realDelta)) * (1.0 + 4.0 * eps) + 4.0 * eps;
-                const double largestMove = std::min(1.0, std::tanh(0.25 * logFactor) * (1.0 + 1E-12) + 6.0 * eps);
-                const double sum = std::min(growth * (lastHessian * (1.0 + (n + 8.0) * eps) + 3.0 * eps * n) * (1.0 + 1E-12) +
-                    6.0 * eps * n, n * largestMove);
-                const double largest = std::min(0.25, lastLargestW * (1.0 + 4.0 * eps) + 3.0 * eps);
-                const double largestOdds = std::min(largestMove, largest * growth * (1.0 + 1E-12) + 6.0 * eps);
+                const double largestMove = std::min(1.0, std::tanh(0.25 * logFactor) * (1.0 + 1E-12) + 8.0 * eps);
+                const double sum = std::min(growth * (lastHessian * (1.0 + (n + 8.0) * eps) + 4.0 * eps * n) * (1.0 + 1E-12) +
+                    8.0 * eps * n, n * largestMove);
+                const double largest = std::min(0.25, lastLargestW * (1.0 + 4.0 * eps) + 4.0 * eps);
+                const double largestOdds = std::min(largestMove, largest * growth * (1.0 + 1E-12) + 8.0 * eps);
                 const bool rises = realDelta > static_cast<RealType>(0); // f > 1: every multiplied row rises
                 if (rises) {
                     up += sum;
@@ -2532,7 +2554,7 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
                 // indicator column, either way for one with values
                 const double maxAbsX = IteratorType::isIndicator ? 1.0 : columnMaxAbsValue(index);
                 const double logFactor = std::abs(static_cast<double>(realDelta)) * maxAbsX * (1.0 + 4.0 * eps) + 4.0 * eps;
-                const double largestMove = std::min(1.0, std::tanh(0.25 * logFactor) * (1.0 + 1E-12) + 6.0 * eps);
+                const double largestMove = std::min(1.0, std::tanh(0.25 * logFactor) * (1.0 + 1E-12) + 8.0 * eps);
                 const double sum = terms * largestMove;
                 const bool rises = realDelta > static_cast<RealType>(0);
                 if (!IteratorType::isIndicator || rises) {
@@ -2657,6 +2679,7 @@ void ModelSpecifics<BaseModel,RealType>::resumStratumDenominators() {
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeRemainingStatistics(bool useWeights) {
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto start = bsccs::chrono::steady_clock::now();
@@ -3083,6 +3106,7 @@ FoldPartitionPtr ModelSpecifics<BaseModel,RealType>::makeFoldPartition(const std
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::setFoldPartition(FoldPartitionPtr partition, int fold) {
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
     restartDrift();
     activePartition.reset();
     partitionFold = -1;
