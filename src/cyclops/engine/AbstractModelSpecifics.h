@@ -9,6 +9,10 @@
 #define ABSTRACTMODELSPECIFICS_H_
 
 #include <vector>
+#include <limits>
+#include <algorithm>
+#include <cstdint>
+#include <cstring>
 #include <cmath>
 #include <map>
 #include <cstddef>
@@ -210,6 +214,48 @@ public:
 	// After setWeights() with setHeldOutRowsUnused(true): fit fold `fold` over the training segments of
 	// `partition` if they are exactly the weight-1 rows; nullptr stops using it
 	virtual void setFoldPartition(FoldPartitionPtr partition, int fold) {};
+
+	// Bounds on how far the gradient of any Laplace indicator column can have moved since an earlier call
+	// with the same epoch (see CyclicCoordinateDescent::certifiedZero()). Every total is an upper bound
+	// that only grows within an epoch, rounded outward at each addition, so that a difference of two
+	// readings bounds the drift between them (up to the rounding of the subtraction). valid is false when
+	// the model keeps no such bounds.
+	struct GradientDrift {
+		// the increases and the decreases of p (as positive numbers) summed over all updates, and the sums
+		// over updates of the largest increase and decrease of one row
+		double up = 0.0;
+		double down = 0.0;
+		double maxUp = 0.0;
+		double maxDown = 0.0;
+		long updates = 0; // updates added in this epoch
+		long epoch = 0;
+		// Column-side bounds (see ModelSpecifics::recordSidedDrift()): updates are classed by the Hessian h
+		// of the moving column in buckets b = bucketOf(h) (0 when unknown). For a certified column with
+		// split bucket s, lowUp[s] and lowDown[s] sum the drift of the updates in buckets <= s by direction,
+		// and highUp[s] and highDown[s] the growth G = exp|delta| - 1 of the updates above, by the direction
+		// of the move; nullptr when not kept
+		static const int buckets = 32;
+		const double* lowUp = nullptr;
+		const double* lowDown = nullptr;
+		const double* highUp = nullptr;
+		const double* highDown = nullptr;
+		bool valid = false;
+		// The bucket of a Hessian: its binary exponent e (h = m 2^e, m in [0.5, 1)) plus 12, clamped to
+		// [0, buckets); 0 for h below 2^-12, not positive or not finite. From the exponent bits: no libm.
+		static int bucketOf(double h) {
+			if (!(h >= 0x1p-12) || !(h <= std::numeric_limits<double>::max())) {
+				return 0;
+			}
+			std::uint64_t bits;
+			std::memcpy(&bits, &h, sizeof(bits));
+			const int e = static_cast<int>((bits >> 52) & 0x7FF) - 1022;
+			return std::max(0, std::min(buckets - 1, e + 12));
+		}
+	};
+	virtual GradientDrift getGradientDrift() const { return GradientDrift(); }
+
+	// Whether the model keeps the drift totals of getGradientDrift() (switching on starts a new epoch)
+	virtual void setDriftTracking(bool on) {}
 
 	virtual std::vector<double> getBeta() {
 		std::vector<double> blah;

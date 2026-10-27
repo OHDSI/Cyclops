@@ -1223,6 +1223,7 @@ void CyclicCoordinateDescent::findMode(
 		activeSetTau = 0.0;
 	}
 	setUpAdaptiveIntercept(algorithmType, epsilon);
+	setUpZeroCertificates(algorithmType);
 
 	std::vector<double> allDelta;
     double lastLogPosterior; // = getLogLikelihood() + getLogPrior();
@@ -1352,7 +1353,24 @@ void CyclicCoordinateDescent::findMode(
 							log(index);
 							continue;
 						}
+						if (useZeroCertificates) {
+							if (certifiedZero(index)) {
+								// the bookkeeping of a zero step; its kkt residual is 0, below every maximum
+								applyBounds(0.0, index);
+								if (activeSetEvery != 0) {
+									lastStepSE[index] = 0.0;
+								}
+								if (interceptIndex >= 0) {
+									trackInterceptGradient(index, 0.0, 0.0);
+								}
+								log(index);
+								continue;
+							}
+						}
 						double delta = ccdUpdateBeta(index);
+						if (useZeroCertificates) {
+							recordZeroCertificate(index, delta);
+						}
 						if (trackKkt) {
 							accumulateKkt(index, delta, lastGradientHessian);
 						}
@@ -1940,6 +1958,9 @@ double CyclicCoordinateDescent::computeKktResidual() {
 	double maxScaled = 0.0;
 	for (int index = 0; index < J; ++index) {
 		if (!fixBeta[index]) {
+			if (useZeroCertificates && certifiedZero(index)) {
+				continue; // |g| <= lambda at beta = 0: its residual is exactly 0
+			}
 			const double rawDelta = ccdUpdateBeta(index); // no update: the step and its gradient only
 			const double scaled = scaledKktResidual(index, rawDelta, lastGradientHessian);
 			if (std::isnan(scaled)) {
@@ -1983,6 +2004,108 @@ void CyclicCoordinateDescent::setUpAdaptiveIntercept(AlgorithmType algorithmType
 	}
 	interceptState = AdaptiveInterceptState();
 	interceptFloor = epsilon;
+}
+
+void CyclicCoordinateDescent::setUpZeroCertificates(AlgorithmType algorithmType) {
+	useZeroCertificates = algorithmType == AlgorithmType::CCD && !usingGPU && !usingCUDA && !syncCV &&
+		hXI.getModelType() == ModelType::LOGISTIC;
+	bool certifiable = false; // an indicator column with a Laplace prior
+	for (int j = 0; j < J && useZeroCertificates && !certifiable; ++j) {
+		certifiable = hXI.getColumnType(j) == INDICATOR && jointPrior->getPriorType(j) == priors::LAPLACE;
+	}
+	// the model keeps the drift totals only while certificates can use them (restarted when switched on)
+	modelSpecifics.setDriftTracking(useZeroCertificates && certifiable);
+	useZeroCertificates = useZeroCertificates && certifiable && modelSpecifics.getGradientDrift().valid;
+	if (!useZeroCertificates) {
+		modelSpecifics.setDriftTracking(false); // e.g. single precision or weights other than 0/1
+		return;
+	}
+	certifiedRows.resize(J);
+	for (int j = 0; j < J; ++j) {
+		certifiedRows[j] = (hXI.getColumnType(j) == INDICATOR) ?
+			static_cast<double>(hXI.getNumberOfEntries(j)) : 0.0;
+	}
+	zeroCertificates.assign(J, ZeroCertificate());
+}
+
+bool CyclicCoordinateDescent::certifiedZero(int index) const {
+	const ZeroCertificate& c = zeroCertificates[index];
+	if (c.epoch < 0 || hBeta[index] != 0.0) {
+		return false;
+	}
+	const auto drift = modelSpecifics.getGradientDrift();
+	if (!drift.valid || drift.epoch != c.epoch) {
+		return false;
+	}
+	const double rows = certifiedRows[index];
+	const double eps = std::numeric_limits<double>::epsilon();
+	// Every total is an upper bound rounded outward at each addition, so a difference bounds the drift
+	// since; the differences, products and sums below round with a relative error of at most eps / 2
+	// each (an absolute one below the smallest normal), which the factors 1 + 1E-12 and 1 + 1E-9 and the
+	// margin cover. No libm call here: this runs at every certified visit.
+	// (a) every update charged with its own drift: the column's rows have risen by at most the sum of all
+	// rises since, and each of them by at most the sum over updates of the largest rise; likewise down
+	double up = std::min(drift.up - c.up, rows * (drift.maxUp - c.maxUp));
+	double down = std::min(drift.down - c.down, rows * (drift.maxDown - c.maxDown));
+	if (drift.lowUp) {
+		// (b) charged from this column's side: an update with growth G moves every row by at most
+		// p (1 - p) G, the way of its step, so this column's rows by at most G (h + X), with h its Hessian
+		// then and X the drift of its rows since; updates of columns with a smaller Hessian count with
+		// their own drift instead. X <= prod (1 + G) (D + h) - h <= exp(A) D + h (exp(A) - 1), A = the
+		// growth of the larger movers, D = the drift of the smaller, and exp(A) <= 1 / (1 - A) for A < 1;
+		// then the rises are at most A_up (h + X) + D_up, the falls A_down (h + X) + D_down, and either
+		// at most X. Plus the rounding of p in each update since (6 eps per row) and of the Hessian sum.
+		const double lowUp = drift.lowUp[c.split] - c.lowUp;
+		const double lowDown = drift.lowDown[c.split] - c.lowDown;
+		const double highUp = (drift.highUp[c.split] - c.highUp) * (1.0 + 4.0 * eps);
+		const double highDown = (drift.highDown[c.split] - c.highDown) * (1.0 + 4.0 * eps);
+		const double growth = highUp + highDown;
+		if (growth < 1.0) {
+			// p(1 - p) as computed from e = exp(xBeta) is within 3 eps of the exact one in each row
+			const double hessian = c.hessian * (1.0 + (rows + 4.0) * eps) + 3.0 * eps * rows;
+			const double expGrowth = 1.0 / (1.0 - growth);
+			// p in each update since (6 eps per row), and p read from e at both ends (2 eps per row each)
+			const double rounding = 6.0 * eps * rows * (drift.updates - c.updates) + 4.0 * eps * rows;
+			const double all = (expGrowth * (lowUp + lowDown) + hessian * (expGrowth - 1.0)) * (1.0 + 1E-12) + rounding;
+			const double sidedUp = (highUp * (hessian + all) + lowUp) * (1.0 + 1E-12) + rounding;
+			const double sidedDown = (highDown * (hessian + all) + lowDown) * (1.0 + 1E-12) + rounding;
+			up = std::min(up, std::min(sidedUp, all));
+			down = std::min(down, std::min(sidedDown, all));
+		}
+	}
+	// plus the rounding of the two gradient sums (at most rows terms in [-1, 1], each)
+	const double rounding = 4.0 * eps * rows * rows;
+	const double bound = std::max(c.gradient + up + rounding, -(c.gradient - down - rounding)) * (1.0 + 1E-9);
+	return std::isfinite(bound) && jointPrior->getKktResidual(index, bound, 0.0).first == 0.0; // bound <= lambda
+}
+
+void CyclicCoordinateDescent::recordZeroCertificate(int index, double delta) {
+	ZeroCertificate& c = zeroCertificates[index];
+	c.epoch = -1;
+	if (delta != 0.0 || hBeta[index] != 0.0 || certifiedRows[index] == 0.0 ||
+		!(lastGradientHessian.second > 0.0) || jointPrior->getPriorType(index) != priors::LAPLACE) {
+		return;
+	}
+	const auto drift = modelSpecifics.getGradientDrift();
+	const double gradient = lastGradientHessian.first;
+	if (!drift.valid || !std::isfinite(gradient)) {
+		return;
+	}
+	c.gradient = gradient;
+	c.hessian = lastGradientHessian.second;
+	c.up = drift.up;
+	c.down = drift.down;
+	c.maxUp = drift.maxUp;
+	c.maxDown = drift.maxDown;
+	c.updates = drift.updates;
+	if (drift.lowUp) {
+		c.split = AbstractModelSpecifics::GradientDrift::bucketOf(c.hessian);
+		c.lowUp = drift.lowUp[c.split];
+		c.lowDown = drift.lowDown[c.split];
+		c.highUp = drift.highUp[c.split];
+		c.highDown = drift.highDown[c.split];
+	}
+	c.epoch = drift.epoch;
 }
 
 void CyclicCoordinateDescent::trackInterceptGradient(int index, double delta, double hessian) {
