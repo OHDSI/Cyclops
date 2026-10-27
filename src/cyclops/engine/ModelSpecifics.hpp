@@ -1772,7 +1772,7 @@ void ModelSpecifics<BaseModel,RealType>::computeFisherInformation(int indexOne, 
 
 	if (useWeights) {
 		throw std::logic_error("Weights are not yet implemented in Fisher Information calculations");
-	} else if (BaseModel::cumulativeGradientAndHessian && !BaseModel::isTwoWayScan) { // Cox-type: sums over risk sets
+	} else if (BaseModel::cumulativeGradientAndHessian) { // Cox-type: sums over risk sets
 		computeRiskSetFisherInformation(indexOne, indexTwo, oinfo);
 	} else { // no weights
 		switch (hX.getFormatType(indexOne)) {
@@ -1838,28 +1838,69 @@ void ModelSpecifics<BaseModel,RealType>::computeRiskSetFisherInformation(int ind
 	}
 
 	// segmented prefix-scan, as in computeAccumlatedDenominator()
-	RealType accOne = static_cast<RealType>(0);
-	RealType accTwo = static_cast<RealType>(0);
-	RealType accBoth = static_cast<RealType>(0);
-	RealType information = static_cast<RealType>(0);
+	std::vector<RealType> accOne(N);
+	std::vector<RealType> accTwo(N);
+	std::vector<RealType> accBoth(N);
+	RealType totalOne = static_cast<RealType>(0);
+	RealType totalTwo = static_cast<RealType>(0);
+	RealType totalBoth = static_cast<RealType>(0);
 
 	auto reset = begin(accReset);
 
 	for (size_t i = 0; i < N; ++i) {
 
 		if (static_cast<unsigned int>(*reset) == i) { // new stratum
-			accOne = static_cast<RealType>(0);
-			accTwo = static_cast<RealType>(0);
-			accBoth = static_cast<RealType>(0);
+			totalOne = static_cast<RealType>(0);
+			totalTwo = static_cast<RealType>(0);
+			totalBoth = static_cast<RealType>(0);
 			++reset;
 		}
 
-		accOne += numerOne[i];
-		accTwo += numerTwo[i];
-		accBoth += numerBoth[i];
+		totalOne += numerOne[i];
+		totalTwo += numerTwo[i];
+		totalBoth += numerBoth[i];
 
+		accOne[i] = totalOne;
+		accTwo[i] = totalTwo;
+		accBoth[i] = totalBoth;
+	}
+
+	if (BaseModel::isTwoWayScan) {
+		// Fine-Gray: subjects with an earlier competing event stay in the risk set of each event of
+		// interest, weighted by the ratio of censoring weights; same backwards scan as accDenomPid
+		totalOne = static_cast<RealType>(0);
+		totalTwo = static_cast<RealType>(0);
+		totalBoth = static_cast<RealType>(0);
+
+		auto reset = begin(accReset);
+
+		for (int i = (N - 1); i >= 0; i--) {
+
+			if (static_cast<unsigned int>(*reset) == i) {
+				totalOne = static_cast<RealType>(0);
+				totalTwo = static_cast<RealType>(0);
+				totalBoth = static_cast<RealType>(0);
+				++reset;
+			}
+
+			const int k = hNtoK[i];
+			if (hY[k] > static_cast<RealType>(1)) { // competing event
+				totalOne += numerOne[i] / hYWeight[k];
+				totalTwo += numerTwo[i] / hYWeight[k];
+				totalBoth += numerBoth[i] / hYWeight[k];
+			}
+			if (hY[k] == static_cast<RealType>(1)) { // event of interest
+				accOne[i] += hYWeight[k] * totalOne;
+				accTwo[i] += hYWeight[k] * totalTwo;
+				accBoth[i] += hYWeight[k] * totalBoth;
+			}
+		}
+	}
+
+	RealType information = static_cast<RealType>(0);
+	for (size_t i = 0; i < N; ++i) {
 		const RealType denom = accDenomPid[i];
-		information += hNWeight[i] * (accBoth / denom - accOne * accTwo / (denom * denom));
+		information += hNWeight[i] * (accBoth[i] / denom - accOne[i] * accTwo[i] / (denom * denom));
 	}
 
 	*oinfo = static_cast<double>(information);

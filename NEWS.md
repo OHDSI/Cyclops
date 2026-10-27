@@ -156,6 +156,9 @@ Changes:
     reason)", e.g. `vcov()` after a fit with weights)
 37. `clr_exact` fits and Schoenfeld residuals of `cox` fits with `fitter = "legacy"` no longer read past
     the end of a sparse or indicator column
+38. correct `vcov()` and `getSEs()` for `fgr` models: the Fisher information now sums over the
+    Fine-Gray risk sets, including subjects with an earlier competing event weighted by the ratio
+    of censoring weights (it returned meaningless values)
 
 Cyclops v3.7.1
 ==============

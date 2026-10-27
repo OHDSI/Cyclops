@@ -87,3 +87,65 @@ test_that("vcov for legacy cox and cox_time matches coxph", {
     expect_equal(unname(coef(fit)), unname(coef(gold)), tolerance = 1E-6)
     expect_equal(unname(vcov(fit)), unname(vcov(gold)), tolerance = 1E-6)
 })
+
+simulateCompetingRisks <- function(n, seed) {
+    set.seed(seed)
+    data <- data.frame(x1 = rnorm(n), x2 = rbinom(n, 1, 0.4))
+    event <- rexp(n, 0.10 * exp(0.5 * data$x1 - 0.4 * data$x2))
+    competing <- rexp(n, 0.08 * exp(-0.3 * data$x1 + 0.2 * data$x2))
+    censor <- runif(n, 2, 15)
+    data$time <- pmin(event, competing, censor)
+    data$status <- ifelse(data$time == censor, 0, ifelse(event < competing, 1, 2))
+    data
+}
+
+test_that("vcov for fgr matches coxph on finegray() data", {
+    data <- simulateCompetingRisks(400, 123)
+    control <- createControl(tolerance = 1E-10, noiseLevel = "silent")
+
+    expanded <- finegray(Surv(time, factor(status)) ~ ., data = data, etype = "1")
+    gold <- coxph(Surv(fgstart, fgstop, fgstatus) ~ x1 + x2, data = expanded, weights = fgwt,
+                  ties = "breslow")
+    goldVcov <- unname(gold$naive.var) # non-integer weights make coxph's var the robust one
+
+    weights <- getFineGrayWeights(data$time, data$status)
+    fit <- fitCyclopsModel(createCyclopsData(weights$surv ~ data$x1 + data$x2, modelType = "fgr",
+                                             censorWeights = weights$weights), control = control)
+    expect_equal(unname(coef(fit)), unname(coef(gold)), tolerance = 1E-6)
+    expect_equal(unname(vcov(fit)), goldVcov, tolerance = 1E-6)
+
+    # an indicator column
+    outcomes <- data.frame(rowId = seq_len(nrow(data)), time = data$time, y = data$status)
+    covariates <- rbind(data.frame(rowId = outcomes$rowId, covariateId = 1, covariateValue = data$x1),
+                        data.frame(rowId = which(data$x2 == 1), covariateId = 2, covariateValue = 1))
+    fit <- fitCyclopsModel(convertToCyclopsData(outcomes, covariates, modelType = "fgr", quiet = TRUE),
+                           control = control)
+    expect_equal(unname(vcov(fit)), goldVcov, tolerance = 1E-6)
+})
+
+test_that("vcov for fgr with tied times inverts the curvature of the log-likelihood", {
+    # finegray() handles ties differently from crr(), which fgr matches; compare against
+    # central differences of the fgr log-likelihood instead
+    data <- simulateCompetingRisks(400, 123)
+    data$time <- ceiling(data$time) # failure, competing-risk and censoring ties
+    control <- createControl(tolerance = 1E-10, noiseLevel = "silent")
+
+    weights <- getFineGrayWeights(data$time, data$status)
+    createData <- function() {
+        createCyclopsData(weights$surv ~ data$x1 + data$x2, modelType = "fgr",
+                          censorWeights = weights$weights)
+    }
+    fit <- fitCyclopsModel(createData(), control = control)
+    probe <- createData() # refits move the coefficients that vcov(fit) would read from shared data
+    logLikAt <- function(beta) {
+        fitCyclopsModel(probe, startingCoefficients = beta, fixedCoefficients = c(TRUE, TRUE),
+                        control = control)$log_likelihood
+    }
+    beta <- coef(fit)
+    step <- diag(2) * 1E-3
+    hessian <- outer(1:2, 1:2, Vectorize(function(i, j) {
+        (logLikAt(beta + step[i, ] + step[j, ]) - logLikAt(beta + step[i, ] - step[j, ]) -
+             logLikAt(beta - step[i, ] + step[j, ]) + logLikAt(beta - step[i, ] - step[j, ])) / (4 * 1E-6)
+    }))
+    expect_equal(unname(vcov(fit)), solve(-hessian), tolerance = 1E-5)
+})
