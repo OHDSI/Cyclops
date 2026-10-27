@@ -12,7 +12,7 @@ getSEs(object, covariates)
 \item{covariates}{Integer or string vector: list of covariates for which asymptotic standard errors are wanted}
 }
 \value{
-Vector of standard error estimates
+Vector of standard error estimates, named by covariate
 }
 \description{
 \code{getSEs} extracts asymptotic standard errors for specific covariates from a Cyclops model fit object.
@@ -25,4 +25,3 @@ when all possible covariates are included.
 When the requested covariates do not equate to all coefficients in the model,
 then interpretation is more challenging.
 }
-\keyword{internal}

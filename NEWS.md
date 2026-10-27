@@ -166,6 +166,13 @@ Changes:
     names. It removed the name at the position equal to the offset's covariate id, so `coef()`
     mislabeled coefficients when ids were not positions, as after `convertToCyclopsData()` with an
     intercept
+41. `getSEs()` is exported. It names each standard error by its covariate; it took covariate ids for
+    positions, so after `convertToCyclopsData()` the names were shifted or `NA`
+42. all functions name coefficients the same way, in one place: by the names loaded with the data,
+    else by covariate id with `"(Intercept)"` for id 0, as `coef()` did. For data loaded without
+    names, `vcov()`, `confint()`, `getSEs()`, `summary()` and the univariable functions now return
+    names, and covariates can be given by these names. `gradient()` also works for a fit that did not
+    converge
 
 Cyclops v3.7.1
 ==============

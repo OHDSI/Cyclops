@@ -61,7 +61,7 @@ residuals.cyclopsFit <- function(object, type = "schoenfeld", parm = NULL, ...) 
     ord <- order(res$strata, res$times)
     result <- matrix(unlist(lapply(columns, function(column) column$residuals[ord])),
                      ncol = length(columns))
-    colnames(result) <- names(coef(object))[match(as.character(covariates), as.character(covariateIds))]
+    colnames(result) <- .coefficientNames(object, covariates)
 
     if (type == "scaledsch") { # as in survival: residuals %*% variance * events + coefficients
         nEvents <- nrow(result)
@@ -159,10 +159,7 @@ testProportionality <- function(object, parm = NULL, transform = "km") {
 
     tbl <- cbind(test, df, pchisq(test, df, lower.tail = FALSE))
 
-    names <- as.character(getCovariateIds(object$cyclopsData)[1])
-    if (!is.null(object$cyclopsData$coefficientNames)) {
-        names <- object$coefficientNames[1]
-    }
+    names <- .coefficientNames(object)[1]
 
     dimnames(tbl) <- list(names, c("chisq", "df", "p"))
     res$table <- tbl

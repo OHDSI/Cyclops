@@ -455,7 +455,7 @@ clearCyclopsModelCache <- function() {
 
         if (inherits(covariates, "character")) {
             # Try to match names
-            indices <- match(covariates, cyclopsData$coefficientNames)
+            indices <- match(covariates, .coefficientNames(cyclopsData))
             covariates <- getCovariateIds(cyclopsData)[indices]
         }
 
@@ -470,6 +470,26 @@ clearCyclopsModelCache <- function() {
         attr(covariates, "indices") <- indices
     }
     covariates
+}
+
+# Names of the covariates with ids `covariates` (default: all, in model order) of a Cyclops data or fit
+# object: the names loaded with the data, else the ids, with "(Intercept)" for id 0. Every function that
+# names coefficients uses this, so that ids are matched, never taken for positions.
+.coefficientNames <- function(object, covariates = NULL) {
+    if (inherits(object, "cyclopsFit")) {
+        ids <- bit64::as.integer64(object$estimation$column_label) # works after the data are gone
+    } else {
+        ids <- getCovariateIds(object)
+    }
+    names <- object$coefficientNames
+    if (is.null(names)) {
+        names <- as.character(ids)
+        names[names == "0"] <- "(Intercept)"
+    }
+    if (!is.null(covariates)) {
+        names <- names[match(as.character(bit64::as.integer64(covariates)), as.character(ids))]
+    }
+    names
 }
 
 .checkData <- function(x) {
@@ -542,14 +562,7 @@ coef.cyclopsFit <- function(object, rescale = FALSE, ignoreConvergence = FALSE, 
     }
 
     result <- object$estimation$estimate
-    if (is.null(object$coefficientNames)) {
-        names(result) <- object$estimation$column_label
-        if ("0" %in% names(result)) {
-            names(result)[which(names(result) == "0")] <- "(Intercept)"
-        }
-    } else {
-        names(result) <- object$coefficientNames
-    }
+    names(result) <- .coefficientNames(object)
 
     if (!is.null(object$scale) && rescale) {
         result <- result * object$scale
@@ -607,7 +620,7 @@ gradient <- function(object) {
 
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     gradient <- .cyclopsGetLogLikelihoodGradient(object$interface)
-    names(gradient) <- names(coef(object))
+    names(gradient) <- .coefficientNames(object)
 
     return(gradient)
 }
@@ -1123,9 +1136,9 @@ getCrossValidationInfo <- function(object) {
 #' @param object    A Cyclops model fit object
 #' @param covariates    Integer or string vector: list of covariates for which asymptotic standard errors are wanted
 #'
-#' @return Vector of standard error estimates
+#' @return Vector of standard error estimates, named by covariate
 #'
-#' @keywords internal
+#' @export
 getSEs <- function(object, covariates) {
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     covariates <- .checkCovariates(object$cyclopsData, covariates)
@@ -1135,7 +1148,7 @@ getSEs <- function(object, covariates) {
 
     fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsData$cyclopsInterfacePtr, covariates)
     ses <- sqrt(diag(solve(fisherInformation)))
-    names(ses) <- object$coefficientNames[as.integer(covariates)]
+    names(ses) <- .coefficientNames(object, covariates)
     ses
 }
 
@@ -1162,7 +1175,7 @@ runBootstrap <- function(object, replicates, ciCoverage = 0.95, na.rm = FALSE) {
 
     bs$samples <- matrix(bs$samples, nrow = replicates)
 
-    colnames(bs$samples) <- names(coef(object))
+    colnames(bs$samples) <- .coefficientNames(object)
     bs$samples <- as_tibble(bs$samples)
 
     if (na.rm) {
@@ -1267,7 +1280,7 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
         prof$upper <- prof$upper * object$scale[indices]
     }
     prof <- as.matrix(as.data.frame(prof))
-    rownames(prof) <- object$coefficientNames[indices]
+    rownames(prof) <- .coefficientNames(object, parm)
     qs <- c((1 - level) / 2, 1 - (1 - level) / 2) * 100
     colnames(prof)[2:3] <- paste(sprintf("%.1f", qs), "%")
 
@@ -1584,10 +1597,8 @@ vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, .
         fisherInformation <- fisherInformation[2:nrow(fisherInformation), 2:ncol(fisherInformation)]
     }
     vcov <- solve(fisherInformation)
-    if (!is.null(object$coefficientNames)) {
-        rownames(vcov) <- object$coefficientNames
-        colnames(vcov) <- object$coefficientNames
-    }
+    rownames(vcov) <- .coefficientNames(object)
+    colnames(vcov) <- rownames(vcov)
     vcov
 }
 

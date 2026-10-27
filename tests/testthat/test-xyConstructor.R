@@ -290,3 +290,40 @@ test_that("Offset covariate keeps the other coefficient names", {
         expect_equal(unname(coef(fit)), unname(coef(glmFit)), tolerance = 1E-6)
     }
 })
+
+test_that("Coefficient names follow covariate ids, not positions", {
+    set.seed(1)
+    n <- 500
+    x <- matrix(rbinom(n * 3, 1, 0.4), n, 3)
+    y <- rbinom(n, 1, plogis(-1 + drop(x %*% c(0.5, -0.5, 1))))
+    nz <- which(x != 0, arr.ind = TRUE)
+    covariates <- data.frame(rowId = nz[, 1], covariateId = 10 * nz[, 2], covariateValue = 1) # ids 10, 20, 30
+    covariates <- covariates[order(covariates$covariateId, covariates$rowId), ]
+    outcomes <- data.frame(rowId = 1:n, y = y)
+
+    # Names loaded with the data
+    cyclopsData1 <- convertToCyclopsData(outcomes, covariates, modelType = "lr", quiet = TRUE)
+
+    # No names: the ids serve as names
+    cyclopsData2 <- createSqlCyclopsData(modelType = "lr")
+    loadNewSqlCyclopsDataY(cyclopsData2, NULL, outcomes$rowId, outcomes$y)
+    loadNewSqlCyclopsDataX(cyclopsData2, 0, NULL, NULL)
+    loadNewSqlCyclopsDataMultipleX(cyclopsData2, covariates$covariateId, covariates$rowId,
+                                   covariates$covariateValue)
+    finalizeSqlCyclopsData(cyclopsData2)
+
+    allNames <- c("(Intercept)", "10", "20", "30")
+    for (cyclopsData in list(cyclopsData1, cyclopsData2)) {
+        fit <- fitCyclopsModel(cyclopsData, prior = createPrior("none"))
+        expect_equal(names(coef(fit)), allNames)
+        expect_equal(dimnames(vcov(fit)), list(allNames, allNames))
+        ses <- getSEs(fit, c(0, 10, 20, 30))
+        expect_equal(names(ses), allNames)
+        expect_equal(ses, sqrt(diag(vcov(fit))), tolerance = 1E-6)
+        expect_warning(se <- getSEs(fit, 20), "only valid")
+        expect_equal(names(se), "20")
+        expect_equal(rownames(confint(fit, parm = c(10, 30))), c("10", "30"))
+        expect_equal(names(gradient(fit)), allNames)
+        expect_equal(row.names(summary(cyclopsData)), allNames)
+    }
+})

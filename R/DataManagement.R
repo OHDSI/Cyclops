@@ -579,7 +579,7 @@ getUnivariableCorrelation <- function(cyclopsData, covariates = NULL, threshold 
     covariates <- .checkCovariates(cyclopsData, covariates)
     if (is.null(covariates)) {
         covariates <- bit64::as.integer64(c()) # zero-length vector
-        labels <- cyclopsData$coefficientNames
+        labels <- .coefficientNames(cyclopsData)
     }
 
     correlations <- .cyclopsUnivariableCorrelation(cyclopsData, covariates)
@@ -612,7 +612,7 @@ getUnivariableSeparability <- function(cyclopsData, covariates = NULL) {
     ids <- covariates
     if (is.null(covariates)) {
         covariates <- bit64::as.integer64(c()) # zero-length vector
-        labels <- cyclopsData$coefficientNames
+        labels <- .coefficientNames(cyclopsData)
         ids <- getCovariateIds(cyclopsData)
     }
 
@@ -1051,9 +1051,7 @@ summary.cyclopsData <- function(object, ...) {
                           scale = object$scale)
     }
 
-    if (!is.null(object$coefficientNames)) {
-        row.names(tdf) <- object$coefficientNames
-    }
+    row.names(tdf) <- .coefficientNames(object)
     tdf
 }
 
