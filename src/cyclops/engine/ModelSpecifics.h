@@ -417,6 +417,8 @@ private:
 	template <class IteratorTypeOne, class IteratorTypeTwo, class Weights>
 	void computeFisherInformationImpl(int indexOne, int indexTwo, double *oinfo, Weights w);
 
+	void computeRiskSetFisherInformation(int indexOne, int indexTwo, double *oinfo);
+
 	template <class IteratorType, class Weights>
 	void getSchoenfeldResidualsImpl(int index,
                                  std::vector<double>* residuals,

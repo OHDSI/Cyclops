@@ -48,3 +48,36 @@ test_that("vcov for cpr ignores strata without events", {
     expect_equal(coef(fitWithEmpty), coef(fit), tolerance = 1E-6)
     expect_equal(vcov(fitWithEmpty), vcov(fit), tolerance = 1E-6)
 })
+
+test_that("vcov for legacy cox and cox_time matches coxph", {
+    control <- createControl(tolerance = 1E-10, noiseLevel = "silent")
+    legacy <- createControl(tolerance = 1E-10, noiseLevel = "silent", fitter = "legacy")
+    lung2 <- na.omit(lung[, c("time", "status", "age", "sex", "ph.ecog")])
+    lung2$status <- lung2$status - 1
+    lung2$female <- lung2$sex - 1
+
+    gold <- coxph(Surv(time, status) ~ age + sex + ph.ecog, lung2, ties = "breslow")
+    fit <- fitCyclopsModel(createCyclopsData(Surv(time, status) ~ age + sex + ph.ecog, data = lung2,
+                                             modelType = "cox"), control = legacy)
+    expect_equal(unname(vcov(fit)), unname(vcov(gold)), tolerance = 1E-6)
+
+    # strata, with indicator and sparse columns
+    gold <- coxph(Surv(time, status) ~ age + female + ph.ecog + strata(ph.ecog > 1), lung2, ties = "breslow")
+    fit <- fitCyclopsModel(createCyclopsData(Surv(time, status) ~ age + strata(ph.ecog > 1),
+                                             indicatorFormula = ~ female, sparseFormula = ~ ph.ecog,
+                                             data = lung2, modelType = "cox"), control = legacy)
+    names <- names(coef(gold))
+    expect_equal(coef(fit)[names], coef(gold), tolerance = 1E-6)
+    expect_equal(vcov(fit)[names, names], vcov(gold), tolerance = 1E-6)
+
+    # time-varying coefficient as one stratum per episode
+    split <- survSplit(Surv(time, status) ~ ., data = lung2, cut = 300, episode = "episode")
+    gold <- coxph(Surv(tstart, time, status) ~ sex + age:strata(episode), split, ties = "breslow")
+    split$length <- split$time - split$tstart
+    split$age.1 <- ifelse(split$episode == 1, split$age, 0)
+    split$age.2 <- ifelse(split$episode == 2, split$age, 0)
+    fit <- fitCyclopsModel(createCyclopsData(Surv(length, status) ~ sex + age.1 + age.2 + strata(episode),
+                                             data = split, modelType = "cox_time"), control = control)
+    expect_equal(unname(coef(fit)), unname(coef(gold)), tolerance = 1E-6)
+    expect_equal(unname(vcov(fit)), unname(vcov(gold)), tolerance = 1E-6)
+})

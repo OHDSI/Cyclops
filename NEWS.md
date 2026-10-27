@@ -149,6 +149,9 @@ Changes:
     model copy continued from whichever fold fit it ran last. Results change within the convergence
     tolerance, also with one thread, at about the same speed. `fitter = "legacy"` keeps the
     earlier behaviour
+35. correct `vcov()` and `getSEs()` for `cox` models fit with `fitter = "legacy"` and for `cox_time`
+    models (their Fisher information summed each event-time group as its own stratum, so the
+    variances were far too large or not positive definite)
 
 Cyclops v3.7.1
 ==============

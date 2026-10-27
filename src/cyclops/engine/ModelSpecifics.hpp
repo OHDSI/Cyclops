@@ -1772,6 +1772,8 @@ void ModelSpecifics<BaseModel,RealType>::computeFisherInformation(int indexOne, 
 
 	if (useWeights) {
 		throw new std::logic_error("Weights are not yet implemented in Fisher Information calculations");
+	} else if (BaseModel::cumulativeGradientAndHessian && !BaseModel::isTwoWayScan) { // Cox-type: sums over risk sets
+		computeRiskSetFisherInformation(indexOne, indexTwo, oinfo);
 	} else { // no weights
 		switch (hX.getFormatType(indexOne)) {
 			case INDICATOR :
@@ -1809,6 +1811,59 @@ void ModelSpecifics<BaseModel,RealType>::dispatchFisherInformation(int indexOne,
 //	std::cerr << "End of dispatch" << std::endl;
 }
 
+
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::computeRiskSetFisherInformation(int indexOne, int indexTwo, double *oinfo) {
+
+	// I_ij = sum_g nEvents_g * (S_ij / S_0 - S_i * S_j / S_0^2), where S_i, S_j and S_ij accumulate
+	// exp(x'beta) * (x_i, x_j, x_i * x_j) over the risk set of group g the way accDenomPid holds S_0
+	std::vector<RealType> numerOne(N, static_cast<RealType>(0));
+	std::vector<RealType> numerTwo(N, static_cast<RealType>(0));
+	std::vector<RealType> numerBoth(N, static_cast<RealType>(0));
+
+	for (GenericIterator<RealType> it(hX, indexOne); it; ++it) {
+		const int k = it.index();
+		numerOne[hPid[k]] += it.value() * offsExpXBeta[k];
+	}
+	for (GenericIterator<RealType> it(hX, indexTwo); it; ++it) {
+		const int k = it.index();
+		numerTwo[hPid[k]] += it.value() * offsExpXBeta[k];
+	}
+	GenericIterator<RealType> itOne(hX, indexOne);
+	GenericIterator<RealType> itTwo(hX, indexTwo);
+	PairProductIterator<GenericIterator<RealType>, GenericIterator<RealType>, RealType> it(itOne, itTwo);
+	for (; it.valid(); ++it) {
+		const int k = it.index();
+		numerBoth[hPid[k]] += it.value() * offsExpXBeta[k];
+	}
+
+	// segmented prefix-scan, as in computeAccumlatedDenominator()
+	RealType accOne = static_cast<RealType>(0);
+	RealType accTwo = static_cast<RealType>(0);
+	RealType accBoth = static_cast<RealType>(0);
+	RealType information = static_cast<RealType>(0);
+
+	auto reset = begin(accReset);
+
+	for (size_t i = 0; i < N; ++i) {
+
+		if (static_cast<unsigned int>(*reset) == i) { // new stratum
+			accOne = static_cast<RealType>(0);
+			accTwo = static_cast<RealType>(0);
+			accBoth = static_cast<RealType>(0);
+			++reset;
+		}
+
+		accOne += numerOne[i];
+		accTwo += numerTwo[i];
+		accBoth += numerBoth[i];
+
+		const RealType denom = accDenomPid[i];
+		information += hNWeight[i] * (accBoth / denom - accOne * accTwo / (denom * denom));
+	}
+
+	*oinfo = static_cast<double>(information);
+}
 
 template<class BaseModel, typename RealType> template<class IteratorType>
 SparseIterator<RealType> ModelSpecifics<BaseModel, RealType>::getSubjectSpecificHessianIterator(int index) {
