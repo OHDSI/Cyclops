@@ -162,6 +162,10 @@ Changes:
 39. stratified `fgr` models keep each subject with a competing event in the risk sets of its own
     stratum only; the backwards scans of the denominator, gradient and Fisher information carried
     them into other strata, biasing estimates and standard errors
+40. `finalizeSqlCyclopsData(useOffsetCovariate = )` removes the offset's name from the coefficient
+    names. It removed the name at the position equal to the offset's covariate id, so `coef()`
+    mislabeled coefficients when ids were not positions, as after `convertToCyclopsData()` with an
+    intercept
 
 Cyclops v3.7.1
 ==============

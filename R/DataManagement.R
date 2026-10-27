@@ -927,19 +927,24 @@ finalizeSqlCyclopsData <- function(object,
 
     makeCovariatesDense <- .checkCovariates(object, makeCovariatesDense)
 
+    if (!is.null(useOffsetCovariate) && useOffsetCovariate != -1) {
+        # Position of the offset's name; ids need not equal positions, and finalizing removes the offset
+        offsetIndex <- which(getCovariateIds(object) == useOffsetCovariate)
+    }
+
     .cyclopsFinalizeData(object, addIntercept, useOffsetCovariate,
                          offsetAlreadyOnLogScale, sortCovariates,
                          makeCovariatesDense)
 
+    if (!is.null(useOffsetCovariate) && useOffsetCovariate != -1) {
+        if (!is.null(object$coefficientNames)) {
+            object$coefficientNames = object$coefficientNames[-offsetIndex]
+        }
+    }
     if (addIntercept == TRUE) {
         if (!is.null(object$coefficientNames)) {
             object$coefficientNames = c("(Intercept)",
                                         object$coefficientNames)
-        }
-    }
-    if (!is.null(useOffsetCovariate) && useOffsetCovariate != -1) {
-        if (!is.null(object$coefficientNames)) {
-            object$coefficientNames = object$coefficientNames[-as.integer(useOffsetCovariate)]
         }
     }
 }

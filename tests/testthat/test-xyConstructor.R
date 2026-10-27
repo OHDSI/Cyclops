@@ -259,3 +259,34 @@ test_that("Poisson xy-construction with offset", {
     tolerance <- 1E-6
     expect_equal(coef(fit2)[1], coef(fit1)[1], tolerance = tolerance)
 })
+
+test_that("Offset covariate keeps the other coefficient names", {
+    set.seed(1)
+    n <- 500
+    x <- matrix(rbinom(n * 3, 1, 0.4), n, 3)
+    off <- rnorm(n, 0, 0.5)
+    y <- rbinom(n, 1, plogis(-1 + drop(x %*% c(0.5, -0.5, 1)) + off))
+    glmFit <- glm(y ~ x, family = binomial(), offset = off)
+
+    full <- cbind(x, off) # offset is covariate 4
+    nz <- which(full != 0, arr.ind = TRUE)
+    covariates <- data.frame(rowId = nz[, 1], covariateId = nz[, 2], covariateValue = full[nz])
+    covariates <- covariates[order(covariates$covariateId, covariates$rowId), ]
+    outcomes <- data.frame(rowId = 1:n, y = y)
+
+    # Intercept added by convertToCyclopsData(), offset by id
+    cyclopsData1 <- convertToCyclopsData(outcomes, covariates, modelType = "lr", quiet = TRUE)
+    finalizeSqlCyclopsData(cyclopsData1, useOffsetCovariate = 4, offsetAlreadyOnLogScale = TRUE)
+
+    # Intercept added by finalizeSqlCyclopsData(), offset by name
+    cyclopsData2 <- convertToCyclopsData(outcomes, covariates, modelType = "lr", addIntercept = FALSE,
+                                         quiet = TRUE)
+    finalizeSqlCyclopsData(cyclopsData2, addIntercept = TRUE, useOffsetCovariate = "4",
+                           offsetAlreadyOnLogScale = TRUE)
+
+    for (cyclopsData in list(cyclopsData1, cyclopsData2)) {
+        fit <- fitCyclopsModel(cyclopsData, prior = createPrior("none"))
+        expect_equal(names(coef(fit)), c("(Intercept)", "1", "2", "3"))
+        expect_equal(unname(coef(fit)), unname(coef(glmFit)), tolerance = 1E-6)
+    }
+})
