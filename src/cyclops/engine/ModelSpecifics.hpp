@@ -1713,7 +1713,7 @@ void ModelSpecifics<BaseModel,RealType>::computeThirdDerivativeImpl(int index, d
                 }
             }
         } else {
-    		throw new std::logic_error("Not yet support");
+    		throw std::logic_error("Not yet support");
         }
     }
 
@@ -1738,7 +1738,7 @@ void ModelSpecifics<BaseModel,RealType>::computeSchoenfeldResiduals(int indexOne
                                                                     double* score,
                                                                     bool useWeights) {
     if (useWeights) {
-        throw new std::logic_error("Weights are not yet implemented in Schoenfeld residual calculations");
+        throw std::logic_error("Weights are not yet implemented in Schoenfeld residual calculations");
     } else { // no weights
         switch (hX.getFormatType(indexOne)) {
         case INDICATOR :
@@ -1771,7 +1771,7 @@ void ModelSpecifics<BaseModel,RealType>::computeFisherInformation(int indexOne, 
 	ensureDenominators();
 
 	if (useWeights) {
-		throw new std::logic_error("Weights are not yet implemented in Fisher Information calculations");
+		throw std::logic_error("Weights are not yet implemented in Fisher Information calculations");
 	} else if (BaseModel::cumulativeGradientAndHessian && !BaseModel::isTwoWayScan) { // Cox-type: sums over risk sets
 		computeRiskSetFisherInformation(indexOne, indexTwo, oinfo);
 	} else { // no weights

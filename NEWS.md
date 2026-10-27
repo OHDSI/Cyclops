@@ -152,6 +152,8 @@ Changes:
 35. correct `vcov()` and `getSEs()` for `cox` models fit with `fitter = "legacy"` and for `cox_time`
     models (their Fisher information summed each event-time group as its own stratum, so the
     variances were far too large or not positive definite)
+36. errors raised inside the C++ code report their message (several reported "c++ exception (unknown
+    reason)", e.g. `vcov()` after a fit with weights)
 
 Cyclops v3.7.1
 ==============

@@ -577,7 +577,7 @@ struct NoFixedLikelihoodTerms {
 
     template <typename RealType>
 	RealType logLikeFixedTermsContrib(RealType yi, RealType offseti, RealType logoffseti) {
-   	throw new std::logic_error("Not model-specific");
+   	throw std::logic_error("Not model-specific");
 		return static_cast<RealType>(0);
 	}
 };
@@ -693,7 +693,7 @@ public:
 	        RealType nEvents,
 	        RealType x, RealType xBeta, RealType y) {
 
-	    throw new std::logic_error("3rd derivatives are not yet implemented");
+	    throw std::logic_error("3rd derivatives are not yet implemented");
 	}
 };
 
@@ -772,7 +772,7 @@ public:
 	        RealType nEvents,
 	        RealType x, RealType xBeta, RealType y) {
 
-	    throw new std::logic_error("3rd derivatives are not yet implemented");
+	    throw std::logic_error("3rd derivatives are not yet implemented");
 	}
 
 	template <class IteratorType, class WeightOperationType>
@@ -952,7 +952,7 @@ public:
 	        RealType nEvents,
 	        RealType x, RealType xBeta, RealType y) {
 
-	    throw new std::logic_error("3rd derivatives are not yet implemented");
+	    throw std::logic_error("3rd derivatives are not yet implemented");
 	}
 
 	template <class IteratorType, class WeightOperationType>
@@ -1011,7 +1011,7 @@ public:
 	const static bool likelihoodHasFixedTerms = false;
 
 	RealType logLikeFixedTermsContrib(RealType yi, RealType offseti, RealType logoffseti) {
-        throw new std::logic_error("Not model-specific");
+        throw std::logic_error("Not model-specific");
 		return static_cast<RealType>(0);
 	}
 
@@ -1099,7 +1099,7 @@ public:
 	const static bool likelihoodHasFixedTerms = false;
 
 	RealType logLikeFixedTermsContrib(RealType yi, RealType offseti, RealType logoffseti) {
-        throw new std::logic_error("Not model-specific");
+        throw std::logic_error("Not model-specific");
 		return static_cast<RealType>(0);
 	}
 
@@ -1191,7 +1191,7 @@ public:
 	const static bool exactCLR = true;
 
 	RealType logLikeFixedTermsContrib(RealType yi, RealType offseti, RealType logoffseti) {
-        throw new std::logic_error("Not model-specific");
+        throw std::logic_error("Not model-specific");
 		return static_cast<RealType>(0);
 	}
 
@@ -1405,7 +1405,7 @@ public:
 	    RealType numerator, RealType numerator2, RealType denominator, RealType weight,
 	    RealType xBeta, RealType y) {
 
-        throw new std::logic_error("cox model not yet support");
+        throw std::logic_error("cox model not yet support");
 
     	const RealType g = numerator / denominator;
 
@@ -1531,7 +1531,7 @@ public:
 
 // 	    std::cout << "TODO" << std::endl;
 
-        throw new std::logic_error("breslow cox model not yet support");
+        throw std::logic_error("breslow cox model not yet support");
 
     	const RealType g = numerator / denominator;
 
@@ -1639,7 +1639,7 @@ public:
                                                           RealType xBeta, RealType y) {
 
 
-        throw new std::logic_error("breslow cox model not yet support");
+        throw std::logic_error("breslow cox model not yet support");
 
         const RealType g = numerator / denominator;
 
@@ -1732,7 +1732,7 @@ public:
 
 	template <class XType>
 	static RealType gradientNumerator2Contrib(XType x, RealType predictor) {
-        throw new std::logic_error("Not model-specific");
+        throw std::logic_error("Not model-specific");
 		return static_cast<RealType>(0);
 	}
 
@@ -1782,7 +1782,7 @@ public:
 	        RealType weight, RealType x, RealType xBeta,
 	        RealType y, RealType norm) {
 
-	    throw new std::logic_error("Not model-specific");
+	    throw std::logic_error("Not model-specific");
 	}
 
 	template <class IteratorType, class WeightOperationType>
@@ -1795,12 +1795,12 @@ public:
     }
 
 	RealType getOffsExpXBeta(const RealType offs, const RealType xBeta) {
-        throw new std::logic_error("Not model-specific");
+        throw std::logic_error("Not model-specific");
 		return static_cast<RealType>(0);
     }
 
 	RealType getOffsExpXBeta(const  RealType* offs, RealType xBeta, RealType y, int k) {
-        throw new std::logic_error("Not model-specific");
+        throw std::logic_error("Not model-specific");
 		return static_cast<RealType>(0);
 	}
 
@@ -1899,7 +1899,7 @@ public:
 	        RealType nEvents,
 	        RealType x, RealType xBeta, RealType y) {
 
-	    throw new std::logic_error("3rd derivatives are not yet implemented");
+	    throw std::logic_error("3rd derivatives are not yet implemented");
 	}
 
 	template <class IteratorType, class Weights>
@@ -1908,7 +1908,7 @@ public:
 	        RealType expXBeta, RealType denominator,
 	        RealType weight, RealType x, RealType xBeta, RealType y, RealType norm) {
 
-	    throw new std::logic_error("Not model-specific");
+	    throw std::logic_error("Not model-specific");
 	}
 
 	template <class IteratorType, class WeightOperationType>

@@ -183,7 +183,7 @@ public:
 		} else if (formatType == INTERCEPT) {
 			// Do nothing
 		} else {
-            throw new std::invalid_argument("Unknown type");
+            throw std::invalid_argument("Unknown type");
 		}
 		return true;
 	}
@@ -344,7 +344,7 @@ public:
 		} else if (colFormat == INTERCEPT) {
 			push_back(NULL, NULL, INTERCEPT);
 		} else {
-            throw new std::invalid_argument("Unknown type");
+            throw std::invalid_argument("Unknown type");
  		}
 	}
 
@@ -366,7 +366,7 @@ public:
 		} else if (colFormat == INTERCEPT) {
 			replace(index, NULL, NULL, INTERCEPT);
 		} else {
-            throw new std::invalid_argument("Unknown type");
+            throw std::invalid_argument("Unknown type");
  		}
 	}
 
@@ -384,7 +384,7 @@ public:
 		} else if (colFormat == INTERCEPT) {
 			push_back(NULL, NULL, INTERCEPT);
 		} else {
-            throw new std::invalid_argument("Unknown type");
+            throw std::invalid_argument("Unknown type");
  		}
 	}
 
@@ -395,7 +395,7 @@ public:
 	    } else if (colFormat == INTERCEPT) {
 	        insert(allColumns.begin() + position, NULL, NULL, INTERCEPT);
 	    } else {
-            throw new std::invalid_argument("Unknown type");
+            throw std::invalid_argument("Unknown type");
 	    }
 	}
 

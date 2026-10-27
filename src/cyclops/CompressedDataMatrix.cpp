@@ -33,9 +33,9 @@ template <typename RealType>
 RealType CompressedDataMatrix<RealType>::sumColumn(int column) {
 	RealType sum = 0.0;
 	if (getFormatType(column) == DENSE) {
-	    throw new std::invalid_argument("DENSE");
+	    throw std::invalid_argument("DENSE");
 	} else if (getFormatType(column) == SPARSE) {
-	    throw new std::invalid_argument("DENSE");
+	    throw std::invalid_argument("DENSE");
 	} else { // is indiciator
 		sum = allColumns[column]->getNumberOfEntries();
 	}
@@ -277,7 +277,7 @@ void CompressedDataColumn<RealType>::convertColumnToSparse(void) {
 		return;
 	}
 	if (formatType == DENSE) {
-        throw new std::invalid_argument("DENSE");
+        throw std::invalid_argument("DENSE");
 	}
 
 	if (data == NULL) {
@@ -372,7 +372,7 @@ void CompressedDataColumn<RealType>::printMatrixMarketFormat(std::ostream& strea
             stream << (columns[i] + 1) << " " << (columnNumber + 1) <<  " " << value << "\n";
         }
     } else {
-        throw new std::invalid_argument("Unknon type");
+        throw std::invalid_argument("Unknon type");
     }
 }
 

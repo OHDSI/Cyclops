@@ -49,6 +49,12 @@ test_that("vcov for cpr ignores strata without events", {
     expect_equal(vcov(fitWithEmpty), vcov(fit), tolerance = 1E-6)
 })
 
+test_that("vcov with weights reports that weights are not supported", {
+    fit <- fitCyclopsModel(createCyclopsData(case ~ spontaneous + induced, data = infert, modelType = "lr"),
+                           weights = rep(c(1, 2), length.out = nrow(infert)))
+    expect_error(vcov(fit), "Weights are not yet implemented in Fisher Information calculations")
+})
+
 test_that("vcov for legacy cox and cox_time matches coxph", {
     control <- createControl(tolerance = 1E-10, noiseLevel = "silent")
     legacy <- createControl(tolerance = 1E-10, noiseLevel = "silent", fitter = "legacy")
