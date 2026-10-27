@@ -496,26 +496,23 @@ class TestSmallCox:
             result.log_likelihood, spec["log_likelihood"], rtol=TOL
         )
 
-    def test_standard_errors_are_unavailable_for_cox(self):
-        """Cyclops cannot produce Cox standard errors, and says so.
+    @pytest.mark.parametrize("case", ["NO_TIES", "TIME_TIES"], ids=str.lower)
+    def test_standard_errors(self, case):
+        """R: `sqrt(diag(vcov(coxph(Surv(length, event) ~ x1 + x2, test))))`.
 
-        `computeFisherInformation` returns a singular matrix for the Cox
-        likelihood. R surfaces this as a LAPACK error out of `getSEs()`; the
-        facade raises rather than returning the inf/NaN that inverting a
-        singular matrix would otherwise produce. The R suite never compares Cox
-        standard errors against `coxph` for the same reason.
+        The Fisher information sums over the risk sets of each stratum, as in
+        `test-fisherEvents.R`. Neither example has tied events, so `coxph`'s
+        Efron default agrees with Cyclops' Breslow handling.
         """
-        spec = self.NO_TIES
+        spec = getattr(self, case)
         X = np.column_stack([spec["x1"], spec["x2"]])
         _, model, result = fit(
             X, np.array(spec["event"]), "cox", time=np.array(spec["length"])
         )
-        with pytest.raises(CyclopsError, match=r"singular|degenerate"):
-            model.standard_errors(list(result.covariate_ids))
-
-        # The coefficients themselves are sound; only the curvature is not.
         np.testing.assert_allclose(
-            result.coefficients, spec["coef"], rtol=TOL, atol=TOL
+            model.standard_errors(list(result.covariate_ids)),
+            spec["se"],
+            rtol=TOL,
         )
 
     @pytest.mark.parametrize("case", ["NO_TIES", "TIME_TIES"], ids=str.lower)
