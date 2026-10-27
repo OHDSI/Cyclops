@@ -87,3 +87,16 @@ test_that("Small exact, conditional logistic regression with no ties", {
 #     )
 # })
 
+
+test_that("Exact conditional logistic regression with sparse columns that end before the last stratum", {
+    data <- infert
+    data$early <- as.numeric(data$stratum <= 20 & data$spontaneous > 0) # indicator entries in early strata only
+    data$earlyInduced <- ifelse(data$stratum <= 40, data$induced, 0) # sparse entries in early strata only
+
+    gold <- clogit(case ~ early + earlyInduced + strata(stratum), data = data, method = "exact")
+    fit <- fitCyclopsModel(createCyclopsData(case ~ strata(stratum),
+                                             indicatorFormula = ~ early, sparseFormula = ~ earlyInduced,
+                                             data = data, modelType = "clr_exact"),
+                           prior = createPrior("none"))
+    expect_equal(coef(fit)[names(coef(gold))], coef(gold), tolerance = 1E-4)
+})

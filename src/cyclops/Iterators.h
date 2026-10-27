@@ -271,7 +271,7 @@ public:
 	}
 
     inline DenseView& operator++() {
-    	if (mIterator.index() == mId) {
+    	if (mIterator && mIterator.index() == mId) {
     		++mIterator;
     	}
     	++mId;
@@ -283,7 +283,7 @@ public:
     }
 
     inline const Scalar value() const {
-    	if (mIterator.index() == mId) {
+    	if (mIterator && mIterator.index() == mId) {
     		return mIterator.value();
     	} else {
     		return static_cast<Scalar>(0.0);

@@ -169,3 +169,14 @@ start, length, event, x1, x2
 
     expect_equivalent(cres, gres)
 })
+
+test_that("Schoenfeld residuals for legacy cox with a sparse covariate that ends before the last row", {
+    data <- ovarian
+    data$late <- ifelse(data$futime > 500, data$age / 10, 0) # entries only among the longest times
+
+    gfit <- coxph(Surv(futime, fustat) ~ late, data = data, ties = "breslow")
+    cfit <- fitCyclopsModel(createCyclopsData(Surv(futime, fustat) ~ 1, sparseFormula = ~ late,
+                                              data = data, modelType = "cox"),
+                            control = createControl(fitter = "legacy"))
+    expect_equivalent(residuals(cfit, "schoenfeld"), residuals(gfit, "schoenfeld"))
+})

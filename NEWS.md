@@ -154,6 +154,8 @@ Changes:
     variances were far too large or not positive definite)
 36. errors raised inside the C++ code report their message (several reported "c++ exception (unknown
     reason)", e.g. `vcov()` after a fit with weights)
+37. `clr_exact` fits and Schoenfeld residuals of `cox` fits with `fitter = "legacy"` no longer read past
+    the end of a sparse or indicator column
 
 Cyclops v3.7.1
 ==============

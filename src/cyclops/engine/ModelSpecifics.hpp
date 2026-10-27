@@ -972,7 +972,7 @@ void ModelSpecifics<BaseModel,RealType>::getSchoenfeldResidualsImpl(int index,
 
 	// main loop
 	for (int i = 0; i < K; ++i) {
-	    if (i == it.index()) {
+	    if (it && i == it.index()) {
 	        processRow(i, it.value());
 	        ++it;
 	    } else {
