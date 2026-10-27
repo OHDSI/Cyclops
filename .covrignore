@@ -7,4 +7,4 @@ src/cyclops/drivers/CrossValidationSelector.h
 src/cyclops/drivers/AbstractSelector.h
 R/cyclops.R
 R/PackageMaintenance.R
-
+src/cyclops/api/*

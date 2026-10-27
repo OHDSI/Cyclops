@@ -39,3 +39,4 @@ src/Makevars.win$
 to_fix*
 ^CRAN-SUBMISSION$
 ^\.claude$
+^python$
