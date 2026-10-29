@@ -173,6 +173,12 @@ Changes:
     names, `vcov()`, `confint()`, `getSEs()`, `summary()` and the univariable functions now return
     names, and covariates can be given by these names. `gradient()` also works for a fit that did not
     converge
+43. `lr` fits with a Laplace prior skip the visits to an indicator column at zero whose step is
+    provably zero: a bound on how far its gradient can have moved since it was last computed shows
+    that it is still within the penalty (#100). Results are unchanged; with `fitter = "super"`,
+    intercept steps are applied to the rows once per cycle, which changes results only by rounding. In
+    benchmarks with 20,000-400,000 rows, L1 fits are 1.3-2.5x faster and cross-validation 1.1-2.4x;
+    with 1.6 million rows, 1.0-1.1x
 
 Cyclops v3.7.1
 ==============

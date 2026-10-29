@@ -1346,6 +1346,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	    auto sums = [&](auto scaledTag, auto trackTag) {
 	        constexpr bool scaled = decltype(scaledTag)::value;
 	        constexpr bool track = decltype(trackTag)::value; // largestW only for the drift bounds
+	        RealType g = gradient, h = hessian, lw = largestW; // locals: no store per entry
 
 	    if (Weights::isWeighted && activePartition) {
 	        // 0/1 weights with a fold partition: the training entries are two contiguous ranges
@@ -1358,13 +1359,13 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	                    e / (static_cast<RealType>(1) + e) : static_cast<RealType>(1);
 	                const RealType w = p * (static_cast<RealType>(1) - p);
 	                if (IteratorType::isIndicator) {
-	                    gradient += p;
-	                    hessian += w;
-	                    if (track) largestW = std::max(largestW, w);
+	                    g += p;
+	                    h += w;
+	                    if (track) lw = std::fmax(lw, w);
 	                } else {
 	                    const RealType x = t.values[IteratorType::isSparse ? q : i];
-	                    gradient += p * x;
-	                    hessian += w * x * x;
+	                    g += p * x;
+	                    h += w * x * x;
 	                }
 	            }
 	        }
@@ -1380,13 +1381,13 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	                e / (static_cast<RealType>(1) + e) : static_cast<RealType>(1);
 	            const RealType w = p * (static_cast<RealType>(1) - p);
 	            if (IteratorType::isIndicator) {
-	                gradient += train[i] ? p : static_cast<RealType>(0);
-	                hessian += train[i] ? w : static_cast<RealType>(0);
-	                if (track) largestW = std::max(largestW, w); // held-out rows too: an upper bound
+	                g += train[i] ? p : static_cast<RealType>(0);
+	                h += train[i] ? w : static_cast<RealType>(0);
+	                if (track) lw = std::fmax(lw, w); // held-out rows too: an upper bound
 	            } else {
 	                const RealType x = values[q];
-	                gradient += train[i] ? p * x : static_cast<RealType>(0);
-	                hessian += train[i] ? w * x * x : static_cast<RealType>(0);
+	                g += train[i] ? p * x : static_cast<RealType>(0);
+	                h += train[i] ? w * x * x : static_cast<RealType>(0);
 	            }
 	        }
 	    } else
@@ -1397,15 +1398,16 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	            e / (static_cast<RealType>(1) + e) : static_cast<RealType>(1);
 	        const RealType w = p * (static_cast<RealType>(1) - p);
 	        if (IteratorType::isIndicator) {
-	            gradient += Weights::isWeighted ? weight[i] * p : p;
-	            hessian += Weights::isWeighted ? weight[i] * w : w;
-	            if (track) largestW = std::max(largestW, w);
+	            g += Weights::isWeighted ? weight[i] * p : p;
+	            h += Weights::isWeighted ? weight[i] * w : w;
+	            if (track) lw = std::fmax(lw, w);
 	        } else {
 	            const RealType x = values[q];
-	            gradient += Weights::isWeighted ? weight[i] * (p * x) : p * x;
-	            hessian += Weights::isWeighted ? weight[i] * (w * x * x) : w * x * x;
+	            g += Weights::isWeighted ? weight[i] * (p * x) : p * x;
+	            h += Weights::isWeighted ? weight[i] * (w * x * x) : w * x * x;
 	        }
 	    }
+	    gradient = g; hessian = h; largestW = lw;
 	    };
 	    if (factorB != static_cast<RealType>(1)) {
 	        driftTracking ? sums(std::true_type(), std::true_type()) : sums(std::true_type(), std::false_type());
