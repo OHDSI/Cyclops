@@ -140,6 +140,7 @@ AbstractModelSpecifics* ModelSpecifics<BaseModel,RealType>::clone(ComputeDeviceA
 
 template <class BaseModel, typename RealType>
 double ModelSpecifics<BaseModel,RealType>::getGradientObjective(bool useCrossValidation) {
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
 
 #ifdef CYCLOPS_DEBUG_TIMING
     auto start = bsccs::chrono::steady_clock::now();
@@ -345,6 +346,7 @@ const std::vector<double> ModelSpecifics<BaseModel,RealType>::getXBetaSave() {
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::zeroXBeta() {
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
 	std::fill(std::begin(hXBeta), std::end(hXBeta), 0.0);
 }
 
@@ -361,6 +363,7 @@ void ModelSpecifics<BaseModel,RealType>::saveXBeta() {
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeXBeta(double* beta, bool useWeights) {
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
 
     if (!hXt) {
         initializeMmXt();
@@ -442,6 +445,7 @@ void ModelSpecifics<BaseModel,RealType>::axpy(RealType* y, const RealType alpha,
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::axpyXBeta(const double beta, const int j) {
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
 
 #ifdef CYCLOPS_DEBUG_TIMING
     auto start = bsccs::chrono::steady_clock::now();
@@ -476,6 +480,7 @@ void ModelSpecifics<BaseModel,RealType>::axpyXBeta(const double beta, const int 
 // ESK: Added cWeights (censoring weights) as an input
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *cenWeights, bool useCrossValidation) {
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
 	// Set K weights
 	if (hKWeight.size() != K) {
 		hKWeight.resize(K);
@@ -532,6 +537,12 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *c
             hYWeightDouble[k] = cenWeights[k];
         }
     }
+
+	binaryWeights = true;
+	for (size_t k = 0; k < K && binaryWeights; ++k) {
+		binaryWeights = hKWeight[k] == static_cast<RealType>(0) || hKWeight[k] == static_cast<RealType>(1);
+	}
+	restartDrift();
 
 	trainingRowsOnly = false;
 	activePartition.reset(); // setFoldPartition() follows
@@ -679,6 +690,7 @@ void ModelSpecifics<BaseModel,RealType>::computeFixedTermsInGradientAndHessian(b
 	}
 	if (allocateXjY()) {
 		computeXjY(useCrossValidation);
+		restartDrift();
 	}
 	if (allocateXjX()) {
 		computeXjX(useCrossValidation);
@@ -696,6 +708,7 @@ void ModelSpecifics<BaseModel,RealType>::computeFixedTermsInGradientAndHessian(b
 
 template <class BaseModel,typename RealType>
 double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidation) {
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto start = bsccs::chrono::steady_clock::now();
@@ -755,6 +768,7 @@ double ModelSpecifics<BaseModel,RealType>::getLogLikelihood(bool useCrossValidat
 
 template <class BaseModel,typename RealType>
 double ModelSpecifics<BaseModel,RealType>::getPredictiveLogLikelihood(double* weights) {
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
 
 	ensureDenominators();
 
@@ -1327,6 +1341,11 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	    const RealType* values = IteratorType::isIndicator ? nullptr : hX.getDataVector(index);
 	    const RealType* expXBeta = offsExpXBeta.data();
 	    const RealType* weight = hNWeight.data();
+	    RealType largestW = static_cast<RealType>(0); // of the rows summed, for updateXBetaImpl()
+	    const RealType factorB = pendingFactor; // a pending lazy intercept move (1: none)
+	    auto sums = [&](auto scaledTag, auto trackTag) {
+	        constexpr bool scaled = decltype(scaledTag)::value;
+	        constexpr bool track = decltype(trackTag)::value; // largestW only for the drift bounds
 
 	    if (Weights::isWeighted && activePartition) {
 	        // 0/1 weights with a fold partition: the training entries are two contiguous ranges
@@ -1334,13 +1353,14 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	        for (int r = 0; r < 4; r += 2) {
 	            for (int q = t.range[r]; q < t.range[r + 1]; ++q) {
 	                const int i = t.rows[q];
-	                const RealType e = expXBeta[i];
+	                const RealType e = scaled ? factorB * expXBeta[i] : expXBeta[i];
 	                const RealType p = (e <= std::numeric_limits<RealType>::max()) ?
 	                    e / (static_cast<RealType>(1) + e) : static_cast<RealType>(1);
 	                const RealType w = p * (static_cast<RealType>(1) - p);
 	                if (IteratorType::isIndicator) {
 	                    gradient += p;
 	                    hessian += w;
+	                    if (track) largestW = std::max(largestW, w);
 	                } else {
 	                    const RealType x = t.values[IteratorType::isSparse ? q : i];
 	                    gradient += p * x;
@@ -1355,13 +1375,14 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	        const uint8_t* train = trainingRow.data();
 	        for (int q = 0; q < n; ++q) {
 	            const int i = IteratorType::isSparse ? rows[q] : q;
-	            const RealType e = expXBeta[i];
+	            const RealType e = scaled ? factorB * expXBeta[i] : expXBeta[i];
 	            const RealType p = (e <= std::numeric_limits<RealType>::max()) ?
 	                e / (static_cast<RealType>(1) + e) : static_cast<RealType>(1);
 	            const RealType w = p * (static_cast<RealType>(1) - p);
 	            if (IteratorType::isIndicator) {
 	                gradient += train[i] ? p : static_cast<RealType>(0);
 	                hessian += train[i] ? w : static_cast<RealType>(0);
+	                if (track) largestW = std::max(largestW, w); // held-out rows too: an upper bound
 	            } else {
 	                const RealType x = values[q];
 	                gradient += train[i] ? p * x : static_cast<RealType>(0);
@@ -1371,18 +1392,32 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	    } else
 	    for (int q = 0; q < n; ++q) {
 	        const int i = IteratorType::isSparse ? rows[q] : q;
-	        const RealType e = expXBeta[i];
+	        const RealType e = scaled ? factorB * expXBeta[i] : expXBeta[i];
 	        const RealType p = (e <= std::numeric_limits<RealType>::max()) ?
 	            e / (static_cast<RealType>(1) + e) : static_cast<RealType>(1);
 	        const RealType w = p * (static_cast<RealType>(1) - p);
 	        if (IteratorType::isIndicator) {
 	            gradient += Weights::isWeighted ? weight[i] * p : p;
 	            hessian += Weights::isWeighted ? weight[i] * w : w;
+	            if (track) largestW = std::max(largestW, w);
 	        } else {
 	            const RealType x = values[q];
 	            gradient += Weights::isWeighted ? weight[i] * (p * x) : p * x;
 	            hessian += Weights::isWeighted ? weight[i] * (w * x * x) : w * x * x;
 	        }
+	    }
+	    };
+	    if (factorB != static_cast<RealType>(1)) {
+	        driftTracking ? sums(std::true_type(), std::true_type()) : sums(std::true_type(), std::false_type());
+	    } else {
+	        driftTracking ? sums(std::false_type(), std::true_type()) : sums(std::false_type(), std::false_type());
+	    }
+	    if (IteratorType::isIndicator) { // see updateXBetaImpl()
+	        lastHessianIndex = index;
+	        lastHessianVersion = expVersion;
+	        lastHessian = static_cast<double>(hessian);
+	        lastLargestW = driftTracking ? static_cast<double>(largestW) : 0.25; // 0.25 >= any p (1 - p)
+	        lastHessianEntries = static_cast<double>(n);
 	    }
 
 	} else if (BaseModel::hasIndependentRows) {
@@ -2333,7 +2368,37 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
             }
             codes = valueCodes[index].codes.data();
         }
-        if (Weights::isWeighted && activePartition) {
+        // Drift of p = e / (1 + e) for getGradientDrift(), by direction (while driftTracking). An indicator
+        // or intercept column multiplied by f right after its gradient needs no work per row
+        // (driftFromHessian): p(e f) - p(e) = p (1 - p) (f - 1) / (1 + (f - 1) p), so every row moves the
+        // way of delta, by at most p (1 - p) G, G = exp|delta| - 1, and by at most tanh(|delta| / 4); the
+        // gradient summed p (1 - p) over exactly the rows that gradients read. Other multiplied columns
+        // (value codes) are bounded by tanh(|delta| max|x| / 4) per row, both ways; only the rare rows whose
+        // e is recomputed from xBeta (e not a normal number) are measured. A column whose every e is
+        // recomputed (vectorizableExp(), no value codes) starts a new epoch: no work per entry anywhere.
+        // (the recomputed rows are collected in the loops and measured after them, so that the loops keep
+        // Marc's code and registers)
+        const bool track = driftTracking;
+        recomputedE.clear();
+        const bool driftFromHessian = track && IteratorType::isIndicator && multiply &&
+            std::is_same<RealType, double>::value && lastHessianIndex == index &&
+            lastHessianVersion == expVersion && lastHessian >= 0.0 &&
+            lastHessian <= std::numeric_limits<double>::max();
+        ++expVersion;
+        if (lazyIntercept && IteratorType::isIndicator && !IteratorType::isSparse && multiply &&
+            pendingFactor * factor >= minEntry && pendingFactor * factor <= maxEntry) {
+            // the intercept: every row's odds move by the same factor, kept pending (flushIntercept());
+            // the factor that gradients see changes from B to fl(B f), within 2 eps of f, which the growth
+            // margin below covers. A product that is not a normal number moves the rows instead (below),
+            // which the pending factor composes with
+            pendingFactor *= factor;
+            pendingShift += realDelta;
+        } else if ((pendingFactor != static_cast<RealType>(1) || pendingShift != static_cast<RealType>(0)) &&
+                   !(IteratorType::isIndicator && multiply)) {
+            flushIntercept(); // a column that recomputes exp(xBeta) of its rows: apply the pending move first
+            updateXBetaImpl<IteratorType, Weights>(realDelta, index);
+            return;
+        } else if (Weights::isWeighted && activePartition) {
             // training entries only; held-out rows keep stale xBeta and exp(xBeta) (see
             // setHeldOutRowsUnused()). Each row gets the same operations as below.
             const TrainingEntries t = getTrainingEntries<IteratorType>(index);
@@ -2376,6 +2441,9 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
                                 expFactors[t.codes[IteratorType::isSparse ? q : k]]);
                         } else {
                             newEntry = BaseModel::getOffsExpXBeta(hOffs.data(), xBeta[k], hY[k], k);
+                            if (track) {
+                                recomputedE.emplace_back(oldEntry, newEntry);
+                            }
                         }
                         expXBeta[k] = newEntry;
                     }
@@ -2422,8 +2490,92 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
                     newEntry = oldEntry * (IteratorType::isIndicator ? factor : expFactors[codes[q]]);
                 } else {
                     newEntry = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], k);
+                    if (track) {
+                        recomputedE.emplace_back(oldEntry, newEntry);
+                    }
                 }
                 offsExpXBeta[k] = newEntry;
+            }
+        }
+        if (track) {
+            double moveUp = 0.0, moveDown = 0.0, moveMaxUp = 0.0, moveMaxDown = 0.0;
+            const bool measuredAny = !recomputedE.empty();
+            for (const auto& entry : recomputedE) {
+                const double change = readP(pendingFactor * entry.second) - readP(pendingFactor * entry.first); // as gradients read p
+                const double rise = std::max(change, 0.0);
+                const double fall = std::max(-change, 0.0);
+                moveUp += rise;
+                moveDown += fall;
+                moveMaxUp = std::max(moveMaxUp, rise);
+                moveMaxDown = std::max(moveMaxDown, fall);
+            }
+            // Each measured change of p (a difference of the values the gradient reads) and the sum of at
+            // most `terms` of them round to nearest, so the exact values are at most (1 + (terms + 2) eps)
+            // times the computed ones; the totals are then rounded outward (accumulate())
+            const double eps = std::numeric_limits<double>::epsilon();
+            const double terms = static_cast<double>(hX.getNumberOfNonZeroEntries(index));
+            const double measured = 1.0 + (terms + 2.0) * eps;
+            double up = moveUp * measured;
+            double down = moveDown * measured;
+            double maxUp = moveMaxUp * (1.0 + 2.0 * eps);
+            double maxDown = moveMaxDown * (1.0 + 2.0 * eps);
+            if (!IteratorType::isIndicator && !multiply) {
+                restartDrift(); // every e recomputed from xBeta (see above)
+            } else if (driftFromHessian) {
+                // the multiplied rows: the exact p(e) moves by at most p (1 - p) G (G of the factor applied,
+                // within 4 eps of the computed one), with the exact p (1 - p) within 3 eps of the one the
+                // gradient summed (the Hessian sum within (n + 8) eps); the p read at each end is within
+                // 2 eps of the exact one (6 eps per row in all); and no row moves by more than tanh(|delta| / 4)
+                const double f = static_cast<double>(factor);
+                const double n = lastHessianEntries;
+                const double growth = ((f >= 1.0) ? f - 1.0 : 1.0 / f - 1.0) * (1.0 + 4.0 * eps);
+                const double logFactor = std::abs(static_cast<double>(realDelta)) * (1.0 + 4.0 * eps) + 4.0 * eps;
+                const double largestMove = std::min(1.0, std::tanh(0.25 * logFactor) * (1.0 + 1E-12) + 8.0 * eps);
+                const double sum = std::min(growth * (lastHessian * (1.0 + (n + 8.0) * eps) + 4.0 * eps * n) * (1.0 + 1E-12) +
+                    8.0 * eps * n, n * largestMove);
+                const double largest = std::min(0.25, lastLargestW * (1.0 + 4.0 * eps) + 4.0 * eps);
+                const double largestOdds = std::min(largestMove, largest * growth * (1.0 + 1E-12) + 8.0 * eps);
+                const bool rises = realDelta > static_cast<RealType>(0); // f > 1: every multiplied row rises
+                if (rises) {
+                    up += sum;
+                    maxUp = std::max(maxUp, largestOdds);
+                } else {
+                    down += sum;
+                    maxDown = std::max(maxDown, largestOdds);
+                }
+                // the multiplied rows by their column's Hessian bucket; the measured rows for every column
+                recordSidedDrift(GradientDrift::bucketOf(lastHessian), rises ? sum : 0.0, rises ? 0.0 : sum,
+                                 rises ? growth : 0.0, rises ? 0.0 : growth);
+                if (measuredAny) {
+                    recordSidedDrift(0, moveUp * measured, moveDown * measured, 0.0, 0.0);
+                }
+            } else {
+                // every multiplied row by at most tanh(|delta| max|x| / 4), the way of delta for an
+                // indicator column, either way for one with values
+                const double maxAbsX = IteratorType::isIndicator ? 1.0 : columnMaxAbsValue(index);
+                const double logFactor = std::abs(static_cast<double>(realDelta)) * maxAbsX * (1.0 + 4.0 * eps) + 4.0 * eps;
+                const double largestMove = std::min(1.0, std::tanh(0.25 * logFactor) * (1.0 + 1E-12) + 8.0 * eps);
+                const double sum = terms * largestMove;
+                const bool rises = realDelta > static_cast<RealType>(0);
+                if (!IteratorType::isIndicator || rises) {
+                    up += sum;
+                    maxUp = std::max(maxUp, largestMove);
+                }
+                if (!IteratorType::isIndicator || !rises) {
+                    down += sum;
+                    maxDown = std::max(maxDown, largestMove);
+                }
+                recordSidedDrift(0, up, down, 0.0, 0.0);
+            }
+            if (IteratorType::isIndicator || multiply) {
+                accumulate(driftUp, up);
+                accumulate(driftDown, down);
+                accumulate(driftMaxUp, maxUp);
+                accumulate(driftMaxDown, maxDown);
+                ++driftUpdates;
+                if (!std::isfinite(driftUp + driftDown + driftMaxUp + driftMaxDown)) {
+                    restartDrift();
+                }
             }
         }
         denominatorsStale = true; // denomPid[k] = 1 + newEntry, deferred to ensureDenominators()
@@ -2510,6 +2662,7 @@ void ModelSpecifics<BaseModel,RealType>::computeRemainingStatisticsImpl() {
             }
             denomMove = 0.0;
         }
+        restartDrift(); // e rebuilt from xBeta
         denominatorsStale = false;
         computeAccumlatedDenominator(Weights::isWeighted);
     }
@@ -2526,6 +2679,7 @@ void ModelSpecifics<BaseModel,RealType>::resumStratumDenominators() {
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeRemainingStatistics(bool useWeights) {
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
 
 #ifdef CYCLOPS_DEBUG_TIMING
 	auto start = bsccs::chrono::steady_clock::now();
@@ -2952,6 +3106,8 @@ FoldPartitionPtr ModelSpecifics<BaseModel,RealType>::makeFoldPartition(const std
 
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::setFoldPartition(FoldPartitionPtr partition, int fold) {
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
+    restartDrift();
     activePartition.reset();
     partitionFold = -1;
     if (!BaseModel::hasLogisticRows || !partition || !trainingRowsOnly) {

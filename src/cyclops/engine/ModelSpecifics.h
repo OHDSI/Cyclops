@@ -26,6 +26,7 @@
 
 #include <type_traits>
 #include <iterator>
+#include <algorithm>
 //#include <boost/tuple/tuple.hpp>
 //#include <boost/iterator/zip_iterator.hpp>
 //#include <boost/range/iterator_range.hpp>
@@ -231,6 +232,113 @@ protected:
 		}
 	}
 
+	// p as the lr gradient reads it from e = offsExpXBeta (1 for e = inf or NaN)
+	static double readP(RealType e) {
+		return (e <= std::numeric_limits<RealType>::max()) ?
+			static_cast<double>(e / (static_cast<RealType>(1) + e)) : 1.0;
+	}
+	// hasLogisticRows, while driftTracking: bounds on the moves of p = e / (1 + e), as the gradient reads
+	// it, since the epoch began, for getGradientDrift(): the increases and the decreases of p summed over
+	// all updates, and the sums over updates of the largest increase and decrease of one row. A gradient
+	// sums p over the column's training rows, so it cannot have moved by more. A new epoch begins whenever
+	// e, the weights or the rows that the gradient sums change otherwise. Every total is rounded outward at
+	// each addition (accumulate()).
+	bool driftTracking = false;
+	double driftUp = 0.0;
+	double driftDown = 0.0;
+	double driftMaxUp = 0.0;
+	double driftMaxDown = 0.0;
+	long driftUpdates = 0; // updates added in this epoch
+	long driftEpoch = 0;
+	bool binaryWeights = true; // every weight is 0 or 1
+	// total + increment, rounded outward: the sum rounds to nearest (within eps / 2), and the factor then
+	// exceeds that; a total that is an upper bound stays one, without a libm call
+	static void accumulate(double& total, double increment) {
+		total = (total + increment) * (1.0 + 2.0 * std::numeric_limits<double>::epsilon());
+	}
+	// Column-side bounds: per bucket s, the drift (by direction) of the updates of columns in buckets <= s,
+	// and the growth (by the direction of the move) of the updates of columns in buckets above s, which a
+	// certified column in bucket s charges from its own side (see CyclicCoordinateDescent::certifiedZero())
+	double sidedLowUp[GradientDrift::buckets] = {};
+	double sidedLowDown[GradientDrift::buckets] = {};
+	double sidedHighUp[GradientDrift::buckets] = {};
+	double sidedHighDown[GradientDrift::buckets] = {};
+	// an update of a column in bucket `bucket` (0: unknown) with drift up / down and growth G in the
+	// direction of its move
+	void recordSidedDrift(int bucket, double up, double down, double growthUp, double growthDown) {
+		for (int b = 0; b < GradientDrift::buckets; ++b) {
+			if (b >= bucket) {
+				accumulate(sidedLowUp[b], up);
+				accumulate(sidedLowDown[b], down);
+			} else {
+				accumulate(sidedHighUp[b], growthUp);
+				accumulate(sidedHighDown[b], growthDown);
+			}
+		}
+	}
+	void restartDrift() {
+		std::fill(std::begin(sidedLowUp), std::end(sidedLowUp), 0.0);
+		std::fill(std::begin(sidedLowDown), std::end(sidedLowDown), 0.0);
+		std::fill(std::begin(sidedHighUp), std::end(sidedHighUp), 0.0);
+		std::fill(std::begin(sidedHighDown), std::end(sidedHighDown), 0.0);
+		driftUp = driftDown = driftMaxUp = driftMaxDown = 0.0;
+		driftUpdates = 0;
+		++driftEpoch;
+		++expVersion;
+	}
+	// The Hessian sum p (1 - p), and the largest p (1 - p), over the rows that the gradient of column
+	// lastHessianIndex read, while e is unchanged since (expVersion): they bound the drift of an update of
+	// that column without work per row (see updateXBetaImpl())
+	long expVersion = 0;
+	long lastHessianVersion = -1;
+	int lastHessianIndex = -1;
+	double lastHessian = 0.0;
+	double lastLargestW = 0.25;
+	double lastHessianEntries = 0.0;
+public:
+	GradientDrift getGradientDrift() const {
+		GradientDrift drift;
+		drift.up = driftUp;
+		drift.down = driftDown;
+		drift.maxUp = driftMaxUp;
+		drift.maxDown = driftMaxDown;
+		drift.updates = driftUpdates;
+		drift.epoch = driftEpoch;
+		drift.lowUp = sidedLowUp;
+		drift.lowDown = sidedLowDown;
+		drift.highUp = sidedHighUp;
+		drift.highDown = sidedHighDown;
+		drift.valid = BaseModel::hasLogisticRows && !legacy && std::is_same<RealType, double>::value &&
+			binaryWeights && driftTracking;
+		return drift;
+	}
+	// e before and after, of the rows of an update whose e is recomputed from xBeta (measured after it)
+	std::vector<std::pair<RealType, RealType>> recomputedE;
+	// max |x| of a column with values, for the drift bound of its updates; computed once
+	std::vector<double> maxAbsValue;
+	double columnMaxAbsValue(int index) {
+		if (maxAbsValue.size() != J) {
+			maxAbsValue.assign(J, -1.0);
+		}
+		if (maxAbsValue[index] < 0.0) {
+			double m = 0.0;
+			const RealType* x = hX.getDataVector(index);
+			const size_t n = hX.getNumberOfNonZeroEntries(index);
+			for (size_t q = 0; q < n; ++q) {
+				m = std::max(m, std::abs(static_cast<double>(x[q])));
+			}
+			maxAbsValue[index] = m;
+		}
+		return maxAbsValue[index];
+	}
+	void setDriftTracking(bool on) {
+		if (on && !driftTracking) {
+			restartDrift();
+		}
+		driftTracking = on;
+	}
+protected:
+
 	// hasLogisticRows cross-validation fold fits whose weights are all 0 or 1: the gradient sums the
 	// weight-1 rows without reading weights
 	void setHeldOutRowsUnused(bool unused) { heldOutRowsUnused = unused; }
@@ -334,6 +442,46 @@ protected:
 	std::vector<ValueCodes> valueCodes; // by column, for grouped models and logistic regression
 	RealVector expFactors; // exp(delta * value) for each distinct value of the updated column
 	RealVector expBuffer;  // logistic regression: xBeta, then exp(xBeta), of the updated sparse column
+	// Lazy intercept (logistic regression, fitter = "super"): exp(xBeta) of every row is pendingFactor times
+	// offsExpXBeta, and xBeta is hXBeta plus pendingShift, until flushIntercept(). Gradients read
+	// p = (B e) / (1 + B e); flushIntercept() stores e * B, the same product, so the p that gradients read
+	// is unchanged by it except in rows whose e is not a normal number (recomputed: a new drift epoch)
+	bool lazyIntercept = false;
+	RealType pendingFactor = static_cast<RealType>(1);
+	RealType pendingShift = static_cast<RealType>(0);
+public:
+	bool setLazyIntercept(bool on) {
+		flushIntercept();
+		lazyIntercept = on && BaseModel::hasLogisticRows && !legacy;
+		return lazyIntercept;
+	}
+	void flushIntercept() {
+		if (pendingFactor == static_cast<RealType>(1) && pendingShift == static_cast<RealType>(0)) {
+			return;
+		}
+		const RealType minEntry = std::numeric_limits<RealType>::min();
+		const RealType maxEntry = std::numeric_limits<RealType>::max();
+		bool recomputed = false;
+		for (size_t k = 0; k < K; ++k) {
+			hXBeta[k] += pendingShift;
+			const RealType oldEntry = offsExpXBeta[k];
+			if (oldEntry >= minEntry && oldEntry <= maxEntry) {
+				offsExpXBeta[k] = oldEntry * pendingFactor;
+			} else {
+				const size_t row = flushRow(k);
+				offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[row], row);
+				recomputed = true;
+			}
+		}
+		pendingFactor = static_cast<RealType>(1);
+		pendingShift = static_cast<RealType>(0);
+		denominatorsStale = true;
+		if (recomputed) {
+			restartDrift();
+		}
+	}
+protected:
+	size_t flushRow(size_t k) const { return k; } // the row at position k of the per-row state
 
 	void setupValueCodes();
 

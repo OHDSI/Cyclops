@@ -356,6 +356,12 @@ protected:
 
 	void trackInterceptGradient(int index, double delta, double hessian);
 
+	void setUpZeroCertificates(AlgorithmType algorithmType);
+
+	bool certifiedZero(int index) const;
+
+	void recordZeroCertificate(int index, double delta);
+
 	void cycleWithConcurrentGradients(const std::function<void(int)>& log);
 
 
@@ -490,6 +496,30 @@ protected:
 		long extraSteps = 0;
 	};
 	AdaptiveInterceptState interceptState;
+
+	// Certified zero steps (serial cycles): a Laplace coordinate at zero takes a zero step exactly when
+	// |g| <= lambda. Its gradient g, last computed when it stayed at zero, can since have risen and
+	// fallen by at most what the model's drift bounds say (AbstractModelSpecifics::getGradientDrift());
+	// while g plus the rise stays below lambda and g minus the fall above -lambda, the visit is skipped,
+	// with the bookkeeping of a zero step, so results are unchanged.
+	struct ZeroCertificate {
+		double gradient = 0.0; // g when last computed
+		double hessian = 0.0;  // the column's Hessian then
+		int split = 0;         // its bucket (see GradientDrift)
+		double up = 0.0;       // the model's drift totals then
+		double down = 0.0;
+		double maxUp = 0.0;
+		double maxDown = 0.0;
+		double lowUp = 0.0;
+		double lowDown = 0.0;
+		double highUp = 0.0;
+		double highDown = 0.0;
+		long updates = 0;      // the model's update count then
+		long epoch = -1; // -1: none
+	};
+	bool useZeroCertificates = false;
+	std::vector<ZeroCertificate> zeroCertificates;
+	std::vector<double> certifiedRows; // entries of each indicator column; 0 (never skipped) otherwise
 	int minIterations = 0; // of the current update(); no convergence (SUCCESS) before this many cycles
 	std::vector<bool> fixBeta;
 
