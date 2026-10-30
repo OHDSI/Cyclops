@@ -1227,6 +1227,7 @@ void CyclicCoordinateDescent::findMode(
 	// off otherwise, which also applies a move left pending by an interrupted fit)
 	const bool lazyIntercept = modelSpecifics.setLazyIntercept(
 		interceptIndex >= 0 && convergenceType == KKT && noiseLevel <= QUIET);
+	interceptIsFree = lazyIntercept && hXI.getModelType() == ModelType::NORMAL;
 	setUpZeroCertificates(algorithmType);
 
 	std::vector<double> allDelta;
@@ -2016,7 +2017,7 @@ double CyclicCoordinateDescent::computeKktResidual() {
 void CyclicCoordinateDescent::setUpAdaptiveIntercept(AlgorithmType algorithmType, double epsilon) {
 	interceptIndex = -1;
 	if (!adaptiveIntercept || algorithmType != AlgorithmType::CCD || usingGPU || usingCUDA || syncCV ||
-		hXI.getModelType() != ModelType::LOGISTIC) {
+		(hXI.getModelType() != ModelType::LOGISTIC && hXI.getModelType() != ModelType::NORMAL)) {
 		return;
 	}
 	for (int j = 0; j < J; ++j) {
@@ -2162,9 +2163,9 @@ void CyclicCoordinateDescent::trackInterceptGradient(int index, double delta, do
 	s.gain += 0.5 * hessian * delta * delta;
 	s.cost += (delta != 0.0) ? 2.0 * columnRows[index] : columnRows[index]; // gradient (+ update) rows
 	const double rate = (s.rate > 0.0) ? s.rate : s.gain / s.cost;
-	if (s.hessian > 0.0 &&
+	if (interceptIsFree ? (delta != 0.0) : (s.hessian > 0.0 &&
 		std::abs(s.gradient) >= interceptFloor * std::sqrt(s.hessian) && // else within the tolerance already
-		s.gradient * s.gradient / (2.0 * s.hessian) >= adaptiveInterceptRatio * rate * 2.0 * static_cast<double>(K)) {
+		s.gradient * s.gradient / (2.0 * s.hessian) >= adaptiveInterceptRatio * rate * 2.0 * static_cast<double>(K))) {
 		// an extra Newton step on the intercept; its update takes one exp() for logistic regression
 		double interceptDelta = ccdUpdateBeta(interceptIndex);
 		if (trackKkt) {

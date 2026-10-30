@@ -619,6 +619,14 @@ void ModelSpecifics<BaseModel, RealType>::computeXjY(bool useCrossValidation) {
 
 template<class BaseModel, typename RealType>
 void ModelSpecifics<BaseModel, RealType>::computeXjX(bool useCrossValidation) {
+	if (BaseModel::storesResidual) { // sum_k w_k x_kj, with the weights of the residual (see residualSum)
+		hXjW.assign(J, static_cast<RealType>(0));
+		for (size_t j = 0; j < J; ++j) {
+			for (GenericIterator<RealType> it(hX, j); it; ++it) {
+				hXjW[j] += useCrossValidation ? hNWeight[it.index()] * it.value() : it.value();
+			}
+		}
+	}
 	for (size_t j = 0; j < J; ++j) {
 		hXjX[j] = 0;
 		GenericIterator<RealType> it(hX, j);
@@ -1422,6 +1430,20 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	        lastHessianEntries = static_cast<double>(n);
 	    }
 
+	} else if (BaseModel::storesResidual && lazyIntercept && IteratorType::isIndicator && !IteratorType::isSparse &&
+	           residualSumKnown && residualSumWeighted == Weights::isWeighted) {
+
+	    gradient = static_cast<RealType>(2) * residualSum; // the intercept sums every residual (+ the shift below)
+
+	} else if (BaseModel::storesResidual && residualKnown && residualWeighted == Weights::isWeighted) {
+
+	    // sum of 2 w (xBeta - y) x from the stored residual: one row array per entry
+	    IteratorType it(hX, index);
+	    for (; it; ++it) {
+	        gradient += offsExpXBeta[it.index()] * it.value();
+	    }
+	    gradient *= static_cast<RealType>(2);
+
 	} else if (BaseModel::hasIndependentRows) {
 
 	    IteratorType it(hX, index);
@@ -1607,6 +1629,10 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 
 	if (BaseModel::precomputeGradient) { // Compile-time switch
 		gradient -= hXjY[index];
+	}
+
+	if (BaseModel::storesResidual && pendingShift != static_cast<RealType>(0)) {
+		gradient += static_cast<RealType>(2) * pendingShift * hXjW[index]; // the pending intercept shift
 	}
 
 	if (BaseModel::precomputeHessian) { // Compile-time switch
@@ -2581,10 +2607,20 @@ inline void ModelSpecifics<BaseModel,RealType>::updateXBetaImpl(RealType realDel
             }
         }
         denominatorsStale = true; // denomPid[k] = 1 + newEntry, deferred to ensureDenominators()
+    } else if (BaseModel::storesResidual && lazyIntercept && IteratorType::isIndicator && !IteratorType::isSparse) {
+        pendingShift += realDelta; // the intercept: every residual moves by realDelta, kept pending (flushIntercept())
     } else {
+        if (BaseModel::storesResidual && residualSumKnown) {
+            residualSum += static_cast<double>(realDelta) * hXjW[index];
+        }
         for (; it; ++it) {
             const int k = it.index();
             hXBeta[k] += realDelta * it.value(); // TODO Check optimization with indicator and intercept
+
+            if (BaseModel::storesResidual && residualKnown) {
+                const RealType change = realDelta * it.value();
+                offsExpXBeta[k] += residualWeighted ? hNWeight[k] * change : change;
+            }
 
             if (BaseModel::likelihoodHasDenominator) { // Compile-time switch
                 RealType oldEntry = offsExpXBeta[k];
@@ -2636,6 +2672,23 @@ template <class BaseModel, typename RealType> template <class Weights>
 void ModelSpecifics<BaseModel,RealType>::computeRemainingStatisticsImpl() {
 
     auto& xBeta = getXBeta();
+
+    if (BaseModel::storesResidual) {
+        // the residual array only in weighted fits, whose gradients would read three row arrays instead
+        double sum = 0.0;
+        for (size_t k = 0; k < K; ++k) {
+            const RealType residual = Weights::isWeighted ? hNWeight[k] * (xBeta[k] - hY[k]) : xBeta[k] - hY[k];
+            if (Weights::isWeighted) {
+                offsExpXBeta[k] = residual;
+            }
+            sum += residual;
+        }
+        residualKnown = Weights::isWeighted;
+        residualWeighted = Weights::isWeighted;
+        residualSum = sum;
+        residualSumKnown = true;
+        residualSumWeighted = Weights::isWeighted;
+    }
 
     if (BaseModel::likelihoodHasDenominator) {
         fillVector(denomPid.data(), N, BaseModel::getDenomNullValue());

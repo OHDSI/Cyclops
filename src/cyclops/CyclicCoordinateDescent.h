@@ -488,6 +488,7 @@ protected:
 	bool adaptiveIntercept = false;
 	static constexpr double adaptiveInterceptRatio = 0.25;
 	int interceptIndex = -1; // in the current findMode(); -1 when off
+	bool interceptIsFree = false; // least squares with a lazy intercept: a step costs O(1), taken after every move
 	double interceptFloor = 0.0; // the tolerance, in standard-error units
 	std::vector<double> interceptMomentRatio; // sum_i x_ij / sum_i x_ij^2 by column
 	std::vector<double> columnRows; // stored entries by column (K for dense and intercept)
