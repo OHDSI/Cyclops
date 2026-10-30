@@ -366,6 +366,12 @@ protected:
 
 	void trackInterceptGradient(int index, double delta, double hessian);
 
+	// a Laplace or elastic net prior: a coordinate at zero stays there while |gradient| is within the kink
+	bool hasZeroKink(int index) {
+		const auto type = jointPrior->getPriorType(index);
+		return type == priors::LAPLACE || type == priors::ELASTIC_NET;
+	}
+
 	void setUpZeroCertificates(AlgorithmType algorithmType);
 
 	bool certifiedZero(int index) const;

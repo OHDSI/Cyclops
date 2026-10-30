@@ -96,7 +96,8 @@ enum PriorType {
 	LAPLACE,
 	NORMAL,
 	BAR_UPDATE,
-	JEFFREYS
+	JEFFREYS,
+	ELASTIC_NET
 };
 
 } // namespace priors

@@ -1272,6 +1272,11 @@ void CyclicCoordinateDescent::findMode(
 
 		for (int i=0; i<J; i++) {
 			int type = jointPrior->getPriorType(i);
+			if (type == priors::ELASTIC_NET) {
+				std::ostringstream stream;
+				stream << "The elastic net prior is not implemented on the GPU";
+				error->throwError(stream);
+			}
 			priorList.push_back(type);
 			if (type == 1) {
 				temp[i] = convertVarianceToHyperparameter(varianceList[0]);
@@ -1898,7 +1903,7 @@ void CyclicCoordinateDescent::setThreads(int threads) {
 
 void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<void(int)>& log) {
 
-	// A coordinate at zero that did not move last cycle, or has a Laplace prior, usually stays at
+	// A coordinate at zero that did not move last cycle, or has a Laplace (or elastic net) prior, usually stays at
 	// zero (delta == 0), and then the model state is unchanged. So the gradients of a run of such
 	// coordinates are computed together, and the run is processed in order exactly as the serial
 	// cycle, stopping at the first coordinate that moves (the gradients after it are stale).
@@ -1914,7 +1919,7 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 
 	auto isCandidate = [this](int j) {
 		return !fixBeta[j] && hBeta[j] == 0.0 &&
-			(stayedAtZero[j] || jointPrior->getPriorType(j) == priors::LAPLACE);
+			(stayedAtZero[j] || hasZeroKink(j));
 	};
 	auto finish = [this, &log](int index, double delta, bool candidate) {
 		delta = applyBounds(delta, index);
@@ -2075,9 +2080,9 @@ void CyclicCoordinateDescent::setUpAdaptiveIntercept(AlgorithmType algorithmType
 void CyclicCoordinateDescent::setUpZeroCertificates(AlgorithmType algorithmType) {
 	useZeroCertificates = algorithmType == AlgorithmType::CCD && !usingGPU && !usingCUDA && !syncCV &&
 		hXI.getModelType() == ModelType::LOGISTIC;
-	bool certifiable = false; // an indicator column with a Laplace prior
+	bool certifiable = false; // an indicator column with a Laplace or elastic net prior
 	for (int j = 0; j < J && useZeroCertificates && !certifiable; ++j) {
-		certifiable = hXI.getColumnType(j) == INDICATOR && jointPrior->getPriorType(j) == priors::LAPLACE;
+		certifiable = hXI.getColumnType(j) == INDICATOR && hasZeroKink(j);
 	}
 	// the model keeps the drift totals only while certificates can use them (restarted when switched on)
 	modelSpecifics.setDriftTracking(useZeroCertificates && certifiable);
@@ -2150,7 +2155,7 @@ void CyclicCoordinateDescent::recordZeroCertificate(int index, double delta) {
 	ZeroCertificate& c = zeroCertificates[index];
 	c.epoch = -1;
 	if (delta != 0.0 || hBeta[index] != 0.0 || certifiedRows[index] == 0.0 ||
-		!(lastGradientHessian.second > 0.0) || jointPrior->getPriorType(index) != priors::LAPLACE) {
+		!(lastGradientHessian.second > 0.0) || !hasZeroKink(index)) {
 		return;
 	}
 	const auto drift = modelSpecifics.getGradientDrift();
@@ -2451,6 +2456,11 @@ void CyclicCoordinateDescent::turnOnSyncCV(int foldToCompute) {
 
 	for (int i=0; i<J; i++) {
 		int type = jointPrior->getPriorType(i);
+		if (type == priors::ELASTIC_NET) {
+			std::ostringstream stream;
+			stream << "The elastic net prior is not implemented with syncCV";
+			error->throwError(stream);
+		}
 		priorList.push_back(type);
 		if (type == 1) {
 			temp[i] = convertVarianceToHyperparameter(varianceList[0]);

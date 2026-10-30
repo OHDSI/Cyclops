@@ -191,7 +191,7 @@ fitCyclopsModel <- function(cyclopsData,
         }
 
         .cyclopsSetPrior(cyclopsData$cyclopsInterfacePtr, prior$priorType, prior$variance,
-                         prior$exclude, graph, neighborhood)
+                         as.numeric(prior$laplaceFraction), prior$exclude, graph, neighborhood)
     }
 
     if (control$selectorType == "auto") {

@@ -358,7 +358,8 @@ Eigen::MatrixXd cyclopsGetFisherInformation(SEXP inRcppCcdInterface, const SEXP 
 
 // [[Rcpp::export(".cyclopsSetPrior")]]
 void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& priorTypeName,
-        const std::vector<double>& variance, SEXP excludeNumeric, SEXP sexpGraph,
+        const std::vector<double>& variance, const std::vector<double>& laplaceFraction,
+        SEXP excludeNumeric, SEXP sexpGraph,
         Rcpp::List sexpNeighborhood) {
 	using namespace bsccs;
 
@@ -395,7 +396,7 @@ void cyclopsSetPrior(SEXP inRcppCcdInterface, const std::vector<std::string>& pr
  		}
  	}
 
-    interface->setPrior(priorTypeName, variance, exclude, map, neighborhood);
+    interface->setPrior(priorTypeName, variance, laplaceFraction, exclude, map, neighborhood);
 }
 
 #include "priors/PriorFunction.h"
@@ -1055,6 +1056,8 @@ bsccs::priors::PriorType RcppCcdInterface::parsePriorType(const std::string& pri
 	    priorType = BAR_UPDATE;
 	} else if (priorName == "jeffreys") {
 	    priorType = JEFFREYS;
+	} else if (priorName == "elasticnet") {
+	    priorType = ELASTIC_NET;
 	} else {
  		handleError("Invalid prior type.");
  	}
@@ -1163,18 +1166,37 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
 }
 
 void RcppCcdInterface::setPrior(const std::vector<std::string>& basePriorName, const std::vector<double>& baseVariance,
+		const std::vector<double>& baseLaplaceFraction,
 		const ProfileVector& flatPrior, const HierarchicalChildMap& map, const NeighborhoodMap& neighborhood) {
 	using namespace bsccs::priors;
 
-	JointPriorPtr prior = makePrior(basePriorName, baseVariance, flatPrior, map, neighborhood);
+	JointPriorPtr prior = makePrior(basePriorName, baseVariance, baseLaplaceFraction, flatPrior, map, neighborhood);
 	ccd->setPrior(prior);
 }
 
 priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>& basePriorName, const std::vector<double>& baseVariance,
+		const std::vector<double>& baseLaplaceFraction,
 		const ProfileVector& flatPrior, const HierarchicalChildMap& hierarchyMap, const NeighborhoodMap& neighborhood) {
 	using namespace bsccs::priors;
 
     const size_t length = modelData->getNumberOfCovariates();
+
+    // prior i, with its variance and (for an elastic net) its Laplace fraction: one for all priors or one each
+    auto makeCovariatePrior = [&](size_t i) {
+        const PriorType type = parsePriorType(basePriorName[i]);
+        double laplaceFraction = 1.0;
+        if (type == ELASTIC_NET) {
+            const size_t n = baseLaplaceFraction.size();
+            if (n != 1 && n <= i) {
+                handleError("An elastic net prior needs a Laplace fraction");
+            }
+            laplaceFraction = baseLaplaceFraction[n == 1 ? 0 : i];
+            if (!(laplaceFraction >= 0.0 && laplaceFraction <= 1.0)) {
+                handleError("The Laplace fraction must be between 0 and 1");
+            }
+        }
+        return CovariatePrior::makePrior(type, baseVariance[i], laplaceFraction);
+    };
 
  	if (   flatPrior.size() == 0
  	    && hierarchyMap.size() == 0
@@ -1182,11 +1204,11 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
         && basePriorName.size() == length
         && baseVariance.size() == length) {
 
-        auto first = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[0]), baseVariance[0]);
+        auto first = makeCovariatePrior(0);
         auto prior = bsccs::make_shared<MixtureJointPrior>(first, length);
 
         for (size_t i = 1; i < length; ++i) {
-            auto columnPrior = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[i]), baseVariance[i]);
+            auto columnPrior = makeCovariatePrior(i);
             prior->changePrior(columnPrior, i);
         }
 
@@ -1195,7 +1217,7 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
         return prior;
     }
 
-    PriorPtr singlePrior = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[0]), baseVariance[0]);
+    PriorPtr singlePrior = makeCovariatePrior(0);
     // singlePrior->setVariance(0, baseVariance[0]);
 
     JointPriorPtr prior;
@@ -1207,7 +1229,7 @@ priors::JointPriorPtr RcppCcdInterface::makePrior(const std::vector<std::string>
 			bsccs::shared_ptr<HierarchicalJointPrior> hPrior =
                 bsccs::make_shared<HierarchicalJointPrior>(singlePrior, 2); //Depth of hierarchy fixed at 2 right now
                 // TODO Check normal at top of hierarchy!
-            PriorPtr classPrior = bsccs::priors::CovariatePrior::makePrior(parsePriorType(basePriorName[1]), baseVariance[1]);
+            PriorPtr classPrior = makeCovariatePrior(1);
 			hPrior->changePrior(classPrior, 1);
 
 			HierarchicalParentMap parentMap;
