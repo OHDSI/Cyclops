@@ -349,6 +349,12 @@ protected:
 	double ccdUpdateBeta(int index);
 
 	double scaledKktResidual(int index, double rawDelta, const priors::GradientHessian& gh) const;
+	// Least squares: sqrt(2) sd(y), so that kkt residuals are in standard errors for any units of y, and var(y), the
+	// floor of the objective's scale in computeConvergenceCriterion(); 1 otherwise. Set by setOutcomeScale()
+	double kktOutcomeScale = 1.0;
+	double objectiveFloor = 1.0;
+	bool outcomeScaleKnown = false;
+	void setOutcomeScale();
 
 	void accumulateKkt(int index, double rawDelta, const priors::GradientHessian& gh);
 
