@@ -349,6 +349,12 @@ protected:
 	double ccdUpdateBeta(int index);
 
 	double scaledKktResidual(int index, double rawDelta, const priors::GradientHessian& gh) const;
+	// Least squares: sqrt(2) sd(y), so that kkt residuals are in standard errors for any units of y, and var(y), the
+	// floor of the objective's scale in computeConvergenceCriterion(); 1 otherwise. Set by setOutcomeScale()
+	double kktOutcomeScale = 1.0;
+	double objectiveFloor = 1.0;
+	bool outcomeScaleKnown = false;
+	void setOutcomeScale();
 
 	void accumulateKkt(int index, double rawDelta, const priors::GradientHessian& gh);
 
@@ -488,6 +494,7 @@ protected:
 	bool adaptiveIntercept = false;
 	static constexpr double adaptiveInterceptRatio = 0.25;
 	int interceptIndex = -1; // in the current findMode(); -1 when off
+	bool interceptIsFree = false; // least squares with a lazy intercept: a step costs O(1), taken after every move
 	double interceptFloor = 0.0; // the tolerance, in standard-error units
 	std::vector<double> interceptMomentRatio; // sum_i x_ij / sum_i x_ij^2 by column
 	std::vector<double> columnRows; // stored entries by column (K for dense and intercept)

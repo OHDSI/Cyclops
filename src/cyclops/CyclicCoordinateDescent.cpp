@@ -46,6 +46,29 @@ double columnFirstOverSecondMoment(const CompressedDataMatrix<RealType>& X, int 
 	}
 	return (s2 > 0.0) ? s1 / s2 : 1.0;
 }
+
+// Least squares (log likelihood -sum r^2): a kkt residual |g| / sqrt(h) has standard deviation sqrt(2) sigma for a
+// residual standard deviation sigma; sd(y) bounds sigma and scales with y. 1 if y is constant
+double leastSquaresKktScale(const AbstractModelData& data) {
+	const auto* data64 = dynamic_cast<const ModelData<double>*>(&data);
+	const auto* data32 = dynamic_cast<const ModelData<float>*>(&data);
+	const size_t n = data.getNumberOfRows();
+	if ((!data64 && !data32) || n < 2) {
+		return 1.0;
+	}
+	double mean = 0.0;
+	for (size_t i = 0; i < n; ++i) {
+		mean += data64 ? data64->getYVectorRef()[i] : data32->getYVectorRef()[i];
+	}
+	mean /= static_cast<double>(n);
+	double ss = 0.0;
+	for (size_t i = 0; i < n; ++i) {
+		const double d = (data64 ? data64->getYVectorRef()[i] : data32->getYVectorRef()[i]) - mean;
+		ss += d * d;
+	}
+	const double scale = std::sqrt(2.0 * ss / static_cast<double>(n - 1));
+	return (scale > 0.0 && std::isfinite(scale)) ? scale : 1.0;
+}
 } // namespace
 
 using namespace std; // TODO Bad form
@@ -1227,6 +1250,8 @@ void CyclicCoordinateDescent::findMode(
 	// off otherwise, which also applies a move left pending by an interrupted fit)
 	const bool lazyIntercept = modelSpecifics.setLazyIntercept(
 		interceptIndex >= 0 && convergenceType == KKT && noiseLevel <= QUIET);
+	interceptIsFree = lazyIntercept && hXI.getModelType() == ModelType::NORMAL;
+	setOutcomeScale();
 	setUpZeroCertificates(algorithmType);
 
 	std::vector<double> allDelta;
@@ -1983,7 +2008,7 @@ double CyclicCoordinateDescent::scaledKktResidual(int index, double rawDelta,
 		size = std::abs(rawDelta) * gh.second;
 		curvature = gh.second;
 	}
-	return curvature > 0.0 ? size / std::sqrt(curvature) : size; // in standard-error units; NaN if undefined
+	return (curvature > 0.0 ? size / std::sqrt(curvature) : size) / kktOutcomeScale; // in standard-error units; NaN if undefined
 }
 
 void CyclicCoordinateDescent::accumulateKkt(int index, double rawDelta, const priors::GradientHessian& gh) {
@@ -2016,7 +2041,7 @@ double CyclicCoordinateDescent::computeKktResidual() {
 void CyclicCoordinateDescent::setUpAdaptiveIntercept(AlgorithmType algorithmType, double epsilon) {
 	interceptIndex = -1;
 	if (!adaptiveIntercept || algorithmType != AlgorithmType::CCD || usingGPU || usingCUDA || syncCV ||
-		hXI.getModelType() != ModelType::LOGISTIC) {
+		(hXI.getModelType() != ModelType::LOGISTIC && hXI.getModelType() != ModelType::NORMAL)) {
 		return;
 	}
 	for (int j = 0; j < J; ++j) {
@@ -2162,9 +2187,9 @@ void CyclicCoordinateDescent::trackInterceptGradient(int index, double delta, do
 	s.gain += 0.5 * hessian * delta * delta;
 	s.cost += (delta != 0.0) ? 2.0 * columnRows[index] : columnRows[index]; // gradient (+ update) rows
 	const double rate = (s.rate > 0.0) ? s.rate : s.gain / s.cost;
-	if (s.hessian > 0.0 &&
+	if (interceptIsFree ? (delta != 0.0) : (s.hessian > 0.0 &&
 		std::abs(s.gradient) >= interceptFloor * std::sqrt(s.hessian) && // else within the tolerance already
-		s.gradient * s.gradient / (2.0 * s.hessian) >= adaptiveInterceptRatio * rate * 2.0 * static_cast<double>(K)) {
+		s.gradient * s.gradient / (2.0 * s.hessian) >= adaptiveInterceptRatio * rate * 2.0 * static_cast<double>(K))) {
 		// an extra Newton step on the intercept; its update takes one exp() for logistic regression
 		double interceptDelta = ccdUpdateBeta(interceptIndex);
 		if (trackKkt) {
@@ -2269,12 +2294,24 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 
 double CyclicCoordinateDescent::computeConvergenceCriterion(double newObjFxn, double oldObjFxn) {
 	// This is the stopping criterion that Ken Lange generally uses
-	return abs(newObjFxn - oldObjFxn) / (abs(newObjFxn) + 1.0);
+	setOutcomeScale();
+	return abs(newObjFxn - oldObjFxn) / (abs(newObjFxn) + objectiveFloor);
+}
+
+void CyclicCoordinateDescent::setOutcomeScale() {
+	if (outcomeScaleKnown) { // y does not change
+		return;
+	}
+	kktOutcomeScale = (hXI.getModelType() == ModelType::NORMAL) ? leastSquaresKktScale(hXI) : 1.0;
+	objectiveFloor = (hXI.getModelType() == ModelType::NORMAL) ? kktOutcomeScale * kktOutcomeScale / 2.0 : 1.0;
+	outcomeScaleKnown = true;
 }
 
 double CyclicCoordinateDescent::applyBounds(double delta, int index) {
 
-    auto doBound = true;
+    // least squares: the Newton step is the exact minimum along the coordinate, and a bound in units of beta
+    // would depend on the units of y
+    auto doBound = hXI.getModelType() != ModelType::NORMAL;
     if (doBound) {
 	    if (delta < -hDelta[index]) {
 		    delta = -hDelta[index];

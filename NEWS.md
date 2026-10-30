@@ -186,6 +186,16 @@ Changes:
     variance every fold fit is the same model, and the search could stop on the run of equal scores and return
     a model without covariates (often, with about 100 events and PatientLevelPrediction's starting variance of
     0.01). Fits on propensity-score data, where the search stays well above that variance, are unchanged
+45. least-squares (`ls`) models: the auto-search starts at the null-model variance, steps up, fits its quadratic to
+    the best point and its two neighbours and refines its result, so the selected variance no longer depends on the
+    units of the outcome (the earlier start and first step did, and a quadratic through every point could land far
+    from the optimum). Fits use the `"kkt"` criterion, measured in units of the outcome's standard deviation (the
+    `"gradient"` criterion could stop far from the optimum, and a `tolerance` given without `convergenceType` is now
+    in standard-error units), with active-set cycling, adaptive intercept steps and unbounded steps; they keep the
+    residual of each row and update the intercept in constant time. `fitter = "super"` also fits the
+    cross-validation folds to a `"kkt"` tolerance of 0.1, and `fitter = "legacy"` keeps the earlier settings. In
+    benchmarks with 20,000-1,000,000 rows and 2,000-10,000 sparse binary covariates, cross-validation is 2.3-17x
+    faster (`super`: 3.0-20x), with the same or lower held-out error
 
 Cyclops v3.7.1
 ==============

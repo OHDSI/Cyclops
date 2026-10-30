@@ -80,6 +80,29 @@ test_that("The super fitter changes only logistic regression, and createControl(
                       cvTolerance = 3E-3, cvSearchDirection = "down", cvRefine = TRUE, cvNullModelBound = TRUE,
                       cvWarmStart = TRUE, activeSetEvery = 0, adaptiveIntercept = TRUE))
     expect_false(Cyclops:::.resolveControl(createControl(), "lr", 999)$cvNullModelBound)
+
+    # Least squares: "kkt", active sets, adaptive intercept steps and a search up from the null model under both
+    # fitters; super adds looser fold fits; legacy keeps the earlier settings
+    lsNames <- c("convergenceType", "tolerance", "cvConvergenceType", "cvTolerance", "cvSearchDirection", "cvRefine",
+                 "cvNullModelBound", "activeSetEvery", "adaptiveIntercept")
+    expect_equal(Cyclops:::.resolveControl(createControl(), "ls", 5000)[lsNames],
+                 list(convergenceType = "kkt", tolerance = 1E-4, cvConvergenceType = NULL, cvTolerance = NULL,
+                      cvSearchDirection = "up", cvRefine = TRUE, cvNullModelBound = TRUE, activeSetEvery = 10,
+                      adaptiveIntercept = TRUE))
+    expect_equal(Cyclops:::.resolveControl(createControl(), "ls", 999)$activeSetEvery, 0)
+    expect_equal(resolve("ls", 5000)[lsNames],
+                 list(convergenceType = "kkt", tolerance = 1E-4, cvConvergenceType = "kkt", cvTolerance = 0.1,
+                      cvSearchDirection = "up", cvRefine = TRUE, cvNullModelBound = TRUE, activeSetEvery = 10,
+                      adaptiveIntercept = TRUE))
+    expect_equal(resolve("ls", 999)$activeSetEvery, 0)
+    expect_equal(Cyclops:::.resolveControl(createControl(fitter = "legacy"), "ls", 5000)[c("convergenceType",
+                                                                                           "cvSearchDirection")],
+                 list(convergenceType = "gradient", cvSearchDirection = "auto"))
+    # a given tolerance applies to the "kkt" criterion of least squares (in standard-error units)
+    expect_silent(ls <- Cyclops:::.resolveControl(createControl(tolerance = 1E-8), "ls", 10))
+    expect_equal(ls[c("convergenceType", "tolerance")], list(convergenceType = "kkt", tolerance = 1E-8))
+    expect_silent(ls <- resolve("ls", 10, tolerance = 1E-8))
+    expect_equal(ls$tolerance, 1E-8)
     expect_equal(resolve("lr", 1000)$activeSetEvery, 10)
     for (modelType in c("cpr", "clr", "cox")) {
         expect_equal(resolve(modelType, 5000)[c("convergenceType", "tolerance", "maxIterations", "activeSetEvery",

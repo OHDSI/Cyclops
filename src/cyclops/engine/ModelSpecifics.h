@@ -56,6 +56,9 @@ public:
     // LogisticRegression sets this, so the specialized kernels leave all other models untouched
     const static bool hasLogisticRows = false;
 
+    // Least squares: offsExpXBeta holds the weighted residual instead, so that a gradient reads one array
+    const static bool storesResidual = false;
+
 protected:
     const RealVector& hY;
     const RealVector& hOffs;
@@ -223,6 +226,17 @@ protected:
 	// hasLogisticRows: the gradient needs only offsExpXBeta, so updateXBeta() does not store
 	// denomPid = 1 + offsExpXBeta; every reader of denomPid calls ensureDenominators() first
 	bool denominatorsStale = false;
+
+	// storesResidual: offsExpXBeta[k] = w_k (xBeta[k] - y[k]) in weighted fits, set by computeRemainingStatistics()
+	// and kept by updateXBeta(); residualSum is its sum over rows (w_k = 1 without weights), kept the same way.
+	// Both leave out a pending intercept shift (see flushIntercept()); hXjW[j] = sum_k w_k x_kj
+	bool residualKnown = false;
+	bool residualWeighted = false;
+	double residualSum = 0.0;
+	bool residualSumKnown = false;
+	bool residualSumWeighted = false;
+	RealVector hXjW;
+
 	void ensureDenominators() {
 		if (BaseModel::hasLogisticRows && denominatorsStale) {
 			for (size_t k = 0; k < K; ++k) {
@@ -452,11 +466,25 @@ protected:
 public:
 	bool setLazyIntercept(bool on) {
 		flushIntercept();
-		lazyIntercept = on && BaseModel::hasLogisticRows && !legacy;
+		lazyIntercept = on && (BaseModel::hasLogisticRows || BaseModel::storesResidual) && !legacy;
 		return lazyIntercept;
 	}
 	void flushIntercept() {
 		if (pendingFactor == static_cast<RealType>(1) && pendingShift == static_cast<RealType>(0)) {
+			return;
+		}
+		if (BaseModel::storesResidual) { // least squares: every residual moves by the shift
+			double sum = 0.0;
+			for (size_t k = 0; k < K; ++k) {
+				hXBeta[k] += pendingShift;
+				const RealType w = residualSumWeighted ? hNWeight[k] : static_cast<RealType>(1);
+				if (residualKnown) {
+					offsExpXBeta[k] += w * pendingShift;
+				}
+				sum += w * (hXBeta[k] - hY[k]);
+			}
+			residualSum = sum;
+			pendingShift = static_cast<RealType>(0);
 			return;
 		}
 		const RealType minEntry = std::numeric_limits<RealType>::min();
@@ -1843,6 +1871,8 @@ public:
         : Storage<RealType>(y, offs) { }
 
     using Storage<RealType>::hXBeta;
+
+	const static bool storesResidual = true;
 
 	const static bool precomputeGradient = false; // XjY
 

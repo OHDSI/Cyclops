@@ -663,10 +663,14 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              \code{NULL} (default) means 1000, or 5000 with \code{convergenceType = "kkt"}
 #' @param tolerance					Numeric: maximum relative change in convergence criterion from successive iterations to achieve
 #'                              convergence. \code{NULL} (default) means 1e-6, or 1e-4 with \code{convergenceType = "kkt"},
-#'                              which measures it in standard-error units
+#'                              which measures it in standard-error units. For least squares, whose default
+#'                              criterion is \code{"kkt"}, a given tolerance is in those units (a tighter one costs
+#'                              little more there); under \code{fitter = "super"}, logistic regression ignores a
+#'                              tolerance given without \code{convergenceType}
 #' @param convergenceType		String: name of convergence criterion to employ (described in more detail below).
 #'                              \code{NULL} (default) means \code{"gradient"}, or \code{"kkt"} for logistic regression with
-#'                              \code{fitter = "super"}
+#'                              \code{fitter = "super"} and for least squares (\code{"ls"}) other than under
+#'                              \code{fitter = "legacy"}
 #' @param cvType						String: name of cross validation search.
 #' 													Option \code{"auto"} selects an auto-search following BBR.
 #' 													Option \code{"grid"} selects a grid-search cross validation
@@ -686,7 +690,9 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              fold fit starts from that fold's solution at the nearest hyperparameter already
 #'                              tried and results do not depend on \code{threads}. Under \code{fitter = "legacy"},
 #'                              each model copy instead continues from the last fold fit it ran, as in Cyclops 3.7
-#' @param startingVariance      Numeric: Starting variance for auto-search cross-validation; default = -1 (use estimate based on data)
+#' @param startingVariance      Numeric: Starting variance for auto-search cross-validation; default = -1 (use estimate based on data;
+#'                              with \code{cvSearchDirection = "up"} and a Laplace prior, the largest variance at which
+#'                              every penalized coefficient is 0)
 #' @param useKKTSwindle Logical: Use the Karush-Kuhn-Tucker conditions to limit search
 #' @param tuneSwindle    Numeric: Size multiplier for active set
 #' @param selectorType  String: name of exchangeable sampling unit for cross-validation and bootstrap.
@@ -712,13 +718,20 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              arguments below: the \code{"kkt"} convergence criterion, cross-validation fold
 #'                              fits to a looser \code{"kkt"} tolerance that start from each fold's previous
 #'                              solution, an auto-search that steps down first and refines its result,
-#'                              active-set cycling for 1000 or more covariates, and adaptive intercept steps
+#'                              active-set cycling for 1000 or more covariates, and adaptive intercept steps.
+#'                              Least squares (\code{"ls"}) models use the \code{"kkt"} criterion, active-set
+#'                              cycling, adaptive intercept steps and an auto-search that steps up from the
+#'                              null-model variance and refines its result under \code{"default"} as well (the
+#'                              earlier defaults depended on the units of the outcome, and their criterion could
+#'                              stop far from the optimum); \code{"super"} adds cross-validation fold fits to a
+#'                              \code{"kkt"} tolerance of 0.1
 #' @param cvConvergenceType     String: convergence criterion of the cross-validation fold fits only.
 #'                              \code{NULL} (default) means that of the final fit, or \code{"kkt"} for logistic
-#'                              regression with \code{fitter = "super"}
+#'                              regression and least squares with \code{fitter = "super"}
 #' @param cvTolerance           Numeric: tolerance of the cross-validation fold fits only. \code{NULL} (default)
-#'                              means 3e-3 with \code{cvConvergenceType = "kkt"}, 1e-6 with another
-#'                              \code{cvConvergenceType}, and \code{tolerance} without one
+#'                              means 0.1 for least squares with \code{fitter = "super"}, 3e-3 with
+#'                              \code{cvConvergenceType = "kkt"}, 1e-6 with another \code{cvConvergenceType}, and
+#'                              \code{tolerance} without one
 #' @param cvMaxIterations       Integer: maximum iterations of the cross-validation fold fits only.
 #'                              \code{NULL} (default) means 5000 with \code{cvConvergenceType = "kkt"}, 1000 with
 #'                              another \code{cvConvergenceType}, and \code{maxIterations} without one
@@ -728,39 +741,45 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param cvSearchDirection     String: first step of the auto-search from \code{startingVariance}: \code{"up"},
 #'                              \code{"down"}, or \code{"auto"} (up below a variance of 1 and down above, as in
 #'                              BBR). \code{NULL} (default) means \code{"down"} for logistic regression with
-#'                              \code{fitter = "super"} and \code{"auto"} otherwise
+#'                              \code{fitter = "super"}, \code{"up"} for least squares (\code{"ls"}) other than
+#'                              under \code{fitter = "legacy"}, and \code{"auto"} otherwise
 #' @param cvRefine              Logical: after the auto-search stops, evaluate its estimate and refine it by
 #'                              quadratic fits to the best point and its two neighbours, until the step is under
 #'                              15% (at most three more evaluations). \code{NULL} (default) means \code{TRUE}
-#'                              for logistic regression with \code{fitter = "super"} and \code{FALSE} otherwise
+#'                              for logistic regression with \code{fitter = "super"} and for least squares other
+#'                              than under \code{fitter = "legacy"}, and \code{FALSE} otherwise
 #' @param cvNullModelBound      Logical: with a Laplace prior, the auto-search never evaluates a variance below the
 #'                              null-model variance, the largest at which every penalized coefficient is 0 (where
 #'                              each fold fit is the same model and the search could stop on a flat run of equal
 #'                              scores), and starts there if \code{startingVariance} lies below it. \code{NULL}
 #'                              (default) means \code{TRUE} for logistic regression with \code{fitter = "super"}
-#'                              and \code{FALSE} otherwise
+#'                              and for least squares other than under \code{fitter = "legacy"}, and \code{FALSE}
+#'                              otherwise
 #' @param cvWarmStart           Logical: start each cross-validation fold fit from that fold's solution at the
 #'                              nearest hyperparameter already tried; results do not depend on \code{threads}.
-#'                              \code{NULL} (default) means \code{TRUE} for logistic regression with
-#'                              \code{fitter = "super"}, and otherwise \code{TRUE} with \code{resetCoefficients =
-#'                              FALSE} except under \code{fitter = "legacy"}
+#'                              \code{NULL} (default) means \code{TRUE} for logistic regression and least squares
+#'                              with \code{fitter = "super"}, and otherwise \code{TRUE} with
+#'                              \code{resetCoefficients = FALSE} except under \code{fitter = "legacy"}
 #' @param activeSetEvery        Integer: active-set cycling, which needs \code{convergenceType = "kkt"} or
 #'                              \code{cvConvergenceType = "kkt"}. Cycles between full sweeps skip coordinates
 #'                              that did not move, with a full sweep at least every \code{activeSetEvery}
-#'                              cycles; 0 turns it off. \code{NULL} (default) means 10 for logistic regression
-#'                              with \code{fitter = "super"} and at least 1000 covariates, and 0 otherwise
+#'                              cycles; 0 turns it off. \code{NULL} (default) means 10 with at least 1000
+#'                              covariates for logistic regression with \code{fitter = "super"} and for least
+#'                              squares other than under \code{fitter = "legacy"}, and 0 otherwise
 #' @param activeSetThreshold    Numeric: with active-set cycling, cycles between full sweeps also skip
 #'                              coordinates whose last step, in standard-error units, was below this fraction of
 #'                              the largest step of the last full sweep; with 0, they skip only coordinates with
 #'                              a Laplace prior that are 0 and did not move. \code{NULL} (default) means 0.01
-#' @param adaptiveIntercept     Logical: for logistic regression with an unpenalized intercept, which needs
-#'                              \code{convergenceType = "kkt"} or \code{cvConvergenceType = "kkt"}: take an extra
-#'                              Newton step on the intercept during a cycle whenever its predicted gain per row
-#'                              of work reaches a quarter of that of the coordinate steps in the previous cycle
-#'                              and its gradient, in standard-error units, exceeds the tolerance. With many
-#'                              covariates the intercept otherwise lags behind them. \code{NULL} (default) means
-#'                              \code{TRUE} for logistic regression with \code{fitter = "super"} and \code{FALSE}
-#'                              otherwise
+#' @param adaptiveIntercept     Logical: for logistic regression and least squares with an unpenalized intercept,
+#'                              which needs \code{convergenceType = "kkt"} or \code{cvConvergenceType = "kkt"}:
+#'                              take an extra Newton step on the intercept during a cycle whenever its predicted
+#'                              gain per row of work reaches a quarter of that of the coordinate steps in the
+#'                              previous cycle and its gradient, in standard-error units, exceeds the tolerance
+#'                              (for least squares, after every coordinate step that moves, as such a step costs
+#'                              no work over the rows). With many covariates the intercept otherwise lags behind
+#'                              them. \code{NULL} (default) means \code{TRUE} for logistic regression with
+#'                              \code{fitter = "super"} and for least squares other than under
+#'                              \code{fitter = "legacy"}, and \code{FALSE} otherwise
 #' @param doItAll               Currently unused
 #' @param syncCV                Currently unused
 #'
@@ -1012,19 +1031,31 @@ getCrossValidationInfo <- function(object) {
          point = values[-1])
 }
 
-# Settings that createControl() leaves to the fitter. fitter = "super" changes logistic regression only: the
-# "kkt" convergence criterion, cross-validation fold fits by "kkt" at a looser tolerance, a search that steps
-# down first and refines its result, per-fold warm starts, active-set cycling for models with many covariates
-# and adaptive intercept steps. A setting given to createControl() wins.
+# Settings that createControl() leaves to the fitter. fitter = "super" changes logistic regression: the "kkt"
+# convergence criterion, cross-validation fold fits by "kkt" at a looser tolerance, a search that steps down first
+# and refines its result, per-fold warm starts, active-set cycling for models with many covariates and adaptive
+# intercept steps. Least squares uses "kkt", active-set cycling, adaptive intercept steps and a search that steps
+# up from the null model and refines its result under "default" too, as the earlier criterion could stop far from
+# the optimum and the earlier start and first step depended on the units of y; "super" adds fold fits to a looser
+# tolerance, which changes the selected variance slightly. A setting given to createControl() wins.
 .fitterSettings <- function(control, modelType = NULL, nCovariates = NULL) {
-    super <- identical(.fitter(control), "super") && identical(modelType, "lr")
-    if (super) {
+    fitter <- .fitter(control)
+    activeSetEvery <- if (!is.null(nCovariates) && nCovariates >= .activeSetMinCovariates) 10 else 0
+    if (identical(fitter, "super") && identical(modelType, "lr")) {
         list(convergenceType = "kkt", cvConvergenceType = "kkt", cvMinIterations = 5,
              cvSearchDirection = "down", cvRefine = TRUE, cvNullModelBound = TRUE, cvWarmStart = TRUE,
-             activeSetEvery = if (!is.null(nCovariates) && nCovariates >= .activeSetMinCovariates) 10 else 0,
-             activeSetThreshold = 0.01, adaptiveIntercept = TRUE)
+             activeSetEvery = activeSetEvery, activeSetThreshold = 0.01, adaptiveIntercept = TRUE)
+    } else if (identical(fitter, "super") && identical(modelType, "ls")) {
+        list(convergenceType = "kkt", cvConvergenceType = "kkt", cvTolerance = 0.1, cvMinIterations = 5,
+             cvSearchDirection = "up", cvRefine = TRUE, cvNullModelBound = TRUE, cvWarmStart = TRUE,
+             activeSetEvery = activeSetEvery, activeSetThreshold = 0.01, adaptiveIntercept = TRUE)
+    } else if (identical(fitter, "default") && identical(modelType, "ls")) {
+        list(convergenceType = "kkt", cvConvergenceType = NULL, cvMinIterations = 5,
+             cvSearchDirection = "up", cvRefine = TRUE, cvNullModelBound = TRUE,
+             cvWarmStart = !isTRUE(control$resetCoefficients),
+             activeSetEvery = activeSetEvery, activeSetThreshold = 0.01, adaptiveIntercept = TRUE)
     } else { # warm starts make fold fits without resetCoefficients independent of threads
-        warmStart <- !isTRUE(control$resetCoefficients) && !identical(.fitter(control), "legacy")
+        warmStart <- !isTRUE(control$resetCoefficients) && !identical(fitter, "legacy")
         list(convergenceType = "gradient", cvConvergenceType = NULL, cvMinIterations = 5,
              cvSearchDirection = "auto", cvRefine = FALSE, cvNullModelBound = FALSE, cvWarmStart = warmStart,
              activeSetEvery = 0, activeSetThreshold = 0.01, adaptiveIntercept = FALSE)

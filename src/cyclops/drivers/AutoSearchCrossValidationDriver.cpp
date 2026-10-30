@@ -165,21 +165,23 @@ MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 
 	// With a Laplace prior, every penalized coefficient is 0 at variances below the null model's, and every
 	// fold fit there is (nearly) the same model, so the search does not go below it: from a flat run of
-	// equal scores it would stop at a model without covariates
-	const double nullModelVariance = arguments.nullModelBound ?
+	// equal scores it would stop at a model without covariates. Searching up from the default start begins
+	// there (as the null model's variance moves with the scale of the outcome, and the default does not)
+	const bool nullModelStart = arguments.startingVariance == -1 && arguments.searchDirection > 0;
+	const double nullModelVariance = (arguments.nullModelBound || nullModelStart) ?
 	    ccd.getNullModelVariance(allArguments.modeFinding) : -1.0;
 
 	double tryvalue = (arguments.startingVariance > 0) ?
 	    arguments.startingVariance :
 		modelData.getNormalBasedDefaultVar();
-	if (nullModelVariance > 0.0 && tryvalue < nullModelVariance) {
+	if (nullModelVariance > 0.0 && (nullModelStart || tryvalue < nullModelVariance)) {
 	    tryvalue = nullModelVariance;
 	}
 
 	std::ostringstream stream;
 	stream << "Starting var = " << tryvalue;
 	if (arguments.startingVariance == -1) {
-	    stream << " (default)";
+	    stream << ((nullModelVariance > 0.0 && tryvalue == nullModelVariance) ? " (null model)" : " (default)");
 	}
 	if (nullModelVariance > 0.0) {
 	    stream << "; null-model variance " << nullModelVariance;
@@ -240,7 +242,10 @@ MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 
 	            std::vector<double> means, stdDevs;
 	            computeCommonFoldEstimates(triedScores, means, stdDevs);
-	            searcher.reset(new UniModalSearch(10, 0.01, log(1.5), firstCut));
+	            // least squares: the cross-validated likelihood is far from quadratic over several decades of
+	            // variance (flat towards no penalty, steep towards the null model), so fit it locally
+	            searcher.reset(new UniModalSearch(10, 0.01, log(1.5), firstCut,
+	                                              modelData.getModelType() == ModelType::NORMAL));
 	            int nScored = 0;
 	            for (size_t p = 0; p < triedValues.size(); ++p) {
 	                if (means[p] == means[p]) { // a hyperparameter without any computed fold is left out
