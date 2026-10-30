@@ -908,6 +908,9 @@ createControl <- function(maxIterations = NULL,
 #' @param neighborhood  A list of first-order neighborhoods for a partially fused prior
 #' @param useCrossValidation    Logical: Perform cross-validation to determine prior \code{variance}.
 #' @param forceIntercept  Logical: Force intercept coefficient into prior
+#' @param laplaceFraction Numeric between 0 and 1: for an \code{"elasticnet"} prior, the fraction of the penalty
+#'                        that is Laplace (\code{alpha} in \code{glmnet}). Required for \code{"elasticnet"} and not
+#'                        allowed for other prior types
 #'
 #' @section Prior types:
 #'
@@ -917,6 +920,16 @@ createControl <- function(maxIterations = NULL,
 #' See \code{"glmnet"}, for example.
 #'
 #' variance = 2 * / (nobs * lambda)^2 or lambda = sqrt(2 / variance) / nobs
+#'
+#' The \code{"elasticnet"} prior penalizes each coefficient by
+#' \code{lambda * (laplaceFraction * abs(beta) + (1 - laplaceFraction) / 2 * beta^2)}, with
+#' \code{lambda = sqrt(2 / variance)} as for the Laplace prior. A \code{laplaceFraction} of 1 gives the Laplace
+#' prior and 0 a normal prior with variance \code{1 / lambda}. Cross-validation chooses the variance for a fixed
+#' \code{laplaceFraction}, as \code{cv.glmnet} chooses \code{lambda} for a fixed \code{alpha}. The
+#' \code{glmnet} fit with \code{standardize = FALSE} and the same \code{alpha} has
+#' \code{lambda = sqrt(2 / variance) / nobs} for \code{"lr"} models and \code{sqrt(2 / variance) / (2 * nobs)} for
+#' \code{"ls"} models; for \code{"ls"} models with \code{alpha < 1} this holds only for an outcome with standard
+#' deviation 1, as \code{glmnet} divides the normal part of its penalty by the standard deviation of the outcome.
 #'
 #' @template elaborateExample
 #'
@@ -930,9 +943,21 @@ createPrior <- function(priorType,
                         graph = NULL,
                         neighborhood = NULL,
                         useCrossValidation = FALSE,
-                        forceIntercept = FALSE) {
-    validNames = c("none", "laplace","normal", "barupdate", "hierarchical", "jeffreys")
+                        forceIntercept = FALSE,
+                        laplaceFraction = NULL) {
+    validNames = c("none", "laplace","normal", "barupdate", "hierarchical", "jeffreys", "elasticnet")
     stopifnot(priorType %in% validNames)
+    if (any(priorType == "elasticnet")) {
+        if (is.null(laplaceFraction)) {
+            stop("An elastic net prior needs a laplaceFraction")
+        }
+        if (!is.numeric(laplaceFraction) || !(length(laplaceFraction) %in% c(1, length(priorType))) ||
+            any(is.na(laplaceFraction) | laplaceFraction < 0 | laplaceFraction > 1)) {
+            stop("laplaceFraction must be one number between 0 and 1, or one for each prior type")
+        }
+    } else if (!is.null(laplaceFraction)) {
+        stop("laplaceFraction applies only to elastic net priors")
+    }
     if (!is.null(exclude)) {
         if (!inherits(exclude, "character") &&
                 !inherits(exclude, "numeric") &&
@@ -966,7 +991,8 @@ createPrior <- function(priorType,
     structure(list(priorType = priorType, variance = variance, exclude = exclude,
                    graph = graph,
                    neighborhood = neighborhood,
-                   useCrossValidation = useCrossValidation, forceIntercept = forceIntercept),
+                   useCrossValidation = useCrossValidation, forceIntercept = forceIntercept,
+                   laplaceFraction = laplaceFraction),
               class = "cyclopsPrior")
 }
 
