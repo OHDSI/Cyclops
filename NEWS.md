@@ -196,6 +196,12 @@ Changes:
     cross-validation folds to a `"kkt"` tolerance of 0.1, and `fitter = "legacy"` keeps the earlier settings. In
     benchmarks with 20,000-1,000,000 rows and 2,000-10,000 sparse binary covariates, cross-validation is 2.3-17x
     faster (`super`: 3.0-20x), with the same or lower held-out error
+46. `createPrior("elasticnet", laplaceFraction = )` creates an elastic net prior: a mix of the Laplace and
+    normal priors, with the penalty `lambda * (laplaceFraction * |beta| + (1 - laplaceFraction) / 2 * beta^2)`
+    and `lambda = sqrt(2 / variance)`. `laplaceFraction` is `glmnet`'s `alpha`, and cross-validation chooses
+    the variance for a fixed `laplaceFraction`; its null-model variance (`cvNullModelBound`) is
+    `laplaceFraction^2` times the Laplace prior's. For `ls` models the normal part is divided by the outcome's
+    standard deviation, as in `glmnet`, so that fits do not depend on the units of the outcome
 
 Cyclops v3.7.1
 ==============

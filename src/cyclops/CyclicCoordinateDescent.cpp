@@ -47,14 +47,13 @@ double columnFirstOverSecondMoment(const CompressedDataMatrix<RealType>& X, int 
 	return (s2 > 0.0) ? s1 / s2 : 1.0;
 }
 
-// Least squares (log likelihood -sum r^2): a kkt residual |g| / sqrt(h) has standard deviation sqrt(2) sigma for a
-// residual standard deviation sigma; sd(y) bounds sigma and scales with y. 1 if y is constant
-double leastSquaresKktScale(const AbstractModelData& data) {
+// sum (y - mean(y))^2 over every row; -1 if the outcomes are not available or there are fewer than 2 rows
+double outcomeSumOfSquares(const AbstractModelData& data) {
 	const auto* data64 = dynamic_cast<const ModelData<double>*>(&data);
 	const auto* data32 = dynamic_cast<const ModelData<float>*>(&data);
 	const size_t n = data.getNumberOfRows();
 	if ((!data64 && !data32) || n < 2) {
-		return 1.0;
+		return -1.0;
 	}
 	double mean = 0.0;
 	for (size_t i = 0; i < n; ++i) {
@@ -66,8 +65,29 @@ double leastSquaresKktScale(const AbstractModelData& data) {
 		const double d = (data64 ? data64->getYVectorRef()[i] : data32->getYVectorRef()[i]) - mean;
 		ss += d * d;
 	}
-	const double scale = std::sqrt(2.0 * ss / static_cast<double>(n - 1));
+	return ss;
+}
+
+// Least squares (log likelihood -sum r^2): a kkt residual |g| / sqrt(h) has standard deviation sqrt(2) sigma for a
+// residual standard deviation sigma; sd(y) bounds sigma and scales with y. 1 if y is constant
+double leastSquaresKktScale(const AbstractModelData& data) {
+	const double ss = outcomeSumOfSquares(data);
+	if (ss < 0.0) {
+		return 1.0;
+	}
+	const double scale = std::sqrt(2.0 * ss / static_cast<double>(data.getNumberOfRows() - 1));
 	return (scale > 0.0 && std::isfinite(scale)) ? scale : 1.0;
+}
+
+// Least squares: the outcome's standard deviation over every row (with divisor n, as glmnet), the scale of the normal
+// part of an elastic net prior. 1 if y is constant
+double leastSquaresOutcomeSd(const AbstractModelData& data) {
+	const double ss = outcomeSumOfSquares(data);
+	if (ss < 0.0) {
+		return 1.0;
+	}
+	const double sd = std::sqrt(ss / static_cast<double>(data.getNumberOfRows()));
+	return (sd > 0.0 && std::isfinite(sd)) ? sd : 1.0;
 }
 } // namespace
 
@@ -1252,6 +1272,7 @@ void CyclicCoordinateDescent::findMode(
 		interceptIndex >= 0 && convergenceType == KKT && noiseLevel <= QUIET);
 	interceptIsFree = lazyIntercept && hXI.getModelType() == ModelType::NORMAL;
 	setOutcomeScale();
+	jointPrior->setOutcomeScale(priorOutcomeScale); // the prior may have been replaced since the last fit
 	setUpZeroCertificates(algorithmType);
 
 	std::vector<double> allDelta;
@@ -1272,6 +1293,11 @@ void CyclicCoordinateDescent::findMode(
 
 		for (int i=0; i<J; i++) {
 			int type = jointPrior->getPriorType(i);
+			if (type == priors::ELASTIC_NET) {
+				std::ostringstream stream;
+				stream << "The elastic net prior is not implemented on the GPU";
+				error->throwError(stream);
+			}
 			priorList.push_back(type);
 			if (type == 1) {
 				temp[i] = convertVarianceToHyperparameter(varianceList[0]);
@@ -1675,29 +1701,40 @@ double CyclicCoordinateDescent::getLogLikelihoodGradient(int index) {
 
 double CyclicCoordinateDescent::getNullModelVariance(const ModeFindingArguments& arguments) {
 
-	bool anyLaplace = false;
+	if (jointPrior->getVariance().size() != 1) {
+		return -1.0;
+	}
+	const double saved = jointPrior->getVariance()[0];
+
+	// each penalized coefficient's kink at 0 as a fraction of lambda: 1 for Laplace, laplaceFraction for an
+	// elastic net (whose fraction 0 has no kink, so no null model)
+	std::vector<double> kinkFraction(J, 0.0);
+	bool anyPenalized = false;
 	for (int j = 0; j < J; ++j) {
 		const auto type = jointPrior->getPriorType(j);
-		if (type == priors::LAPLACE) {
-			anyLaplace = true;
+		if (hasZeroKink(j)) {
+			kinkFraction[j] = jointPrior->getKktBoundary(j) / std::sqrt(2.0 / saved);
+			if (!(kinkFraction[j] > 0.0)) {
+				return -1.0;
+			}
+			anyPenalized = true;
 		} else if (type != priors::NONE) {
 			return -1.0;
 		}
 	}
-	if (!anyLaplace || jointPrior->getVariance().size() != 1) {
+	if (!anyPenalized) {
 		return -1.0;
 	}
 
-	const double saved = jointPrior->getVariance()[0];
 	setHyperprior(0, 1E-30); // lambda = sqrt(2E30): only the unpenalized coefficients move
 	resetBeta();
 	update(arguments);
 
-	// a penalized coefficient stays at 0 while |gradient| <= lambda
+	// a penalized coefficient stays at 0 while |gradient| <= its kink, fraction * lambda
 	double lambdaMax = 0.0;
 	for (int j = 0; j < J; ++j) {
-		if (jointPrior->getPriorType(j) == priors::LAPLACE) {
-			lambdaMax = std::max(lambdaMax, std::abs(getLogLikelihoodGradient(j)));
+		if (kinkFraction[j] > 0.0) {
+			lambdaMax = std::max(lambdaMax, std::abs(getLogLikelihoodGradient(j)) / kinkFraction[j]);
 		}
 	}
 	setHyperprior(0, saved);
@@ -1898,7 +1935,7 @@ void CyclicCoordinateDescent::setThreads(int threads) {
 
 void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<void(int)>& log) {
 
-	// A coordinate at zero that did not move last cycle, or has a Laplace prior, usually stays at
+	// A coordinate at zero that did not move last cycle, or has a Laplace (or elastic net) prior, usually stays at
 	// zero (delta == 0), and then the model state is unchanged. So the gradients of a run of such
 	// coordinates are computed together, and the run is processed in order exactly as the serial
 	// cycle, stopping at the first coordinate that moves (the gradients after it are stale).
@@ -1914,7 +1951,7 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 
 	auto isCandidate = [this](int j) {
 		return !fixBeta[j] && hBeta[j] == 0.0 &&
-			(stayedAtZero[j] || jointPrior->getPriorType(j) == priors::LAPLACE);
+			(stayedAtZero[j] || hasZeroKink(j));
 	};
 	auto finish = [this, &log](int index, double delta, bool candidate) {
 		delta = applyBounds(delta, index);
@@ -2075,9 +2112,9 @@ void CyclicCoordinateDescent::setUpAdaptiveIntercept(AlgorithmType algorithmType
 void CyclicCoordinateDescent::setUpZeroCertificates(AlgorithmType algorithmType) {
 	useZeroCertificates = algorithmType == AlgorithmType::CCD && !usingGPU && !usingCUDA && !syncCV &&
 		hXI.getModelType() == ModelType::LOGISTIC;
-	bool certifiable = false; // an indicator column with a Laplace prior
+	bool certifiable = false; // an indicator column with a Laplace or elastic net prior
 	for (int j = 0; j < J && useZeroCertificates && !certifiable; ++j) {
-		certifiable = hXI.getColumnType(j) == INDICATOR && jointPrior->getPriorType(j) == priors::LAPLACE;
+		certifiable = hXI.getColumnType(j) == INDICATOR && hasZeroKink(j);
 	}
 	// the model keeps the drift totals only while certificates can use them (restarted when switched on)
 	modelSpecifics.setDriftTracking(useZeroCertificates && certifiable);
@@ -2150,7 +2187,7 @@ void CyclicCoordinateDescent::recordZeroCertificate(int index, double delta) {
 	ZeroCertificate& c = zeroCertificates[index];
 	c.epoch = -1;
 	if (delta != 0.0 || hBeta[index] != 0.0 || certifiedRows[index] == 0.0 ||
-		!(lastGradientHessian.second > 0.0) || jointPrior->getPriorType(index) != priors::LAPLACE) {
+		!(lastGradientHessian.second > 0.0) || !hasZeroKink(index)) {
 		return;
 	}
 	const auto drift = modelSpecifics.getGradientDrift();
@@ -2304,6 +2341,7 @@ void CyclicCoordinateDescent::setOutcomeScale() {
 	}
 	kktOutcomeScale = (hXI.getModelType() == ModelType::NORMAL) ? leastSquaresKktScale(hXI) : 1.0;
 	objectiveFloor = (hXI.getModelType() == ModelType::NORMAL) ? kktOutcomeScale * kktOutcomeScale / 2.0 : 1.0;
+	priorOutcomeScale = (hXI.getModelType() == ModelType::NORMAL) ? leastSquaresOutcomeSd(hXI) : 1.0;
 	outcomeScaleKnown = true;
 }
 
@@ -2451,6 +2489,11 @@ void CyclicCoordinateDescent::turnOnSyncCV(int foldToCompute) {
 
 	for (int i=0; i<J; i++) {
 		int type = jointPrior->getPriorType(i);
+		if (type == priors::ELASTIC_NET) {
+			std::ostringstream stream;
+			stream << "The elastic net prior is not implemented with syncCV";
+			error->throwError(stream);
+		}
 		priorList.push_back(type);
 		if (type == 1) {
 			temp[i] = convertVarianceToHyperparameter(varianceList[0]);

@@ -163,7 +163,12 @@ public:
 
 	virtual std::vector<VariancePtr> getVarianceParameters() const = 0 ; // pure virtual
 
-	static PriorPtr makePrior(PriorType priorType, double variance);
+	// The outcome's scale for a prior whose terms scale differently with it (an elastic net with least squares);
+	// set at the start of each fit, and 1 otherwise
+	virtual void setOutcomeScale(double scale) { }
+
+	// laplaceFraction: the elastic net's alpha (other priors ignore it)
+	static PriorPtr makePrior(PriorType priorType, double variance, double laplaceFraction = 1.0);
 
 	static VariancePtr makeVariance(double variance) {
 	    return bsccs::make_shared<double>(variance);
@@ -530,6 +535,145 @@ private:
 	}
 
 	VariancePtr variance;
+};
+
+// Penalty lambda * (alpha * |beta| + (1 - alpha) / (2 s) * beta^2), with lambda = sqrt(2 / variance) as for the
+// Laplace prior, alpha the fixed fraction that is Laplace and s the outcome's standard deviation for least squares
+// (1 otherwise; setOutcomeScale()), as in glmnet: when y is multiplied by c, the Laplace part has to grow with c
+// and the normal part not, which one lambda alone cannot do. alpha = 1 is the Laplace prior and alpha = 0 a normal
+// prior with variance s / lambda
+class ElasticNetPrior : public CovariatePrior {
+public:
+
+	ElasticNetPrior(double variance, double alpha) : CovariatePrior(), variance(makeVariance(variance)),
+		alpha(alpha) { }
+
+	ElasticNetPrior(VariancePtr ptr, double alpha) : CovariatePrior(), variance(ptr), alpha(alpha) { }
+
+	virtual ~ElasticNetPrior() { }
+
+	const std::string getDescription() const {
+		std::stringstream info;
+		info << "ElasticNet(" << getLambda() << "," << alpha << ")";
+		return info.str();
+	}
+
+	PriorType getPriorType() {
+		return PriorType::ELASTIC_NET;
+	}
+
+	// Normalized: the integral of exp(-lambda1 |x| - lambda2 x^2 / 2) is sqrt(2 pi / lambda2) erfcx(lambda1 / sqrt(2 lambda2))
+	double logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
+		const auto x = beta[index];
+		const double lambda1 = getLambda1();
+		const double lambda2 = getLambda2();
+		if (lambda2 == 0.0) {
+			return std::log(0.5 * lambda1) - lambda1 * std::abs(x);
+		}
+		const double logNormalizer = 0.5 * std::log(2.0 * PI / lambda2) +
+			logErfcx(lambda1 / std::sqrt(2.0 * lambda2));
+		return -lambda1 * std::abs(x) - 0.5 * lambda2 * x * x - logNormalizer;
+	}
+
+	bool getIsRegularized() const {
+		return true;
+	}
+
+	bool getSupportsKktSwindle() const {
+		return alpha > 0.0;
+	}
+
+	double getKktBoundary() const {
+		return getLambda1();
+	}
+
+	GradientHessian getKktResidual(double gradient, double beta) const {
+		const double lambda1 = getLambda1();
+		const double lambda2 = getLambda2();
+		const double residual = (beta == 0.0) ? std::max(std::abs(gradient) - lambda1, 0.0) :
+			std::abs(gradient + lambda2 * beta + (beta > 0.0 ? lambda1 : -lambda1));
+		return GradientHessian(residual, lambda2);
+	}
+
+	// The Laplace step for the gradient and Hessian with the normal part added
+	double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const {
+
+		const double beta = betaVector[index];
+		const double lambda1 = getLambda1();
+		const double lambda2 = getLambda2();
+		const double gradient = gh.first + lambda2 * beta;
+		const double hessian = gh.second + lambda2;
+
+		if (lambda1 == 0.0) {
+			return -gradient / hessian;
+		}
+
+		const double neg_update = - (gradient - lambda1) / hessian;
+		const double pos_update = - (gradient + lambda1) / hessian;
+
+		const int signBetaIndex = sign(beta);
+		double delta = 0.0;
+
+		if (signBetaIndex == 0) {
+			if (neg_update < 0) {
+				delta = neg_update;
+			} else if (pos_update > 0) {
+				delta = pos_update;
+			}
+		} else { // non-zero entry
+			delta = (signBetaIndex < 0) ? neg_update : pos_update;
+			if (sign(beta + delta) != signBetaIndex) {
+				delta = - beta;
+			}
+		}
+		return delta;
+	}
+
+	std::vector<VariancePtr> getVarianceParameters() const {
+		auto tmp = std::vector<VariancePtr>();
+		tmp.push_back(variance);
+		return tmp;
+	}
+
+	void setOutcomeScale(double scale) {
+		outcomeScale = scale;
+	}
+
+private:
+	double getLambda() const {
+		return std::sqrt(2.0 / variance.get());
+	}
+
+	double getLambda1() const {
+		return alpha * getLambda();
+	}
+
+	double getLambda2() const {
+		return (1.0 - alpha) * getLambda() / outcomeScale;
+	}
+
+	// log(exp(x^2) erfc(x)), with an asymptotic series where erfc(x) underflows
+	static double logErfcx(double x) {
+		if (x < 25.0) {
+			return x * x + std::log(std::erfc(x));
+		}
+		const double r = 1.0 / (2.0 * x * x);
+		return -std::log(x * std::sqrt(PI)) + std::log1p(-r * (1.0 - 3.0 * r * (1.0 - 5.0 * r)));
+	}
+
+	int sign(double x) const {
+		if (x == 0) {
+			return 0;
+		}
+		if (x < 0) {
+			return -1;
+		}
+		return 1;
+	}
+
+	VariancePtr variance;
+	const double alpha;
+	double outcomeScale = 1.0;
 };
 
 class BarUpdatePrior : public CovariatePrior {

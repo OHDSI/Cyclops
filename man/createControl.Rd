@@ -160,13 +160,13 @@ quadratic fits to the best point and its two neighbours, until the step is under
 for logistic regression with \code{fitter = "super"} and for least squares other
 than under \code{fitter = "legacy"}, and \code{FALSE} otherwise}
 
-\item{cvNullModelBound}{Logical: with a Laplace prior, the auto-search never evaluates a variance below the
-null-model variance, the largest at which every penalized coefficient is 0 (where
-each fold fit is the same model and the search could stop on a flat run of equal
-scores), and starts there if \code{startingVariance} lies below it. \code{NULL}
-(default) means \code{TRUE} for logistic regression with \code{fitter = "super"}
-and for least squares other than under \code{fitter = "legacy"}, and \code{FALSE}
-otherwise}
+\item{cvNullModelBound}{Logical: with a Laplace or elastic net prior, the auto-search never evaluates a
+variance below the null-model variance, the largest at which every penalized
+coefficient is 0 (where each fold fit is the same model and the search could stop
+on a flat run of equal scores), and starts there if \code{startingVariance} lies
+below it. \code{NULL} (default) means \code{TRUE} for logistic regression with
+\code{fitter = "super"} and for least squares other than under
+\code{fitter = "legacy"}, and \code{FALSE} otherwise}
 
 \item{cvWarmStart}{Logical: start each cross-validation fold fit from that fold's solution at the
 nearest hyperparameter already tried; results do not depend on \code{threads}.

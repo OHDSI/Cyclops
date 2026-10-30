@@ -198,6 +198,9 @@ static PriorPtr makePrior(PriorType priorType, PriorFunctionPtr& priorFunction,
     case JEFFREYS :
         CYCLOPS_STOP("Parameterized Jeffreys priors are not yet implemented");
         break;
+    case ELASTIC_NET :
+        CYCLOPS_STOP("Parameterized elastic net priors are not yet implemented");
+        break;
     default : break;
     }
     return prior;
