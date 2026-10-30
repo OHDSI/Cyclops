@@ -23,10 +23,15 @@ kktResidual <- function(sim, fit, modelType, variance, laplaceFraction, weights 
     }
     lambda <- sqrt(2 / variance)
     l1 <- laplaceFraction * lambda
-    l2 <- (1 - laplaceFraction) * lambda
+    l2 <- (1 - laplaceFraction) * lambda / outcomeScale(sim, modelType)
     b <- beta[-1]
     residual <- ifelse(b == 0, pmax(abs(g) - l1, 0), abs(g + l2 * b + l1 * sign(b)))
     max(residual) / max(abs(g), l1)
+}
+
+# the scale of the normal part: sd(y) with divisor n for "ls", 1 otherwise
+outcomeScale <- function(sim, modelType) {
+    if (modelType == "ls") sqrt(mean((sim$y - mean(sim$y))^2)) else 1
 }
 
 fitWith <- function(sim, prior, ...) {
@@ -64,10 +69,11 @@ test_that("An elastic net with laplaceFraction 1 is the Laplace prior", {
     }
 })
 
-test_that("An elastic net with laplaceFraction 0 is a normal prior with variance 1 / lambda", {
+test_that("An elastic net with laplaceFraction 0 is a normal prior with variance s / lambda", {
     for (modelType in c("lr", "ls")) {
         sim <- simulateElasticNet(modelType)
-        normal <- fitWith(sim, createPrior("normal", sqrt(0.05 / 2)), tolerance = 1E-10)
+        normal <- fitWith(sim, createPrior("normal", outcomeScale(sim, modelType) * sqrt(0.05 / 2)),
+                          tolerance = 1E-10)
         enet <- fitWith(sim, createPrior("elasticnet", 0.05, laplaceFraction = 0), tolerance = 1E-10)
         expect_equal(coef(enet), coef(normal), tolerance = 1E-8)
     }
@@ -142,4 +148,17 @@ test_that("The null-model variance of an elastic net is laplaceFraction^2 times 
     enet <- nullVariance(createPrior("elasticnet", laplaceFraction = 0.5, useCrossValidation = TRUE))
     expect_equal(enet, 0.25 * laplace, tolerance = 1E-4)
     expect_true(is.na(nullVariance(createPrior("elasticnet", laplaceFraction = 0, useCrossValidation = TRUE))))
+})
+
+test_that("Least-squares elastic net fits do not depend on the units of the outcome", {
+    sim <- simulateElasticNet("ls")
+    fits <- lapply(c(1, 1000), function(scale) {
+        data <- createCyclopsData(I(scale * sim$y) ~ sim$x, modelType = "ls")
+        fitCyclopsModel(data, prior = createPrior("elasticnet", laplaceFraction = 0.5, useCrossValidation = TRUE),
+                        forceNewObject = TRUE, warnings = FALSE,
+                        control = createControl(cvType = "auto", fold = 3, seed = 1, noiseLevel = "silent"))
+    })
+    expect_equal(fits[[2]]$variance, fits[[1]]$variance / 1000^2, tolerance = 1E-3)
+    expect_equal(coef(fits[[2]])[-1] != 0, coef(fits[[1]])[-1] != 0)
+    expect_equal(unname(coef(fits[[2]])) / 1000, unname(coef(fits[[1]])), tolerance = 1E-3)
 })

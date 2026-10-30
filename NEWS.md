@@ -200,7 +200,8 @@ Changes:
     normal priors, with the penalty `lambda * (laplaceFraction * |beta| + (1 - laplaceFraction) / 2 * beta^2)`
     and `lambda = sqrt(2 / variance)`. `laplaceFraction` is `glmnet`'s `alpha`, and cross-validation chooses
     the variance for a fixed `laplaceFraction`; its null-model variance (`cvNullModelBound`) is
-    `laplaceFraction^2` times the Laplace prior's
+    `laplaceFraction^2` times the Laplace prior's. For `ls` models the normal part is divided by the outcome's
+    standard deviation, as in `glmnet`, so that fits do not depend on the units of the outcome
 
 Cyclops v3.7.1
 ==============

@@ -353,6 +353,7 @@ protected:
 	// Least squares: sqrt(2) sd(y), so that kkt residuals are in standard errors for any units of y, and var(y), the
 	// floor of the objective's scale in computeConvergenceCriterion(); 1 otherwise. Set by setOutcomeScale()
 	double kktOutcomeScale = 1.0;
+	double priorOutcomeScale = 1.0; // least squares: sd(y) over every row, for an elastic net prior's normal part
 	double objectiveFloor = 1.0;
 	bool outcomeScaleKnown = false;
 	void setOutcomeScale();

@@ -50,6 +50,9 @@ public:
 
 	virtual PriorType getPriorType(const int index) {return PriorType::NONE;};
 
+	// See CovariatePrior::setOutcomeScale()
+	virtual void setOutcomeScale(double scale) { }
+
 //  	virtual JointPrior* clone() const = 0; // pure virtual
 
     void addVarianceParameter(const VariancePtr& ptr) {
@@ -159,6 +162,12 @@ public:
 
 	GradientHessian getKktResidual(const int index, double gradient, double beta) const {
 		return listPriors[index]->getKktResidual(gradient, beta);
+	}
+
+	void setOutcomeScale(double scale) {
+		for (auto& prior : uniquePriors) {
+			prior->setOutcomeScale(scale);
+		}
 	}
 
 	bool getSupportsKktSwindle(void) const {
@@ -654,6 +663,10 @@ public:
 
 	GradientHessian getKktResidual(const int index, double gradient, double beta) const {
 		return singlePrior->getKktResidual(gradient, beta);
+	}
+
+	void setOutcomeScale(double scale) {
+		singlePrior->setOutcomeScale(scale);
 	}
 
 	PriorType getPriorType(int index) {

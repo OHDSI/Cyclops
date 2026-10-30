@@ -163,6 +163,10 @@ public:
 
 	virtual std::vector<VariancePtr> getVarianceParameters() const = 0 ; // pure virtual
 
+	// The outcome's scale for a prior whose terms scale differently with it (an elastic net with least squares);
+	// set at the start of each fit, and 1 otherwise
+	virtual void setOutcomeScale(double scale) { }
+
 	// laplaceFraction: the elastic net's alpha (other priors ignore it)
 	static PriorPtr makePrior(PriorType priorType, double variance, double laplaceFraction = 1.0);
 
@@ -533,9 +537,11 @@ private:
 	VariancePtr variance;
 };
 
-// Penalty lambda * (alpha * |beta| + (1 - alpha) / 2 * beta^2), with lambda = sqrt(2 / variance) as for the
-// Laplace prior and alpha the fixed fraction that is Laplace (glmnet's parameterization); alpha = 1 is the Laplace
-// prior and alpha = 0 a normal prior with variance 1 / lambda
+// Penalty lambda * (alpha * |beta| + (1 - alpha) / (2 s) * beta^2), with lambda = sqrt(2 / variance) as for the
+// Laplace prior, alpha the fixed fraction that is Laplace and s the outcome's standard deviation for least squares
+// (1 otherwise; setOutcomeScale()), as in glmnet: when y is multiplied by c, the Laplace part has to grow with c
+// and the normal part not, which one lambda alone cannot do. alpha = 1 is the Laplace prior and alpha = 0 a normal
+// prior with variance s / lambda
 class ElasticNetPrior : public CovariatePrior {
 public:
 
@@ -629,6 +635,10 @@ public:
 		return tmp;
 	}
 
+	void setOutcomeScale(double scale) {
+		outcomeScale = scale;
+	}
+
 private:
 	double getLambda() const {
 		return std::sqrt(2.0 / variance.get());
@@ -639,7 +649,7 @@ private:
 	}
 
 	double getLambda2() const {
-		return (1.0 - alpha) * getLambda();
+		return (1.0 - alpha) * getLambda() / outcomeScale;
 	}
 
 	// log(exp(x^2) erfc(x)), with an asymptotic series where erfc(x) underflows
@@ -663,6 +673,7 @@ private:
 
 	VariancePtr variance;
 	const double alpha;
+	double outcomeScale = 1.0;
 };
 
 class BarUpdatePrior : public CovariatePrior {

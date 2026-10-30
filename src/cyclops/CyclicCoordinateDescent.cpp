@@ -47,14 +47,13 @@ double columnFirstOverSecondMoment(const CompressedDataMatrix<RealType>& X, int 
 	return (s2 > 0.0) ? s1 / s2 : 1.0;
 }
 
-// Least squares (log likelihood -sum r^2): a kkt residual |g| / sqrt(h) has standard deviation sqrt(2) sigma for a
-// residual standard deviation sigma; sd(y) bounds sigma and scales with y. 1 if y is constant
-double leastSquaresKktScale(const AbstractModelData& data) {
+// sum (y - mean(y))^2 over every row; -1 if the outcomes are not available or there are fewer than 2 rows
+double outcomeSumOfSquares(const AbstractModelData& data) {
 	const auto* data64 = dynamic_cast<const ModelData<double>*>(&data);
 	const auto* data32 = dynamic_cast<const ModelData<float>*>(&data);
 	const size_t n = data.getNumberOfRows();
 	if ((!data64 && !data32) || n < 2) {
-		return 1.0;
+		return -1.0;
 	}
 	double mean = 0.0;
 	for (size_t i = 0; i < n; ++i) {
@@ -66,8 +65,29 @@ double leastSquaresKktScale(const AbstractModelData& data) {
 		const double d = (data64 ? data64->getYVectorRef()[i] : data32->getYVectorRef()[i]) - mean;
 		ss += d * d;
 	}
-	const double scale = std::sqrt(2.0 * ss / static_cast<double>(n - 1));
+	return ss;
+}
+
+// Least squares (log likelihood -sum r^2): a kkt residual |g| / sqrt(h) has standard deviation sqrt(2) sigma for a
+// residual standard deviation sigma; sd(y) bounds sigma and scales with y. 1 if y is constant
+double leastSquaresKktScale(const AbstractModelData& data) {
+	const double ss = outcomeSumOfSquares(data);
+	if (ss < 0.0) {
+		return 1.0;
+	}
+	const double scale = std::sqrt(2.0 * ss / static_cast<double>(data.getNumberOfRows() - 1));
 	return (scale > 0.0 && std::isfinite(scale)) ? scale : 1.0;
+}
+
+// Least squares: the outcome's standard deviation over every row (with divisor n, as glmnet), the scale of the normal
+// part of an elastic net prior. 1 if y is constant
+double leastSquaresOutcomeSd(const AbstractModelData& data) {
+	const double ss = outcomeSumOfSquares(data);
+	if (ss < 0.0) {
+		return 1.0;
+	}
+	const double sd = std::sqrt(ss / static_cast<double>(data.getNumberOfRows()));
+	return (sd > 0.0 && std::isfinite(sd)) ? sd : 1.0;
 }
 } // namespace
 
@@ -1252,6 +1272,7 @@ void CyclicCoordinateDescent::findMode(
 		interceptIndex >= 0 && convergenceType == KKT && noiseLevel <= QUIET);
 	interceptIsFree = lazyIntercept && hXI.getModelType() == ModelType::NORMAL;
 	setOutcomeScale();
+	jointPrior->setOutcomeScale(priorOutcomeScale); // the prior may have been replaced since the last fit
 	setUpZeroCertificates(algorithmType);
 
 	std::vector<double> allDelta;
@@ -2320,6 +2341,7 @@ void CyclicCoordinateDescent::setOutcomeScale() {
 	}
 	kktOutcomeScale = (hXI.getModelType() == ModelType::NORMAL) ? leastSquaresKktScale(hXI) : 1.0;
 	objectiveFloor = (hXI.getModelType() == ModelType::NORMAL) ? kktOutcomeScale * kktOutcomeScale / 2.0 : 1.0;
+	priorOutcomeScale = (hXI.getModelType() == ModelType::NORMAL) ? leastSquaresOutcomeSd(hXI) : 1.0;
 	outcomeScaleKnown = true;
 }
 
