@@ -707,6 +707,9 @@ void cyclopsSetCvControl(SEXP inRcppCcdInterface, const List& options) {
 	if (options.containsElementNamed("refine")) {
 		cv.refineSearch = as<bool>(options["refine"]);
 	}
+	if (options.containsElementNamed("nullModelBound")) {
+		cv.nullModelBound = as<bool>(options["nullModelBound"]);
+	}
 }
 
 // [[Rcpp::export(".cyclopsRunCrossValidation")]]
