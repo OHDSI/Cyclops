@@ -199,7 +199,8 @@ Changes:
 46. `createPrior("elasticnet", laplaceFraction = )` creates an elastic net prior: a mix of the Laplace and
     normal priors, with the penalty `lambda * (laplaceFraction * |beta| + (1 - laplaceFraction) / 2 * beta^2)`
     and `lambda = sqrt(2 / variance)`. `laplaceFraction` is `glmnet`'s `alpha`, and cross-validation chooses
-    the variance for a fixed `laplaceFraction`
+    the variance for a fixed `laplaceFraction`; its null-model variance (`cvNullModelBound`) is
+    `laplaceFraction^2` times the Laplace prior's
 
 Cyclops v3.7.1
 ==============

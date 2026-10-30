@@ -79,7 +79,8 @@ public:
 	double getLogLikelihoodGradient(int index);
 
 	// The largest variance at which every Laplace-penalized coefficient is 0 (2 / lambda max^2), from a fit of
-	// the unpenalized coefficients only; -1 unless all penalized coefficients share one Laplace prior
+	// the unpenalized coefficients only; -1 unless all penalized coefficients share one Laplace or elastic net
+	// prior variance (an elastic net with laplaceFraction a has lambda max divided by a)
 	double getNullModelVariance(const ModeFindingArguments& arguments);
 
 	double getLogPriorGradient(int index);

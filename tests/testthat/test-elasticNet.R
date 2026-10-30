@@ -130,3 +130,16 @@ test_that("Elastic net priors are not combined with hierarchies or neighborhoods
     expect_error(fitCyclopsModel(sim$data, prior = prior, warnings = FALSE), "Laplace-Laplace")
 })
 
+test_that("The null-model variance of an elastic net is laplaceFraction^2 times the Laplace prior's", {
+    sim <- simulateElasticNet("lr")
+    nullVariance <- function(prior) {
+        log <- capture.output(fitCyclopsModel(sim$data, prior = prior, forceNewObject = TRUE, warnings = FALSE,
+            control = createControl(cvType = "auto", fold = 3, seed = 1, fitter = "super", noiseLevel = "quiet")))
+        line <- grep("null-model variance", log, value = TRUE)
+        if (length(line) == 0) NA else as.numeric(sub(".*null-model variance ([0-9.eE+-]+).*", "\\1", line[1]))
+    }
+    laplace <- nullVariance(createPrior("laplace", useCrossValidation = TRUE))
+    enet <- nullVariance(createPrior("elasticnet", laplaceFraction = 0.5, useCrossValidation = TRUE))
+    expect_equal(enet, 0.25 * laplace, tolerance = 1E-4)
+    expect_true(is.na(nullVariance(createPrior("elasticnet", laplaceFraction = 0, useCrossValidation = TRUE))))
+})

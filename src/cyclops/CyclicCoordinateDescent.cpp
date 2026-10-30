@@ -1680,29 +1680,40 @@ double CyclicCoordinateDescent::getLogLikelihoodGradient(int index) {
 
 double CyclicCoordinateDescent::getNullModelVariance(const ModeFindingArguments& arguments) {
 
-	bool anyLaplace = false;
+	if (jointPrior->getVariance().size() != 1) {
+		return -1.0;
+	}
+	const double saved = jointPrior->getVariance()[0];
+
+	// each penalized coefficient's kink at 0 as a fraction of lambda: 1 for Laplace, laplaceFraction for an
+	// elastic net (whose fraction 0 has no kink, so no null model)
+	std::vector<double> kinkFraction(J, 0.0);
+	bool anyPenalized = false;
 	for (int j = 0; j < J; ++j) {
 		const auto type = jointPrior->getPriorType(j);
-		if (type == priors::LAPLACE) {
-			anyLaplace = true;
+		if (hasZeroKink(j)) {
+			kinkFraction[j] = jointPrior->getKktBoundary(j) / std::sqrt(2.0 / saved);
+			if (!(kinkFraction[j] > 0.0)) {
+				return -1.0;
+			}
+			anyPenalized = true;
 		} else if (type != priors::NONE) {
 			return -1.0;
 		}
 	}
-	if (!anyLaplace || jointPrior->getVariance().size() != 1) {
+	if (!anyPenalized) {
 		return -1.0;
 	}
 
-	const double saved = jointPrior->getVariance()[0];
 	setHyperprior(0, 1E-30); // lambda = sqrt(2E30): only the unpenalized coefficients move
 	resetBeta();
 	update(arguments);
 
-	// a penalized coefficient stays at 0 while |gradient| <= lambda
+	// a penalized coefficient stays at 0 while |gradient| <= its kink, fraction * lambda
 	double lambdaMax = 0.0;
 	for (int j = 0; j < J; ++j) {
-		if (jointPrior->getPriorType(j) == priors::LAPLACE) {
-			lambdaMax = std::max(lambdaMax, std::abs(getLogLikelihoodGradient(j)));
+		if (kinkFraction[j] > 0.0) {
+			lambdaMax = std::max(lambdaMax, std::abs(getLogLikelihoodGradient(j)) / kinkFraction[j]);
 		}
 	}
 	setHyperprior(0, saved);
