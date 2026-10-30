@@ -74,10 +74,12 @@ test_that("The super fitter changes only logistic regression, and createControl(
     }
     lr <- resolve("lr", 999)
     expect_equal(lr[c("convergenceType", "tolerance", "maxIterations", "cvConvergenceType", "cvTolerance",
-                      "cvSearchDirection", "cvRefine", "cvWarmStart", "activeSetEvery", "adaptiveIntercept")],
+                      "cvSearchDirection", "cvRefine", "cvNullModelBound", "cvWarmStart", "activeSetEvery",
+                      "adaptiveIntercept")],
                  list(convergenceType = "kkt", tolerance = 1E-4, maxIterations = 5000, cvConvergenceType = "kkt",
-                      cvTolerance = 3E-3, cvSearchDirection = "down", cvRefine = TRUE, cvWarmStart = TRUE,
-                      activeSetEvery = 0, adaptiveIntercept = TRUE))
+                      cvTolerance = 3E-3, cvSearchDirection = "down", cvRefine = TRUE, cvNullModelBound = TRUE,
+                      cvWarmStart = TRUE, activeSetEvery = 0, adaptiveIntercept = TRUE))
+    expect_false(Cyclops:::.resolveControl(createControl(), "lr", 999)$cvNullModelBound)
     expect_equal(resolve("lr", 1000)$activeSetEvery, 10)
     for (modelType in c("cpr", "clr", "cox")) {
         expect_equal(resolve(modelType, 5000)[c("convergenceType", "tolerance", "maxIterations", "activeSetEvery",
@@ -92,12 +94,13 @@ test_that("The super fitter changes only logistic regression, and createControl(
                  list(tolerance = 1E-4, maxIterations = 5000))
 
     # Arguments win over the fitter, and fold fits with their own rule get its defaults
-    explicit <- resolve("lr", 5000, cvWarmStart = FALSE, cvRefine = FALSE, cvSearchDirection = "auto",
-                        activeSetEvery = 0, cvConvergenceType = "lange")
-    expect_equal(explicit[c("cvWarmStart", "cvRefine", "cvSearchDirection", "activeSetEvery", "cvConvergenceType",
-                            "cvTolerance", "cvMaxIterations")],
-                 list(cvWarmStart = FALSE, cvRefine = FALSE, cvSearchDirection = "auto", activeSetEvery = 0,
-                      cvConvergenceType = "lange", cvTolerance = 1E-6, cvMaxIterations = 1000))
+    explicit <- resolve("lr", 5000, cvWarmStart = FALSE, cvRefine = FALSE, cvNullModelBound = FALSE,
+                        cvSearchDirection = "auto", activeSetEvery = 0, cvConvergenceType = "lange")
+    expect_equal(explicit[c("cvWarmStart", "cvRefine", "cvNullModelBound", "cvSearchDirection", "activeSetEvery",
+                            "cvConvergenceType", "cvTolerance", "cvMaxIterations")],
+                 list(cvWarmStart = FALSE, cvRefine = FALSE, cvNullModelBound = FALSE, cvSearchDirection = "auto",
+                      activeSetEvery = 0, cvConvergenceType = "lange", cvTolerance = 1E-6, cvMaxIterations = 1000))
+    expect_error(createControl(cvNullModelBound = "yes"))
     default <- Cyclops:::.resolveControl(createControl(cvConvergenceType = "kkt", activeSetEvery = 20), "lr", 10)
     expect_equal(default[c("convergenceType", "tolerance", "cvTolerance", "cvMaxIterations", "activeSetEvery",
                            "cvWarmStart")],

@@ -733,6 +733,12 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              quadratic fits to the best point and its two neighbours, until the step is under
 #'                              15% (at most three more evaluations). \code{NULL} (default) means \code{TRUE}
 #'                              for logistic regression with \code{fitter = "super"} and \code{FALSE} otherwise
+#' @param cvNullModelBound      Logical: with a Laplace prior, the auto-search never evaluates a variance below the
+#'                              null-model variance, the largest at which every penalized coefficient is 0 (where
+#'                              each fold fit is the same model and the search could stop on a flat run of equal
+#'                              scores), and starts there if \code{startingVariance} lies below it. \code{NULL}
+#'                              (default) means \code{TRUE} for logistic regression with \code{fitter = "super"}
+#'                              and \code{FALSE} otherwise
 #' @param cvWarmStart           Logical: start each cross-validation fold fit from that fold's solution at the
 #'                              nearest hyperparameter already tried; results do not depend on \code{threads}.
 #'                              \code{NULL} (default) means \code{TRUE} for logistic regression with
@@ -798,6 +804,7 @@ createControl <- function(maxIterations = NULL,
                           cvMinIterations = NULL,
                           cvSearchDirection = NULL,
                           cvRefine = NULL,
+                          cvNullModelBound = NULL,
                           cvWarmStart = NULL,
                           activeSetEvery = NULL,
                           activeSetThreshold = NULL,
@@ -826,6 +833,7 @@ createControl <- function(maxIterations = NULL,
     stopifnot(is.null(cvMinIterations) || cvMinIterations >= 0)
     stopifnot(is.null(cvSearchDirection) || cvSearchDirection %in% c("auto", "up", "down"))
     stopifnot(is.null(cvRefine) || is.logical(cvRefine))
+    stopifnot(is.null(cvNullModelBound) || is.logical(cvNullModelBound))
     stopifnot(is.null(cvWarmStart) || is.logical(cvWarmStart))
     stopifnot(is.null(activeSetEvery) || activeSetEvery == 0 || activeSetEvery > 1)
     stopifnot(is.null(activeSetThreshold) || (activeSetThreshold >= 0 && activeSetThreshold < 1))
@@ -859,6 +867,7 @@ createControl <- function(maxIterations = NULL,
                    cvMinIterations = cvMinIterations,
                    cvSearchDirection = cvSearchDirection,
                    cvRefine = cvRefine,
+                   cvNullModelBound = cvNullModelBound,
                    cvWarmStart = cvWarmStart,
                    activeSetEvery = activeSetEvery,
                    activeSetThreshold = activeSetThreshold,
@@ -1011,13 +1020,13 @@ getCrossValidationInfo <- function(object) {
     super <- identical(.fitter(control), "super") && identical(modelType, "lr")
     if (super) {
         list(convergenceType = "kkt", cvConvergenceType = "kkt", cvMinIterations = 5,
-             cvSearchDirection = "down", cvRefine = TRUE, cvWarmStart = TRUE,
+             cvSearchDirection = "down", cvRefine = TRUE, cvNullModelBound = TRUE, cvWarmStart = TRUE,
              activeSetEvery = if (!is.null(nCovariates) && nCovariates >= .activeSetMinCovariates) 10 else 0,
              activeSetThreshold = 0.01, adaptiveIntercept = TRUE)
     } else { # warm starts make fold fits without resetCoefficients independent of threads
         warmStart <- !isTRUE(control$resetCoefficients) && !identical(.fitter(control), "legacy")
         list(convergenceType = "gradient", cvConvergenceType = NULL, cvMinIterations = 5,
-             cvSearchDirection = "auto", cvRefine = FALSE, cvWarmStart = warmStart,
+             cvSearchDirection = "auto", cvRefine = FALSE, cvNullModelBound = FALSE, cvWarmStart = warmStart,
              activeSetEvery = 0, activeSetThreshold = 0.01, adaptiveIntercept = FALSE)
     }
 }
@@ -1075,6 +1084,7 @@ getCrossValidationInfo <- function(object) {
     valueOr <- function(value, default) if (is.null(value)) default else value
     list(searchDirection = control$cvSearchDirection,
          refine = control$cvRefine,
+         nullModelBound = control$cvNullModelBound,
          convergenceType = valueOr(control$cvConvergenceType, ""),
          tolerance = valueOr(control$cvTolerance, -1),
          maxIterations = as.integer(valueOr(control$cvMaxIterations, -1)),

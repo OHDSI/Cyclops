@@ -163,14 +163,26 @@ MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 
     const auto& arguments = allArguments.crossValidation;
 
+	// With a Laplace prior, every penalized coefficient is 0 at variances below the null model's, and every
+	// fold fit there is (nearly) the same model, so the search does not go below it: from a flat run of
+	// equal scores it would stop at a model without covariates
+	const double nullModelVariance = arguments.nullModelBound ?
+	    ccd.getNullModelVariance(allArguments.modeFinding) : -1.0;
+
 	double tryvalue = (arguments.startingVariance > 0) ?
 	    arguments.startingVariance :
 		modelData.getNormalBasedDefaultVar();
+	if (nullModelVariance > 0.0 && tryvalue < nullModelVariance) {
+	    tryvalue = nullModelVariance;
+	}
 
 	std::ostringstream stream;
 	stream << "Starting var = " << tryvalue;
 	if (arguments.startingVariance == -1) {
 	    stream << " (default)";
+	}
+	if (nullModelVariance > 0.0) {
+	    stream << "; null-model variance " << nullModelVariance;
 	}
 	logger->writeLine(stream);
 
@@ -267,6 +279,25 @@ MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 	            }
 
 	            StepValue next = searcher->step();
+	            if (nullModelVariance > 0.0 && next.second < nullModelVariance) {
+	                // Below the null-model variance: try it instead. Just above it, the first coefficients to
+	                // enter can score below the null model, so when it is the best point the search looks further
+	                // up (to 100 times its variance) before stopping there
+	                double largest = 0.0;
+	                bool nullTried = false;
+	                for (double t : triedValues) {
+	                    largest = std::max(largest, t);
+	                    nullTried = nullTried || std::abs(log(t) - log(nullModelVariance)) < 1E-9;
+	                }
+	                if (!nullTried) {
+	                    next = StepValue(true, nullModelVariance, 0.0);
+	                } else if (std::abs(log(searcher->bestx()) - log(nullModelVariance)) < 1E-9 &&
+	                           largest < 100.0 * nullModelVariance) {
+	                    next = StepValue(true, largest * 10.0, 0.0);
+	                } else {
+	                    next = StepValue(false, searcher->bestx(), searcher->besty());
+	                }
+	            }
 	            stream << "Completed at " << currentOptimal[dim] << std::endl;
 	            stream << "Next point at " << next.second << " with value " << next.expected << " and continue = " << next.first;
 	            logger->writeLine(stream);

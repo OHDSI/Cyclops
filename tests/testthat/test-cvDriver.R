@@ -79,7 +79,8 @@ test_that("Cross-validation options of the fold fits do not depend on the number
     fits <- lapply(c(1, 3), function(threads) {
         fitCyclopsModel(cyclopsData, prior = prior, forceNewObject = TRUE,
                         control = cvControl(threads, cvSearchDirection = "down", cvConvergenceType = "lange",
-                                            cvTolerance = 1e-7, cvWarmStart = TRUE, cvRefine = TRUE))
+                                            cvTolerance = 1e-7, cvWarmStart = TRUE, cvRefine = TRUE,
+                                            cvNullModelBound = TRUE))
     })
     expect_identical(fits[[2]]$variance, fits[[1]]$variance)
     expect_identical(coef(fits[[2]]), coef(fits[[1]]))
@@ -88,7 +89,7 @@ test_that("Cross-validation options of the fold fits do not depend on the number
     default <- fitCyclopsModel(cyclopsData, prior = prior, forceNewObject = TRUE, control = cvControl(1))
     explicit <- fitCyclopsModel(cyclopsData, prior = prior, forceNewObject = TRUE,
                                 control = cvControl(1, cvSearchDirection = "auto", cvWarmStart = FALSE,
-                                                    cvRefine = FALSE))
+                                                    cvRefine = FALSE, cvNullModelBound = FALSE))
     expect_identical(default$variance, explicit$variance)
     expect_identical(coef(default), coef(explicit))
 })
@@ -121,4 +122,36 @@ test_that("Cross-validation with the super fitter does not depend on the number 
     expect_equal(fits[[1]]$return_flag, "SUCCESS")
     expect_identical(fits[[2]]$variance, fits[[1]]$variance)
     expect_identical(coef(fits[[2]]), coef(fits[[1]]))
+})
+
+test_that("The auto-search does not evaluate variances below the null-model variance", {
+    set.seed(123)
+    sim <- simulateCyclopsData(nstrata = 1, nrows = 2000, ncovars = 40, effectSizeSd = 0.5, eCovarsPerRow = 2,
+                               model = "logistic")
+    cyclopsData <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = "lr", addIntercept = TRUE,
+                                        quiet = TRUE)
+    # lambda max: the largest |gradient| of a covariate at the intercept-only fit
+    y <- sim$outcomes$y[match(sim$covariates$rowId, sim$outcomes$rowId)]
+    gradient <- tapply(sim$covariates$covariateValue * (mean(sim$outcomes$y) - y), sim$covariates$covariateId, sum)
+    nullVariance <- 2 / max(abs(gradient))^2
+
+    search <- function(...) {
+        log <- capture.output(fit <- fitCyclopsModel(cyclopsData, forceNewObject = TRUE, warnings = FALSE,
+            prior = createPrior("laplace", exclude = c(0), useCrossValidation = TRUE),
+            control = createControl(cvType = "auto", fold = 5, seed = 1, fitter = "super", noiseLevel = "quiet",
+                                    startingVariance = nullVariance / 1000, ...)))
+        tried <- as.numeric(sub(".*Grid-point #[0-9]+ at ([0-9.eE+-]+).*", "\\1",
+                                grep("Grid-point", log, value = TRUE)))
+        list(fit = fit, tried = unique(tried), log = log)
+    }
+    bounded <- search()
+    reported <- as.numeric(sub(".*null-model variance ([0-9.eE+-]+).*", "\\1",
+                               grep("null-model variance", bounded$log, value = TRUE)))
+    expect_equal(reported, nullVariance, tolerance = 1E-4)
+    expect_equal(bounded$tried[1], reported, tolerance = 1E-4) # the start lay below it
+    expect_true(all(bounded$tried >= reported * (1 - 1E-4)))
+    expect_gt(sum(coef(bounded$fit)[-1] != 0), 0)
+
+    unbounded <- search(cvNullModelBound = FALSE)
+    expect_lt(unbounded$tried[1], nullVariance)
 })

@@ -179,6 +179,13 @@ Changes:
     intercept steps are applied to the rows once per cycle, which changes results only by rounding. In
     benchmarks with 20,000-400,000 rows, L1 fits are 1.3-2.5x faster and cross-validation 1.1-2.4x;
     with 1.6 million rows, 1.0-1.1x
+44. `createControl(cvNullModelBound = )`: with a Laplace prior, the auto-search does not evaluate variances
+    below the null-model variance (the largest at which every penalized coefficient is 0), and starts there
+    when `startingVariance` lies below it; when the null model scores best, it first looks up to 100 times
+    its variance. On by default for `lr` under `fitter = "super"`, whose search steps down first: below that
+    variance every fold fit is the same model, and the search could stop on the run of equal scores and return
+    a model without covariates (often, with about 100 events and PatientLevelPrediction's starting variance of
+    0.01). Fits on propensity-score data, where the search stays well above that variance, are unchanged
 
 Cyclops v3.7.1
 ==============

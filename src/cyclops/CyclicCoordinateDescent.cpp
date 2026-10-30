@@ -1648,6 +1648,39 @@ double CyclicCoordinateDescent::getLogLikelihoodGradient(int index) {
  	return -gradient;
  }
 
+double CyclicCoordinateDescent::getNullModelVariance(const ModeFindingArguments& arguments) {
+
+	bool anyLaplace = false;
+	for (int j = 0; j < J; ++j) {
+		const auto type = jointPrior->getPriorType(j);
+		if (type == priors::LAPLACE) {
+			anyLaplace = true;
+		} else if (type != priors::NONE) {
+			return -1.0;
+		}
+	}
+	if (!anyLaplace || jointPrior->getVariance().size() != 1) {
+		return -1.0;
+	}
+
+	const double saved = jointPrior->getVariance()[0];
+	setHyperprior(0, 1E-30); // lambda = sqrt(2E30): only the unpenalized coefficients move
+	resetBeta();
+	update(arguments);
+
+	// a penalized coefficient stays at 0 while |gradient| <= lambda
+	double lambdaMax = 0.0;
+	for (int j = 0; j < J; ++j) {
+		if (jointPrior->getPriorType(j) == priors::LAPLACE) {
+			lambdaMax = std::max(lambdaMax, std::abs(getLogLikelihoodGradient(j)));
+		}
+	}
+	setHyperprior(0, saved);
+	resetBeta();
+
+	return (lambdaMax > 0.0 && std::isfinite(lambdaMax)) ? 2.0 / (lambdaMax * lambdaMax) : -1.0;
+}
+
 void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ogradient,
 		double *ohessian) {
 	modelSpecifics.computeGradientAndHessian(index, ogradient, ohessian, useCrossValidation);
