@@ -202,6 +202,9 @@ Changes:
     the variance for a fixed `laplaceFraction`; its null-model variance (`cvNullModelBound`) is
     `laplaceFraction^2` times the Laplace prior's. For `ls` models the normal part is divided by the outcome's
     standard deviation, as in `glmnet`, so that fits do not depend on the units of the outcome
+47. cross-validation with `threads > 1` no longer writes shared state from several threads without
+    synchronization (data races reported by ThreadSanitizer; every thread wrote the same value, so results do
+    not change)
 
 Cyclops v3.7.1
 ==============

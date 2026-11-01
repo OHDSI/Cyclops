@@ -8,6 +8,7 @@
 #ifndef COVARIATEPRIOR_H_
 #define COVARIATEPRIOR_H_
 
+#include <atomic>
 #include <memory>
 #include <string>
 #include <cmath>
@@ -636,7 +637,7 @@ public:
 	}
 
 	void setOutcomeScale(double scale) {
-		outcomeScale = scale;
+		outcomeScale.store(scale, std::memory_order_relaxed);
 	}
 
 private:
@@ -649,7 +650,7 @@ private:
 	}
 
 	double getLambda2() const {
-		return (1.0 - alpha) * getLambda() / outcomeScale;
+		return (1.0 - alpha) * getLambda() / outcomeScale.load(std::memory_order_relaxed);
 	}
 
 	// log(exp(x^2) erfc(x)), with an asymptotic series where erfc(x) underflows
@@ -673,7 +674,8 @@ private:
 
 	VariancePtr variance;
 	const double alpha;
-	double outcomeScale = 1.0;
+	// fold fits in other threads share this prior and set the same scale
+	std::atomic<double> outcomeScale{1.0};
 };
 
 class BarUpdatePrior : public CovariatePrior {
