@@ -7,7 +7,7 @@ name = "ohdsi-cyclops"
 version = "3.7.1.dev0"
 description = "Cyclic coordinate descent for large-scale regularized regression (OHDSI Cyclops)"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = "Apache-2.0"
 authors = [
     { name = "Marc A. Suchard", email = "msuchard@ucla.edu" },
@@ -60,7 +60,7 @@ build-type = "Release"
 
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py311"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
@@ -87,7 +87,7 @@ markers = [
 ]
 
 [tool.cibuildwheel]
-build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+build = "cp311-* cp312-* cp313-*"
 # PyPy has no NumPy/SciPy wheels for our floors, so the test step could never
 # install this package's own dependencies there. Windows is skipped because the
 # C++ core times itself with POSIX <sys/time.h> and does not build under MSVC.
@@ -110,8 +110,7 @@ archs = ["x86_64"]
 # manylinux_2_28 wheels *only*; pip resolves to the highest version and then
 # falls back to that version's sdist rather than downgrading to one with a
 # manylinux_2_17 wheel, so the test step tried to compile SciPy from source and
-# died on a missing OpenBLAS. Older manylinux_2_17 wheels (all that exists for
-# cp39) still install here, since glibc is backward compatible.
+# died on a missing OpenBLAS.
 #
 # The resulting wheels require glibc >= 2.28, which is the floor NumPy and SciPy
 # already impose -- claiming 2_17 while our dependencies need 2_28 would have
