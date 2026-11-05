@@ -36,6 +36,7 @@ struct SymmetricSolve {
 	Eigen::VectorXd x;
 	SolveMethod method = SolveMethod::EIGEN;
 	int dropped = 0;
+	Eigen::MatrixXd nullBasis;      // eigen path: the dropped (orthonormal) directions
 	Eigen::LLT<Eigen::MatrixXd> cholesky;
 
 	SymmetricSolve(const Eigen::MatrixXd& A, const Eigen::VectorXd& b) {
@@ -67,6 +68,12 @@ struct SymmetricSolve {
 			} else {
 				projected(i) = 0.0;
 				++dropped;
+			}
+		}
+		nullBasis.resize(values.size(), dropped);
+		for (Eigen::Index i = 0, c = 0; i < values.size(); ++i) {
+			if (!(values(i) > tolerance)) {
+				nullBasis.col(c++) = eigen.eigenvectors().col(i);
 			}
 		}
 		method = SolveMethod::EIGEN;

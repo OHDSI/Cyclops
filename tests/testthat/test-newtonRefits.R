@@ -95,10 +95,10 @@ test_that("T3: an exact duplicate under no prior: merged by default; unmerged, n
     expect_equal(coef(fit)[paste0("X", c(1:3, 5:12))], coef(reduced)[paste0("X", c(1:3, 5:12))], tolerance = 1e-6)
 })
 
-test_that("T9: a mixture with Laplace priors is ineligible: auto falls back, newton errors", {
+test_that("T9: a mixture with another prior is ineligible: auto falls back, newton errors", {
     frame <- refitProblem(6)
     data <- createCyclopsData(refitFormula(), data = frame, modelType = "cox_counting")
-    prior <- createPrior(c("none", rep("laplace", 11)), variance = rep(1, 12))
+    prior <- createPrior(c("none", rep("barupdate", 11)), variance = rep(1, 12))
     auto <- fitCyclopsModel(data, prior = prior, control = createControl(algorithm = "auto", noiseLevel = "silent"))
     expect_equal(auto$algorithm, "ccd")
     expect_true(nzchar(auto$convergence$ineligible))

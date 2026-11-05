@@ -56,6 +56,12 @@ Changes:
    instead of more than 30,000). Normal priors report the equal split of the group's total, the unique
    maximum; Laplace and no priors put the total on the group's first column. `fit$aliasedColumns` names
    the groups. It is on by default with `algorithm = "auto"` or `"newton"`, and off otherwise
+12. `algorithm = "auto"` and `"newton"` also fit `cox` and `cox_counting` models with Laplace priors, by
+   prox-Newton: Newton steps on the working set of nonzero, violating and unpenalized coefficients, with
+   the L1 model minimized by coordinate descent and then exactly on its signed active face. With 597
+   covariates (13,152 rows) a Laplace fit to its optimum takes 0.14-0.35 s; the `"kkt"` criterion on
+   coordinate descent took 3.4-94 s to a looser tolerance. Its stop, an exact model decrease below
+   `tolerance`, is an estimate rather than a certified bound (`fit$convergence$certified` is `FALSE`)
 
 Cyclops v3.8.0
 ==============

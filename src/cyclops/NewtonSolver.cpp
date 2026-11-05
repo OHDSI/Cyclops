@@ -22,7 +22,9 @@ namespace bsccs {
 
 struct CyclicCoordinateDescent::NewtonContext {
 	std::vector<int> F;             // free coordinates (Normal or None priors)
-	std::vector<double> precision;  // prior precision 1 / sigma_j^2 (0 for None)
+	std::vector<double> precision;  // prior precision 1 / sigma_j^2 (0 for None and Laplace)
+	std::vector<double> lambda;     // Laplace rate (0 for None and Normal)
+	bool anyLaplace = false;
 	bool allNormal = true;
 	double tauEff = 0.0;
 	double nuNormal = NAN;          // all-Normal form of nu, fixed for the fit
@@ -81,9 +83,9 @@ std::string CyclicCoordinateDescent::secondOrderIneligibility() const {
 		return "the model has no second-order kernels (so far cox and cox_counting in double precision on the CPU)";
 	}
 	for (int j = 0; j < J; ++j) {
-		double precision = 0.0;
-		if (!fixBeta[j] && !jointPrior->getNormalPrecision(j, &precision)) {
-			return "a free coefficient has a prior other than normal or none";
+		double value = 0.0;
+		if (!fixBeta[j] && !jointPrior->getNormalPrecision(j, &value) && !jointPrior->getLaplaceLambda(j, &value)) {
+			return "a free coefficient has a prior other than normal, Laplace or none";
 		}
 	}
 	return "";
@@ -355,6 +357,262 @@ bool CyclicCoordinateDescent::newtonDirectionCG(NewtonContext& context, Eigen::V
 	return d.allFinite();
 }
 
+// One prox-Newton iteration for Laplace priors (plan Phase 6, 3.2): the working set W = coefficients without a
+// Laplace prior, Laplace nonzeros and violating zeros; the L1-penalized quadratic model over W is minimized by
+// cyclic CD, then refined by an exact signed active-set face solve (sign boundaries stop and drop, violators enter,
+// a face unbounded along a null direction is followed to a sign boundary); composite Armijo on the penalized
+// objective. The stop needs an exact face solve with model decrease -m <= tau_eff and the largest standardized
+// residual <= sqrt(2 tau_eff); it is an estimate (uncertified). Phase 2 dropped the separate zero-set condition.
+CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIteration(NewtonContext& context) {
+
+	const size_t n = context.F.size();
+	std::vector<double> gradient;
+	if (!modelSpecifics.fullGradient(context.F, gradient)) {
+		return NewtonOutcome::FAILED;
+	}
+	std::vector<int> W;    // positions in F
+	std::vector<int> Wcol; // columns
+	for (size_t i = 0; i < n; ++i) {
+		const double b = hBeta[context.F[i]];
+		const double g = gradient[i] + context.precision[i] * b;
+		if (context.lambda[i] == 0.0 || b != 0.0 || std::abs(g) > context.lambda[i]) {
+			W.push_back(static_cast<int>(i));
+			Wcol.push_back(context.F[i]);
+		}
+	}
+	const size_t w = W.size();
+	if (w > 2000) { // CCD when |W| > 2,000
+		return NewtonOutcome::FAILED;
+	}
+	if (w == 0) {
+		convergenceReport.lambda2Half = 0.0;
+		return NewtonOutcome::UNCERTIFIED;
+	}
+	std::vector<double> block;
+	if (!modelSpecifics.hessianBlock(Wcol, block)) {
+		return NewtonOutcome::FAILED;
+	}
+	++convergenceReport.hessians;
+	Eigen::MatrixXd H = Eigen::Map<Eigen::MatrixXd>(block.data(), w, w);
+	Eigen::VectorXd gw(w), bw(w), lw(w);
+	double maxLambda = 1.0;
+	for (size_t a = 0; a < w; ++a) {
+		const int i = W[a];
+		H(a, a) += context.precision[i];
+		bw(a) = hBeta[context.F[i]];
+		gw(a) = gradient[i] + context.precision[i] * bw(a); // smooth part
+		lw(a) = context.lambda[i];
+		maxLambda = std::max(maxLambda, lw(a));
+	}
+	if (!gw.allFinite() || !H.allFinite()) {
+		return NewtonOutcome::FAILED;
+	}
+	const double kktTol = 1e-10 * maxLambda;
+	auto subgradient = [&](const Eigen::VectorXd& z, const Eigen::VectorXd& gm, int a) {
+		if (lw(a) == 0.0) return gm(a);
+		if (z(a) != 0.0) return gm(a) + (z(a) > 0.0 ? lw(a) : -lw(a));
+		return std::abs(gm(a)) > lw(a) ? (gm(a) > 0.0 ? gm(a) - lw(a) : gm(a) + lw(a)) : 0.0;
+	};
+	auto model = [&](const Eigen::VectorXd& z) {
+		const Eigen::VectorXd d = z - bw;
+		return gw.dot(d) + 0.5 * d.dot(H * d) + (lw.array() * (z.array().abs() - bw.array().abs())).sum();
+	};
+
+	// kkt at the current point: |s_j| / sqrt(H_jj); coefficients outside W have s = 0
+	double maxR = 0.0;
+	{
+		const Eigen::VectorXd gm = gw;
+		for (size_t a = 0; a < w; ++a) {
+			if (H(a, a) > 0.0) maxR = std::max(maxR, std::abs(subgradient(bw, gm, static_cast<int>(a))) / std::sqrt(H(a, a)));
+		}
+	}
+
+	// inner cyclic CD on the model to 0.01 max r (at most 1,000 sweeps)
+	Eigen::VectorXd z = bw;
+	Eigen::VectorXd q = Eigen::VectorXd::Zero(w); // H (z - b)
+	for (int sweep = 0; sweep < 1000; ++sweep) {
+		double largest = 0.0;
+		for (size_t a = 0; a < w; ++a) {
+			const double h = H(a, a);
+			if (!(h > 0.0)) continue;
+			const double gm = gw(a) + q(a);
+			double target;
+			if (lw(a) == 0.0) {
+				target = z(a) - gm / h;
+			} else { // argmin_v h/2 (v - z)^2 + gm (v - z) + lambda |v|
+				const double u = z(a) - gm / h;
+				target = (std::abs(u) <= lw(a) / h) ? 0.0 : (u > 0.0 ? u - lw(a) / h : u + lw(a) / h);
+			}
+			const double delta = target - z(a);
+			if (delta != 0.0) {
+				z(a) = target;
+				q += delta * H.col(a);
+				largest = std::max(largest, std::abs(delta) * std::sqrt(h));
+			}
+		}
+		if (largest <= std::max(0.01 * maxR, 1e-12)) break;
+	}
+
+	// exact signed active-set face solve, from the inner support and signs
+	bool exact = false;
+	{
+		Eigen::VectorXd zf = z;
+		std::vector<int> sign(w, 0);
+		std::vector<char> inFace(w, 0);
+		for (size_t a = 0; a < w; ++a) {
+			if (lw(a) == 0.0 || zf(a) != 0.0) {
+				inFace[a] = 1;
+				sign[a] = (lw(a) == 0.0) ? 0 : (zf(a) > 0.0 ? 1 : -1);
+			}
+		}
+		double lastResidual = std::numeric_limits<double>::infinity();
+		for (int iteration = 0; iteration < 200; ++iteration) {
+			std::vector<int> S;
+			for (size_t a = 0; a < w; ++a) if (inFace[a]) S.push_back(static_cast<int>(a));
+			const Eigen::VectorXd gm = gw + H * (zf - bw);
+			const int m = static_cast<int>(S.size());
+			Eigen::MatrixXd HS(m, m);
+			Eigen::VectorXd rS(m);
+			for (int a = 0; a < m; ++a) {
+				rS(a) = -(gm(S[a]) + lw(S[a]) * sign[S[a]]);
+				for (int b = 0; b < m; ++b) HS(a, b) = H(S[a], S[b]);
+			}
+			const newton::SymmetricSolve solve(HS, rS);
+			Eigen::VectorXd rN = Eigen::VectorXd::Zero(m);
+			if (solve.method == newton::SolveMethod::EIGEN && solve.dropped > 0) {
+				rN = solve.nullBasis * (solve.nullBasis.transpose() * rS);
+			}
+			if (m > 0 && rN.norm() > std::max(1e-8 * rS.norm(), kktTol)) {
+				// the face is unbounded below along +rN: follow it to the first sign boundary
+				int blocking = -1;
+				double step = std::numeric_limits<double>::infinity();
+				for (int a = 0; a < m; ++a) {
+					const int c = S[a];
+					if (sign[c] != 0 && ((rN(a) > 0.0) != (sign[c] > 0)) && rN(a) != 0.0) {
+						const double t = -zf(c) / rN(a);
+						if (t < step) { step = t; blocking = a; }
+					}
+				}
+				if (blocking < 0) break; // unbounded: not exact
+				for (int a = 0; a < m; ++a) zf(S[a]) += step * rN(a);
+				zf(S[blocking]) = 0.0;
+				sign[S[blocking]] = 0;
+				inFace[S[blocking]] = 0;
+				continue;
+			}
+			Eigen::VectorXd zNew(m);
+			for (int a = 0; a < m; ++a) zNew(a) = zf(S[a]) + solve.x(a);
+			int blocking = -1;
+			double fraction = std::numeric_limits<double>::infinity();
+			for (int a = 0; a < m; ++a) {
+				const int c = S[a];
+				if (sign[c] != 0 && (zNew(a) > 0.0 ? 1 : (zNew(a) < 0.0 ? -1 : 0)) != sign[c]) {
+					const double t = zf(c) / (zf(c) - zNew(a));
+					if (t < fraction) { fraction = t; blocking = a; }
+				}
+			}
+			if (blocking >= 0) { // stop at the first sign boundary and drop it
+				for (int a = 0; a < m; ++a) zf(S[a]) += fraction * solve.x(a);
+				zf(S[blocking]) = 0.0;
+				sign[S[blocking]] = 0;
+				inFace[S[blocking]] = 0;
+				continue;
+			}
+			for (int a = 0; a < m; ++a) zf(S[a]) = zNew(a);
+			const Eigen::VectorXd gmNew = gw + H * (zf - bw);
+			double residual = 0.0;
+			int violator = -1;
+			double violation = 0.0;
+			for (size_t a = 0; a < w; ++a) {
+				residual = std::max(residual, std::abs(subgradient(zf, gmNew, static_cast<int>(a))));
+				if (!inFace[a] && lw(a) > 0.0 && std::abs(gmNew(a)) - lw(a) > std::max(kktTol, violation)) {
+					violation = std::abs(gmNew(a)) - lw(a);
+					violator = static_cast<int>(a);
+				}
+			}
+			if (residual <= kktTol) {
+				exact = true;
+				z = zf;
+				break;
+			}
+			if (violator >= 0) { // the worst violator enters with the sign that decreases the model
+				inFace[violator] = 1;
+				sign[violator] = gmNew(violator) > 0.0 ? -1 : 1;
+				continue;
+			}
+			if (residual >= 0.5 * lastResidual) break; // refinement stalled
+			lastResidual = residual;
+		}
+		if (!exact && model(zf) < model(z)) {
+			z = zf; // the better of the two when the face solve is not exact
+		}
+	}
+
+	const double decrease = -model(z);
+	convergenceReport.lambda2Half = decrease;
+	bool stop = false;
+	if (context.stopType == GAP) {
+		stop = exact && decrease <= context.tauEff && 0.5 * maxR * maxR <= context.tauEff;
+	} else if (context.stopType == KKT) {
+		stop = maxR < context.tolerance;
+	}
+
+	// composite Armijo on the penalized objective over W, inside the eta trust region
+	const Eigen::VectorXd d = z - bw;
+	if (d.cwiseAbs().maxCoeff() == 0.0) {
+		return stop ? NewtonOutcome::UNCERTIFIED : NewtonOutcome::FAILED;
+	}
+	const std::vector<double> direction(d.data(), d.data() + w);
+	if (!modelSpecifics.setDirection(Wcol, direction)) {
+		return NewtonOutcome::FAILED;
+	}
+	auto objective = [&](double t) {
+		double penalty = 0.0;
+		for (size_t a = 0; a < w; ++a) {
+			const double b = bw(a) + t * d(a);
+			penalty += 0.5 * context.precision[W[a]] * b * b + lw(a) * std::abs(b);
+		}
+		return -modelSpecifics.trialLogLikelihood(t) + penalty;
+	};
+	const double Delta = gw.dot(d) + (lw.array() * (z.array().abs() - bw.array().abs())).sum();
+	const double largest = modelSpecifics.directionMaxAbs();
+	const double tStart = (largest > context.eta) ? context.eta / largest : 1.0;
+	const double f0 = objective(0.0);
+	const double noise = 100.0 * std::numeric_limits<double>::epsilon() * std::max(1.0, std::abs(f0));
+	double t = tStart;
+	bool accepted = false;
+	for (int halving = 0; halving < 50 && !accepted; ++halving) {
+		const double ft = objective(t);
+		accepted = std::isfinite(ft) && ((-Delta > noise) ? ft <= f0 + 1e-4 * t * Delta : ft <= f0 + noise);
+		if (!accepted) t *= 0.5;
+	}
+	if (!accepted) {
+		context.eta *= 0.5;
+		if (stop) return NewtonOutcome::UNCERTIFIED;
+		return (++context.rejections >= 2) ? NewtonOutcome::FAILED : NewtonOutcome::REJECTED;
+	}
+	context.rejections = 0;
+	if (t == 1.0) context.eta *= 2.0; else if (t < tStart) context.eta *= 0.5;
+	if (!modelSpecifics.commitStep(t)) {
+		return NewtonOutcome::FAILED;
+	}
+	for (size_t a = 0; a < w; ++a) {
+		const int j = Wcol[a];
+		const double delta = (t == 1.0) ? (z(a) - bw(a)) : t * d(a);
+		hBeta[j] = (t == 1.0) ? z(a) : bw(a) + delta; // exact zeros stay zero
+		hDelta[j] = std::max(hDelta[j], 2.0 * std::abs(delta));
+		if (lastStep.size() == hDelta.size()) {
+			lastStep[j] = 0.0;
+			flipCount[j] = 0;
+		}
+	}
+	kktConsecutive = 0;
+	xBetaKnown = true;
+	sufficientStatisticsKnown = true;
+	convergenceReport.algorithm = "newton";
+	return stop ? NewtonOutcome::UNCERTIFIED : NewtonOutcome::ACCEPTED;
+}
+
 CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::newtonIteration(NewtonContext& context) {
 
 	const size_t n = context.F.size();
@@ -474,12 +732,22 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 	context.tolerance = tau;
 	for (int j = 0; j < J; ++j) {
 		double precision = 0.0;
-		if (!fixBeta[j] && jointPrior->getNormalPrecision(j, &precision) &&
-				(divergentDirection.size() != static_cast<size_t>(J) || divergentDirection[j] == 0)) {
-			// separated coefficients (2.7) stay with CCD; Newton works conditionally on them
+		double lambda = 0.0;
+		const bool separated = divergentDirection.size() == static_cast<size_t>(J) && divergentDirection[j] != 0;
+		if (fixBeta[j] || separated) { // separated coefficients (2.7) stay with CCD; Newton works conditionally on them
+			continue;
+		}
+		if (jointPrior->getNormalPrecision(j, &precision)) {
 			context.F.push_back(j);
 			context.precision.push_back(precision);
+			context.lambda.push_back(0.0);
 			context.allNormal = context.allNormal && precision > 0.0;
+		} else if (jointPrior->getLaplaceLambda(j, &lambda)) {
+			context.F.push_back(j);
+			context.precision.push_back(0.0);
+			context.lambda.push_back(lambda);
+			context.allNormal = false;
+			context.anyLaplace = true;
 		}
 	}
 	double weight = 1.0; // tau_eff = tau times the mean positive weight (3.3, D3)
@@ -514,7 +782,30 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		};
 		context.nuNormal = (data != nullptr) ? std::sqrt(rowMaximum(*data, context.F, variance, 2, K, positive)) : NAN;
 	}
-	const double costRatio = modelSpecifics.newtonCostRatio(context.F);
+	// prox-Newton works on W (unpenalized, nonzeros, violators): its cost is estimated from the current W, again
+	// after the warm start and every 16 cycles
+	auto workingSet = [&]() {
+		std::vector<int> W;
+		for (size_t i = 0; i < context.F.size(); ++i) {
+			if (context.lambda[i] == 0.0 || hBeta[context.F[i]] != 0.0) W.push_back(context.F[i]);
+		}
+		return W;
+	};
+	// newtonCostRatio(W) is in cycles over W; a CCD cycle covers all of F
+	auto entryCount = [&](const std::vector<int>& columns) {
+		double total = 0.0;
+		for (int j : columns) {
+			const FormatType format = hXI.getColumnType(j);
+			total += (format == DENSE || format == INTERCEPT) ? static_cast<double>(K) : static_cast<double>(hXI.getNumberOfEntries(j));
+		}
+		return total;
+	};
+	auto proxCost = [&]() {
+		const std::vector<int> W = workingSet();
+		if (W.empty()) return 0.0;
+		return modelSpecifics.newtonCostRatio(W) * entryCount(W) / std::max(entryCount(context.F), 1.0);
+	};
+	double costRatio = context.anyLaplace ? proxCost() : modelSpecifics.newtonCostRatio(context.F);
 	convergenceReport.costRatio = costRatio;
 
 	// Memory gate (2.5): H, its factor and workspace for each concurrent fit, plus the row-wise copy of X_F. Above
@@ -538,8 +829,10 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 	if (const char* woodbury = std::getenv("CYCLOPS_NEWTON_WOODBURY")) {
 		context.woodburyAllowed = context.woodburyAllowed && std::atoi(woodbury) != 0;
 	}
-	const double cgRatio = modelSpecifics.newtonCgCostRatio(context.F, context.woodburyAllowed);
-	context.conjugateGradient = bytes > budget || cgRatio < costRatio;
+	// (prox-Newton for Laplace priors is dense over W: no CG estimate, which would copy all of X_F row-wise)
+	const double cgRatio = context.anyLaplace ? std::numeric_limits<double>::infinity() :
+		modelSpecifics.newtonCgCostRatio(context.F, context.woodburyAllowed);
+	context.conjugateGradient = !context.anyLaplace && (bytes > budget || cgRatio < costRatio);
 	if (const char* forced = std::getenv("CYCLOPS_NEWTON_SOLVER")) {
 		const std::string solver(forced);
 		if (solver == "dense" && bytes <= budget) context.conjugateGradient = false;
@@ -549,10 +842,11 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		context.jacobi = std::atoi(jacobi) != 0;
 	}
 	convergenceReport.solver = context.conjugateGradient ? "cg" : "dense";
-	const double newtonCost = context.conjugateGradient ? cgRatio : costRatio;
+	double newtonCost = context.conjugateGradient ? cgRatio : costRatio;
 	convergenceReport.costRatio = newtonCost;
 
-	const int warmStart = 3; // 2.4 step 2
+	const int warmStart = context.anyLaplace ? 10 : 3; // 2.4 step 2: 10 when Laplace coordinates screen
+	const int stopFrom = 3; // stop tests start after 3 cycles even when Newton waits for the longer warm start
 	bool newtonPhase = false;
 	int phaseIterations = 0;
 	int cycles = 0;
@@ -584,7 +878,7 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 			++iteration;
 			++phaseIterations;
 			++convergenceReport.newtonIterations;
-			const NewtonOutcome outcome = newtonIteration(context);
+			const NewtonOutcome outcome = context.anyLaplace ? proxNewtonIteration(context) : newtonIteration(context);
 			if (outcome == NewtonOutcome::CERTIFIED) {
 				finish(SUCCESS, "gsc", convergenceReport.gsc);
 				break;
@@ -610,6 +904,10 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		shadowStepDecrease = 0.0;
 		cycle(); // advances iteration
 		++cycles;
+		if (context.anyLaplace && (cycles == warmStart || cycles % 16 == 0)) {
+			newtonCost = proxCost();
+			convergenceReport.costRatio = newtonCost;
+		}
 		convergenceReport.cycles = cycles;
 		decreases.push_back(shadowStepDecrease);
 
@@ -677,19 +975,27 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 
 		// A curvature certificate on the CCD path: once the estimate is within 100 tau_eff and finishing on CCD
 		// costs more than one H (or it is already below tau_eff), with 2^k cycles between failed attempts
-		if (convergenceType == GAP && context.conjugateGradient && !context.allNormal && cycles >= warmStart &&
+		if (convergenceType == GAP && context.conjugateGradient && !context.allNormal && cycles >= stopFrom &&
 				gHat <= context.tauEff) { // no curvature certificate within the memory budget: stop on the estimate
 			finish(SUCCESS, "none", gHat);
 			break;
 		}
-		if (convergenceType == GAP && !context.conjugateGradient && cycles >= warmStart && cycles >= certifyAfter) {
+		if (convergenceType == GAP && !context.conjugateGradient && cycles >= stopFrom && cycles >= certifyAfter) {
 			const double estimate = context.allNormal ? R : gHat;
 			const double remaining = context.allNormal ?
 				((rho < 1.0 && R > context.tauEff) ? std::log(R / context.tauEff) / -std::log(rho) :
 					std::numeric_limits<double>::infinity()) : nHat;
 			if (estimate <= 100.0 * context.tauEff && (remaining > newtonCost || estimate <= context.tauEff)) {
 				double value = NAN, lambda2Half = NAN;
-				if (certifyGap(context, &value, &lambda2Half)) {
+				if (context.anyLaplace) { // one prox-Newton iteration: its L1 decrease stops the fit, or its step helps
+					++iteration;
+					++convergenceReport.newtonIterations;
+					const NewtonOutcome outcome = proxNewtonIteration(context);
+					if (outcome == NewtonOutcome::UNCERTIFIED) {
+						finish(SUCCESS, "none", convergenceReport.lambda2Half);
+						break;
+					}
+				} else if (certifyGap(context, &value, &lambda2Half)) {
 					convergenceReport.gsc = value;
 					convergenceReport.lambda2Half = lambda2Half;
 					if (value <= context.tauEff) {

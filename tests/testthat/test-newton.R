@@ -64,18 +64,18 @@ test_that("ineligible fits error under newton or an explicit gap, and fall back 
     expect_error(fitCyclopsModel(lr, control = createControl(convergenceType = "gap")), "not available")
 
     problem <- newtonProblem(4)
-    laplace <- createPrior("laplace", variance = 0.1)
-    default <- newtonFit(problem, laplace)
-    auto <- newtonFit(problem, laplace, algorithm = "auto")
+    other <- createPrior("barupdate", variance = 1)
+    default <- newtonFit(problem, other)
+    auto <- newtonFit(problem, other, algorithm = "auto")
     expect_identical(coef(auto), coef(default))
     expect_identical(auto$iterations, default$iterations)
     expect_equal(auto$algorithm, "ccd")
-    expect_match(auto$convergence$ineligible, "prior other than normal or none")
-    expect_error(newtonFit(problem, laplace, algorithm = "newton"), "not available")
+    expect_match(auto$convergence$ineligible, "prior other than normal, Laplace or none")
+    expect_error(newtonFit(problem, other, algorithm = "newton"), "not available")
 
     # a tolerance given without a criterion applies to the fallback only
-    looser <- newtonFit(problem, laplace, algorithm = "auto", tolerance = 1e-3)
-    expect_identical(coef(looser), coef(newtonFit(problem, laplace, tolerance = 1e-3)))
+    looser <- newtonFit(problem, other, algorithm = "auto", tolerance = 1e-3)
+    expect_identical(coef(looser), coef(newtonFit(problem, other, tolerance = 1e-3)))
 })
 
 test_that("explicit criteria map onto Newton iterations under newton", {

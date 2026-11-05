@@ -528,6 +528,7 @@ protected:
 	void findModeGap(const std::function<void()>& cycle, int& iteration, int maxIterations, double tau,
 	                 AlgorithmType algorithmType, int convergenceType);
 	NewtonOutcome newtonIteration(NewtonContext& context);
+	NewtonOutcome proxNewtonIteration(NewtonContext& context);
 	bool newtonDirectionDense(NewtonContext& context, Eigen::VectorXd& s, Eigen::VectorXd& d, bool* stop,
 	                          bool* certified, bool* damped);
 	bool newtonDirectionCG(NewtonContext& context, Eigen::VectorXd& s, Eigen::VectorXd& d, bool* stop,

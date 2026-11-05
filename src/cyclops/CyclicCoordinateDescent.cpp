@@ -13,6 +13,7 @@
 #include <cstring>
 #include <limits>
 #include <map>
+#include <tuple>
 #include <time.h>
 #include <set>
 #include <list>
@@ -922,34 +923,59 @@ double CyclicCoordinateDescent::divergentLimit(int j) const {
 
 void CyclicCoordinateDescent::findAliasGroups() {
 
-	// Hash each column's (format, rows, values) once, but only columns that share their format and number of entries
-	// with another (a duplicate must); candidates with equal hashes are compared entry by entry
+	// Hash each column's (format, rows, values) once, but only columns that share their format, number of entries and
+	// first and last rows with another (a duplicate must; all O(1) to read); equal hashes are compared entry by entry
 	auto hashColumns = [&](const auto& X) {
 		columnHashes.assign(J, 0);
-		std::map<std::pair<int, size_t>, int> shapes;
+		typedef std::tuple<int, size_t, int, int> Shape;
 		auto shape = [&](int j) {
 			const FormatType format = X.getFormatType(j);
-			return std::make_pair(static_cast<int>(format), (format == DENSE || format == INTERCEPT) ?
-				static_cast<size_t>(K) : X.getNumberOfEntries(j));
+			if (format == DENSE || format == INTERCEPT) {
+				return std::make_tuple(static_cast<int>(format), static_cast<size_t>(K), -1, -1);
+			}
+			const size_t count = X.getNumberOfEntries(j);
+			const int* rows = X.getCompressedColumnVector(j);
+			return std::make_tuple(static_cast<int>(format), count, count ? rows[0] : -1, count ? rows[count - 1] : -1);
 		};
+		std::vector<std::pair<Shape, int>> shapes(J); // sorted, not a map: no allocation per column
 		for (int j = 0; j < J; ++j) {
-			++shapes[shape(j)];
+			shapes[j] = std::make_pair(shape(j), j);
+		}
+		std::sort(shapes.begin(), shapes.end());
+		std::vector<char> shared(J, 0);
+		for (int a = 0; a + 1 < J; ++a) {
+			if (std::get<0>(shapes[a]) == std::get<0>(shapes[a + 1])) {
+				shared[shapes[a].second] = shared[shapes[a + 1].second] = 1;
+			}
 		}
 		for (int j = 0; j < J; ++j) {
-			if (shapes[shape(j)] < 2) {
+			if (!shared[j]) {
 				columnHashes[j] = static_cast<uint64_t>(j) + 1; // unique: no duplicate possible
 				continue;
 			}
-			uint64_t h = 1469598103934665603ULL ^ static_cast<uint64_t>(X.getFormatType(j));
-			auto mix = [&h](uint64_t v) { h ^= v + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2); h *= 1099511628211ULL; };
-			for (GenericIterator<typename std::decay<decltype(*X.getDataVector(j))>::type> it(X, j); it; ++it) {
-				const double value = static_cast<double>(it.value());
-				uint64_t bits;
-				std::memcpy(&bits, &value, sizeof(bits));
-				mix(static_cast<uint64_t>(it.index()));
-				mix(bits);
+			// raw arrays, not the generic iterator: the rows of sparse and indicator columns, the values of dense and
+			// sparse ones (a multiply-xorshift per word)
+			const FormatType format = X.getFormatType(j);
+			uint64_t h = 1469598103934665603ULL ^ static_cast<uint64_t>(format);
+			auto mix = [&h](uint64_t v) { h = (h ^ v) * 0x9E3779B97F4A7C15ULL; h ^= h >> 29; };
+			if (format == SPARSE || format == INDICATOR) {
+				const int* rows = X.getCompressedColumnVector(j);
+				const size_t count = X.getNumberOfEntries(j);
+				for (size_t e = 0; e < count; ++e) {
+					mix(static_cast<uint64_t>(rows[e]));
+				}
 			}
-			columnHashes[j] = h ^ (1ULL << 63); // apart from the unique tags above
+			if (format == SPARSE || format == DENSE) {
+				const auto* values = X.getDataVector(j);
+				const size_t count = (format == DENSE) ? static_cast<size_t>(K) : X.getNumberOfEntries(j);
+				for (size_t e = 0; e < count; ++e) {
+					const double value = static_cast<double>(values[e]);
+					uint64_t bits;
+					std::memcpy(&bits, &value, sizeof(bits));
+					mix(bits);
+				}
+			}
+			columnHashes[j] = h | (1ULL << 63); // the top bit marks a hashed column, apart from the unique tags above
 		}
 	};
 	auto same = [&](const auto& X, int a, int b) {
@@ -976,15 +1002,22 @@ void CyclicCoordinateDescent::findAliasGroups() {
 		if (columnHashes.size() != static_cast<size_t>(J)) {
 			hashColumns(X);
 		}
-		std::map<uint64_t, std::vector<int>> buckets;
+		std::vector<std::pair<uint64_t, int>> candidates; // hashed (shared-shape) free columns, sorted by hash
 		for (int j = 0; j < J; ++j) {
 			const FormatType format = hXI.getColumnType(j); // dense columns have no row indices
-			if (!fixBeta[j] && (format == DENSE || format == INTERCEPT || hXI.getNumberOfEntries(j) > 0)) {
-				buckets[columnHashes[j]].push_back(j);
+			if (!fixBeta[j] && (columnHashes[j] >> 63) &&
+					(format == DENSE || format == INTERCEPT || hXI.getNumberOfEntries(j) > 0)) {
+				candidates.emplace_back(columnHashes[j], j);
 			}
 		}
-		for (auto& bucket : buckets) {
-			std::vector<int>& columns = bucket.second;
+		std::sort(candidates.begin(), candidates.end());
+		for (size_t begin = 0; begin < candidates.size(); ) {
+			size_t end = begin + 1;
+			while (end < candidates.size() && candidates[end].first == candidates[begin].first) ++end;
+			std::vector<int> columns;
+			for (size_t c = begin; c < end; ++c) columns.push_back(candidates[c].second);
+			begin = end;
+			if (columns.size() < 2) continue;
 			std::vector<bool> used(columns.size(), false);
 			for (size_t a = 0; a < columns.size(); ++a) {
 				if (used[a]) continue;

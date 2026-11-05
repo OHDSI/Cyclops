@@ -60,7 +60,8 @@ fit resolves to \code{"gap"} through \code{algorithm}}
 \code{"newton"}. \code{"gap"} stops when a certified bound on the distance to the
 optimum of the log posterior is below \code{tolerance}; it needs a model with
 second-order kernels (so far \code{"cox"} and \code{"cox_counting"} in double
-precision on the CPU) and normal or no priors}
+precision on the CPU) and normal, Laplace or no priors; with Laplace priors the stop is an
+estimate rather than a certified bound}
 
 \item{cvType}{String: name of cross validation search.
 Option \code{"auto"} selects an auto-search following BBR.
