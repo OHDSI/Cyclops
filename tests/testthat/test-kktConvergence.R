@@ -161,3 +161,77 @@ test_that("The super fitter reaches the optimum of logistic regression", {
     expect_equal(super$log_likelihood + super$log_prior, tight$log_likelihood + tight$log_prior,
                  tolerance = 1E-7)
 })
+
+test_that("Active-set Newton steps resolve near-duplicate covariates", {
+    # Coordinate descent moves weight between two covariates with nearly the same rows by a small fraction
+    # per cycle; FeatureExtraction's group eras give such pairs. Covariate 41 is covariate 1 less two rows,
+    # covariate 42 is covariate 2 exactly
+    set.seed(42)
+    n <- 4000
+    x <- sapply(runif(40, 0.05, 0.3), function(p) rbinom(n, 1, p))
+    x <- cbind(x, x[, 1], x[, 2])
+    x[which(x[, 1] == 1)[1:2], 41] <- 0
+    y <- rbinom(n, 1, plogis(-2 + 1.2 * x[, 1] - 0.8 * x[, 2] + 0.5 * x[, 3]))
+    rows <- which(x != 0, arr.ind = TRUE)
+    data <- convertToCyclopsData(data.frame(rowId = 1:n, y = y),
+                                 data.frame(rowId = rows[, 1], covariateId = rows[, 2], covariateValue = 1),
+                                 modelType = "lr", addIntercept = TRUE, quiet = TRUE)
+    prior <- createPrior("laplace", 0.5, exclude = 0)
+    fitWith <- function(...) {
+        fitCyclopsModel(data, prior = prior, forceNewObject = TRUE, warnings = FALSE,
+                        control = createControl(noiseLevel = "silent", ...))
+    }
+    logPosterior <- function(fit) {
+        b <- coef(fit)[-1]
+        fit$log_likelihood - sqrt(2 / 0.5) * sum(abs(b))
+    }
+    tight <- fitWith(convergenceType = "lange", tolerance = 1E-14, maxIterations = 100000)
+    newton <- fitWith(fitter = "super", convergenceType = "kkt", tolerance = 1E-6)
+    expect_equal(newton$return_flag, "SUCCESS")
+    expect_true(logPosterior(newton) >= logPosterior(tight) - 1E-7)
+    # the pairs are identified only through their sums
+    expect_equal(sum(coef(newton)[c("1", "41")]), sum(coef(tight)[c("1", "41")]), tolerance = 1E-4)
+    expect_equal(sum(coef(newton)[c("2", "42")]), sum(coef(tight)[c("2", "42")]), tolerance = 1E-4)
+    expect_equal(coef(newton)[-c(2, 3, 42, 43)], coef(tight)[-c(2, 3, 42, 43)], tolerance = 1E-4)
+    without <- fitWith(fitter = "super", convergenceType = "kkt", tolerance = 1E-6, activeSetNewton = FALSE,
+                       maxIterations = 20000)
+    expect_lt(newton$iterations, without$iterations)
+
+    expect_error(fitWith(fitter = "default", activeSetNewton = TRUE), "convergenceType")
+    expect_error(createControl(activeSetNewton = 1))
+})
+
+test_that("Moves along exact null directions keep the fitted predictors", {
+    # An intercept and a full set of category columns: intercept - sum of the categories is an exact null
+    # direction, along which only the L1 penalty changes. Case 2 scales one category by 1e9 (its component of
+    # the direction is below the cut-off, so the direction found is not exact and must be refused); case 3
+    # leaves one row without a category (the identity is broken there)
+    set.seed(7)
+    n <- 4000
+    level <- sample.int(5, n, replace = TRUE)
+    x <- sapply(runif(20, 0.05, 0.3), function(p) rbinom(n, 1, p))
+    y <- rbinom(n, 1, plogis(-1 + c(-1, -0.5, 0, 0.5, 1)[level] + x %*% rnorm(20, 0, 0.4)))
+    rows <- which(x != 0, arr.ind = TRUE)
+    makeData <- function(scale, broken) {
+        cats <- data.frame(rowId = 1:n, covariateId = 100 + level, covariateValue = scale[level])
+        if (broken) cats <- cats[-1, ]
+        covariates <- rbind(cats, data.frame(rowId = rows[, 1], covariateId = rows[, 2], covariateValue = 1))
+        covariates <- covariates[order(covariates$rowId, covariates$covariateId), ]
+        convertToCyclopsData(data.frame(rowId = 1:n, y = y), covariates, modelType = "lr", addIntercept = TRUE,
+                             quiet = TRUE)
+    }
+    prior <- createPrior("laplace", 0.05, exclude = 0)
+    for (case in list(list(rep(1, 5), FALSE), list(c(1, 1, 1, 1, 1e9), FALSE), list(rep(1, 5), TRUE))) {
+        data <- makeData(case[[1]], case[[2]])
+        fitWith <- function(...) {
+            fitCyclopsModel(data, prior = prior, forceNewObject = TRUE, warnings = FALSE,
+                            control = createControl(noiseLevel = "silent", ...))
+        }
+        logPosterior <- function(fit) fit$log_likelihood - sqrt(2 / 0.05) * sum(abs(coef(fit)[-1]))
+        tight <- fitWith(convergenceType = "lange", tolerance = 1E-14, maxIterations = 100000)
+        super <- fitWith(fitter = "super", convergenceType = "kkt", tolerance = 1E-6)
+        expect_equal(super$return_flag, "SUCCESS")
+        expect_equal(logPosterior(super), logPosterior(tight), tolerance = 1E-9)
+        expect_equal(predict(super), predict(tight), tolerance = 1E-5)
+    }
+})

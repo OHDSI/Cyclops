@@ -38,6 +38,7 @@ createControl(
   activeSetEvery = NULL,
   activeSetThreshold = NULL,
   adaptiveIntercept = NULL,
+  activeSetNewton = NULL,
   doItAll = TRUE,
   syncCV = FALSE
 )
@@ -196,6 +197,16 @@ no work over the rows). With many covariates the intercept otherwise lags behind
 them. \code{NULL} (default) means \code{TRUE} for logistic regression with
 \code{fitter = "super"} and for least squares other than under
 \code{fitter = "legacy"}, and \code{FALSE} otherwise}
+
+\item{activeSetNewton}{Logical: for logistic regression, which needs \code{convergenceType = "kkt"} or
+\code{cvConvergenceType = "kkt"}: after a full sweep that is not yet within the
+tolerance, at most every 10 cycles, take one Newton step on the coefficients away
+from zero and the unpenalized ones, with their signs held (a coefficient that the
+step would take across zero is set to zero and the step of the others solved
+again), kept only when the log posterior improves. Coordinate descent moves along a
+nearly flat direction of the objective, such as two covariates with nearly the same
+rows, by a small fraction per cycle. \code{NULL} (default) means \code{TRUE} for
+logistic regression with \code{fitter = "super"} and \code{FALSE} otherwise}
 
 \item{doItAll}{Currently unused}
 

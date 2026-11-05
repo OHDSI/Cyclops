@@ -18,6 +18,8 @@
 #include <list>
 #include <functional>
 #include <algorithm>
+#include <cstdint>
+#include <tuple>
 
 //#include "Rcpp.h"
 
@@ -793,6 +795,9 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	activeSetEvery = (convergenceType == KKT) ? arguments.activeSetEvery : 0;
 	activeSetThreshold = arguments.activeSetThreshold;
 	adaptiveIntercept = (convergenceType == KKT) && arguments.adaptiveIntercept; // its floor is a kkt tolerance
+	activeSetNewton = (convergenceType == KKT) && arguments.activeSetNewton; // it stops at a kkt tolerance
+	activeNewtonFollowUp = activeSetNewton && arguments.activeSetNewtonFollowUp;
+	nullPartitionSearch = activeSetNewton && arguments.nullPartitionSearch;
 	minIterations = arguments.minIterations;
 
 	int count = 0;
@@ -1254,6 +1259,31 @@ void CyclicCoordinateDescent::findMode(
 
 	trackKkt = convergenceType == KKT;
 	kktConsecutive = 0;
+	activeNewtonEvery = (activeSetNewton && trackKkt && algorithmType == AlgorithmType::CCD &&
+		!usingGPU && !usingCUDA && !syncCV) ? activeNewtonSpacing : 0;
+	cyclesSinceNewton = 0;
+	activeNewtonSpacingNow = activeNewtonEvery;
+	activeNewtonStalledBefore = false;
+	activeNewtonCheckpoint = std::numeric_limits<double>::infinity(); // set by the first full sweep
+	activeNewtonSweepWork = 0.0;
+	if (activeNewtonEvery > 0) {
+		for (int j = 0; j < J; ++j) {
+			const FormatType format = hXI.getColumnType(j);
+			activeNewtonSweepWork += (format == DENSE || format == INTERCEPT) ? static_cast<double>(K) :
+				static_cast<double>(hXI.getNumberOfEntries(j));
+		}
+	}
+	activeNewtonFloor = epsilon;
+	activeNewtonTried = 0;
+	activeNewtonTaken = 0;
+	activeNewtonFollowPending = false; // the saved Hessian belongs to this fit's weights only
+	activeNewtonLastGain = 0.0;
+	activeNewtonBasis.clear();
+	activeNewtonHessian.resize(0, 0);
+	activeNewtonWeights.clear();
+	if (activeNewtonEvery > 0 && nullPartitionSearch && !(partitionsSearched && partitionsJ == J && partitionsK == K)) {
+		findPartitions(); // a property of the columns: once for these data, kept over folds and penalties
+	}
 	nextCycleFull = true;
 	lastCycleFull = true;
 	cyclesSinceFull = 0;
@@ -1450,10 +1480,54 @@ void CyclicCoordinateDescent::findMode(
 	    		if (fullSweep) {
 	    			activeSetTau = activeSetThreshold * cycleMaxStepSE;
 	    		}
+	    		if (fullSweep && activeNewtonEvery > 0 && nullPartitionSearch && !partitions.empty()) {
+	    			partitionMoves();
+	    		}
 	    		if (interceptIndex >= 0) { // the reference gain per row of work for the next cycle
 	    			interceptState.rate = (interceptState.cost > 0.0) ? interceptState.gain / interceptState.cost : 0.0;
 	    			interceptState.gain = 0.0;
 	    			interceptState.cost = 0.0;
+	    		}
+	    		if (activeNewtonEvery > 0) {
+	    			++cyclesSinceNewton;
+	    			if (fullSweep && !kktCycle.undefined) {
+	    				if (!(activeNewtonCheckpoint < std::numeric_limits<double>::infinity())) {
+	    					activeNewtonCheckpoint = kktCycle.maxScaled; // the first full sweep: the reference
+	    					cyclesSinceNewton = 0;
+	    				} else if (activeNewtonFollowPending && cyclesSinceNewton >= activeNewtonFollowSweeps &&
+	    						kktCycle.maxScaled >= activeNewtonFloor) {
+	    					// a follow-up after a taken step, on the coefficients that are non-zero now
+	    					activeNewtonFollowPending = false;
+	    					const double previousGain = activeNewtonLastGain;
+	    					cyclesSinceNewton = 0;
+	    					activeNewtonCheckpoint = kktCycle.maxScaled;
+	    					activeNewtonStalledBefore = false;
+	    					activeNewtonLastT = -1.0;
+	    					if (activeSetNewtonStep(true)) {
+	    						kktCycle.maxScaled = std::numeric_limits<double>::infinity();
+	    						activeNewtonFollowPending = activeNewtonLastT > 0.0 &&
+	    							activeNewtonLastGain > activeNewtonFollowRatio * previousGain;
+	    					}
+	    				} else if (cyclesSinceNewton >= activeNewtonSpacingNow && kktCycle.maxScaled >= activeNewtonFloor) {
+	    					// stalling: the statistic fell by less than activeNewtonStallRatio since the last check
+	    					// (twice in a row: the statistic is a maximum over coordinates, and a single check is noisy)
+	    					const bool stalledNow = kktCycle.maxScaled > activeNewtonStallRatio * activeNewtonCheckpoint;
+	    					const bool stalling = stalledNow && activeNewtonStalledBefore;
+	    					activeNewtonStalledBefore = stalledNow;
+	    					cyclesSinceNewton = 0;
+	    					activeNewtonCheckpoint = kktCycle.maxScaled;
+	    					activeNewtonLastT = -1.0; // not tried
+	    					if (stalling && activeSetNewtonStep(false)) {
+	    						// the cycle's statistics describe the point before the step: measure again
+	    						kktCycle.maxScaled = std::numeric_limits<double>::infinity();
+	    						activeNewtonFollowPending = activeNewtonFollowUp && activeNewtonLastT > 0.0;
+	    					}
+	    					if (activeNewtonLastT >= 0.0) { // tried: back off while the quadratic model is poor
+	    						activeNewtonSpacingNow = (activeNewtonLastT >= 0.5) ? activeNewtonEvery :
+	    							std::min(2 * activeNewtonSpacingNow, activeNewtonMaxSpacing);
+	    					}
+	    				}
+	    			}
 	    		}
 	    	}
 	    }
@@ -1656,6 +1730,12 @@ void CyclicCoordinateDescent::findMode(
 	}
 
 	lastIterationCount = iteration;
+	if (activeNewtonEvery > 0 && noiseLevel > QUIET) {
+		std::ostringstream stream;
+		stream << "Active-set Newton steps: " << activeNewtonTaken << " of " << activeNewtonTried << " tried, "
+			   << iteration << " cycles";
+		logger->writeLine(stream);
+	}
 	if (interceptIndex >= 0 && noiseLevel > QUIET) {
 		std::ostringstream stream;
 		stream << "Extra intercept steps: " << interceptState.extraSteps;
@@ -2240,6 +2320,705 @@ void CyclicCoordinateDescent::trackInterceptGradient(int index, double delta, do
 		s.gradient = 0.0;
 		++s.extraSteps;
 	}
+}
+
+bool CyclicCoordinateDescent::activeSetNewtonStep(bool followUp) {
+	// the coefficients away from zero and the unpenalized ones; other priors than Laplace: no step
+	std::vector<int> active;
+	for (int j = 0; j < J; ++j) {
+		if (fixBeta[j]) {
+			continue;
+		}
+		const auto type = jointPrior->getPriorType(j);
+		if (type == priors::NONE) {
+			active.push_back(j);
+		} else if (hBeta[j] != 0.0) {
+			if (type != priors::LAPLACE) {
+				return false;
+			}
+			active.push_back(j);
+		}
+	}
+	int m = static_cast<int>(active.size());
+	// at most activeNewtonWorkSweeps full sweeps of work
+	double activeWork = 0.0;
+	for (int j : active) {
+		const FormatType format = hXI.getColumnType(j);
+		activeWork += (format == DENSE || format == INTERCEPT) ? static_cast<double>(K) :
+			static_cast<double>(hXI.getNumberOfEntries(j));
+	}
+	const double maxWork = activeNewtonWorkSweeps * activeNewtonSweepWork -
+		activeNewtonFlopWork * static_cast<double>(m) * m * m / 3.0 - 2.0 * activeWork; // less the factorization and gradients
+	if (noiseLevel > QUIET) {
+		std::ostringstream stream;
+		stream << "Newton check: m " << m << ", active work " << activeWork << ", sweep work " << activeNewtonSweepWork
+			   << ", max work " << maxWork << (followUp ? ", follow-up" : "");
+		logger->writeLine(stream);
+	}
+	if (m < 2 || m > activeNewtonMaxSize || maxWork <= 0.0) {
+		return false;
+	}
+	checkAllLazyFlags();
+
+	// The Hessian. A follow-up extends the saved one: the columns of its basis keep their block, and only the
+	// blocks of the new columns E are computed, at the saved row weights (the order becomes A, then E)
+	Matrix hessian;
+	bool bordered = false;
+	if (followUp && activeNewtonHessian.rows() > 0) {
+		std::map<int, int> saved;
+		for (size_t i = 0; i < activeNewtonBasis.size(); ++i) {
+			saved[activeNewtonBasis[i]] = static_cast<int>(i);
+		}
+		std::vector<int> A, E, savedIndex;
+		for (int j : active) {
+			const auto it = saved.find(j);
+			if (it != saved.end()) {
+				A.push_back(j);
+				savedIndex.push_back(it->second);
+			} else {
+				E.push_back(j);
+			}
+		}
+		std::vector<double> B, C;
+		if (modelSpecifics.computeCrossProducts(A, E, activeNewtonWeights, B, C)) {
+			const int nA = static_cast<int>(A.size());
+			const int nE = static_cast<int>(E.size());
+			active = A;
+			active.insert(active.end(), E.begin(), E.end());
+			hessian.resize(m, m);
+			for (int u = 0; u < nA; ++u) {
+				for (int v = 0; v < nA; ++v) {
+					hessian(u, v) = activeNewtonHessian(savedIndex[u], savedIndex[v]);
+				}
+				for (int e = 0; e < nE; ++e) {
+					hessian(u, nA + e) = hessian(nA + e, u) = B[static_cast<size_t>(u) * nE + e];
+				}
+			}
+			for (int e = 0; e < nE; ++e) {
+				for (int f = 0; f < nE; ++f) {
+					hessian(nA + e, nA + f) = C[static_cast<size_t>(e) * nE + f];
+				}
+			}
+			bordered = true;
+		}
+	}
+	std::vector<double> builtWeights;
+	if (!bordered) {
+		std::vector<double> rowWise;
+		if (!modelSpecifics.computeActiveSetHessian(active, rowWise, maxWork)) {
+			return false; // not provided for this model, or too costly
+		}
+		hessian = Eigen::Map<const Matrix>(rowWise.data(), m, m);
+		if (activeNewtonFollowUp) {
+			modelSpecifics.computeHessianRowWeights(builtWeights);
+		}
+	}
+	// kept for follow-ups if the step is taken (the Hessian before the ridge and before any null move)
+	std::vector<int> builtBasis;
+	Matrix builtHessian;
+	if (activeNewtonFollowUp) {
+		builtBasis = active;
+		builtHessian = hessian;
+	}
+	++activeNewtonTried;
+	activeNewtonLastT = 0.0;
+
+	// a small ridge for exact duplicates, whose Hessian is singular
+	const double ridge = 1E-10 * std::max(hessian.diagonal().maxCoeff(), 1E-300);
+	hessian.diagonal().array() += ridge;
+	// One factorization of the equilibrated matrix S (H + ridge I) S, S = diag(H + ridge I)^-1/2: its small
+	// pivots give candidate null directions at a threshold independent of the columns' scales, and it solves
+	// the first round below, (H + ridge I) d = -r as d = -S (S (H + ridge I) S)^-1 S r
+	Eigen::VectorXd scale(m);
+	for (int a = 0; a < m; ++a) {
+		scale[a] = 1.0 / std::sqrt(hessian(a, a));
+	}
+	const Eigen::LDLT<Matrix> factor(Matrix(scale.asDiagonal() * hessian * scale.asDiagonal()));
+	int nullMoves = 0;
+	if (factor.info() == Eigen::Success) {
+		nullMoves = nullDirectionMoves(active, hessian, factor, scale, ridge); // may drop coefficients now at zero
+	}
+	const bool factorUsable = factor.info() == Eigen::Success && static_cast<int>(active.size()) == m;
+	m = static_cast<int>(active.size());
+
+	// gradient of the negative log posterior over them, Laplace signs held (after the null moves)
+	Eigen::VectorXd gradient(m);
+	for (int a = 0; a < m; ++a) {
+		const int j = active[a];
+		double g, h;
+		computeNumeratorForGradient(j);
+		computeGradientAndHessian(j, &g, &h);
+		if (jointPrior->getPriorType(j) == priors::LAPLACE) {
+			g += (hBeta[j] > 0.0 ? 1.0 : -1.0) * jointPrior->getKktBoundary(j);
+		}
+		gradient[a] = g;
+	}
+	std::vector<double> start(m);
+	for (int a = 0; a < m; ++a) {
+		start[a] = hBeta[active[a]];
+	}
+
+	// The Newton step of the quadratic model with the signs held. A Laplace coefficient it takes across
+	// zero is set to zero instead, and the step of the others solved again given that move,
+	// d_F = -H_FF^-1 (g_F + H_FZ d_Z), until none crosses (clipping alone bends the step, and the
+	// backtracking then finds almost no gain)
+	std::vector<char> zeroed(m, 0);
+	Eigen::VectorXd step(m);
+	for (int round = 0; ; ++round) {
+		std::vector<int> free;
+		for (int a = 0; a < m; ++a) {
+			if (zeroed[a]) {
+				step[a] = -start[a];
+			} else {
+				free.push_back(a);
+			}
+		}
+		const int f = static_cast<int>(free.size());
+		if (f > 0) {
+			Eigen::VectorXd dFree;
+			if (round == 0 && factorUsable) {
+				dFree = -scale.cwiseProduct(Eigen::VectorXd(factor.solve(Eigen::VectorXd(scale.cwiseProduct(gradient)))));
+			} else {
+				Matrix hFree(f, f);
+				Eigen::VectorXd rhs(f);
+				for (int u = 0; u < f; ++u) {
+					double r = gradient[free[u]];
+					for (int a = 0; a < m; ++a) {
+						if (zeroed[a]) {
+							r += hessian(free[u], a) * step[a];
+						}
+					}
+					rhs[u] = r;
+					for (int v = 0; v < f; ++v) {
+						hFree(u, v) = hessian(free[u], free[v]);
+					}
+				}
+				dFree = -hFree.ldlt().solve(rhs);
+			}
+			if (!dFree.allFinite()) {
+				return nullMoves > 0;
+			}
+			for (int u = 0; u < f; ++u) {
+				step[free[u]] = dFree[u];
+			}
+		}
+		bool crossed = false;
+		for (int a = 0; a < m; ++a) {
+			if (!zeroed[a] && jointPrior->getPriorType(active[a]) == priors::LAPLACE &&
+				(start[a] + step[a]) * start[a] < 0.0) {
+				zeroed[a] = 1;
+				crossed = true;
+			}
+		}
+		if (!crossed || round == 20) {
+			break;
+		}
+	}
+
+	// backtracking along the step; a Laplace coefficient that would still cross zero stops there
+	auto moveTo = [&](double t) {
+		for (int a = 0; a < m; ++a) {
+			const int j = active[a];
+			double target = start[a] + t * step[a];
+			if (jointPrior->getPriorType(j) == priors::LAPLACE && target * start[a] < 0.0) {
+				target = 0.0;
+			}
+			const double delta = target - hBeta[j];
+			if (delta != 0.0) {
+				sufficientStatisticsKnown = false;
+				updateSufficientStatistics(delta, j);
+			}
+		}
+		modelSpecifics.flushIntercept();
+	};
+	const double before = getLogLikelihood() + getLogPrior();
+	bool taken = false;
+	double takenT = 0.0, gain = 0.0;
+	int crossing = 0;
+	for (int a = 0; a < m; ++a) {
+		crossing += (jointPrior->getPriorType(active[a]) == priors::LAPLACE && (start[a] + step[a]) * start[a] < 0.0);
+	}
+	for (double t = 1.0; t >= 1.0 / 64.0; t /= 2.0) {
+		moveTo(t);
+		const double after = getLogLikelihood() + getLogPrior();
+		if (after > before) {
+			taken = true;
+			takenT = t;
+			gain = after - before;
+			break;
+		}
+	}
+	if (noiseLevel > QUIET) {
+		std::ostringstream stream;
+		stream << "Newton step: m " << m << (bordered ? " (saved Hessian extended)" : "") << ", null moves "
+			   << nullMoves << ", crossing zero " << crossing << ", predicted gain " << -0.5 * gradient.dot(step)
+			   << ", " << (taken ? "taken at t " : "rejected") << (taken ? takenT : 0.0) << ", gain " << gain
+			   << ", kkt before " << kktCycle.maxScaled;
+		logger->writeLine(stream);
+	}
+	activeNewtonLastGain = gain;
+	if (!taken) {
+		moveTo(0.0);
+		return nullMoves > 0; // the null moves changed the state all the same
+	}
+	++activeNewtonTaken;
+	activeNewtonLastT = takenT;
+	if (activeNewtonFollowUp) {
+		activeNewtonBasis.swap(builtBasis);
+		activeNewtonHessian.swap(builtHessian);
+		if (!bordered) {
+			activeNewtonWeights.swap(builtWeights); // an extended Hessian keeps the weights of its blocks
+		}
+	}
+
+	// bookkeeping: zero certificates were recorded against drift totals that these moves did not feed
+	// correctly, and the moved coordinates must be visited again
+	if (useZeroCertificates) {
+		for (auto& c : zeroCertificates) {
+			c.epoch = -1;
+		}
+	}
+	if (activeSetEvery != 0) {
+		for (int a = 0; a < m; ++a) {
+			lastStepSE[active[a]] = std::numeric_limits<double>::infinity();
+		}
+	}
+	if (interceptIndex >= 0) {
+		interceptState.gradient = 0.0;
+	}
+	return true;
+}
+
+// Moves the columns to the targets (rounded coefficients) and keeps the move if the log posterior is not
+// worse, by more than 1e-12 relative (it is evaluated from the updated predictors, so it includes the X delta
+// that rounding leaves); otherwise moves them back
+bool CyclicCoordinateDescent::keepIfNotWorse(const std::vector<int>& columns, const std::vector<double>& target) {
+	const double before = getLogLikelihood() + getLogPrior();
+	std::vector<double> previous(columns.size());
+	for (size_t i = 0; i < columns.size(); ++i) {
+		previous[i] = hBeta[columns[i]];
+	}
+	auto moveTo = [&](const std::vector<double>& values) {
+		for (size_t i = 0; i < columns.size(); ++i) {
+			const double delta = values[i] - hBeta[columns[i]];
+			if (delta != 0.0) {
+				sufficientStatisticsKnown = false;
+				updateSufficientStatistics(delta, columns[i]);
+			}
+		}
+		modelSpecifics.flushIntercept();
+	};
+	moveTo(target);
+	const double after = getLogLikelihood() + getLogPrior();
+	if (after >= before - 1E-12 * std::abs(before)) {
+		// as after a Newton step: certificates and step records describe the old coefficients
+		if (useZeroCertificates) {
+			for (auto& c : zeroCertificates) {
+				c.epoch = -1;
+			}
+		}
+		if (activeSetEvery != 0) {
+			for (int j : columns) {
+				lastStepSE[j] = std::numeric_limits<double>::infinity();
+			}
+		}
+		if (interceptIndex >= 0) {
+			interceptState.gradient = 0.0;
+		}
+		return true;
+	}
+	moveTo(previous);
+	return false;
+}
+
+// Candidate null directions from the small pivots of the equilibrated factorization, v = S P' U^-1 e_k.
+// Components below 1e-8 of the largest are dropped first, and v is refined on its support S by least
+// squares against the unweighted, equilibrated Gram matrix X_S'X_S (the pivot vector comes from the ridged,
+// weighted Hessian, so it is only near an identity). Along beta + t v the penalty is
+// sum_j lambda_j |v_j| |t - b_j| (b_j = -beta_j / v_j, zeros included): descent only if |s| > a (s = sum over
+// non-zero coefficients of lambda sign(beta) v, a = sum over zero ones of lambda |v|; with a margin of 1e-6, then
+// after the refinement 1e-9, of sum lambda |v|, since rounding leaves exact duplicates of one sign a tiny s), and its minimum is the
+// weighted median of the b_j. The candidate (the median's breakpoints set to zero by index, the targets
+// rounded) is kept only if the penalty falls, its realized displacement d leaves every row's predictor
+// unchanged, |X d|_k <= 1e-11 (|X| |d|)_k, and the log posterior is not worse. These are moves along the
+// directions found, one at a time, not a minimization over their span. Coefficients moved to zero leave this
+// step (the sweeps can bring them back); the Hessian of the others is a principal submatrix.
+int CyclicCoordinateDescent::nullDirectionMoves(std::vector<int>& active, Matrix& hessian,
+		const Eigen::LDLT<Matrix>& factor, const Eigen::VectorXd& scale, double ridge) {
+	const int m = static_cast<int>(active.size());
+	const Eigen::VectorXd D = factor.vectorD();
+	const double top = D.cwiseAbs().maxCoeff();
+	// s and a as above, and w = sum of lambda |v| over the line (the scale of s's rounding)
+	auto slopes = [&](const Eigen::VectorXd& v, double& s, double& a, double& w) {
+		s = 0.0;
+		a = 0.0;
+		w = 0.0;
+		for (int i = 0; i < m; ++i) {
+			const int j = active[i];
+			if (v[i] == 0.0 || jointPrior->getPriorType(j) != priors::LAPLACE) {
+				continue;
+			}
+			const double lambda = jointPrior->getKktBoundary(j);
+			if (hBeta[j] != 0.0) {
+				s += lambda * (hBeta[j] > 0.0 ? 1.0 : -1.0) * v[i];
+			} else {
+				a += lambda * std::abs(v[i]);
+			}
+			w += lambda * std::abs(v[i]);
+		}
+	};
+	auto otherPrior = [&](const Eigen::VectorXd& v) {
+		for (int i = 0; i < m; ++i) {
+			const auto type = jointPrior->getPriorType(active[i]);
+			if (v[i] != 0.0 && type != priors::NONE && type != priors::LAPLACE) {
+				return true;
+			}
+		}
+		return false;
+	};
+	// all candidates in one triangular solve (one pass over the factor instead of one per small pivot; exact
+	// duplicates give most of them)
+	std::vector<int> pivots;
+	for (int k = 0; k < m; ++k) {
+		if (D[k] < 1E-6 * top) {
+			pivots.push_back(k);
+		}
+	}
+	if (pivots.empty()) {
+		return 0;
+	}
+	Matrix units = Matrix::Zero(m, pivots.size());
+	for (size_t c = 0; c < pivots.size(); ++c) {
+		units(pivots[c], c) = 1.0;
+	}
+	const Matrix candidates = scale.asDiagonal() * (factor.transpositionsP().transpose() *
+		Matrix(factor.matrixU().solve(units)));
+	int applied = 0;
+	for (size_t c = 0; c < pivots.size(); ++c) {
+		Eigen::VectorXd v = candidates.col(c);
+		auto normalize = [&]() {
+			v /= v.cwiseAbs().maxCoeff();
+			for (int i = 0; i < m; ++i) {
+				if (std::abs(v[i]) < 1E-8) {
+					v[i] = 0.0;
+				}
+			}
+		};
+		normalize();
+		double s, a, w;
+		slopes(v, s, a, w);
+		if (otherPrior(v) || !(std::abs(s) > a + 1E-6 * w)) {
+			continue; // no descent (exact duplicates of equal penalty and sign, say): skip the refinement
+		}
+		// a screen before the passes over the rows: the curvature along v relative to the diagonal, without the
+		// ridge, is near the ridge's for an identity (and of the order of the difference for near-duplicates)
+		const double diagonal = v.dot(hessian.diagonal().cwiseProduct(v));
+		const double curvature = v.dot(hessian * v) - ridge * v.squaredNorm();
+		if (!(curvature <= 1E-6 * diagonal)) {
+			continue;
+		}
+		std::vector<int> support, columns;
+		int pivot = -1;
+		for (int i = 0; i < m; ++i) {
+			if (v[i] != 0.0) {
+				if (pivot < 0 || std::abs(v[i]) > std::abs(v[support[pivot]])) {
+					pivot = static_cast<int>(support.size());
+				}
+				support.push_back(i);
+				columns.push_back(active[i]);
+			}
+		}
+		const int ns = static_cast<int>(support.size());
+		if (ns < 2) {
+			continue;
+		}
+		if (static_cast<int>(unitWeights.size()) != K) {
+			unitWeights.assign(K, 1.0);
+		}
+		std::vector<double> B, G;
+		if (!modelSpecifics.computeCrossProducts(std::vector<int>(), columns, unitWeights, B, G)) {
+			continue;
+		}
+		Matrix gram(ns - 1, ns - 1);
+		Eigen::VectorXd rhs(ns - 1);
+		for (int u = 0, uu = 0; u < ns; ++u) {
+			if (u == pivot) {
+				continue;
+			}
+			rhs[uu] = -G[static_cast<size_t>(u) * ns + pivot];
+			for (int w = 0, ww = 0; w < ns; ++w) {
+				if (w != pivot) {
+					gram(uu, ww++) = G[static_cast<size_t>(u) * ns + w];
+				}
+			}
+			++uu;
+		}
+		Eigen::VectorXd sc(ns - 1);
+		for (int u = 0; u < ns - 1; ++u) {
+			sc[u] = gram(u, u) > 0.0 ? 1.0 / std::sqrt(gram(u, u)) : 1.0;
+		}
+		const Matrix gramScaled = sc.asDiagonal() * gram * sc.asDiagonal();
+		const Eigen::VectorXd x = sc.cwiseProduct(Eigen::VectorXd(gramScaled.colPivHouseholderQr().solve(sc.cwiseProduct(rhs))));
+		if (!x.allFinite()) {
+			continue;
+		}
+		for (int u = 0, uu = 0; u < ns; ++u) {
+			v[support[u]] = (u == pivot) ? 1.0 : x[uu++];
+		}
+		normalize();
+		slopes(v, s, a, w);
+		if (otherPrior(v) || !(std::abs(s) > a + 1E-9 * w)) {
+			continue;
+		}
+		// the weighted median of the breakpoints, every Laplace component with its own lambda (an unpenalized
+		// one moves freely)
+		std::vector<std::tuple<double, double, int>> breakpoints;
+		for (int i = 0; i < m; ++i) {
+			const int j = active[i];
+			if (v[i] != 0.0 && jointPrior->getPriorType(j) == priors::LAPLACE) {
+				breakpoints.emplace_back(-hBeta[j] / v[i], jointPrior->getKktBoundary(j) * std::abs(v[i]), i);
+			}
+		}
+		std::sort(breakpoints.begin(), breakpoints.end());
+		double total = 0.0, sum = 0.0, tStar = 0.0;
+		for (const auto& p : breakpoints) {
+			total += std::get<1>(p);
+		}
+		for (const auto& p : breakpoints) {
+			sum += std::get<1>(p);
+			if (sum >= 0.5 * total) {
+				tStar = std::get<0>(p);
+				break;
+			}
+		}
+		if (tStar == 0.0) {
+			continue;
+		}
+		std::vector<double> target(m), delta(m);
+		for (int i = 0; i < m; ++i) {
+			target[i] = hBeta[active[i]] + tStar * v[i];
+		}
+		for (const auto& p : breakpoints) {
+			if (std::get<0>(p) == tStar) {
+				target[std::get<2>(p)] = 0.0;
+			}
+		}
+		double penalty = 0.0, change = 0.0; // the change summed componentwise
+		for (int i = 0; i < m; ++i) {
+			const int j = active[i];
+			delta[i] = target[i] - hBeta[j];
+			if (jointPrior->getPriorType(j) == priors::LAPLACE) {
+				const double lambda = jointPrior->getKktBoundary(j);
+				penalty += lambda * std::abs(hBeta[j]);
+				change += lambda * (std::abs(target[i]) - std::abs(hBeta[j]));
+			}
+		}
+		if (!std::isfinite(change) || !(change < -1E-12 * std::max(1.0, penalty))) {
+			continue;
+		}
+		std::vector<double> z, scaleZ;
+		modelSpecifics.computePredictorChange(active, delta, z, false);
+		modelSpecifics.computePredictorChange(active, delta, scaleZ, true);
+		bool unchanged = true;
+		for (size_t r = 0; r < z.size() && unchanged; ++r) {
+			unchanged = std::isfinite(z[r]) && std::isfinite(scaleZ[r]) && std::abs(z[r]) <= 1E-11 * scaleZ[r];
+		}
+		if (unchanged && keepIfNotWorse(active, target)) {
+			++applied;
+		}
+	}
+	if (applied > 0) {
+		std::vector<int> keep;
+		for (int i = 0; i < m; ++i) {
+			if (jointPrior->getPriorType(active[i]) == priors::NONE || hBeta[active[i]] != 0.0) {
+				keep.push_back(i);
+			}
+		}
+		if (static_cast<int>(keep.size()) < m) {
+			Matrix sub(keep.size(), keep.size());
+			std::vector<int> activeKeep;
+			for (size_t u = 0; u < keep.size(); ++u) {
+				activeKeep.push_back(active[keep[u]]);
+				for (size_t w = 0; w < keep.size(); ++w) {
+					sub(u, w) = hessian(keep[u], keep[w]);
+				}
+			}
+			active.swap(activeKeep);
+			hessian = sub;
+		}
+	}
+	return applied;
+}
+
+// Complete partitions of the indicator columns: columns placed, largest first, in up to 64 families of
+// pairwise disjoint columns (one bit per family and row), then each family covering at least half of the
+// rows completed with the columns disjoint from it. A family covering every row (unique rows per column)
+// sums to the intercept column, so intercept - sum of the family is an exact null vector. Rows of weight 0
+// count: an identity on all rows holds on every fold.
+void CyclicCoordinateDescent::findPartitions() {
+	partitions.clear();
+	partitionsSearched = true;
+	partitionsJ = J;
+	partitionsK = K;
+	int intercept = -1;
+	for (int j = 0; j < J; ++j) {
+		if (hXI.getColumnType(j) == INTERCEPT) {
+			intercept = j;
+			break;
+		}
+	}
+	if (intercept < 0) {
+		return;
+	}
+	std::vector<int> columns;
+	for (int j = 0; j < J; ++j) {
+		if (j != intercept && hXI.getColumnType(j) == INDICATOR && hXI.getNumberOfEntries(j) > 0) {
+			columns.push_back(j);
+		}
+	}
+	std::stable_sort(columns.begin(), columns.end(), [this](int a, int b) {
+		return hXI.getNumberOfEntries(a) > hXI.getNumberOfEntries(b); });
+	std::vector<uint64_t> mask(K, 0);
+	std::vector<std::vector<int>> members(64);
+	std::vector<double> cover(64, 0.0);
+	std::vector<int> family(J, -1);
+	for (int j : columns) {
+		int n;
+		const int* rows = modelSpecifics.getColumnRows(j, n);
+		uint64_t occupied = 0;
+		for (int i = 0; i < n; ++i) {
+			occupied |= mask[rows[i]];
+		}
+		if (~occupied == 0) {
+			continue;
+		}
+		const int f = __builtin_ctzll(~occupied);
+		for (int i = 0; i < n; ++i) {
+			mask[rows[i]] |= (uint64_t(1) << f);
+		}
+		family[j] = f;
+		members[f].push_back(j);
+		cover[f] += n;
+	}
+	auto incomplete = [&](int f) { return cover[f] < K && cover[f] >= 0.5 * K; };
+	bool repair = false;
+	for (int f = 0; f < 64; ++f) {
+		repair = repair || incomplete(f);
+	}
+	if (repair) {
+		std::vector<uint64_t> touches(J, 0); // the families each column meets
+		for (int j : columns) {
+			int n;
+			const int* rows = modelSpecifics.getColumnRows(j, n);
+			for (int i = 0; i < n; ++i) {
+				touches[j] |= mask[rows[i]];
+			}
+		}
+		for (int f = 0; f < 64; ++f) {
+			if (!incomplete(f)) {
+				continue;
+			}
+			const uint64_t bit = uint64_t(1) << f;
+			for (int j : columns) {
+				if (family[j] == f || (touches[j] & bit)) {
+					continue;
+				}
+				int n;
+				const int* rows = modelSpecifics.getColumnRows(j, n);
+				bool disjoint = true;
+				for (int i = 0; i < n && disjoint; ++i) {
+					disjoint = !(mask[rows[i]] & bit);
+				}
+				if (!disjoint) {
+					continue;
+				}
+				for (int i = 0; i < n; ++i) {
+					mask[rows[i]] |= bit;
+				}
+				members[f].push_back(j);
+				cover[f] += n;
+				if (cover[f] >= K) {
+					break;
+				}
+			}
+		}
+	}
+	for (int f = 0; f < 64; ++f) {
+		if (cover[f] == static_cast<double>(K) && members[f].size() >= 2) {
+			std::vector<std::pair<int, double>> v{{intercept, 1.0}};
+			for (int j : members[f]) {
+				v.emplace_back(j, -1.0);
+			}
+			partitions.push_back(v);
+		}
+	}
+	if (noiseLevel > QUIET) {
+		std::ostringstream stream;
+		stream << "Partition search: " << columns.size() << " indicator columns, " << partitions.size()
+			   << " complete partitions";
+		logger->writeLine(stream);
+	}
+}
+
+// After a full sweep: the weighted-median move along each partition vector, when it lowers the penalty by
+// more than 1e-4 (smaller moves would only reset the certificates); exact by construction, the move is
+// still checked on the log posterior
+int CyclicCoordinateDescent::partitionMoves() {
+	int moves = 0;
+	for (const auto& v : partitions) {
+		std::vector<std::tuple<double, double, int>> breakpoints;
+		double penalty = 0.0;
+		bool usable = true;
+		for (size_t i = 0; i < v.size() && usable; ++i) {
+			const int j = v[i].first;
+			const auto type = jointPrior->getPriorType(j);
+			usable = !fixBeta[j] && (type == priors::NONE || type == priors::LAPLACE);
+			if (usable && type == priors::LAPLACE) {
+				const double lambda = jointPrior->getKktBoundary(j);
+				penalty += lambda * std::abs(hBeta[j]);
+				breakpoints.emplace_back(-hBeta[j] / v[i].second, lambda * std::abs(v[i].second), static_cast<int>(i));
+			}
+		}
+		if (!usable || breakpoints.empty()) {
+			continue;
+		}
+		std::sort(breakpoints.begin(), breakpoints.end());
+		double total = 0.0, sum = 0.0, tStar = 0.0;
+		for (const auto& p : breakpoints) {
+			total += std::get<1>(p);
+		}
+		for (const auto& p : breakpoints) {
+			sum += std::get<1>(p);
+			if (sum >= 0.5 * total) {
+				tStar = std::get<0>(p);
+				break;
+			}
+		}
+		if (tStar == 0.0) {
+			continue;
+		}
+		std::vector<int> columns;
+		std::vector<double> target;
+		for (const auto& e : v) {
+			columns.push_back(e.first);
+			target.push_back(hBeta[e.first] + tStar * e.second);
+		}
+		for (const auto& p : breakpoints) {
+			if (std::get<0>(p) == tStar) {
+				target[std::get<2>(p)] = 0.0;
+			}
+		}
+		double change = 0.0;
+		for (size_t i = 0; i < v.size(); ++i) {
+			if (jointPrior->getPriorType(columns[i]) == priors::LAPLACE) {
+				change += jointPrior->getKktBoundary(columns[i]) * (std::abs(target[i]) - std::abs(hBeta[columns[i]]));
+			}
+		}
+		if (change < -1E-4 && keepIfNotWorse(columns, target)) {
+			++moves;
+		}
+	}
+	return moves;
 }
 
 double CyclicCoordinateDescent::getKktCriterion() const {

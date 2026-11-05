@@ -206,6 +206,21 @@ protected:
 
 	void computeFisherInformation(int indexOne, int indexTwo, double *oinfo, bool useWeights);
 
+	bool computeActiveSetHessian(const std::vector<int>& columns, std::vector<double>& hessian, double maxWork);
+
+	void computeHessianRowWeights(std::vector<double>& weights);
+
+	bool computeCrossProducts(const std::vector<int>& A, const std::vector<int>& E, const std::vector<double>& weights,
+	                          std::vector<double>& B, std::vector<double>& C);
+
+	void computePredictorChange(const std::vector<int>& columns, const std::vector<double>& d, std::vector<double>& z,
+	                            bool absolute) const;
+
+	const int* getColumnRows(int index, int& n) const;
+
+	template <typename Function>
+	void forEachEntry(int j, Function&& fn) const;
+
 	void makeDirty();
 
 	void computeSchoenfeldResiduals(int indexOne,

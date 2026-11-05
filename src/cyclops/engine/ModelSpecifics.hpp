@@ -1888,6 +1888,238 @@ void ModelSpecifics<BaseModel,RealType>::dispatchFisherInformation(int indexOne,
 }
 
 
+// Logistic regression: H = sum_k w_k p_k (1 - p_k) x_kA x_kA', accumulated row by row over the columns A
+// (an intercept column counts as a 1 in every row), so the cost is that of reading A plus, per row, the
+// square of its entries in A; the pairwise computeFisherInformation() would read every column m times
+template <class BaseModel,typename RealType>
+bool ModelSpecifics<BaseModel,RealType>::computeActiveSetHessian(const std::vector<int>& columns,
+		std::vector<double>& hessian, double maxWork) {
+	if (!BaseModel::hasLogisticRows) {
+		return false;
+	}
+	const int m = static_cast<int>(columns.size());
+
+	int intercept = -1;
+	std::vector<int> rowStart(K + 1, 0);
+	for (int a = 0; a < m; ++a) {
+		const int j = columns[a];
+		const FormatType format = hX.getFormatType(j);
+		if (format == INTERCEPT) {
+			intercept = a;
+		} else if (format == DENSE) {
+			for (int k = 0; k < K; ++k) {
+				++rowStart[k + 1];
+			}
+		} else {
+			const int* rows = hX.getCompressedColumnVector(j);
+			const int n = static_cast<int>(hX.getNumberOfEntries(j));
+			for (int i = 0; i < n; ++i) {
+				++rowStart[rows[i] + 1];
+			}
+		}
+	}
+	double work = (intercept >= 0) ? static_cast<double>(K) : 0.0; // the products below, by row
+	for (int k = 0; k < K; ++k) {
+		const double entries = static_cast<double>(rowStart[k + 1]);
+		work += entries * (entries + 1.0) / 2.0;
+	}
+	if (work > maxWork) {
+		return false;
+	}
+	flushIntercept(); // a pending lazy intercept move (see ModelSpecifics.h)
+	ensureDenominators();
+	hessian.assign(static_cast<size_t>(m) * m, 0.0);
+	for (int k = 0; k < K; ++k) {
+		rowStart[k + 1] += rowStart[k];
+	}
+	std::vector<int> entryColumn(rowStart[K]);
+	std::vector<double> entryValue(rowStart[K]);
+	std::vector<int> fill(rowStart.begin(), rowStart.end() - 1);
+	for (int a = 0; a < m; ++a) {
+		const int j = columns[a];
+		const FormatType format = hX.getFormatType(j);
+		if (format == INTERCEPT) {
+			continue;
+		}
+		if (format == DENSE) {
+			const auto& values = hX.getDataVector(j);
+			for (int k = 0; k < K; ++k) {
+				entryColumn[fill[k]] = a;
+				entryValue[fill[k]++] = static_cast<double>(values[k]);
+			}
+		} else {
+			const int* rows = hX.getCompressedColumnVector(j);
+			const int n = static_cast<int>(hX.getNumberOfEntries(j));
+			const bool indicator = format == INDICATOR;
+			for (int i = 0; i < n; ++i) {
+				const int k = rows[i];
+				entryColumn[fill[k]] = a;
+				entryValue[fill[k]++] = indicator ? 1.0 : static_cast<double>(hX.getDataVector(j)[i]);
+			}
+		}
+	}
+
+	double interceptDiagonal = 0.0;
+	for (int k = 0; k < K; ++k) {
+		const double weight = static_cast<double>(hKWeight[k]);
+		if (weight == 0.0 || (intercept < 0 && rowStart[k] == rowStart[k + 1])) {
+			continue;
+		}
+		const double p = static_cast<double>(offsExpXBeta[k]) / static_cast<double>(denomPid[k]);
+		const double w = weight * p * (1.0 - p);
+		interceptDiagonal += w;
+		for (int e = rowStart[k]; e < rowStart[k + 1]; ++e) {
+			const int a = entryColumn[e];
+			const double wx = w * entryValue[e];
+			if (intercept >= 0) {
+				hessian[static_cast<size_t>(intercept) * m + a] += wx;
+			}
+			for (int f = rowStart[k]; f <= e; ++f) {
+				hessian[static_cast<size_t>(entryColumn[f]) * m + a] += wx * entryValue[f];
+			}
+		}
+	}
+	if (intercept >= 0) {
+		hessian[static_cast<size_t>(intercept) * m + intercept] = interceptDiagonal;
+	}
+	for (int a = 0; a < m; ++a) { // symmetric: copy each accumulated entry to its mirror
+		for (int b = a + 1; b < m; ++b) {
+			const double sum = hessian[static_cast<size_t>(a) * m + b] + hessian[static_cast<size_t>(b) * m + a];
+			hessian[static_cast<size_t>(a) * m + b] = sum;
+			hessian[static_cast<size_t>(b) * m + a] = sum;
+		}
+	}
+	return true;
+}
+
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::computeHessianRowWeights(std::vector<double>& weights) {
+	weights.clear();
+	if (!BaseModel::hasLogisticRows) {
+		return;
+	}
+	flushIntercept();
+	ensureDenominators();
+	weights.assign(K, 0.0);
+	for (size_t k = 0; k < K; ++k) {
+		const double weight = static_cast<double>(hKWeight[k]);
+		if (weight != 0.0) {
+			const double p = static_cast<double>(offsExpXBeta[k]) / static_cast<double>(denomPid[k]);
+			weights[k] = weight * p * (1.0 - p);
+		}
+	}
+}
+
+// Visits the entries of column j as (row, value); an intercept or dense column visits every row
+template <class BaseModel,typename RealType>
+template <typename Function>
+void ModelSpecifics<BaseModel,RealType>::forEachEntry(int j, Function&& fn) const {
+	const FormatType format = hX.getFormatType(j);
+	if (format == INTERCEPT) {
+		for (size_t k = 0; k < K; ++k) {
+			fn(static_cast<int>(k), 1.0);
+		}
+	} else if (format == DENSE) {
+		const auto& values = hX.getDataVector(j);
+		for (size_t k = 0; k < K; ++k) {
+			fn(static_cast<int>(k), static_cast<double>(values[k]));
+		}
+	} else {
+		const int* rows = hX.getCompressedColumnVector(j);
+		const int n = static_cast<int>(hX.getNumberOfEntries(j));
+		const bool indicator = format == INDICATOR;
+		for (int i = 0; i < n; ++i) {
+			fn(rows[i], indicator ? 1.0 : static_cast<double>(hX.getDataVector(j)[i]));
+		}
+	}
+}
+
+// The new columns' entries are gathered by row; each column of A is then read once and, per entry, paired
+// with the row's entries in E
+template <class BaseModel,typename RealType>
+bool ModelSpecifics<BaseModel,RealType>::computeCrossProducts(const std::vector<int>& A, const std::vector<int>& E,
+		const std::vector<double>& weights, std::vector<double>& B, std::vector<double>& C) {
+	if (!BaseModel::hasLogisticRows || weights.size() != K) {
+		return false;
+	}
+	const int nA = static_cast<int>(A.size());
+	const int nE = static_cast<int>(E.size());
+	B.assign(static_cast<size_t>(nA) * nE, 0.0);
+	C.assign(static_cast<size_t>(nE) * nE, 0.0);
+	if (nE == 0) {
+		return true;
+	}
+	std::vector<int> start(K + 1, 0);
+	for (int e = 0; e < nE; ++e) {
+		forEachEntry(E[e], [&](int k, double) { ++start[k + 1]; });
+	}
+	for (size_t k = 0; k < K; ++k) {
+		start[k + 1] += start[k];
+	}
+	std::vector<int> column(start[K]);
+	std::vector<double> value(start[K]);
+	std::vector<int> fill(start.begin(), start.end() - 1);
+	for (int e = 0; e < nE; ++e) {
+		forEachEntry(E[e], [&](int k, double x) {
+			column[fill[k]] = e;
+			value[fill[k]++] = x;
+		});
+	}
+	for (size_t k = 0; k < K; ++k) {
+		const double w = weights[k];
+		if (w == 0.0) {
+			continue;
+		}
+		for (int u = start[k]; u < start[k + 1]; ++u) {
+			for (int v = start[k]; v <= u; ++v) {
+				C[static_cast<size_t>(column[u]) * nE + column[v]] += w * value[u] * value[v];
+			}
+		}
+	}
+	for (int e = 0; e < nE; ++e) { // symmetric: each accumulated entry to its mirror
+		for (int f = 0; f < e; ++f) {
+			const double sum = C[static_cast<size_t>(e) * nE + f] + C[static_cast<size_t>(f) * nE + e];
+			C[static_cast<size_t>(e) * nE + f] = sum;
+			C[static_cast<size_t>(f) * nE + e] = sum;
+		}
+	}
+	for (int a = 0; a < nA; ++a) {
+		double* row = B.data() + static_cast<size_t>(a) * nE;
+		forEachEntry(A[a], [&](int k, double x) {
+			const double wx = weights[k] * x;
+			if (wx != 0.0) {
+				for (int u = start[k]; u < start[k + 1]; ++u) {
+					row[column[u]] += wx * value[u];
+				}
+			}
+		});
+	}
+	return true;
+}
+
+template <class BaseModel,typename RealType>
+void ModelSpecifics<BaseModel,RealType>::computePredictorChange(const std::vector<int>& columns,
+		const std::vector<double>& d, std::vector<double>& z, bool absolute) const {
+	z.assign(K, 0.0);
+	for (size_t a = 0; a < columns.size(); ++a) {
+		const double da = absolute ? std::abs(d[a]) : d[a];
+		if (da != 0.0) {
+			forEachEntry(columns[a], [&](int k, double x) { z[k] += da * (absolute ? std::abs(x) : x); });
+		}
+	}
+}
+
+template <class BaseModel,typename RealType>
+const int* ModelSpecifics<BaseModel,RealType>::getColumnRows(int index, int& n) const {
+	const FormatType format = hX.getFormatType(index);
+	if (format != INDICATOR && format != SPARSE) {
+		n = 0;
+		return nullptr;
+	}
+	n = static_cast<int>(hX.getNumberOfEntries(index));
+	return hX.getCompressedColumnVector(index);
+}
+
 template <class BaseModel,typename RealType>
 void ModelSpecifics<BaseModel,RealType>::computeRiskSetFisherInformation(int indexOne, int indexTwo, double *oinfo) {
 
