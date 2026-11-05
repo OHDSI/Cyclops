@@ -395,6 +395,11 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	stream2 << "Using " << nThreads << " thread(s)";
 	logger->writeLine(stream2);
 
+	if (!legacy && arguments.modeFinding.convergenceType == GAP && arguments.modeFinding.algorithmType != AlgorithmType::CCD &&
+	        arguments.modeFinding.algorithmType != AlgorithmType::MM) {
+	    ccd->beginProfileReference(); // refits take chord Newton steps from the mode (Newton plan 2.9)
+	}
+
 	std::vector<CyclicCoordinateDescent*> ccdPool;
 
 	ccdPool.push_back(ccd);
@@ -404,6 +409,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	    for (int j = 0; j < J; ++j) {
 	        copy->setFixedBeta(j, ccd->getFixedBeta(j));
 	    }
+	    copy->shareProfileReference(*ccd);
 	    ccdPool.push_back(copy);
 	}
 
@@ -489,6 +495,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
     for (int i = 1; i < nThreads; ++i) {
         delete ccdPool[i]; // TODO use unique_ptr
     }
+    ccd->endProfileReference();
 
         // Build result serially
         auto itLowerPt = std::begin(lowerPts);
@@ -751,6 +758,10 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
     }
 
     ccd->makeDirty(); // Reset internal memory
+    if (arguments.modeFinding.convergenceType == GAP && arguments.modeFinding.algorithmType != AlgorithmType::CCD &&
+	        arguments.modeFinding.algorithmType != AlgorithmType::MM) {
+        ccd->beginProfileReference(); // refits take chord Newton steps (Newton plan 2.9)
+    }
 
     // Each point starts from the solution at the nearest of: the current coefficients, the supplied
     // starting solutions and (chain) the requested points between it and the current value. The choice
@@ -864,6 +875,7 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
         for (int j = 0; j < J; ++j) {
             copy->setFixedBeta(j, ccd->getFixedBeta(j));
         }
+        copy->shareProfileReference(*ccd);
         ccdPool.push_back(copy);
     }
 
@@ -909,6 +921,7 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
 
     // Reset exactly (incremental updates leave the coefficients off by rounding), and recompute
     // X beta now, as prediction reads it directly
+    ccd->endProfileReference();
     ccd->setBeta(x0s);
     ccd->getLogLikelihood();
     // DEBUG

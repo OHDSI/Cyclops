@@ -32,15 +32,17 @@ Changes:
 7. a `"ccd"` fit after an `"mm"` fit on the same data object runs coordinate descent (it kept running
    `"mm"`)
 8. separation: an unpenalized coefficient whose likelihood is monotone in it alone (`cox` and `cox_counting`:
-   every event at its risk set's minimum or maximum of the covariate; `lr`: every row with a non-zero
-   value has the same outcome, by sign) is detected before fitting and held at its limit while the other
-   coefficients are fit, which then equal those of the limiting model. With no prior on any coefficient
-   the fit is `ILLCONDITIONED` with `NaN` in the divergent coefficients; otherwise it is `SUCCESS` with
-   the divergent coefficients at their limit. Both warn and name them in `fit$divergentCoefficients`, and
-   `confint()` returns `NA` for an `ILLCONDITIONED` separated fit. Earlier versions returned `SUCCESS`
-   with large finite values or `ILLCONDITIONED` with `NaN`, depending on the data and the convergence
-   criterion, so results of separated fits change. Conditional Poisson, SCCS and conditional logistic
-   models are not checked yet
+   every event at its risk set's minimum or maximum of the covariate; `cpr`, `sccs` and `clr`: likewise
+   within each stratum; `lr`: every row with a non-zero value has the same outcome, by sign) is detected
+   before fitting and held at its limit while the other coefficients are fit, which then equal those of
+   the limiting model. With no prior on any coefficient the fit is `ILLCONDITIONED`; otherwise it is
+   `SUCCESS`. Either way the divergent coefficients stay at their limit (so the log likelihood, profiles
+   and the other coefficients' `confint()` are those of the limiting model), the fit warns, and
+   `fit$divergentCoefficients` names them; `confint()` returns `NA` for them in an `ILLCONDITIONED` fit.
+   Earlier versions returned `SUCCESS` with large finite values or `ILLCONDITIONED` with `NaN`, depending
+   on the data and the convergence criterion, so results of separated fits change; code that found
+   separated coefficients by `is.nan(coef(fit, ignoreConvergence = TRUE))` should read
+   `fit$divergentCoefficients`
 9. Newton steps on `cox` and `cox_counting` designs solve with conjugate gradients (Newton-CG) when an
    operation count says that is cheaper than a dense factorization, or when the dense matrices of all
    concurrent fits would exceed 256 MB. A rank-32 Woodbury preconditioner (the row part of the Hessian
@@ -62,6 +64,15 @@ Changes:
    covariates (13,152 rows) a Laplace fit to its optimum takes 0.14-0.35 s; the `"kkt"` criterion on
    coordinate descent took 3.4-94 s to a looser tolerance. Its stop, an exact model decrease below
    `tolerance`, is an estimate rather than a certified bound (`fit$convergence$certified` is `FALSE`)
+13. `algorithm = "auto"` and `"newton"` also fit `cpr`, `sccs` and `clr` models (normal, Laplace or no
+   priors). The SCCS design of the package vignette (20,000 cases, 1.18 million rows) fits in 0.6 s
+   instead of 5.5 s and reaches the optimum, and designs with age and calendar-time splines, where
+   coordinate descent reached its iteration limit in 63 of 66 cases, all converge in under 0.3 s.
+   Designs where columns are constant within every stratum are fit to their minimum-norm solution
+14. under `"auto"` and `"newton"`, profile likelihoods and `confint()` refit each point from the Hessian at
+   the estimate (chord Newton steps, whose first step is the tangent of the profile), with a certificate
+   that allows for the Hessian's lag; with SelfControlledCaseSeries' defaults, a fit with its profiles,
+   confidence intervals and null likelihoods takes 1.8 s instead of 12.9 s
 
 Cyclops v3.8.0
 ==============

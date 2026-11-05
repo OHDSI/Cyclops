@@ -74,6 +74,24 @@ protected:
     RealVector hYWeight; // ESK: Added
 };
 
+namespace grouped {
+// Rows of a grouped model with an entry in the columns F, by stratum, with those entries (GroupedSecondOrder.hpp)
+struct Layout {
+	bool prepared = false;
+	std::vector<int> F;
+	std::vector<int> rows;              // ordered by stratum, then row
+	std::vector<size_t> rowStart;       // entries of rows[i]: [rowStart[i], rowStart[i + 1])
+	std::vector<int> position;          // index into F
+	std::vector<double> value;
+	std::vector<int> segmentStratum;    // stratum of each run of rows
+	std::vector<int> segmentStart;      // rows[segmentStart[g] .. segmentStart[g + 1])
+};
+} // namespace grouped
+
+template <typename RealType> struct SelfControlledCaseSeries;
+template <typename RealType> struct ConditionalPoissonRegression;
+template <typename RealType> struct ConditionalLogisticRegression;
+
 template <class BaseModel, typename RealType>
 class ModelSpecifics : public AbstractModelSpecifics, BaseModel {
 public:
@@ -600,6 +618,47 @@ private:
 	} unweighted;
 
 	ParallelInfo info;
+
+public:
+	// Second-order API for the grouped models cpr, sccs and clr in double precision (GroupedSecondOrder.hpp)
+	bool supportsSecondOrder() const { return groupedSecondOrder; }
+	bool secondOrderPrepare(const std::vector<int>& F);
+	bool fullGradient(const std::vector<int>& F, std::vector<double>& g);
+	bool hessianBlock(const std::vector<int>& F, std::vector<double>& H);
+	bool hessianVector(const std::vector<int>& F, const std::vector<double>& v, std::vector<double>& Hv);
+	bool setDirection(const std::vector<int>& F, const std::vector<double>& d);
+	double trialLogLikelihood(double t);
+	bool commitStep(double t);
+	double directionMaxAbs() const;
+	double newtonCostRatio(const std::vector<int>& F);
+	bool hessianDiagonal(const std::vector<int>& F, std::vector<double>& h);
+	bool separationDirections(const std::vector<int>& columns, std::vector<int>& direction);
+
+private:
+	static constexpr bool groupedSecondOrder = std::is_same<RealType, double>::value &&
+		(std::is_same<BaseModel, SelfControlledCaseSeries<RealType>>::value ||
+		 std::is_same<BaseModel, ConditionalPoissonRegression<RealType>>::value ||
+		 std::is_same<BaseModel, ConditionalLogisticRegression<RealType>>::value);
+	bool groupedReady() const;
+	void prepareGroupedStrata();
+	double stratumHazard(size_t s) const;
+	void groupedProductXv(const std::vector<double>& v, std::vector<double>& z) const;
+	grouped::Layout gsLayout[2];       // the current F first, the previous one second
+	std::vector<int> gsColumns;        // the columns F of the kernels: a view of gsLayout[0]
+	std::vector<int> gsMap;            // gsLayout[0]'s positions -> positions in gsColumns (-1 when absent)
+	std::vector<int> gsColumnIndex;    // scratch: column -> position (-1 otherwise)
+	std::vector<int> gsRowIndex;       // scratch: row -> index into a layout's rows (-1 otherwise)
+	std::vector<char> gsMoving;        // scratch: rows a direction moves
+	std::vector<int> gsStratumSize;    // rows of each stratum
+	bool gsSortedStrata = true;        // rows are stored by stratum
+	std::vector<double> gsDirection;   // X_F d over the current layout's rows
+	bool gsHasDirection = false;
+	std::vector<double> gsRest;        // per stratum: u summed over the rows the direction does not move
+	double gsNumerator = 0.0;          // sum_k w_k y_k eta_k
+	double gsSlope = 0.0;              // sum_k w_k y_k z_k
+	double gsConstant = 0.0;           // sum of n_s log D_s over strata the direction does not reach
+	std::vector<double> gsTrialExp;    // exp(t z) of the moving rows at the last trial
+	double gsTrialT = std::numeric_limits<double>::quiet_NaN();
 };
 
 template <typename RealType>

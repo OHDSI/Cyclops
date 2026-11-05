@@ -266,6 +266,8 @@ void CyclicCoordinateDescent::init(bool offset) {
 
 	useCrossValidation = false;
 	validWeights = false;
+	separationCache.clear();
+	profilePool.clear();
 	sufficientStatisticsKnown = false;
 	fisherInformationKnown = false;
 	varianceKnown = false;
@@ -622,6 +624,8 @@ void CyclicCoordinateDescent::setHeldOutRowsUnused(bool unused) {
 	if (unused != heldOutRowsUnused) {
 		heldOutRowsUnused = unused;
 		validWeights = false;
+		separationCache.clear();
+		profilePool.clear();
 	}
 }
 
@@ -633,6 +637,8 @@ void CyclicCoordinateDescent::setFoldPartition(FoldPartitionPtr partition, int f
 	foldPartition = partition;
 	foldPartitionFold = fold;
 	validWeights = false;
+	separationCache.clear();
+	profilePool.clear();
 }
 
 void CyclicCoordinateDescent::clearFoldPartition() {
@@ -656,6 +662,8 @@ void CyclicCoordinateDescent::setWeights(double* iWeights) {
 		// Turn off weights
 		useCrossValidation = false;
 		validWeights = false;
+		separationCache.clear();
+		profilePool.clear();
 		sufficientStatisticsKnown = false;
 	} else {
 
@@ -667,6 +675,8 @@ void CyclicCoordinateDescent::setWeights(double* iWeights) {
 		}
 		useCrossValidation = true;
 		validWeights = false;
+		separationCache.clear();
+		profilePool.clear();
 		sufficientStatisticsKnown = false;
 	}
 }
@@ -866,8 +876,9 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 		}
 	}
 
-	// D5: with a prior "none" on every free coefficient, a separated fit is ILLCONDITIONED with NaN in its divergent
-	// coefficients; otherwise it is SUCCESS, and the divergent coefficients are reported
+	// D5: with a prior "none" on every free coefficient, a separated fit is ILLCONDITIONED; otherwise it is SUCCESS.
+	// Either way the divergent coefficients stay at their limit, so the state, the log likelihood, the other
+	// coefficients' intervals and profiles are those of the limit, and the divergent coefficients are reported
 	if (!divergentCoefficients.empty() && !syncCV) {
 		bool allNone = true;
 		for (int j = 0; j < J && allNone; ++j) {
@@ -877,10 +888,6 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 		const bool failed = lastReturnFlag == ILLCONDITIONED;
 		if (allNone) {
 			lastReturnFlag = ILLCONDITIONED;
-			for (int j : divergentCoefficients) {
-				hBeta[j] = std::numeric_limits<double>::quiet_NaN();
-			}
-			xBetaKnown = false;
 		} else if (!failed) {
 			lastReturnFlag = SUCCESS;
 		}
@@ -1063,8 +1070,22 @@ void CyclicCoordinateDescent::findDivergentCoefficients() {
 		computeFixedTermsInGradientAndHessian();
 		validWeights = true;
 	}
+	// Directions depend only on the data and the weights: cached per column until the weights change (profile
+	// and confint refits fix one column at a time)
+	if (separationCache.size() != static_cast<size_t>(J)) {
+		separationCache.assign(J, 2);
+	}
+	std::vector<int> all;
+	all.swap(columns);
+	for (int j : all) {
+		if (separationCache[j] == 2) {
+			columns.push_back(j);
+		}
+	}
 	std::vector<int> direction;
-	if (!modelSpecifics.separationDirections(columns, direction)) {
+	if (columns.empty()) {
+		// every column cached
+	} else if (!modelSpecifics.separationDirections(columns, direction)) {
 		direction.assign(columns.size(), 0);
 		if (hXI.getModelType() == ModelType::LOGISTIC) {
 			// d l / d beta_j = sum_k x_kj (y_k - p_k): one-signed when every row with x_kj != 0 has y_k = 1 exactly
@@ -1095,9 +1116,12 @@ void CyclicCoordinateDescent::findDivergentCoefficients() {
 		}
 	}
 	for (size_t c = 0; c < columns.size(); ++c) {
-		if (direction[c] != 0) {
-			divergentDirection[columns[c]] = direction[c];
-			divergentCoefficients.push_back(columns[c]);
+		separationCache[columns[c]] = static_cast<signed char>(direction[c]);
+	}
+	for (int j : all) {
+		if (separationCache[j] != 0) {
+			divergentDirection[j] = separationCache[j];
+			divergentCoefficients.push_back(j);
 		}
 	}
 }
@@ -2815,6 +2839,8 @@ void CyclicCoordinateDescent::setWeights(double* iWeights, int syncCVIndex) {
 	}
 	useCrossValidation = true;
 	validWeights = false;
+	separationCache.clear();
+	profilePool.clear();
 	sufficientStatisticsKnown = false;
 }
 

@@ -803,24 +803,28 @@ void cyclopsSetCvControl(SEXP inRcppCcdInterface, const List& options) {
 static void appendNewtonReports(Rcpp::List& list, bsccs::RcppCcdInterface& rcppInterface) {
 	using namespace Rcpp;
 	bsccs::RcppCcdInterface* interface = &rcppInterface;
-	// Separated unpenalized coefficients (Newton plan 2.7, D5), as 1-based coefficient indices
+	// Columns are reported by covariate label, as in estimation$column_label (engine indices count an offset column)
+	auto& data = interface->getModelData();
+	auto label = [&data](int column) { return static_cast<double>(data.getColumnNumericalLabel(column)); };
+
+	// Separated unpenalized coefficients (Newton plan 2.7, D5)
 	const auto& divergent = interface->getCcd().getDivergentCoefficients();
 	if (!divergent.empty()) {
-		IntegerVector indices(divergent.size());
+		NumericVector labels(divergent.size());
 		for (size_t i = 0; i < divergent.size(); ++i) {
-			indices[i] = divergent[i] + 1;
+			labels[i] = label(divergent[i]);
 		}
-		list["divergentCoefficients"] = indices;
+		list["divergentCoefficients"] = labels;
 	}
 
-	// Merged exact-duplicate columns (Newton plan 2.8), 1-based, representative first
+	// Merged exact-duplicate columns (Newton plan 2.8), representative first
 	const auto& aliased = interface->getCcd().getAliasedColumns();
 	if (!aliased.empty()) {
 		List groups(aliased.size());
 		for (size_t g = 0; g < aliased.size(); ++g) {
-			IntegerVector members(aliased[g].size());
+			NumericVector members(aliased[g].size());
 			for (size_t m = 0; m < aliased[g].size(); ++m) {
-				members[m] = aliased[g][m] + 1;
+				members[m] = label(aliased[g][m]);
 			}
 			groups[g] = members;
 		}

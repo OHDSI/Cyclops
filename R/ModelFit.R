@@ -340,15 +340,13 @@ fitCyclopsModel <- function(cyclopsData,
     }
 
     if (!is.null(fit$aliasedColumns)) { # merged exact duplicates (Newton plan 2.8), by name
-        names <- .coefficientNames(cyclopsData)
-        fit$aliasedColumns <- lapply(fit$aliasedColumns, function(group) names[group])
+        fit$aliasedColumns <- lapply(fit$aliasedColumns, function(group) .coefficientNames(cyclopsData, group))
     }
     if (!is.null(fit$divergentCoefficients)) { # separation (D5): names, and a warning when the fit stands
-        fit$divergentCoefficients <- .coefficientNames(cyclopsData)[fit$divergentCoefficients]
+        fit$divergentCoefficients <- .coefficientNames(cyclopsData, fit$divergentCoefficients)
         if (warnings) {
             warning("Separation: coefficient may be infinite (", paste(fit$divergentCoefficients, collapse = ", "), "); ",
-                    if (fit$return_flag == "SUCCESS") "reported at its limit" else "reported as NaN",
-                    " (fit$divergentCoefficients)")
+                    "reported at its limit (fit$divergentCoefficients)")
         }
     }
     if (warnings && fit$return_flag == "MAX_ITERATIONS" && !is.null(fit$convergence) &&
@@ -702,8 +700,8 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              \code{fitter = "super"}, and \code{"gap"} with \code{algorithm = "auto"} or
 #'                              \code{"newton"}. \code{"gap"} stops when a certified bound on the distance to the
 #'                              optimum of the log posterior is below \code{tolerance}; it needs a model with
-#'                              second-order kernels (so far \code{"cox"} and \code{"cox_counting"} in double
-#'                              precision on the CPU) and normal, Laplace or no priors; with Laplace priors the stop is an
+#'                              second-order kernels (so far \code{"cox"}, \code{"cox_counting"}, \code{"cpr"}, \code{"sccs"} and
+#'                              \code{"clr"} in double precision on the CPU) and normal, Laplace or no priors; with Laplace priors the stop is an
 #'                              estimate rather than a certified bound
 #' @param cvType						String: name of cross validation search.
 #' 													Option \code{"auto"} selects an auto-search following BBR.
@@ -1345,9 +1343,18 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 
     prof <- NULL
     if (!is.null(object$divergentCoefficients) && object$return_flag == "ILLCONDITIONED") {
-        # separation with no prior on any coefficient (D5): the divergent coefficients are NaN, so is the model state
-        prof <- data.frame(covariate = parm, lower = rep(NA, length(parm)), upper = rep(NA, length(parm)),
-                           evaluations = rep(NA, length(parm)))
+        # separation with no prior on any coefficient (D5): no interval for the divergent coefficients; the others'
+        # come from the fit at their limit
+        divergent <- .coefficientNames(object, parm) %in% object$divergentCoefficients
+        if (any(divergent)) {
+            prof <- data.frame(covariate = as.numeric(parm), lower = NA_real_, upper = NA_real_, evaluations = NA_real_)
+            if (!all(divergent)) {
+                rest <- confint.cyclopsFit(object, parm = parm[!divergent], level = level,
+                                           overrideNoRegularization = overrideNoRegularization,
+                                           includePenalty = includePenalty, maximumCurvature = maximumCurvature)
+                prof[!divergent, 2:4] <- rest[, 2:4]
+            }
+        }
     }
 
     hessianDiagonal <- if (is.null(prof)) .cyclopsGetLogLikelihoodHessianDiagonal(object$cyclopsData$cyclopsInterfacePtr,

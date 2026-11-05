@@ -13,22 +13,30 @@ separatedCox <- function(seed = 1, K = 400) {
     frame
 }
 
-test_that("a separated Cox fit without priors is ILLCONDITIONED with NaN only in the divergent coefficient", {
+test_that("a separated Cox fit without priors is ILLCONDITIONED with the divergent coefficient at its limit", {
     frame <- separatedCox()
     data <- createCyclopsData(Surv(time, y) ~ x1 + x2 + arm, data = frame, modelType = "cox")
     expect_warning(fit <- fitCyclopsModel(data), "coefficient may be infinite")
     expect_equal(fit$return_flag, "ILLCONDITIONED")
     expect_equal(fit$divergentCoefficients, "arm")
     beta <- coef(fit, ignoreConvergence = TRUE)
-    expect_true(is.nan(beta[["arm"]]))
+    expect_equal(beta[["arm"]], -40)
     expect_true(all(is.finite(beta[c("x1", "x2")])))
 
     # the other coefficients are those of the limit: the arm's rows never at the risk-set minimum drop out
     limit <- coxph(Surv(time, y) ~ x1 + x2, data = frame[frame$arm == 0, ], ties = "breslow")
     expect_equal(unname(beta[c("x1", "x2")]), unname(coef(limit)), tolerance = 1e-5)
+    expect_equal(fit$log_likelihood, limit$loglik[2], tolerance = 1e-8)
 
-    ci <- confint(fit, parm = "arm")
-    expect_true(all(is.na(ci[, 2:3])))
+    ci <- confint(fit, parm = c("x1", "arm"))
+    expect_true(all(is.na(ci["arm", 2:3])))
+    expect_true(all(is.finite(ci["x1", 2:3])))
+    expect_true(ci["x1", 2] < beta[["x1"]] && beta[["x1"]] < ci["x1", 3])
+
+    # the divergent coefficient's profile: fixed values are ordinary refits
+    profile <- getCyclopsProfileLogLikelihood(fit, parm = "arm", x = c(-6, -3, 0))
+    expect_true(all(is.finite(profile$value)))
+    expect_true(all(diff(profile$value) < 0))
 })
 
 test_that("with a proper prior elsewhere, the fit is SUCCESS and the divergent coefficient sits at its limit", {

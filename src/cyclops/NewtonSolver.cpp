@@ -782,6 +782,32 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		};
 		context.nuNormal = (data != nullptr) ? std::sqrt(rowMaximum(*data, context.F, variance, 2, K, positive)) : NAN;
 	}
+	// Profile and confint refits (2.9): chord Newton steps on the reference Hessian, at most 8, before the usual
+	// driver and its cost estimates
+	if (profileActive && profileReference && convergenceType == GAP && algorithmType != AlgorithmType::CCD &&
+			!context.anyLaplace) {
+		for (int chord = 0; chord < 8 && iteration < maxIterations; ++chord) {
+			++iteration;
+			++convergenceReport.newtonIterations;
+			const NewtonOutcome outcome = chordIteration(context);
+			if (outcome == NewtonOutcome::CERTIFIED || outcome == NewtonOutcome::UNCERTIFIED) {
+				--iteration; // the stop test does not move
+				--convergenceReport.newtonIterations;
+				const bool certified = outcome == NewtonOutcome::CERTIFIED;
+				lastReturnFlag = SUCCESS;
+				convergenceReport.certificate = certified ? "gsc" : "none";
+				convergenceReport.certified = certified;
+				convergenceReport.gapEstimate = certified ? convergenceReport.gsc : convergenceReport.lambda2Half;
+				return;
+			}
+			if (outcome == NewtonOutcome::FAILED) {
+				--iteration;
+				--convergenceReport.newtonIterations;
+				break;
+			}
+		}
+	}
+
 	// prox-Newton works on W (unpenalized, nonzeros, violators): its cost is estimated from the current W, again
 	// after the warm start and every 16 cycles
 	auto workingSet = [&]() {
@@ -1002,11 +1028,329 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 						finish(SUCCESS, "gsc", value);
 						break;
 					}
+				} else if (std::isfinite(lambda2Half)) {
+					// H is singular (e.g. columns constant within every stratum of a grouped model): no gsc, and
+					// CCD crawls along the flat directions. As on the Newton path, Lambda^2 / 2 <= tau_eff stops
+					// uncertified; otherwise "auto" continues with Newton steps
+					convergenceReport.lambda2Half = lambda2Half;
+					if (lambda2Half <= context.tauEff) {
+						finish(SUCCESS, "none", lambda2Half);
+						break;
+					}
+					if (algorithmType == AlgorithmType::AUTO && cycles >= suppressUntil) {
+						newtonPhase = true;
+						phaseIterations = 0;
+						context.rejections = 0;
+						if (convergenceReport.newtonStart < 0) {
+							convergenceReport.newtonStart = cycles;
+						}
+						continue;
+					}
 				}
 				certifyAfter = cycles + (1 << std::min(certifyFailures++, 20));
 			}
 		}
 	}
+}
+
+
+// Profile and confint refits (Newton plan 2.9). The reference is the likelihood Hessian H~ at the coefficients the
+// profile starts from. A refit takes chord Newton steps d = -(H~ + Lambda)^-1 s on its free columns F (a subset),
+// whose first step from the previous solution is the tangent predictor. Its stop allows for the lag: the
+// likelihoods here weight rows within a risk set or stratum by exp(eta), and moving every eta by at most delta moves
+// each weight by at most exp(2 delta), so H(beta) >= exp(-2 delta) H~ and, with the precision, Lambda^2 <=
+// exp(2 delta) Lambda~^2 and nu <= exp(delta) nu~ (the diagonal of H^-1 grows at most by exp(2 delta)).
+struct CyclicCoordinateDescent::ProfileReference {
+	std::vector<int> F;              // columns of H
+	std::vector<int> position;       // column -> position in F (-1 otherwise)
+	Eigen::MatrixXd H;               // likelihood Hessian over F at the reference
+	std::vector<double> eta;         // x'beta at the reference
+	std::vector<double> beta;        // coefficients at the reference
+	std::shared_ptr<const std::vector<double>> columnMax; // max_k |x_kj|: sum_j columnMax_j |beta_j - beta~_j| >= delta
+};
+
+struct CyclicCoordinateDescent::ProfileFactor {
+	const ProfileReference* reference = nullptr;
+	std::vector<int> F;
+	std::vector<double> precision;
+	bool cholesky = false;
+	Eigen::LLT<Eigen::MatrixXd> llt;
+	Eigen::MatrixXd basis;           // eigen path: eigenvectors with eigenvalues above 1e-10 the largest
+	Eigen::VectorXd inverseValues;   // and their inverses
+	double nu = NAN;                 // nu~ for the Cholesky path
+};
+
+// A reference at the current state over the columns of `like` (or the free Normal / None columns); null when the
+// model or the priors do not allow one
+std::shared_ptr<const CyclicCoordinateDescent::ProfileReference> CyclicCoordinateDescent::makeProfileReference(
+		const ProfileReference* like) {
+	auto reference = std::make_shared<ProfileReference>();
+	if (like != nullptr) {
+		reference->F = like->F;
+		reference->position = like->position;
+		reference->columnMax = like->columnMax;
+	} else {
+		for (int j = 0; j < J; ++j) {
+			double precision = 0.0, lambda = 0.0;
+			if (jointPrior->getLaplaceLambda(j, &lambda)) {
+				return nullptr; // prox-Newton refits keep their own path
+			}
+			if (!fixBeta[j] && jointPrior->getNormalPrecision(j, &precision)) {
+				reference->F.push_back(j);
+			}
+		}
+		const double width = static_cast<double>(reference->F.size());
+		if (reference->F.empty() || 8.0 * width * width > 64.0 * 1024 * 1024) {
+			return nullptr;
+		}
+		reference->position.assign(J, -1);
+		for (size_t i = 0; i < reference->F.size(); ++i) {
+			reference->position[reference->F[i]] = static_cast<int>(i);
+		}
+		auto columnMax = std::make_shared<std::vector<double>>(J, 0.0);
+		const auto* data = dynamic_cast<const ModelData<double>*>(&hXI);
+		if (data == nullptr) {
+			return nullptr;
+		}
+		for (int j = 0; j < J; ++j) {
+			for (GenericIterator<double> it(data->getX(), j); it; ++it) {
+				(*columnMax)[j] = std::max((*columnMax)[j], std::abs(it.value()));
+			}
+		}
+		reference->columnMax = columnMax;
+	}
+	getLogLikelihood(); // brings the state up to date
+	std::vector<double> block;
+	if (!modelSpecifics.hessianBlock(reference->F, block)) {
+		return nullptr;
+	}
+	const size_t n = reference->F.size();
+	reference->H = Eigen::Map<Eigen::MatrixXd>(block.data(), n, n);
+	reference->eta = modelSpecifics.getXBeta();
+	reference->beta = hBeta;
+	return reference;
+}
+
+void CyclicCoordinateDescent::beginProfileReference() {
+	profileActive = false;
+	profileReference.reset();
+	profileFactor.reset();
+	if (!modelSpecifics.supportsSecondOrder() || usingGPU || usingCUDA || syncCV) {
+		return;
+	}
+	// The pool survives between profile calls on the same fit (the adaptive profile calls in batches): its first
+	// entry is the mode, reused while the coefficients there are unchanged
+	if (!profilePool.empty()) {
+		const std::vector<double>& mode = profilePool[0]->beta;
+		bool same = mode.size() == hBeta.size();
+		for (size_t j = 0; j < mode.size() && same; ++j) {
+			same = std::abs(mode[j] - hBeta[j]) <= 1e-12 * std::max(1.0, std::abs(mode[j]));
+		}
+		for (int j = 0; j < J && same; ++j) { // and the free columns
+			double precision = 0.0;
+			const bool free = !fixBeta[j] && jointPrior->getNormalPrecision(j, &precision);
+			same = free == (profilePool[0]->position[j] >= 0);
+		}
+		if (!same) {
+			profilePool.clear();
+		}
+	}
+	if (profilePool.empty()) {
+		auto reference = makeProfileReference(nullptr);
+		if (!reference) {
+			return;
+		}
+		profilePool.push_back(reference);
+	}
+	profileReference = profilePool[0];
+	profileActive = true;
+}
+
+void CyclicCoordinateDescent::endProfileReference() {
+	profileActive = false;
+	profileReference.reset();
+	profileFactor.reset();
+}
+
+void CyclicCoordinateDescent::shareProfileReference(const CyclicCoordinateDescent& other) {
+	profilePool = other.profilePool;
+	profileReference = other.profileReference;
+	profileActive = other.profileActive;
+	profileFactor.reset();
+}
+
+CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::chordIteration(NewtonContext& context) {
+
+	const size_t n = context.F.size();
+
+	// The reference nearest by a bound on the lag (sum_j max|x_j| |beta_j - beta~_j| >= delta), then its lag
+	// delta = max_k |eta_k - eta~_k|. Past 0.5 a new reference is taken here: profile points run outward from the
+	// mode in chains, so the next points reuse it
+	auto bound = [this](const ProfileReference& reference) {
+		double sum = 0.0;
+		for (int j = 0; j < J; ++j) {
+			sum += (*reference.columnMax)[j] * std::abs(hBeta[j] - reference.beta[j]);
+		}
+		return sum;
+	};
+	for (const auto& candidate : profilePool) {
+		if (bound(*candidate) < bound(*profileReference)) {
+			profileReference = candidate;
+		}
+	}
+	std::vector<double> eta = modelSpecifics.getXBeta();
+	double delta = 0.0;
+	for (size_t k = 0; k < eta.size() && k < profileReference->eta.size(); ++k) {
+		delta = std::max(delta, std::abs(eta[k] - profileReference->eta[k]));
+	}
+	if (!(delta <= 0.5)) {
+		auto moved = makeProfileReference(profileReference.get());
+		if (!moved) {
+			return NewtonOutcome::FAILED;
+		}
+		++convergenceReport.hessians;
+		if (profilePool.size() >= 6) {
+			profilePool.erase(profilePool.begin() + 1); // the oldest after the mode
+		}
+		profilePool.push_back(moved);
+		profileReference = moved;
+		delta = 0.0;
+	}
+	const ProfileReference& reference = *profileReference;
+	if (!profileFactor || profileFactor->reference != &reference || profileFactor->F != context.F ||
+			profileFactor->precision != context.precision) {
+		auto factor = std::make_shared<ProfileFactor>();
+		std::vector<int> index(n);
+		for (size_t i = 0; i < n; ++i) {
+			index[i] = reference.position[context.F[i]];
+			if (index[i] < 0) {
+				return NewtonOutcome::FAILED; // a column outside the reference
+			}
+		}
+		Eigen::MatrixXd H(n, n);
+		for (size_t b = 0; b < n; ++b) {
+			for (size_t a = 0; a < n; ++a) {
+				H(a, b) = reference.H(index[a], index[b]);
+			}
+			H(b, b) += context.precision[b];
+		}
+		factor->llt.compute(H);
+		if (factor->llt.info() == Eigen::Success) {
+			const Eigen::VectorXd d = factor->llt.matrixLLT().diagonal().array().square();
+			factor->cholesky = d.size() == 0 || d.minCoeff() >= 1e-10 * d.maxCoeff();
+		}
+		if (factor->cholesky) {
+			const Eigen::MatrixXd Linverse = factor->llt.matrixL().solve(Eigen::MatrixXd::Identity(n, n));
+			const Eigen::VectorXd inverse = Linverse.colwise().squaredNorm().transpose();
+			std::vector<double> root(n);
+			for (size_t i = 0; i < n; ++i) {
+				root[i] = std::sqrt(std::max(inverse(i), 0.0));
+			}
+			const auto* data = dynamic_cast<const ModelData<double>*>(&hXI);
+			auto positive = [this](int k) {
+				return !useCrossValidation || static_cast<size_t>(k) >= hWeights.size() || hWeights[k] > 0.0;
+			};
+			factor->nu = (data != nullptr) ? rowMaximum(*data, context.F, root, 1, K, positive) : NAN;
+			if (context.allNormal) {
+				factor->nu = std::min(factor->nu, context.nuNormal);
+			}
+		} else {
+			Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eigen(H);
+			const Eigen::VectorXd values = eigen.eigenvalues();
+			const double tolerance = 1e-10 * values.cwiseAbs().maxCoeff();
+			int kept = 0;
+			for (Eigen::Index i = 0; i < values.size(); ++i) {
+				kept += values(i) > tolerance;
+			}
+			factor->basis.resize(n, kept);
+			factor->inverseValues.resize(kept);
+			for (Eigen::Index i = 0, c = 0; i < values.size(); ++i) {
+				if (values(i) > tolerance) {
+					factor->basis.col(c) = eigen.eigenvectors().col(i);
+					factor->inverseValues(c++) = 1.0 / values(i);
+				}
+			}
+		}
+		factor->reference = &reference;
+		factor->F = context.F;
+		factor->precision = context.precision;
+		profileFactor = factor;
+	}
+	const ProfileFactor& factor = *profileFactor;
+
+	std::vector<double> gradient;
+	if (!modelSpecifics.fullGradient(context.F, gradient)) {
+		return NewtonOutcome::FAILED;
+	}
+	Eigen::VectorXd s(n);
+	for (size_t i = 0; i < n; ++i) {
+		s(i) = gradient[i] + context.precision[i] * hBeta[context.F[i]];
+	}
+	if (!s.allFinite()) {
+		return NewtonOutcome::FAILED;
+	}
+	const Eigen::VectorXd x = factor.cholesky ? Eigen::VectorXd(factor.llt.solve(s)) :
+		Eigen::VectorXd(factor.basis * (factor.inverseValues.asDiagonal() * (factor.basis.transpose() * s)));
+	const double lambda2 = std::exp(2.0 * delta) * s.dot(x);
+	convergenceReport.lambda2Half = 0.5 * lambda2;
+
+	// Stop at the current point: gsc with the lagged bounds certifies it; a singular H~ stops uncertified on
+	// Lambda^2 / 2, as the Newton path does
+	if (factor.cholesky) {
+		const double value = newton::gsc(2.0 * std::exp(delta) * factor.nu, std::sqrt(lambda2));
+		convergenceReport.gsc = value;
+		if (value <= context.tauEff) {
+			return NewtonOutcome::CERTIFIED;
+		}
+	} else if (0.5 * lambda2 <= context.tauEff) {
+		return NewtonOutcome::UNCERTIFIED;
+	}
+
+	// Chord step with Armijo backtracking inside the eta trust region
+	const Eigen::VectorXd d = -x;
+	const std::vector<double> direction(d.data(), d.data() + n);
+	if (!modelSpecifics.setDirection(context.F, direction)) {
+		return NewtonOutcome::FAILED;
+	}
+	auto objective = [&](double t) {
+		double penalty = 0.0;
+		for (size_t i = 0; i < n; ++i) {
+			const double b = hBeta[context.F[i]] + t * d(i);
+			penalty += 0.5 * context.precision[i] * b * b;
+		}
+		return -modelSpecifics.trialLogLikelihood(t) + penalty;
+	};
+	const double largest = modelSpecifics.directionMaxAbs();
+	const double tStart = (largest > context.eta) ? context.eta / largest : 1.0;
+	const double f0 = objective(0.0);
+	const double slope = s.dot(d);
+	double t = tStart;
+	bool accepted = false;
+	for (int halving = 0; halving < 30 && !accepted; ++halving) {
+		const double ft = objective(t);
+		accepted = std::isfinite(ft) && ft <= f0 + 1e-4 * t * slope;
+		if (!accepted) {
+			t *= 0.5;
+		}
+	}
+	if (!accepted || !modelSpecifics.commitStep(t)) {
+		return NewtonOutcome::FAILED;
+	}
+	for (size_t i = 0; i < n; ++i) {
+		const int j = context.F[i];
+		const double change = t * d(i);
+		hBeta[j] += change;
+		hDelta[j] = std::max(hDelta[j], 2.0 * std::abs(change));
+		if (lastStep.size() == hDelta.size()) {
+			lastStep[j] = 0.0;
+			flipCount[j] = 0;
+		}
+	}
+	kktConsecutive = 0;
+	xBetaKnown = true;
+	sufficientStatisticsKnown = true;
+	convergenceReport.algorithm = "newton";
+	return NewtonOutcome::ACCEPTED;
 }
 
 } // namespace bsccs

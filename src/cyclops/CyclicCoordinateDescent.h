@@ -20,6 +20,7 @@
 
 #include <Eigen/Dense>
 #include <deque>
+#include <memory>
 
 #include "Types.h"
 
@@ -279,7 +280,14 @@ public:
 	// Groups of exact-duplicate columns merged in the last fit (Newton plan 2.8), representative first
 	const std::vector<std::vector<int>>& getAliasedColumns() const { return aliasGroups; }
 
-	loggers::ProgressLogger& getProgressLogger() const { return *logger; }
+	// Profile and confint refits (Newton plan 2.9): the likelihood Hessian at the current coefficients, from which
+	// refits under "auto" / "newton" + "gap" take chord Newton steps with a certificate that allows for the lag.
+	// Inactive when the model has no second-order kernels, a free coefficient has a Laplace prior, or H is too large
+	void beginProfileReference();
+	void endProfileReference();
+	void shareProfileReference(const CyclicCoordinateDescent& other);
+
+		loggers::ProgressLogger& getProgressLogger() const { return *logger; }
 
 	loggers::ErrorHandler& getErrorHandler() const { return *error; }
 
@@ -521,6 +529,7 @@ protected:
 	std::vector<uint64_t> columnHashes; // per column, cached: the data do not change
 	void findAliasGroups();
 	double divergentLimit(int j) const;
+	std::vector<signed char> separationCache; // per column: -1, 0, +1, or 2 not yet computed (cleared with the weights)
 	bool trackStepDecrease = false; // shadow log or "gap": accumulate shadowStepDecrease in the serial cycle
 	std::string secondOrderIneligibility() const;
 	struct NewtonContext;
@@ -534,6 +543,14 @@ protected:
 	bool newtonDirectionCG(NewtonContext& context, Eigen::VectorXd& s, Eigen::VectorXd& d, bool* stop,
 	                       bool* certified);
 	bool certifyGap(NewtonContext& context, double* gscValue, double* lambda2Half);
+	struct ProfileReference;
+	struct ProfileFactor;
+	std::vector<std::shared_ptr<const ProfileReference>> profilePool; // the mode first; kept between profile calls
+	std::shared_ptr<const ProfileReference> profileReference;          // in use
+	bool profileActive = false;
+	std::shared_ptr<const ProfileReference> makeProfileReference(const ProfileReference* like);
+	std::shared_ptr<ProfileFactor> profileFactor; // cached per set of free columns
+	NewtonOutcome chordIteration(NewtonContext& context);
 
 	int shadowMode = 0;
 	double shadowStepDecrease = 0.0;

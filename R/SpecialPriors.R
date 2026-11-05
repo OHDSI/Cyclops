@@ -79,7 +79,8 @@ nonSeparableHook <- function(
                                         fixedCoefficients = separable)
 
         if (fit$return_flag == "ILLCONDITIONED") {
-            new_separable <- is.nan(coef(fit, ignoreConvergence = TRUE)) | separable
+            beta <- coef(fit, ignoreConvergence = TRUE) # divergent coefficients stay at their limit (D5)
+            new_separable <- is.nan(beta) | names(beta) %in% fit$divergentCoefficients | separable
         } else {
             new_separable <- separable
         }
