@@ -291,7 +291,9 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 	context.tolerance = tau;
 	for (int j = 0; j < J; ++j) {
 		double precision = 0.0;
-		if (!fixBeta[j] && jointPrior->getNormalPrecision(j, &precision)) {
+		if (!fixBeta[j] && jointPrior->getNormalPrecision(j, &precision) &&
+				(divergentDirection.size() != static_cast<size_t>(J) || divergentDirection[j] == 0)) {
+			// separated coefficients (2.7) stay with CCD; Newton works conditionally on them
 			context.F.push_back(j);
 			context.precision.push_back(precision);
 			context.allNormal = context.allNormal && precision > 0.0;

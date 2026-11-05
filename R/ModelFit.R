@@ -339,6 +339,14 @@ fitCyclopsModel <- function(cyclopsData,
         fit <- .cyclopsFitModel(cyclopsData$cyclopsInterfacePtr)
     }
 
+    if (!is.null(fit$divergentCoefficients)) { # separation (D5): names, and a warning when the fit stands
+        fit$divergentCoefficients <- .coefficientNames(cyclopsData)[fit$divergentCoefficients]
+        if (warnings) {
+            warning("Separation: coefficient may be infinite (", paste(fit$divergentCoefficients, collapse = ", "), "); ",
+                    if (fit$return_flag == "SUCCESS") "reported at its limit" else "reported as NaN",
+                    " (fit$divergentCoefficients)")
+        }
+    }
     if (warnings && fit$return_flag == "MAX_ITERATIONS" && !is.null(fit$convergence) &&
         is.finite(fit$convergence$gapEstimate)) {
         warning("Reached maxIterations; the estimated gap to the optimum is ", signif(fit$convergence$gapEstimate, 3))
@@ -1320,12 +1328,17 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
         }
     }
 
-    hessianDiagonal <- .cyclopsGetLogLikelihoodHessianDiagonal(object$cyclopsData$cyclopsInterfacePtr,
-                                                               parm)
-
-    convergenceType <- .cyclopsGetConvergenceType(object$cyclopsData$cyclopsInterfacePtr)
     prof <- NULL
-    if (convergenceType != 1 && any(hessianDiagonal >= maximumCurvature)) {
+    if (!is.null(object$divergentCoefficients) && object$return_flag == "ILLCONDITIONED") {
+        # separation with no prior on any coefficient (D5): the divergent coefficients are NaN, so is the model state
+        prof <- data.frame(covariate = parm, lower = rep(NA, length(parm)), upper = rep(NA, length(parm)),
+                           evaluations = rep(NA, length(parm)))
+    }
+
+    hessianDiagonal <- if (is.null(prof)) .cyclopsGetLogLikelihoodHessianDiagonal(object$cyclopsData$cyclopsInterfacePtr,
+                                                                                  parm)
+    convergenceType <- .cyclopsGetConvergenceType(object$cyclopsData$cyclopsInterfacePtr)
+    if (is.null(prof) && convergenceType != 1 && any(hessianDiagonal >= maximumCurvature)) {
 
         .cyclopsSetConvergenceType(object$interface, "lange")
         newFit <- .cyclopsFitModel(object$cyclopsData$cyclopsInterfacePtr)

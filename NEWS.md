@@ -31,6 +31,16 @@ Changes:
    criterion it would have had
 7. a `"ccd"` fit after an `"mm"` fit on the same data object runs coordinate descent (it kept running
    `"mm"`)
+8. separation: an unpenalized coefficient whose likelihood is monotone in it alone (`cox` and `cox_counting`:
+   every event at its risk set's minimum or maximum of the covariate; `lr`: every row with a non-zero
+   value has the same outcome, by sign) is detected before fitting and held at its limit while the other
+   coefficients are fit, which then equal those of the limiting model. With no prior on any coefficient
+   the fit is `ILLCONDITIONED` with `NaN` in the divergent coefficients; otherwise it is `SUCCESS` with
+   the divergent coefficients at their limit. Both warn and name them in `fit$divergentCoefficients`, and
+   `confint()` returns `NA` for an `ILLCONDITIONED` separated fit. Earlier versions returned `SUCCESS`
+   with large finite values or `ILLCONDITIONED` with `NaN`, depending on the data and the convergence
+   criterion, so results of separated fits change. Conditional Poisson, SCCS and conditional logistic
+   models are not checked yet
 
 Cyclops v3.8.0
 ==============

@@ -13,7 +13,7 @@ test_that("Check int64 handling", {
     # using int32
     cyclopsData <- convertToCyclopsData(data$outcomes,data$covariates, modelType = "lr", addIntercept = TRUE)
     fit <- fitCyclopsModel(cyclopsData)
-    int32Result <- coef(fit)
+    int32Result <- coef(fit, ignoreConvergence = TRUE) # covariate 5 has no events: separated (NaN)
 
     # using int64
     data$outcomes$rowId <- bit64::as.integer64(data$outcomes$rowId)
@@ -22,7 +22,7 @@ test_that("Check int64 handling", {
 
     cyclopsData64 <- convertToCyclopsData(data$outcomes,data$covariates, modelType = "lr", addIntercept = TRUE)
     fit64 <- fitCyclopsModel(cyclopsData64)
-    int64Result <- coef(fit64)
+    int64Result <- coef(fit64, ignoreConvergence = TRUE)
 
     expect_equal(int64Result, int32Result)
 
@@ -31,7 +31,7 @@ test_that("Check int64 handling", {
     data$covariates$covariateId[which(data$covariates$covariateId == bit64::as.integer64(1))] <- bit64::as.integer64(longName)
     cyclopsData64b <- convertToCyclopsData(data$outcomes,data$covariates, modelType = "lr", addIntercept = TRUE)
     fit2 <- fitCyclopsModel(cyclopsData64b)
-    result2 <- coef(fit2)
+    result2 <- coef(fit2, ignoreConvergence = TRUE)
     expect_error(
         expect_equal(sort(result2), sort(int64Result)),
         "1 string mismatch")

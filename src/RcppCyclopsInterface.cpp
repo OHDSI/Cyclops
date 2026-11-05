@@ -902,6 +902,16 @@ List cyclopsFitModel(SEXP inRcppCcdInterface) {
 			_["lambda2Half"] = last.lambda2Half, _["kktMaxR"] = last.kktMaxR, _["cycles"] = last.cycle);
 	}
 
+	// Separated unpenalized coefficients (Newton plan 2.7, D5), as 1-based coefficient indices
+	const auto& divergent = interface->getCcd().getDivergentCoefficients();
+	if (!divergent.empty()) {
+		IntegerVector indices(divergent.size());
+		for (size_t i = 0; i < divergent.size(); ++i) {
+			indices[i] = divergent[i] + 1;
+		}
+		list["divergentCoefficients"] = indices;
+	}
+
 	// What a "gap" / "auto" / "newton" fit did (Newton plan 2.10); replaces the shadow log's summary
 	const auto& report = interface->getCcd().getConvergenceReport();
 	if (report.present) {

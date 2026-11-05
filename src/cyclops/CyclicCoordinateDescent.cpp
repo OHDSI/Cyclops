@@ -781,6 +781,16 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	int count = 0;
 	bool done = false;
 
+	findDivergentCoefficients(); // data-only: separated unpenalized coefficients (D5)
+
+	// Divergent coefficients are pinned at their limit for the fit (2.7: "profiled out at their limit"): the
+	// others are then estimated as the coefficient goes to +/-Inf, and none overflows
+	for (int j : divergentCoefficients) {
+		hBeta[j] = divergentDirection[j] * divergentLimit(j);
+		fixBeta[j] = true;
+		xBetaKnown = false;
+	}
+
 	if (syncCV) {
 		donePool.resize(syncCVFolds);
 		for (int i=0; i<syncCVFolds; i++) {
@@ -801,7 +811,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	    }
 	    ++count;
 
-	    if (lastReturnFlag == ILLCONDITIONED && count < maxCount) {
+	    if (lastReturnFlag == ILLCONDITIONED && count < maxCount && divergentCoefficients.empty()) {
 	        // Reset beta and shrink bounding box
 	        initialBound /= 10.0;
             resetBeta();
@@ -810,6 +820,122 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	    }
 	}
 	minIterations = 0;
+	for (int j : divergentCoefficients) {
+		fixBeta[j] = false;
+	}
+
+	// D5: with a prior "none" on every free coefficient, a separated fit is ILLCONDITIONED with NaN in its divergent
+	// coefficients; otherwise it is SUCCESS, and the divergent coefficients are reported
+	if (!divergentCoefficients.empty() && !syncCV) {
+		bool allNone = true;
+		for (int j = 0; j < J && allNone; ++j) {
+			double precision = 0.0;
+			allNone = fixBeta[j] || (jointPrior->getNormalPrecision(j, &precision) && precision == 0.0);
+		}
+		const bool failed = lastReturnFlag == ILLCONDITIONED;
+		if (allNone) {
+			lastReturnFlag = ILLCONDITIONED;
+			for (int j : divergentCoefficients) {
+				hBeta[j] = std::numeric_limits<double>::quiet_NaN();
+			}
+			xBetaKnown = false;
+		} else if (!failed) {
+			lastReturnFlag = SUCCESS;
+		}
+	}
+}
+
+double CyclicCoordinateDescent::divergentLimit(int j) const {
+	// 40 over the column's smallest spacing between distinct values (0 included when it has zeros) puts the
+	// likelihood at its limit to machine precision; |x beta| <= 600 keeps exp() finite
+	auto limit = [&](const auto& X) {
+		std::vector<double> values;
+		double largest = 0.0;
+		size_t entries = 0;
+		for (GenericIterator<typename std::decay<decltype(*X.getDataVector(j))>::type> it(X, j); it; ++it) {
+			values.push_back(static_cast<double>(it.value()));
+			largest = std::max(largest, std::abs(values.back()));
+			++entries;
+		}
+		if (entries < X.getNumberOfRows()) {
+			values.push_back(0.0);
+		}
+		std::sort(values.begin(), values.end());
+		values.erase(std::unique(values.begin(), values.end()), values.end());
+		double spacing = std::numeric_limits<double>::infinity();
+		for (size_t i = 1; i < values.size(); ++i) {
+			spacing = std::min(spacing, values[i] - values[i - 1]);
+		}
+		if (!(largest > 0.0) || !std::isfinite(spacing)) {
+			return 40.0;
+		}
+		return std::min(40.0 / spacing, 600.0 / largest);
+	};
+	if (const auto* data64 = dynamic_cast<const ModelData<double>*>(&hXI)) {
+		return limit(data64->getX());
+	} else if (const auto* data32 = dynamic_cast<const ModelData<float>*>(&hXI)) {
+		return limit(data32->getX());
+	}
+	return 40.0;
+}
+
+void CyclicCoordinateDescent::findDivergentCoefficients() {
+
+	divergentDirection.assign(J, 0);
+	divergentCoefficients.clear();
+	std::vector<int> columns; // free coefficients without a prior
+	for (int j = 0; j < J; ++j) {
+		double precision = 0.0;
+		if (!fixBeta[j] && jointPrior->getNormalPrecision(j, &precision) && precision == 0.0) {
+			columns.push_back(j);
+		}
+	}
+	if (columns.empty() || usingGPU || usingCUDA || syncCV) {
+		return;
+	}
+	if (!validWeights) { // the event sums the engine compares with
+		computeNEvents();
+		computeFixedTermsInLogLikelihood();
+		computeFixedTermsInGradientAndHessian();
+		validWeights = true;
+	}
+	std::vector<int> direction;
+	if (!modelSpecifics.separationDirections(columns, direction)) {
+		direction.assign(columns.size(), 0);
+		if (hXI.getModelType() == ModelType::LOGISTIC) {
+			// d l / d beta_j = sum_k x_kj (y_k - p_k): one-signed when every row with x_kj != 0 has y_k = 1 exactly
+			// where x_kj > 0 (+Inf), or y_k = 0 exactly where x_kj > 0 (-Inf)
+			auto separation = [&](const auto& data) {
+				const auto& y = data.getYVectorRef();
+				for (size_t c = 0; c < columns.size(); ++c) {
+					bool up = true, down = true, any = false;
+					for (GenericIterator<typename std::decay<decltype(y[0])>::type> it(data.getX(), columns[c]); it && (up || down); ++it) {
+						const int k = it.index();
+						if (it.value() == 0 || (useCrossValidation && static_cast<size_t>(k) < hWeights.size() && hWeights[k] <= 0.0)) {
+							continue;
+						}
+						any = true;
+						const bool positive = it.value() > 0;
+						const bool event = y[k] != 0;
+						up = up && (positive == event);
+						down = down && (positive != event);
+					}
+					direction[c] = !any ? 0 : (up ? 1 : (down ? -1 : 0));
+				}
+			};
+			if (const auto* data64 = dynamic_cast<const ModelData<double>*>(&hXI)) {
+				separation(*data64);
+			} else if (const auto* data32 = dynamic_cast<const ModelData<float>*>(&hXI)) {
+				separation(*data32);
+			}
+		}
+	}
+	for (size_t c = 0; c < columns.size(); ++c) {
+		if (direction[c] != 0) {
+			divergentDirection[columns[c]] = direction[c];
+			divergentCoefficients.push_back(columns[c]);
+		}
+	}
 }
 
 typedef std::tuple<

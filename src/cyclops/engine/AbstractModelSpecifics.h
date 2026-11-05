@@ -223,6 +223,13 @@ public:
 		return std::numeric_limits<double>::quiet_NaN();
 	}
 
+	// Monotone likelihood in single coordinates (Newton plan 2.7): direction[i] = -1 (+1) when the likelihood
+	// does not increase (decrease) in columns[i] whatever the other coefficients, so an unpenalized coefficient
+	// diverges to -Inf (+Inf); 0 otherwise. False when the engine cannot tell.
+	virtual bool separationDirections(const std::vector<int>& columns, std::vector<int>& direction) {
+		return false;
+	}
+
 	// r_B of the Newton plan (2.4): the work of one dense Newton iteration over F in units of one CCD cycle
 	// over F, from compile-time per-term constants; NaN without the second-order API
 	virtual double newtonCostRatio(const std::vector<int>& F) {

@@ -270,6 +270,9 @@ public:
 
 	const ConvergenceReport& getConvergenceReport() const { return convergenceReport; }
 
+	// Unpenalized coefficients whose likelihood is monotone (separation, Newton plan 2.7 and D5), as indices
+	const std::vector<int>& getDivergentCoefficients() const { return divergentCoefficients; }
+
 	loggers::ProgressLogger& getProgressLogger() const { return *logger; }
 
 	loggers::ErrorHandler& getErrorHandler() const { return *error; }
@@ -505,6 +508,10 @@ protected:
 	bool trackKkt = false;
 
 	ConvergenceReport convergenceReport;
+	std::vector<int> divergentDirection;   // per coefficient: -1 / +1 when its MLE is at -Inf / +Inf, else 0
+	std::vector<int> divergentCoefficients;
+	void findDivergentCoefficients();
+	double divergentLimit(int j) const;
 	bool trackStepDecrease = false; // shadow log or "gap": accumulate shadowStepDecrease in the serial cycle
 	std::string secondOrderIneligibility() const;
 	struct NewtonContext;

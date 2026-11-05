@@ -21,6 +21,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
@@ -100,6 +101,8 @@ public:
     double directionMaxAbs() const;
 
     double newtonCostRatio(const std::vector<int>& F);
+
+    bool separationDirections(const std::vector<int>& columns, std::vector<int>& direction);
 
 private:
     using Base::hX;
@@ -1284,6 +1287,85 @@ double CountingProcessModelSpecifics<RealType>::newtonCostRatio(const std::vecto
     const double newton = aRows * rows + aGroups * static_cast<double>(N) * f * f + aCholesky * f * f * f / 3.0 +
         4.0 * aLinear * linear;
     return (cycle > 0.0) ? newton / (aCycle * cycle) : std::numeric_limits<double>::quiet_NaN();
+}
+
+template <typename RealType>
+bool CountingProcessModelSpecifics<RealType>::separationDirections(const std::vector<int>& columns,
+                                                                   std::vector<int>& direction) {
+
+    // Each event's x is at least the risk-set minimum and at most its maximum, so the observed sum of x over
+    // events equals sum_g d_g min_{R_g} x exactly when every event sits at its risk set's minimum: the
+    // likelihood then does not increase in the coefficient (MLE at -Inf); likewise for the maximum
+    if (!hasLayout || hNWeight.size() < N || hXjY.size() < J) {
+        return false;
+    }
+    prepareGroupLists();
+    const int unused = static_cast<int>(N);
+    std::vector<int> atRisk(N, 0); // rows at risk in each group
+    for (size_t g = 0, count = 0; g < N; ++g) {
+        if (static_cast<int>(g) == groupStratumStart[g]) {
+            count = 0;
+        }
+        count += (soEnterStart[g + 1] - soEnterStart[g]) - (soExitStart[g + 1] - soExitStart[g]);
+        atRisk[g] = static_cast<int>(count);
+    }
+    direction.assign(columns.size(), 0);
+    struct Change { int group; double value; bool enters; };
+    std::vector<Change> changes;
+    for (size_t c = 0; c < columns.size(); ++c) {
+        const int j = columns[c];
+        changes.clear();
+        for (GenericIterator<RealType> it(hX, j); it; ++it) {
+            const int k = it.index();
+            const double x = static_cast<double>(it.value());
+            if (hPid[k] < unused && x != 0.0) {
+                changes.push_back({hPid[k], x, true});
+                if (hExitPid[k] < unused) {
+                    changes.push_back({hExitPid[k], x, false});
+                }
+            }
+        }
+        std::stable_sort(changes.begin(), changes.end(), [](const Change& a, const Change& b) { return a.group < b.group; });
+        std::multiset<double> values; // non-zero x at risk
+        double lowest = 0.0, highest = 0.0, scale = 0.0;
+        size_t next = 0;
+        for (size_t g = 0; g < N; ++g) {
+            if (static_cast<int>(g) == groupStratumStart[g]) {
+                values.clear();
+            }
+            for (; next < changes.size() && changes[next].group == static_cast<int>(g); ++next) {
+                if (changes[next].enters) {
+                    values.insert(changes[next].value);
+                } else {
+                    values.erase(values.find(changes[next].value));
+                }
+            }
+            const double d = static_cast<double>(hNWeight[g]);
+            if (d == 0.0 || atRisk[g] == 0) {
+                continue;
+            }
+            const bool zeros = static_cast<int>(values.size()) < atRisk[g]; // rows at risk with x = 0
+            double low = values.empty() ? 0.0 : *values.begin();
+            double high = values.empty() ? 0.0 : *values.rbegin();
+            if (zeros) {
+                low = std::min(low, 0.0);
+                high = std::max(high, 0.0);
+            }
+            lowest += d * low;
+            highest += d * high;
+            scale += d * std::max(std::abs(low), std::abs(high));
+        }
+        const double observed = static_cast<double>(hXjY[j]);
+        const double tolerance = 1e-12 * std::max(scale, 1.0);
+        if (highest - lowest > tolerance) { // the column varies within some risk set
+            if (std::abs(observed - lowest) <= tolerance) {
+                direction[c] = -1;
+            } else if (std::abs(observed - highest) <= tolerance) {
+                direction[c] = 1;
+            }
+        }
+    }
+    return true;
 }
 
 } // namespace bsccs
