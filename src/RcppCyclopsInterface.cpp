@@ -841,6 +841,49 @@ List cyclopsFitModel(SEXP inRcppCcdInterface) {
 			Rcpp::Named("timeFit")=timeUpdate
 		);
 	RcppCcdInterface::appendRList(list, interface->getResult());
+
+	// Observe-only stopping statistics (CYCLOPS_SHADOW; Newton plan, Phase 2)
+	const auto& shadow = interface->getCcd().getShadowLog();
+	if (!shadow.empty()) {
+		const size_t n = shadow.size();
+		IntegerVector cycle(n), rankDeficit(n);
+		LogicalVector curvature(n);
+		NumericVector f(n), stepDecrease(n), rhoHat(n), gHat(n), R(n), kktMaxR(n), lambda2Half(n), nu(n), gsc(n),
+			RU(n), nuU(n), gscU(n), bracketLow(n), bracketHigh(n), consistency(n);
+		for (size_t i = 0; i < n; ++i) {
+			const auto& r = shadow[i];
+			cycle[i] = r.cycle; curvature[i] = r.curvature; rankDeficit[i] = r.rankDeficit;
+			f[i] = r.f; stepDecrease[i] = r.stepDecrease; rhoHat[i] = r.rhoHat; gHat[i] = r.gHat; R[i] = r.R;
+			kktMaxR[i] = r.kktMaxR; lambda2Half[i] = r.lambda2Half; nu[i] = r.nu; gsc[i] = r.gsc; RU[i] = r.RU;
+			nuU[i] = r.nuU; gscU[i] = r.gscU; bracketLow[i] = r.bracketLow; bracketHigh[i] = r.bracketHigh;
+			consistency[i] = r.consistency;
+		}
+		list["shadow"] = DataFrame::create(_["cycle"] = cycle, _["curvature"] = curvature, _["f"] = f,
+			_["stepDecrease"] = stepDecrease, _["rhoHat"] = rhoHat, _["gHat"] = gHat, _["R"] = R,
+			_["kktMaxR"] = kktMaxR, _["lambda2Half"] = lambda2Half, _["nu"] = nu, _["gsc"] = gsc, _["RU"] = RU,
+			_["nuU"] = nuU, _["gscU"] = gscU, _["bracketLow"] = bracketLow, _["bracketHigh"] = bracketHigh,
+			_["consistency"] = consistency, _["rankDeficit"] = rankDeficit);
+
+		// At the returned point: the smallest certified bound (R, gsc or the U-form gsc), else the Lambda^2 / 2
+		// estimate, uncertified
+		const auto& last = shadow.back();
+		std::string certificate = "none";
+		double estimate = NAN;
+		const std::pair<const char*, double> bounds[] = {{"R", last.R}, {"gsc", last.gsc}, {"gscU", last.gscU}};
+		for (const auto& bound : bounds) {
+			if (std::isfinite(bound.second) && !(bound.second >= estimate)) {
+				certificate = bound.first;
+				estimate = bound.second;
+			}
+		}
+		const bool certified = certificate != "none";
+		if (!certified) {
+			estimate = last.lambda2Half;
+		}
+		list["convergence"] = List::create(_["gapEstimate"] = estimate, _["certified"] = certified,
+			_["certificate"] = certificate, _["R"] = last.R, _["gsc"] = last.gsc, _["gscU"] = last.gscU,
+			_["lambda2Half"] = last.lambda2Half, _["kktMaxR"] = last.kktMaxR, _["cycles"] = last.cycle);
+	}
 	return list;
 }
 

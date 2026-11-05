@@ -1229,6 +1229,19 @@ void CyclicCoordinateDescent::findMode(
 		interceptIndex >= 0 && convergenceType == KKT && noiseLevel <= QUIET);
 	setUpZeroCertificates(algorithmType);
 
+	shadowLog.clear();
+	shadowDecreases.clear();
+	shadowStepDecrease = 0.0;
+	shadowMode = 0;
+	if (const char* shadow = std::getenv("CYCLOPS_SHADOW")) {
+		const int mode = std::atoi(shadow);
+		if (mode > 0 && algorithmType != AlgorithmType::MM && !usingGPU && !usingCUDA && !syncCV &&
+				!(threads > 1 && modelSpecifics.supportsConcurrentGradients()) &&
+				modelSpecifics.supportsSecondOrder()) {
+			shadowMode = mode;
+		}
+	}
+
 	std::vector<double> allDelta;
     double lastLogPosterior; // = getLogLikelihood() + getLogPrior();
 
@@ -1379,6 +1392,11 @@ void CyclicCoordinateDescent::findMode(
 							accumulateKkt(index, delta, lastGradientHessian);
 						}
 						delta = applyBounds(delta, index);
+						if (shadowMode != 0) {
+							double precision = 0.0;
+							jointPrior->getNormalPrecision(index, &precision);
+							shadowStepDecrease += 0.5 * (lastGradientHessian.second + precision) * delta * delta;
+						}
 						if (activeSetEvery != 0) {
 							lastStepSE[index] = std::abs(delta) * std::sqrt(std::max(lastGradientHessian.second, 0.0));
 							cycleMaxStepSE = std::max(cycleMaxStepSE, lastStepSE[index]);
@@ -1598,6 +1616,9 @@ void CyclicCoordinateDescent::findMode(
         while (!done) {
             cycle();
             done = check();
+            if (shadowMode != 0) {
+                shadowObserve(iteration, done);
+            }
         }
     }
 	if (lazyIntercept) {
@@ -2517,6 +2538,293 @@ std::vector<double> CyclicCoordinateDescent::getLogPriors(void) {
 	return result;
 }
 
+
+namespace {
+
+// omega(z) / c^2 with omega(z) = z + (1 - z) log(1 - z): the self-concordant gap bound at c Lambda = z < 1
+double shadowGsc(double c, double lambda) {
+	const double z = c * lambda;
+	if (!(z < 1.0)) {
+		return std::numeric_limits<double>::infinity();
+	}
+	return (z + (1.0 - z) * std::log1p(-z)) / (c * c);
+}
+
+// x' A^-1 b and A^-1 b for symmetric A: Cholesky when well conditioned, else pivoted LDLT, else a minimum-norm
+// eigen solve; dropped directions are counted
+Eigen::VectorXd shadowSolve(const Eigen::MatrixXd& A, const Eigen::VectorXd& b, int* dropped) {
+	*dropped = 0;
+	Eigen::LLT<Eigen::MatrixXd> llt(A);
+	if (llt.info() == Eigen::Success) {
+		const Eigen::VectorXd d = llt.matrixLLT().diagonal().array().square();
+		if (d.size() == 0 || d.minCoeff() >= 1e-10 * d.maxCoeff()) {
+			return llt.solve(b);
+		}
+	}
+	Eigen::LDLT<Eigen::MatrixXd> ldlt(A);
+	if (ldlt.info() == Eigen::Success) {
+		const Eigen::VectorXd d = ldlt.vectorD().cwiseAbs();
+		if (d.minCoeff() >= 1e-10 * d.maxCoeff()) {
+			return ldlt.solve(b);
+		}
+	}
+	Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eigen(A);
+	const Eigen::VectorXd values = eigen.eigenvalues();
+	const double tolerance = 1e-10 * values.cwiseAbs().maxCoeff();
+	Eigen::VectorXd projected = eigen.eigenvectors().transpose() * b;
+	for (Eigen::Index i = 0; i < values.size(); ++i) {
+		if (values(i) > tolerance) {
+			projected(i) /= values(i);
+		} else {
+			projected(i) = 0.0;
+			++*dropped;
+		}
+	}
+	return eigen.eigenvectors() * projected;
+}
+
+} // namespace
+
+void CyclicCoordinateDescent::shadowObserve(int cycle, bool last) {
+
+	ShadowRow row;
+	row.cycle = cycle;
+	row.stepDecrease = shadowStepDecrease;
+	shadowStepDecrease = 0.0;
+	shadowDecreases.push_back(row.stepDecrease);
+
+	// Trigger statistics (plan 2.4): the rate of the last min(t, 20) step decreases on a log scale
+	const int m = std::min<int>(static_cast<int>(shadowDecreases.size()), 20);
+	if (m >= 2) {
+		bool positive = true;
+		double sx = 0.0, sy = 0.0, sxx = 0.0, sxy = 0.0;
+		for (int i = 0; i < m; ++i) {
+			const double value = shadowDecreases[shadowDecreases.size() - m + i];
+			positive = positive && value > 0.0;
+			const double y = positive ? std::log(value) : 0.0;
+			sx += i; sy += y; sxx += static_cast<double>(i) * i; sxy += i * y;
+		}
+		if (positive) {
+			const double slope = (m * sxy - sx * sy) / (m * sxx - sx * sx);
+			row.rhoHat = std::exp(slope);
+			if (row.rhoHat < 1.0) {
+				row.gHat = row.stepDecrease * row.rhoHat / (1.0 - row.rhoHat);
+			}
+		}
+	}
+
+	// Read-only: the engine's log likelihood at its current state (no lazy recomputation)
+	row.f = -(modelSpecifics.getLogLikelihood(useCrossValidation) + getLogPrior());
+
+	// Free coordinates and their priors: Normal (precision > 0), None (precision 0) or Laplace
+	std::vector<int> columns;
+	std::vector<double> precision, rate;
+	bool supported = true, anyNone = false, anyNormal = false, anyLaplace = false;
+	for (int j = 0; j < J; ++j) {
+		if (fixBeta[j]) {
+			continue;
+		}
+		double value = 0.0;
+		if (jointPrior->getNormalPrecision(j, &value)) {
+			columns.push_back(j); precision.push_back(value); rate.push_back(0.0);
+			(value == 0.0 ? anyNone : anyNormal) = true;
+		} else if (jointPrior->getLaplaceLambda(j, &value)) {
+			columns.push_back(j); precision.push_back(0.0); rate.push_back(value);
+			anyLaplace = true;
+		} else {
+			supported = false;
+		}
+	}
+	std::vector<double> gradient;
+	if (!supported || columns.empty() || !modelSpecifics.fullGradient(columns, gradient)) {
+		shadowLog.push_back(row);
+		return;
+	}
+
+	// Minimum-norm subgradient s of f; S = free coordinates except Laplace zeros within the penalty
+	const int n = static_cast<int>(columns.size());
+	Eigen::VectorXd s(n);
+	std::vector<int> S;
+	for (int i = 0; i < n; ++i) {
+		const double b = hBeta[columns[i]];
+		const double g = gradient[i];
+		if (rate[i] == 0.0) {
+			s(i) = g + precision[i] * b;
+			S.push_back(i);
+		} else if (b != 0.0) {
+			s(i) = g + (b > 0.0 ? rate[i] : -rate[i]);
+			S.push_back(i);
+		} else {
+			s(i) = (std::abs(g) > rate[i]) ? (g > 0.0 ? g - rate[i] : g + rate[i]) : 0.0;
+			if (std::abs(g) > rate[i]) {
+				S.push_back(i);
+			}
+		}
+	}
+	const bool allNormal = anyNormal && !anyNone && !anyLaplace;
+	if (allNormal) {
+		double sum = 0.0;
+		for (int i = 0; i < n; ++i) {
+			sum += s(i) * s(i) / precision[i];
+		}
+		row.R = 0.5 * sum;
+	}
+
+	const bool curvature = shadowMode >= 2 || last || cycle <= 5 ||
+		((cycle & (cycle - 1)) == 0) || (cycle % 3 == 0 && ((cycle / 3) & (cycle / 3 - 1)) == 0);
+	std::vector<double> block;
+	if (!curvature || !modelSpecifics.hessianBlock(columns, block)) {
+		shadowLog.push_back(row);
+		return;
+	}
+	row.curvature = true;
+	Eigen::MatrixXd H = Eigen::Map<Eigen::MatrixXd>(block.data(), n, n); // likelihood part
+	Eigen::MatrixXd Hp = H;
+	for (int i = 0; i < n; ++i) {
+		Hp(i, i) += precision[i];
+	}
+
+	double kkt = 0.0;
+	for (int i = 0; i < n; ++i) {
+		if (Hp(i, i) > 0.0) {
+			kkt = std::max(kkt, std::abs(s(i)) / std::sqrt(Hp(i, i)));
+		}
+	}
+	row.kktMaxR = kkt;
+
+	const int q = static_cast<int>(S.size());
+	Eigen::MatrixXd HS(q, q);
+	Eigen::VectorXd sS(q);
+	double largest = 0.0;
+	for (int a = 0; a < q; ++a) {
+		sS(a) = s(S[a]);
+		for (int b = 0; b < q; ++b) {
+			HS(a, b) = Hp(S[a], S[b]);
+		}
+		if (HS(a, a) > 0.0) {
+			largest = std::max(largest, sS(a) * sS(a) / HS(a, a));
+		}
+	}
+	const double lambda2 = (q > 0) ? sS.dot(shadowSolve(HS, sS, &row.rankDeficit)) : 0.0;
+	row.lambda2Half = 0.5 * lambda2;
+	row.consistency = (largest > 0.0) ? lambda2 / largest : NAN;
+
+	const auto* data = dynamic_cast<const ModelData<double>*>(&hXI);
+	auto positiveRow = [this](int k) {
+		return !useCrossValidation || static_cast<size_t>(k) >= hWeights.size() || hWeights[k] > 0.0;
+	};
+
+	// gsc on smooth fits with a positive-definite H; c = 2 nu for the Cox engine (the only one with the API)
+	if (!anyLaplace && row.rankDeficit == 0 && data != nullptr) {
+		const Eigen::MatrixXd inverse = Hp.llt().solve(Eigen::MatrixXd::Identity(n, n));
+		std::vector<double> normal(K, 0.0), diagonal(K, 0.0);
+		for (int i = 0; i < n; ++i) {
+			const double root = std::sqrt(std::max(inverse(i, i), 0.0));
+			for (GenericIterator<double> it(data->getX(), columns[i]); it; ++it) {
+				const double x = it.value();
+				if (allNormal) {
+					normal[it.index()] += x * x / precision[i];
+				}
+				diagonal[it.index()] += std::abs(x) * root;
+			}
+		}
+		double nuNormal = 0.0, nuDiagonal = 0.0;
+		for (int k = 0; k < K; ++k) {
+			if (positiveRow(k)) {
+				nuNormal = std::max(nuNormal, normal[k]);
+				nuDiagonal = std::max(nuDiagonal, diagonal[k]);
+			}
+		}
+		row.nu = allNormal ? std::min(std::sqrt(nuNormal), nuDiagonal) : nuDiagonal;
+		row.gsc = shadowGsc(2.0 * row.nu, std::sqrt(lambda2));
+	}
+
+	// U (None) and P (Normal) free sets: Lambda-bar from the U block and the P precisions (plan 3.1, R_U)
+	if (anyNone && !anyLaplace && data != nullptr) {
+		std::vector<int> U, P;
+		for (int i = 0; i < n; ++i) {
+			(precision[i] == 0.0 ? U : P).push_back(i);
+		}
+		const int u = static_cast<int>(U.size()), r = static_cast<int>(P.size());
+		Eigen::MatrixXd HUU(u, u), HPU(r, u);
+		Eigen::VectorXd sU(u), sP(r);
+		for (int a = 0; a < u; ++a) {
+			sU(a) = s(U[a]);
+			for (int b = 0; b < u; ++b) HUU(a, b) = H(U[a], U[b]);
+			for (int b = 0; b < r; ++b) HPU(b, a) = H(P[b], U[a]);
+		}
+		for (int b = 0; b < r; ++b) sP(b) = s(P[b]);
+		Eigen::LLT<Eigen::MatrixXd> llt(HUU);
+		const Eigen::VectorXd d = llt.matrixLLT().diagonal().array().square();
+		if (u <= 200 && llt.info() == Eigen::Success && d.minCoeff() >= 1e-10 * d.maxCoeff()) {
+			const Eigen::VectorXd y = llt.solve(sU);
+			const Eigen::VectorXd gP = sP - HPU * y;
+			double sum = sU.dot(y);
+			for (int b = 0; b < r; ++b) {
+				sum += gP(b) * gP(b) / precision[P[b]];
+			}
+			row.RU = 0.5 * sum;
+
+			// nu_U^2 = max_k x_kU' HUU^-1 x_kU + sum_P sigma^2 (x_kP - M x_kU)^2, M = HPU HUU^-1
+			const Eigen::MatrixXd Q = llt.solve(Eigen::MatrixXd::Identity(u, u));
+			const Eigen::MatrixXd M = HPU * Q;
+			Eigen::MatrixXd W = Eigen::MatrixXd::Zero(u, u); // M' diag(sigma^2) M
+			for (int b = 0; b < r; ++b) {
+				W += (M.row(b).transpose() * M.row(b)) / precision[P[b]];
+			}
+			Eigen::MatrixXd XU = Eigen::MatrixXd::Zero(K, u);
+			for (int a = 0; a < u; ++a) {
+				for (GenericIterator<double> it(data->getX(), columns[U[a]]); it; ++it) {
+					XU(it.index(), a) = it.value();
+				}
+			}
+			std::vector<double> total(K, 0.0);
+			for (int b = 0; b < r; ++b) {
+				const double sigma2 = 1.0 / precision[P[b]];
+				for (GenericIterator<double> it(data->getX(), columns[P[b]]); it; ++it) {
+					const int k = it.index();
+					const double x = it.value();
+					total[k] += sigma2 * x * (x - 2.0 * M.row(b).dot(XU.row(k)));
+				}
+			}
+			double nu2 = 0.0;
+			for (int k = 0; k < K; ++k) {
+				if (positiveRow(k)) {
+					const Eigen::VectorXd xk = XU.row(k).transpose();
+					nu2 = std::max(nu2, total[k] + xk.dot((Q + W) * xk));
+				}
+			}
+			row.nuU = std::sqrt(std::max(nu2, 0.0));
+			row.gscU = shadowGsc(2.0 * row.nuU, std::sqrt(2.0 * row.RU));
+		}
+	}
+
+	// Bracket on Lambda^2 from 5 conjugate-gradient iterations on H_pen d = s (all Normal)
+	if (allNormal) {
+		Eigen::VectorXd d = Eigen::VectorXd::Zero(n), residual = s, direction = s;
+		double rr = residual.squaredNorm();
+		for (int it = 0; it < std::min(5, n) && rr > 0.0; ++it) {
+			const Eigen::VectorXd Hd = Hp * direction;
+			const double alpha = rr / direction.dot(Hd);
+			d += alpha * direction;
+			residual -= alpha * Hd;
+			const double next = residual.squaredNorm();
+			direction = residual + (next / rr) * direction;
+			rr = next;
+		}
+		const Eigen::VectorXd Hd = Hp * d; // explicit, never the recurrence residual
+		const double low = 2.0 * s.dot(d) - d.dot(Hd);
+		const Eigen::VectorXd explicitResidual = s - Hd;
+		double high = low;
+		for (int i = 0; i < n; ++i) {
+			high += explicitResidual(i) * explicitResidual(i) / precision[i];
+		}
+		row.bracketLow = 0.5 * low;
+		row.bracketHigh = 0.5 * high;
+	}
+
+	shadowLog.push_back(row);
+}
 
 bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
                                                       double epsilon,

@@ -221,6 +221,32 @@ public:
 
 	AbstractModelSpecifics& getModelSpecifics() const { return modelSpecifics; }
 
+	// Observe-only stopping statistics (Newton plan, Phase 2). With the environment variable CYCLOPS_SHADOW set
+	// (1: curvature at log-spaced cycles and the last; 2: every cycle), serial CPU CCD fits on an engine with the
+	// second-order API log one row per cycle; the fit itself is unchanged. NaN where a statistic does not apply.
+	struct ShadowRow {
+		int cycle = 0;
+		bool curvature = false;     // the Hessian was formed this cycle
+		double f = NAN;             // -(log likelihood + log prior)
+		double stepDecrease = NAN;  // sum over the cycle's steps of h_j delta_j^2 / 2 (h_j with the prior's curvature)
+		double rhoHat = NAN;        // trigger: rate from the last min(t, 20) step decreases
+		double gHat = NAN;          // trigger: stepDecrease rho / (1 - rho)
+		double R = NAN;             // sum sigma_j^2 s_j^2 / 2, all free coordinates Normal
+		double kktMaxR = NAN;       // max |s_j| / sqrt(H_jj), end of cycle
+		double lambda2Half = NAN;   // s_S' H_SS^-1 s_S / 2 (Laplace: S = nonzeros and violating zeros)
+		double nu = NAN;            // bound on max_k ||x_k||_{H^-1}
+		double gsc = NAN;           // omega(c Lambda) / c^2, c = 2 nu; Inf when c Lambda >= 1
+		double RU = NAN;            // Lambda-bar^2 / 2 on U (None) and P (Normal) free sets
+		double nuU = NAN;
+		double gscU = NAN;          // omega(c Lambda-bar) / c^2
+		double bracketLow = NAN;    // Lambda^2 / 2 bounds from 5 conjugate-gradient iterations, all Normal
+		double bracketHigh = NAN;
+		double consistency = NAN;   // Lambda^2 / max_j s_j^2 / H_jj (>= 1)
+		int rankDeficit = 0;        // directions dropped from H_SS
+	};
+
+	const std::vector<ShadowRow>& getShadowLog() const { return shadowLog; }
+
 	loggers::ProgressLogger& getProgressLogger() const { return *logger; }
 
 	loggers::ErrorHandler& getErrorHandler() const { return *error; }
@@ -454,6 +480,12 @@ protected:
 	const int kktConsecutiveNeeded = 2; // cycles in a row below the tolerance
 	int kktConsecutive = 0;
 	bool trackKkt = false;
+
+	int shadowMode = 0;
+	double shadowStepDecrease = 0.0;
+	std::vector<double> shadowDecreases;
+	std::vector<ShadowRow> shadowLog;
+	void shadowObserve(int cycle, bool last);
 	priors::GradientHessian lastGradientHessian; // as passed to getDelta() by ccdUpdateBeta()
 
 	// Active-set cycling (with "kkt" convergence): between full sweeps, cycles visit only coordinates
