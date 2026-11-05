@@ -668,6 +668,12 @@ void cyclopsSetModeControl(SEXP inRcppCcdInterface, const List& options) {
 	if (options.containsElementNamed("adaptiveIntercept")) {
 		modeFinding.adaptiveIntercept = as<bool>(options["adaptiveIntercept"]);
 	}
+	if (options.containsElementNamed("activeSetNewton")) {
+		modeFinding.activeSetNewton = as<bool>(options["activeSetNewton"]);
+	}
+	if (options.containsElementNamed("activeSetNewtonFollowUp")) {
+		modeFinding.activeSetNewtonFollowUp = as<bool>(options["activeSetNewtonFollowUp"]);
+	}
 }
 
 // Cross-validation options; an option missing from the list keeps its value

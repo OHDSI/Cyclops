@@ -168,6 +168,28 @@ public:
 		return false;
 	}
 
+	// Hessian of the negative log-likelihood over the given columns (m x m, column-major), in one pass over
+	// the rows; returns false when the model does not provide it or it would take more than maxWork row
+	// entries (see activeSetNewtonStep())
+	virtual bool computeActiveSetHessian(const std::vector<int>& columns, std::vector<double>& hessian,
+	                                     double maxWork) {
+		return false;
+	}
+
+	// The row weights of that Hessian, w_k p_k (1 - p_k), at the current state; empty when not provided
+	virtual void computeHessianRowWeights(std::vector<double>& weights) {
+		weights.clear();
+	}
+
+	// B = X_A' W X_E (|A| x |E|, row-major) and C = X_E' W X_E (|E| x |E|) for given row weights W, reading
+	// the columns of A once; returns false when not provided
+	virtual bool computeCrossProducts(const std::vector<int>& A, const std::vector<int>& E,
+	                                  const std::vector<double>& weights, std::vector<double>& B,
+	                                  std::vector<double>& C) {
+		return false;
+	}
+
+
 	// True when computeGradientsAndHessians() can compute several coordinates at once with the
 	// current threads; otherwise a cycle with threads is the serial cycle
 	virtual bool supportsConcurrentGradients() const {

@@ -780,6 +780,15 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              them. \code{NULL} (default) means \code{TRUE} for logistic regression with
 #'                              \code{fitter = "super"} and for least squares other than under
 #'                              \code{fitter = "legacy"}, and \code{FALSE} otherwise
+#' @param activeSetNewton       Logical: for logistic regression, which needs \code{convergenceType = "kkt"} or
+#'                              \code{cvConvergenceType = "kkt"}: after a full sweep that is not yet within the
+#'                              tolerance, at most every 10 cycles, take one Newton step on the coefficients away
+#'                              from zero and the unpenalized ones, with their signs held (a coefficient that the
+#'                              step would take across zero is set to zero and the step of the others solved
+#'                              again), kept only when the log posterior improves. Coordinate descent moves along a
+#'                              nearly flat direction of the objective, such as two covariates with nearly the same
+#'                              rows, by a small fraction per cycle. \code{NULL} (default) means \code{TRUE} for
+#'                              logistic regression with \code{fitter = "super"} and \code{FALSE} otherwise
 #' @param doItAll               Currently unused
 #' @param syncCV                Currently unused
 #'
@@ -828,6 +837,7 @@ createControl <- function(maxIterations = NULL,
                           activeSetEvery = NULL,
                           activeSetThreshold = NULL,
                           adaptiveIntercept = NULL,
+                          activeSetNewton = NULL,
                           doItAll = TRUE,
                           syncCV = FALSE) {
     validCVNames = c("grid", "auto")
@@ -857,6 +867,7 @@ createControl <- function(maxIterations = NULL,
     stopifnot(is.null(activeSetEvery) || activeSetEvery == 0 || activeSetEvery > 1)
     stopifnot(is.null(activeSetThreshold) || (activeSetThreshold >= 0 && activeSetThreshold < 1))
     stopifnot(is.null(adaptiveIntercept) || is.logical(adaptiveIntercept))
+    stopifnot(is.null(activeSetNewton) || is.logical(activeSetNewton))
 
     structure(list(maxIterations = maxIterations,
                    tolerance = tolerance,
@@ -891,6 +902,7 @@ createControl <- function(maxIterations = NULL,
                    activeSetEvery = activeSetEvery,
                    activeSetThreshold = activeSetThreshold,
                    adaptiveIntercept = adaptiveIntercept,
+                   activeSetNewton = activeSetNewton,
                    doItAll = doItAll,
                    syncCV = syncCV),
               class = "cyclopsControl")
@@ -1070,21 +1082,24 @@ getCrossValidationInfo <- function(object) {
     if (identical(fitter, "super") && identical(modelType, "lr")) {
         list(convergenceType = "kkt", cvConvergenceType = "kkt", cvMinIterations = 5,
              cvSearchDirection = "down", cvRefine = TRUE, cvNullModelBound = TRUE, cvWarmStart = TRUE,
-             activeSetEvery = activeSetEvery, activeSetThreshold = 0.01, adaptiveIntercept = TRUE)
+             activeSetEvery = activeSetEvery, activeSetThreshold = 0.01, adaptiveIntercept = TRUE,
+             activeSetNewton = TRUE)
     } else if (identical(fitter, "super") && identical(modelType, "ls")) {
         list(convergenceType = "kkt", cvConvergenceType = "kkt", cvTolerance = 0.1, cvMinIterations = 5,
              cvSearchDirection = "up", cvRefine = TRUE, cvNullModelBound = TRUE, cvWarmStart = TRUE,
-             activeSetEvery = activeSetEvery, activeSetThreshold = 0.01, adaptiveIntercept = TRUE)
+             activeSetEvery = activeSetEvery, activeSetThreshold = 0.01, adaptiveIntercept = TRUE,
+             activeSetNewton = FALSE)
     } else if (identical(fitter, "default") && identical(modelType, "ls")) {
         list(convergenceType = "kkt", cvConvergenceType = NULL, cvMinIterations = 5,
              cvSearchDirection = "up", cvRefine = TRUE, cvNullModelBound = TRUE,
              cvWarmStart = !isTRUE(control$resetCoefficients),
-             activeSetEvery = activeSetEvery, activeSetThreshold = 0.01, adaptiveIntercept = TRUE)
+             activeSetEvery = activeSetEvery, activeSetThreshold = 0.01, adaptiveIntercept = TRUE,
+             activeSetNewton = FALSE)
     } else { # warm starts make fold fits without resetCoefficients independent of threads
         warmStart <- !isTRUE(control$resetCoefficients) && !identical(fitter, "legacy")
         list(convergenceType = "gradient", cvConvergenceType = NULL, cvMinIterations = 5,
              cvSearchDirection = "auto", cvRefine = FALSE, cvNullModelBound = FALSE, cvWarmStart = warmStart,
-             activeSetEvery = 0, activeSetThreshold = 0.01, adaptiveIntercept = FALSE)
+             activeSetEvery = 0, activeSetThreshold = 0.01, adaptiveIntercept = FALSE, activeSetNewton = FALSE)
     }
 }
 
@@ -1126,11 +1141,15 @@ getCrossValidationInfo <- function(object) {
         # the fitter's settings that need "kkt" lapse; given ones are an error
         if ("activeSetEvery" %in% filled) control$activeSetEvery <- 0
         if ("adaptiveIntercept" %in% filled) control$adaptiveIntercept <- FALSE
+        if ("activeSetNewton" %in% filled) control$activeSetNewton <- FALSE
         if (control$activeSetEvery != 0) {
             stop("activeSetEvery needs convergenceType = \"kkt\" or cvConvergenceType = \"kkt\"", call. = FALSE)
         }
         if (control$adaptiveIntercept) {
             stop("adaptiveIntercept needs convergenceType = \"kkt\" or cvConvergenceType = \"kkt\"", call. = FALSE)
+        }
+        if (control$activeSetNewton) {
+            stop("activeSetNewton needs convergenceType = \"kkt\" or cvConvergenceType = \"kkt\"", call. = FALSE)
         }
     }
     control
@@ -1153,7 +1172,10 @@ getCrossValidationInfo <- function(object) {
 .modeControlOptions <- function(control) {
     list(activeSetEvery = as.integer(control$activeSetEvery),
          activeSetThreshold = as.numeric(control$activeSetThreshold),
-         adaptiveIntercept = as.logical(control$adaptiveIntercept))
+         adaptiveIntercept = as.logical(control$adaptiveIntercept),
+         activeSetNewton = as.logical(control$activeSetNewton),
+         # internal switch for benchmarks and tests, not a createControl() argument
+         activeSetNewtonFollowUp = !isFALSE(control$activeSetNewtonFollowUp))
 }
 
 .setControl <- function(cyclopsInterfacePtr, control, cyclopsData = NULL) {

@@ -101,6 +101,8 @@ struct ModeFindingArguments {
 	int activeSetEvery = 0; // 0: every cycle visits all coordinates; see CyclicCoordinateDescent::update()
 	double activeSetThreshold = 0.01; // active-set cycling: relative step size below which a coordinate is skipped
 	bool adaptiveIntercept = false; // extra intercept steps; see CyclicCoordinateDescent::trackInterceptGradient()
+	bool activeSetNewton = false; // Newton steps on the non-zero coefficients; see CyclicCoordinateDescent::activeSetNewtonStep()
+	bool activeSetNewtonFollowUp = true; // with activeSetNewton: follow-up steps on an extended saved Hessian
 	int minIterations; // no convergence (SUCCESS) before this many cycles
 
 	ModeFindingArguments() :

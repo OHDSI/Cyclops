@@ -382,6 +382,8 @@ protected:
 
 	void cycleWithConcurrentGradients(const std::function<void(int)>& log);
 
+	bool activeSetNewtonStep(bool followUp);
+
 
 	void mmUpdateAllBeta(std::vector<double>& allDelta,
                          const std::vector<bool>& fixedBeta);
@@ -492,6 +494,48 @@ protected:
 		}
 		return !activeSetCandidate[index] || hBeta[index] != 0.0 || lastStepSE[index] > 0.0;
 	}
+
+	// Active-set Newton steps (with "kkt" convergence, serial cycles). Coordinate descent moves along a
+	// nearly flat direction, such as two covariates with nearly the same rows, by a factor of about rho^2 per
+	// cycle; one Newton step on the coefficients away from zero (and the unpenalized ones), with their signs
+	// held, moves along it at once. Checked after a full sweep, at most every activeNewtonSpacing cycles,
+	// while the sweep is above the tolerance; taken only when coordinate descent is stalling (the kkt
+	// statistic fell by less than activeNewtonStallRatio since the last check, at two checks in a row; it
+	// falls several-fold per 10 cycles otherwise) and the step costs at most activeNewtonWorkSweeps full sweeps; kept only when the log
+	// posterior improves. A step cut short or rejected doubles the spacing.
+	bool activeSetNewton = false;
+	static constexpr int activeNewtonSpacing = 10;
+	static constexpr double activeNewtonStallRatio = 0.5;
+	static constexpr double activeNewtonWorkSweeps = 50.0;
+	static constexpr int activeNewtonMaxSpacing = 160;
+	int activeNewtonSpacingNow = 0; // doubled after a step cut short or rejected (a poor quadratic model)
+	bool activeNewtonStalledBefore = false; // the last check found a stall
+	double activeNewtonLastT = 0.0; // the step length kept by the last step, 0 when rejected
+	static constexpr double activeNewtonFlopWork = 0.1; // a dense factorization flop, in row entries read by a sweep
+	int activeNewtonEvery = 0; // in the current findMode(); 0 when off
+	double activeNewtonCheckpoint = 0.0; // the kkt statistic at the last check
+	double activeNewtonSweepWork = 0.0; // row entries read by a full sweep
+	int cyclesSinceNewton = 0;
+	double activeNewtonFloor = 0.0; // the kkt tolerance: no step once a cycle is within it
+	static constexpr int activeNewtonMaxSize = 2000;
+	int activeNewtonTried = 0;
+	int activeNewtonTaken = 0;
+
+	// Follow-up steps: activeNewtonFollowSweeps full sweeps after a taken step, the coefficients that became
+	// non-zero in those sweeps join the basis and those that became zero leave it (coordinate descent changes
+	// the support and the signs, which the step holds); again after a follow-up that gained at least
+	// activeNewtonFollowRatio of the step before. The Hessian of a follow-up extends the saved one by the new
+	// columns' blocks, computed at the saved row weights: every block at the same weights, so the matrix is a
+	// Hessian (blocks at mixed weights can be indefinite), off from the current one by at most a factor
+	// exp(+-max |change of x'beta|) for logistic rows. The step is kept only when the log posterior improves.
+	bool activeNewtonFollowUp = false;
+	static constexpr int activeNewtonFollowSweeps = 2;
+	static constexpr double activeNewtonFollowRatio = 0.01;
+	bool activeNewtonFollowPending = false;
+	double activeNewtonLastGain = 0.0;
+	std::vector<int> activeNewtonBasis; // of the saved Hessian (no ridge), at the row weights activeNewtonWeights
+	Matrix activeNewtonHessian;
+	std::vector<double> activeNewtonWeights;
 
 	// Adaptive extra intercept steps (logistic regression with an unpenalized intercept column, serial
 	// cycles, "kkt" convergence): an extra Newton step on the intercept whenever its predicted gain

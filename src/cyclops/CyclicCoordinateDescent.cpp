@@ -18,6 +18,7 @@
 #include <list>
 #include <functional>
 #include <algorithm>
+#include <tuple>
 
 //#include "Rcpp.h"
 
@@ -793,6 +794,8 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	activeSetEvery = (convergenceType == KKT) ? arguments.activeSetEvery : 0;
 	activeSetThreshold = arguments.activeSetThreshold;
 	adaptiveIntercept = (convergenceType == KKT) && arguments.adaptiveIntercept; // its floor is a kkt tolerance
+	activeSetNewton = (convergenceType == KKT) && arguments.activeSetNewton; // it stops at a kkt tolerance
+	activeNewtonFollowUp = activeSetNewton && arguments.activeSetNewtonFollowUp;
 	minIterations = arguments.minIterations;
 
 	int count = 0;
@@ -1254,6 +1257,28 @@ void CyclicCoordinateDescent::findMode(
 
 	trackKkt = convergenceType == KKT;
 	kktConsecutive = 0;
+	activeNewtonEvery = (activeSetNewton && trackKkt && algorithmType == AlgorithmType::CCD &&
+		!usingGPU && !usingCUDA && !syncCV) ? activeNewtonSpacing : 0;
+	cyclesSinceNewton = 0;
+	activeNewtonSpacingNow = activeNewtonEvery;
+	activeNewtonStalledBefore = false;
+	activeNewtonCheckpoint = std::numeric_limits<double>::infinity(); // set by the first full sweep
+	activeNewtonSweepWork = 0.0;
+	if (activeNewtonEvery > 0) {
+		for (int j = 0; j < J; ++j) {
+			const FormatType format = hXI.getColumnType(j);
+			activeNewtonSweepWork += (format == DENSE || format == INTERCEPT) ? static_cast<double>(K) :
+				static_cast<double>(hXI.getNumberOfEntries(j));
+		}
+	}
+	activeNewtonFloor = epsilon;
+	activeNewtonTried = 0;
+	activeNewtonTaken = 0;
+	activeNewtonFollowPending = false; // the saved Hessian belongs to this fit's weights only
+	activeNewtonLastGain = 0.0;
+	activeNewtonBasis.clear();
+	activeNewtonHessian.resize(0, 0);
+	activeNewtonWeights.clear();
 	nextCycleFull = true;
 	lastCycleFull = true;
 	cyclesSinceFull = 0;
@@ -1454,6 +1479,47 @@ void CyclicCoordinateDescent::findMode(
 	    			interceptState.rate = (interceptState.cost > 0.0) ? interceptState.gain / interceptState.cost : 0.0;
 	    			interceptState.gain = 0.0;
 	    			interceptState.cost = 0.0;
+	    		}
+	    		if (activeNewtonEvery > 0) {
+	    			++cyclesSinceNewton;
+	    			if (fullSweep && !kktCycle.undefined) {
+	    				if (!(activeNewtonCheckpoint < std::numeric_limits<double>::infinity())) {
+	    					activeNewtonCheckpoint = kktCycle.maxScaled; // the first full sweep: the reference
+	    					cyclesSinceNewton = 0;
+	    				} else if (activeNewtonFollowPending && cyclesSinceNewton >= activeNewtonFollowSweeps &&
+	    						kktCycle.maxScaled >= activeNewtonFloor) {
+	    					// a follow-up after a taken step, on the coefficients that are non-zero now
+	    					activeNewtonFollowPending = false;
+	    					const double previousGain = activeNewtonLastGain;
+	    					cyclesSinceNewton = 0;
+	    					activeNewtonCheckpoint = kktCycle.maxScaled;
+	    					activeNewtonStalledBefore = false;
+	    					activeNewtonLastT = -1.0;
+	    					if (activeSetNewtonStep(true)) {
+	    						kktCycle.maxScaled = std::numeric_limits<double>::infinity();
+	    						activeNewtonFollowPending = activeNewtonLastT > 0.0 &&
+	    							activeNewtonLastGain > activeNewtonFollowRatio * previousGain;
+	    					}
+	    				} else if (cyclesSinceNewton >= activeNewtonSpacingNow && kktCycle.maxScaled >= activeNewtonFloor) {
+	    					// stalling: the statistic fell by less than activeNewtonStallRatio since the last check
+	    					// (twice in a row: the statistic is a maximum over coordinates, and a single check is noisy)
+	    					const bool stalledNow = kktCycle.maxScaled > activeNewtonStallRatio * activeNewtonCheckpoint;
+	    					const bool stalling = stalledNow && activeNewtonStalledBefore;
+	    					activeNewtonStalledBefore = stalledNow;
+	    					cyclesSinceNewton = 0;
+	    					activeNewtonCheckpoint = kktCycle.maxScaled;
+	    					activeNewtonLastT = -1.0; // not tried
+	    					if (stalling && activeSetNewtonStep(false)) {
+	    						// the cycle's statistics describe the point before the step: measure again
+	    						kktCycle.maxScaled = std::numeric_limits<double>::infinity();
+	    						activeNewtonFollowPending = activeNewtonFollowUp && activeNewtonLastT > 0.0;
+	    					}
+	    					if (activeNewtonLastT >= 0.0) { // tried: back off while the quadratic model is poor
+	    						activeNewtonSpacingNow = (activeNewtonLastT >= 0.5) ? activeNewtonEvery :
+	    							std::min(2 * activeNewtonSpacingNow, activeNewtonMaxSpacing);
+	    					}
+	    				}
+	    			}
 	    		}
 	    	}
 	    }
@@ -1656,6 +1722,12 @@ void CyclicCoordinateDescent::findMode(
 	}
 
 	lastIterationCount = iteration;
+	if (activeNewtonEvery > 0 && noiseLevel > QUIET) {
+		std::ostringstream stream;
+		stream << "Active-set Newton steps: " << activeNewtonTaken << " of " << activeNewtonTried << " tried, "
+			   << iteration << " cycles";
+		logger->writeLine(stream);
+	}
 	if (interceptIndex >= 0 && noiseLevel > QUIET) {
 		std::ostringstream stream;
 		stream << "Extra intercept steps: " << interceptState.extraSteps;
@@ -2240,6 +2312,267 @@ void CyclicCoordinateDescent::trackInterceptGradient(int index, double delta, do
 		s.gradient = 0.0;
 		++s.extraSteps;
 	}
+}
+
+bool CyclicCoordinateDescent::activeSetNewtonStep(bool followUp) {
+	// the coefficients away from zero and the unpenalized ones; other priors than Laplace: no step
+	std::vector<int> active;
+	for (int j = 0; j < J; ++j) {
+		if (fixBeta[j]) {
+			continue;
+		}
+		const auto type = jointPrior->getPriorType(j);
+		if (type == priors::NONE) {
+			active.push_back(j);
+		} else if (hBeta[j] != 0.0) {
+			if (type != priors::LAPLACE) {
+				return false;
+			}
+			active.push_back(j);
+		}
+	}
+	int m = static_cast<int>(active.size());
+	// at most activeNewtonWorkSweeps full sweeps of work
+	double activeWork = 0.0;
+	for (int j : active) {
+		const FormatType format = hXI.getColumnType(j);
+		activeWork += (format == DENSE || format == INTERCEPT) ? static_cast<double>(K) :
+			static_cast<double>(hXI.getNumberOfEntries(j));
+	}
+	const double maxWork = activeNewtonWorkSweeps * activeNewtonSweepWork -
+		activeNewtonFlopWork * static_cast<double>(m) * m * m / 3.0 - 2.0 * activeWork; // less the factorization and gradients
+	if (noiseLevel > QUIET) {
+		std::ostringstream stream;
+		stream << "Newton check: m " << m << ", active work " << activeWork << ", sweep work " << activeNewtonSweepWork
+			   << ", max work " << maxWork << (followUp ? ", follow-up" : "");
+		logger->writeLine(stream);
+	}
+	if (m < 2 || m > activeNewtonMaxSize || maxWork <= 0.0) {
+		return false;
+	}
+	checkAllLazyFlags();
+
+	// The Hessian. A follow-up extends the saved one: the columns of its basis keep their block, and only the
+	// blocks of the new columns E are computed, at the saved row weights (the order becomes A, then E)
+	Matrix hessian;
+	bool bordered = false;
+	if (followUp && activeNewtonHessian.rows() > 0) {
+		std::map<int, int> saved;
+		for (size_t i = 0; i < activeNewtonBasis.size(); ++i) {
+			saved[activeNewtonBasis[i]] = static_cast<int>(i);
+		}
+		std::vector<int> A, E, savedIndex;
+		for (int j : active) {
+			const auto it = saved.find(j);
+			if (it != saved.end()) {
+				A.push_back(j);
+				savedIndex.push_back(it->second);
+			} else {
+				E.push_back(j);
+			}
+		}
+		std::vector<double> B, C;
+		if (modelSpecifics.computeCrossProducts(A, E, activeNewtonWeights, B, C)) {
+			const int nA = static_cast<int>(A.size());
+			const int nE = static_cast<int>(E.size());
+			active = A;
+			active.insert(active.end(), E.begin(), E.end());
+			hessian.resize(m, m);
+			for (int u = 0; u < nA; ++u) {
+				for (int v = 0; v < nA; ++v) {
+					hessian(u, v) = activeNewtonHessian(savedIndex[u], savedIndex[v]);
+				}
+				for (int e = 0; e < nE; ++e) {
+					hessian(u, nA + e) = hessian(nA + e, u) = B[static_cast<size_t>(u) * nE + e];
+				}
+			}
+			for (int e = 0; e < nE; ++e) {
+				for (int f = 0; f < nE; ++f) {
+					hessian(nA + e, nA + f) = C[static_cast<size_t>(e) * nE + f];
+				}
+			}
+			bordered = true;
+		}
+	}
+	std::vector<double> builtWeights;
+	if (!bordered) {
+		std::vector<double> rowWise;
+		if (!modelSpecifics.computeActiveSetHessian(active, rowWise, maxWork)) {
+			return false; // not provided for this model, or too costly
+		}
+		hessian = Eigen::Map<const Matrix>(rowWise.data(), m, m);
+		if (activeNewtonFollowUp) {
+			modelSpecifics.computeHessianRowWeights(builtWeights);
+		}
+	}
+	// kept for follow-ups if the step is taken (the Hessian before the ridge)
+	std::vector<int> builtBasis;
+	Matrix builtHessian;
+	if (activeNewtonFollowUp) {
+		builtBasis = active;
+		builtHessian = hessian;
+	}
+	++activeNewtonTried;
+	activeNewtonLastT = 0.0;
+
+	// a small ridge for exact duplicates, whose Hessian is singular
+	const double ridge = 1E-10 * std::max(hessian.diagonal().maxCoeff(), 1E-300);
+	hessian.diagonal().array() += ridge;
+	// One factorization of the equilibrated matrix S (H + ridge I) S, S = diag(H + ridge I)^-1/2, which solves
+	// the first round below, (H + ridge I) d = -r as d = -S (S (H + ridge I) S)^-1 S r
+	Eigen::VectorXd scale(m);
+	for (int a = 0; a < m; ++a) {
+		scale[a] = 1.0 / std::sqrt(hessian(a, a));
+	}
+	const Eigen::LDLT<Matrix> factor(Matrix(scale.asDiagonal() * hessian * scale.asDiagonal()));
+	const bool factorUsable = factor.info() == Eigen::Success;
+
+	// gradient of the negative log posterior over them, Laplace signs held
+	Eigen::VectorXd gradient(m);
+	for (int a = 0; a < m; ++a) {
+		const int j = active[a];
+		double g, h;
+		computeNumeratorForGradient(j);
+		computeGradientAndHessian(j, &g, &h);
+		if (jointPrior->getPriorType(j) == priors::LAPLACE) {
+			g += (hBeta[j] > 0.0 ? 1.0 : -1.0) * jointPrior->getKktBoundary(j);
+		}
+		gradient[a] = g;
+	}
+	std::vector<double> start(m);
+	for (int a = 0; a < m; ++a) {
+		start[a] = hBeta[active[a]];
+	}
+
+	// The Newton step of the quadratic model with the signs held. A Laplace coefficient it takes across
+	// zero is set to zero instead, and the step of the others solved again given that move,
+	// d_F = -H_FF^-1 (g_F + H_FZ d_Z), until none crosses (clipping alone bends the step, and the
+	// backtracking then finds almost no gain)
+	std::vector<char> zeroed(m, 0);
+	Eigen::VectorXd step(m);
+	for (int round = 0; ; ++round) {
+		std::vector<int> free;
+		for (int a = 0; a < m; ++a) {
+			if (zeroed[a]) {
+				step[a] = -start[a];
+			} else {
+				free.push_back(a);
+			}
+		}
+		const int f = static_cast<int>(free.size());
+		if (f > 0) {
+			Eigen::VectorXd dFree;
+			if (round == 0 && factorUsable) {
+				dFree = -scale.cwiseProduct(Eigen::VectorXd(factor.solve(Eigen::VectorXd(scale.cwiseProduct(gradient)))));
+			} else {
+				Matrix hFree(f, f);
+				Eigen::VectorXd rhs(f);
+				for (int u = 0; u < f; ++u) {
+					double r = gradient[free[u]];
+					for (int a = 0; a < m; ++a) {
+						if (zeroed[a]) {
+							r += hessian(free[u], a) * step[a];
+						}
+					}
+					rhs[u] = r;
+					for (int v = 0; v < f; ++v) {
+						hFree(u, v) = hessian(free[u], free[v]);
+					}
+				}
+				dFree = -hFree.ldlt().solve(rhs);
+			}
+			if (!dFree.allFinite()) {
+				return false;
+			}
+			for (int u = 0; u < f; ++u) {
+				step[free[u]] = dFree[u];
+			}
+		}
+		bool crossed = false;
+		for (int a = 0; a < m; ++a) {
+			if (!zeroed[a] && jointPrior->getPriorType(active[a]) == priors::LAPLACE &&
+				(start[a] + step[a]) * start[a] < 0.0) {
+				zeroed[a] = 1;
+				crossed = true;
+			}
+		}
+		if (!crossed || round == 20) {
+			break;
+		}
+	}
+
+	// backtracking along the step; a Laplace coefficient that would still cross zero stops there
+	auto moveTo = [&](double t) {
+		for (int a = 0; a < m; ++a) {
+			const int j = active[a];
+			double target = start[a] + t * step[a];
+			if (jointPrior->getPriorType(j) == priors::LAPLACE && target * start[a] < 0.0) {
+				target = 0.0;
+			}
+			const double delta = target - hBeta[j];
+			if (delta != 0.0) {
+				sufficientStatisticsKnown = false;
+				updateSufficientStatistics(delta, j);
+			}
+		}
+		modelSpecifics.flushIntercept();
+	};
+	const double before = getLogLikelihood() + getLogPrior();
+	bool taken = false;
+	double takenT = 0.0, gain = 0.0;
+	int crossing = 0;
+	for (int a = 0; a < m; ++a) {
+		crossing += (jointPrior->getPriorType(active[a]) == priors::LAPLACE && (start[a] + step[a]) * start[a] < 0.0);
+	}
+	for (double t = 1.0; t >= 1.0 / 64.0; t /= 2.0) {
+		moveTo(t);
+		const double after = getLogLikelihood() + getLogPrior();
+		if (after > before) {
+			taken = true;
+			takenT = t;
+			gain = after - before;
+			break;
+		}
+	}
+	if (noiseLevel > QUIET) {
+		std::ostringstream stream;
+		stream << "Newton step: m " << m << (bordered ? " (saved Hessian extended)" : "")
+			   << ", crossing zero " << crossing << ", predicted gain " << -0.5 * gradient.dot(step)
+			   << ", " << (taken ? "taken at t " : "rejected") << (taken ? takenT : 0.0) << ", gain " << gain
+			   << ", kkt before " << kktCycle.maxScaled;
+		logger->writeLine(stream);
+	}
+	activeNewtonLastGain = gain;
+	if (!taken) {
+		moveTo(0.0);
+		return false;
+	}
+	++activeNewtonTaken;
+	activeNewtonLastT = takenT;
+	if (activeNewtonFollowUp) {
+		activeNewtonBasis.swap(builtBasis);
+		activeNewtonHessian.swap(builtHessian);
+		if (!bordered) {
+			activeNewtonWeights.swap(builtWeights); // an extended Hessian keeps the weights of its blocks
+		}
+	}
+
+	// bookkeeping: zero certificates were recorded against drift totals that these moves did not feed
+	// correctly, and the moved coordinates must be visited again
+	if (useZeroCertificates) {
+		for (auto& c : zeroCertificates) {
+			c.epoch = -1;
+		}
+	}
+	if (activeSetEvery != 0) {
+		for (int a = 0; a < m; ++a) {
+			lastStepSE[active[a]] = std::numeric_limits<double>::infinity();
+		}
+	}
+	if (interceptIndex >= 0) {
+		interceptState.gradient = 0.0;
+	}
+	return true;
 }
 
 double CyclicCoordinateDescent::getKktCriterion() const {
