@@ -334,6 +334,30 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 	const double costRatio = modelSpecifics.newtonCostRatio(context.F);
 	convergenceReport.costRatio = costRatio;
 
+	// Memory gate (2.5): H, its factor and workspace for each concurrent fit, plus the row-wise copy of X_F. Above
+	// the budget dense Newton is off (Newton-CG takes these fits in a later version): "auto" stays on CCD and
+	// "newton" stops at setup
+	double entries = 0.0;
+	for (int j : context.F) {
+		const FormatType format = hXI.getColumnType(j);
+		entries += (format == DENSE || format == INTERCEPT) ? static_cast<double>(K) :
+			static_cast<double>(hXI.getNumberOfEntries(j));
+	}
+	const double width = static_cast<double>(context.F.size());
+	const double bytes = 24.0 * width * width * std::max(1, threads) + 12.0 * entries;
+	const double budget = 256.0 * 1024 * 1024;
+	bool newtonAllowed = true;
+	if (bytes > budget) {
+		std::ostringstream stream;
+		stream << "dense Newton steps would need " << static_cast<long>(bytes / (1024 * 1024)) << " MB (budget "
+			<< static_cast<long>(budget / (1024 * 1024)) << " MB)";
+		if (algorithmType == AlgorithmType::NEWTON) {
+			error->throwError(stream);
+		}
+		newtonAllowed = false;
+		convergenceReport.ineligible = stream.str();
+	}
+
 	const int warmStart = 3; // 2.4 step 2
 	bool newtonPhase = false;
 	int phaseIterations = 0;
@@ -444,8 +468,8 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 
 		if (algorithmType == AlgorithmType::NEWTON && cycles >= warmStart) {
 			newtonPhase = true;
-		} else if (algorithmType == AlgorithmType::AUTO && cycles >= warmStart && cycles >= suppressUntil &&
-				nHat > 4.0 * costRatio) {
+		} else if (algorithmType == AlgorithmType::AUTO && newtonAllowed && cycles >= warmStart &&
+				cycles >= suppressUntil && nHat > 4.0 * costRatio) {
 			newtonPhase = true;
 		}
 		if (newtonPhase) {
@@ -459,7 +483,12 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 
 		// A curvature certificate on the CCD path: once the estimate is within 100 tau_eff and finishing on CCD
 		// costs more than one H (or it is already below tau_eff), with 2^k cycles between failed attempts
-		if (convergenceType == GAP && cycles >= warmStart && cycles >= certifyAfter) {
+		if (convergenceType == GAP && !newtonAllowed && !context.allNormal && cycles >= warmStart &&
+				gHat <= context.tauEff) { // no curvature certificate within the memory budget: stop on the estimate
+			finish(SUCCESS, "none", gHat);
+			break;
+		}
+		if (convergenceType == GAP && newtonAllowed && cycles >= warmStart && cycles >= certifyAfter) {
 			const double estimate = context.allNormal ? R : gHat;
 			const double remaining = context.allNormal ?
 				((rho < 1.0 && R > context.tauEff) ? std::log(R / context.tauEff) / -std::log(rho) :

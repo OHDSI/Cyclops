@@ -796,6 +796,33 @@ void cyclopsSetCvControl(SEXP inRcppCcdInterface, const List& options) {
 	}
 }
 
+// Separation (D5) and the "gap" / "auto" / "newton" report of the last fit (Newton plan 2.7, 2.10)
+static void appendNewtonReports(Rcpp::List& list, bsccs::RcppCcdInterface& rcppInterface) {
+	using namespace Rcpp;
+	bsccs::RcppCcdInterface* interface = &rcppInterface;
+	// Separated unpenalized coefficients (Newton plan 2.7, D5), as 1-based coefficient indices
+	const auto& divergent = interface->getCcd().getDivergentCoefficients();
+	if (!divergent.empty()) {
+		IntegerVector indices(divergent.size());
+		for (size_t i = 0; i < divergent.size(); ++i) {
+			indices[i] = divergent[i] + 1;
+		}
+		list["divergentCoefficients"] = indices;
+	}
+
+	// What a "gap" / "auto" / "newton" fit did (Newton plan 2.10); replaces the shadow log's summary
+	const auto& report = interface->getCcd().getConvergenceReport();
+	if (report.present) {
+		list["algorithm"] = report.algorithm;
+		list["convergence"] = List::create(_["gapEstimate"] = report.gapEstimate, _["certified"] = report.certified,
+			_["certificate"] = report.certificate, _["tauEff"] = report.tauEff, _["R"] = report.R, _["gsc"] = report.gsc,
+			_["lambda2Half"] = report.lambda2Half, _["cycles"] = report.cycles,
+			_["newtonIterations"] = report.newtonIterations, _["newtonStart"] = report.newtonStart,
+			_["hessians"] = report.hessians, _["fallbacks"] = report.fallbacks, _["costRatio"] = report.costRatio,
+			_["droppedDirections"] = report.droppedDirections, _["ineligible"] = report.ineligible);
+	}
+}
+
 // [[Rcpp::export(".cyclopsRunCrossValidation")]]
 List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface) {
 	using namespace bsccs;
@@ -811,6 +838,7 @@ List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface) {
 			Rcpp::Named("timeFit")=timeUpdate
 		);
 	RcppCcdInterface::appendRList(list, interface->getResult());
+	appendNewtonReports(list, *interface);
 	return list;
 }
 
@@ -902,27 +930,7 @@ List cyclopsFitModel(SEXP inRcppCcdInterface) {
 			_["lambda2Half"] = last.lambda2Half, _["kktMaxR"] = last.kktMaxR, _["cycles"] = last.cycle);
 	}
 
-	// Separated unpenalized coefficients (Newton plan 2.7, D5), as 1-based coefficient indices
-	const auto& divergent = interface->getCcd().getDivergentCoefficients();
-	if (!divergent.empty()) {
-		IntegerVector indices(divergent.size());
-		for (size_t i = 0; i < divergent.size(); ++i) {
-			indices[i] = divergent[i] + 1;
-		}
-		list["divergentCoefficients"] = indices;
-	}
-
-	// What a "gap" / "auto" / "newton" fit did (Newton plan 2.10); replaces the shadow log's summary
-	const auto& report = interface->getCcd().getConvergenceReport();
-	if (report.present) {
-		list["algorithm"] = report.algorithm;
-		list["convergence"] = List::create(_["gapEstimate"] = report.gapEstimate, _["certified"] = report.certified,
-			_["certificate"] = report.certificate, _["tauEff"] = report.tauEff, _["R"] = report.R, _["gsc"] = report.gsc,
-			_["lambda2Half"] = report.lambda2Half, _["cycles"] = report.cycles,
-			_["newtonIterations"] = report.newtonIterations, _["newtonStart"] = report.newtonStart,
-			_["hessians"] = report.hessians, _["fallbacks"] = report.fallbacks, _["costRatio"] = report.costRatio,
-			_["droppedDirections"] = report.droppedDirections, _["ineligible"] = report.ineligible);
-	}
+	appendNewtonReports(list, *interface);
 	return list;
 }
 
