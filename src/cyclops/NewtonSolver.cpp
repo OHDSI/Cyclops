@@ -9,7 +9,9 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <cstdlib>
 #include <sstream>
+#include <string>
 
 #include "CyclicCoordinateDescent.h"
 #include "Iterators.h"
@@ -26,6 +28,16 @@ struct CyclicCoordinateDescent::NewtonContext {
 	double nuNormal = NAN;          // all-Normal form of nu, fixed for the fit
 	double eta = 5.0;               // eta trust region: t max_k |x_k'd| <= eta (2.6)
 	int rejections = 0;             // consecutive rejected line searches
+	bool conjugateGradient = false; // Newton-CG instead of a dense factorization (2.5)
+	bool jacobi = false;            // Jacobi-preconditioned CG (diagnostics only: it loses on these designs)
+	// Rank-k Woodbury preconditioner P = M - B'B, M = S2 + Lambda (Phase 4 study: 8-16x fewer Hv), built at the
+	// first Newton-CG iteration and rebuilt after a solve of more than 25 Hv
+	bool woodburyAllowed = false;
+	bool woodburyBuilt = false;
+	bool woodburyStale = false;
+	Eigen::LLT<Eigen::MatrixXd> woodburyM;
+	Eigen::MatrixXd woodburyW;      // M^-1 B'
+	Eigen::LLT<Eigen::MatrixXd> woodburyCapacitance; // I - B M^-1 B'
 	int stopType = GAP;             // explicit types under algorithm = "newton" map onto Newton iterations
 	double tolerance = 0.0;
 	double lastObjective = NAN;
@@ -119,15 +131,16 @@ bool CyclicCoordinateDescent::certifyGap(NewtonContext& context, double* gscValu
 	return true;
 }
 
-CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::newtonIteration(NewtonContext& context) {
+bool CyclicCoordinateDescent::newtonDirectionDense(NewtonContext& context, Eigen::VectorXd& s, Eigen::VectorXd& d,
+                                                   bool* stop, bool* certified, bool* damped) {
 
 	const size_t n = context.F.size();
 	std::vector<double> gradient, block;
 	if (!modelSpecifics.fullGradient(context.F, gradient) || !modelSpecifics.hessianBlock(context.F, block)) {
-		return NewtonOutcome::FAILED;
+		return false;
 	}
 	++convergenceReport.hessians;
-	Eigen::VectorXd s(n);
+	s.resize(n);
 	Eigen::MatrixXd H = Eigen::Map<Eigen::MatrixXd>(block.data(), n, n);
 	double kkt = 0.0;
 	for (size_t i = 0; i < n; ++i) {
@@ -138,25 +151,26 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::newtonIteration(
 		}
 	}
 	if (!s.allFinite() || !H.allFinite()) {
-		return NewtonOutcome::FAILED;
+		return false;
 	}
 	const newton::SymmetricSolve solve(H, s);
-	Eigen::VectorXd d = -solve.x;
+	d = -solve.x;
 	const double lambda2 = -s.dot(d);
 	convergenceReport.droppedDirections = solve.dropped;
 	if (!(lambda2 >= 0.0) || !d.allFinite()) {
-		return NewtonOutcome::FAILED;
+		return false;
 	}
 	convergenceReport.lambda2Half = 0.5 * lambda2;
 
 	// Stop test at the current point (3.2): gsc <= tau_eff certifies it, and its last step is still taken; while
 	// gsc is unavailable (c Lambda >= 1, or H not positive definite) Lambda^2 / 2 <= tau_eff stops uncertified.
 	// gsc >= Lambda^2 / 2, so nu is only computed when that can pass.
-	bool stop = false;
-	bool certified = false;
+	*stop = false;
+	*certified = false;
+	*damped = solve.method != newton::SolveMethod::CHOLESKY;
 	if (context.stopType == GAP) {
 		if (0.5 * lambda2 <= context.tauEff) {
-			stop = true;
+			*stop = true;
 			if (solve.method == newton::SolveMethod::CHOLESKY) {
 				const auto* data = dynamic_cast<const ModelData<double>*>(&hXI);
 				auto positive = [this](int k) {
@@ -174,17 +188,186 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::newtonIteration(
 					}
 					const double value = newton::gsc(2.0 * nu, std::sqrt(lambda2));
 					convergenceReport.gsc = value;
-					certified = value <= context.tauEff;
+					*certified = value <= context.tauEff;
 				}
 			}
 		}
 	} else if (context.stopType == KKT) {
-		stop = kkt < context.tolerance;
+		*stop = kkt < context.tolerance;
+	}
+	return true;
+}
+
+
+// Newton-CG direction (2.5, 3.2): (Jacobi-preconditioned) conjugate gradients on H x = s with an inexact-Newton
+// forcing term, at most 250 Hv. When the estimate s'x / 2 is within tau_eff, a certification solve continues to a
+// relative residual of 1e-10 (at most 1,000 Hv); on all-Normal fits the bracket from its explicit residual,
+// Lambda^2 <= 2 s'x - x'Hx + sum_j sigma_j^2 r_j^2, then certifies through gsc. A solve that hits its budget
+// certifies nothing; with None coordinates a converged certification solve stops uncertified.
+bool CyclicCoordinateDescent::newtonDirectionCG(NewtonContext& context, Eigen::VectorXd& s, Eigen::VectorXd& d,
+                                                bool* stop, bool* certified) {
+	const size_t n = context.F.size();
+	std::vector<double> gradient;
+	if (!modelSpecifics.fullGradient(context.F, gradient)) {
+		return false;
+	}
+	s.resize(n);
+	for (size_t i = 0; i < n; ++i) {
+		s(i) = gradient[i] + context.precision[i] * hBeta[context.F[i]];
+	}
+	if (!s.allFinite()) {
+		return false;
+	}
+	Eigen::VectorXd diagonal = Eigen::VectorXd::Ones(n);
+	const bool needDiagonal = context.jacobi || context.stopType == KKT;
+	if (needDiagonal) {
+		std::vector<double> h;
+		if (!modelSpecifics.hessianDiagonal(context.F, h)) {
+			return false;
+		}
+		for (size_t i = 0; i < n; ++i) {
+			diagonal(i) = std::max(h[i] + context.precision[i], 1e-300);
+		}
+	}
+	if (context.woodburyAllowed && (!context.woodburyBuilt || context.woodburyStale)) {
+		context.woodburyBuilt = false;
+		context.woodburyStale = false;
+		const int rank = 32;
+		std::vector<double> S2, B;
+		if (modelSpecifics.woodburyParts(context.F, rank, S2, B)) {
+			const int k = static_cast<int>(B.size() / n);
+			Eigen::MatrixXd M = Eigen::Map<Eigen::MatrixXd>(S2.data(), n, n);
+			for (size_t i = 0; i < n; ++i) {
+				M(i, i) += context.precision[i];
+			}
+			context.woodburyM.compute(M);
+			if (context.woodburyM.info() == Eigen::Success) {
+				const Eigen::Map<Eigen::MatrixXd> Bm(B.data(), k, n);
+				context.woodburyW = context.woodburyM.solve(Bm.transpose());
+				const Eigen::MatrixXd capacitance = Eigen::MatrixXd::Identity(k, k) - Bm * context.woodburyW;
+				context.woodburyCapacitance.compute(capacitance);
+				context.woodburyBuilt = context.woodburyCapacitance.info() == Eigen::Success;
+			}
+		}
+	}
+
+	std::vector<double> in(n), out;
+	auto product = [&](const Eigen::VectorXd& v, Eigen::VectorXd& Hv) {
+		for (size_t i = 0; i < n; ++i) in[i] = v(i);
+		if (!modelSpecifics.hessianVector(context.F, in, out)) return false;
+		Hv.resize(n);
+		for (size_t i = 0; i < n; ++i) Hv(i) = out[i] + context.precision[i] * v(i);
+		++convergenceReport.hessianVectorProducts;
+		return Hv.allFinite();
+	};
+
+	// CG from x on H x = s until |r| <= tolerance |s| or the budget; false on a product failure
+	Eigen::VectorXd x = Eigen::VectorXd::Zero(n), r = s, z, p, Hp;
+	auto precondition = [&](const Eigen::VectorXd& v) -> Eigen::VectorXd {
+		if (context.woodburyBuilt) { // P^-1 v = M^-1 v + W (I - B W)^-1 W'v
+			return context.woodburyM.solve(v) + context.woodburyW * context.woodburyCapacitance.solve(context.woodburyW.transpose() * v);
+		}
+		return context.jacobi ? Eigen::VectorXd(v.cwiseQuotient(diagonal)) : v;
+	};
+	z = precondition(r);
+	p = z;
+	double rz = r.dot(z);
+	const double sNorm = s.norm();
+	// stopEarly: during a certification solve on all-Normal fits, stop once the bracket from the recurrence residual
+	// certifies (confirmed below with an explicit residual)
+	auto bracketHolds = [&]() {
+		double high = s.dot(x);
+		for (size_t i = 0; i < n; ++i) {
+			high += r(i) * r(i) / context.precision[i];
+		}
+		return newton::gsc(2.0 * context.nuNormal, std::sqrt(std::max(high, 0.0))) <= context.tauEff;
+	};
+	auto iterate = [&](double tolerance, int budget, bool* converged, bool stopEarly = false) {
+		*converged = r.norm() <= tolerance * sNorm || (stopEarly && bracketHolds());
+		for (int it = 0; it < budget && !*converged; ++it) {
+			if (!product(p, Hp)) return false;
+			const double curvature = p.dot(Hp);
+			if (!(curvature > 0.0)) { // H is not positive definite along p: keep x
+				break;
+			}
+			const double alpha = rz / curvature;
+			x += alpha * p;
+			r -= alpha * Hp;
+			*converged = r.norm() <= tolerance * sNorm || (stopEarly && bracketHolds());
+			z = precondition(r);
+			const double next = r.dot(z);
+			p = z + (next / rz) * p;
+			rz = next;
+		}
+		return true;
+	};
+	bool converged = false;
+	const int startProducts = convergenceReport.hessianVectorProducts;
+	// The plan's forcing term: a superlinear one (|s_k| / |s_0|) halved the outer iterations but doubled the Hv
+	// per iteration on the wide MIMIC designs, and took longer
+	const double forcing = std::min(0.5, std::sqrt(sNorm));
+	if (!iterate(forcing, 250, &converged)) {
+		return false;
+	}
+	context.woodburyStale = context.woodburyBuilt && convergenceReport.hessianVectorProducts - startProducts > 25;
+	double lambda2 = s.dot(x);
+	if (x.squaredNorm() == 0.0 && sNorm > 0.0) { // no positive curvature at all: a steepest-descent step
+		x = s / std::max(diagonal.maxCoeff(), 1.0);
+		lambda2 = s.dot(x);
+	}
+
+	*stop = false;
+	*certified = false;
+	if (context.stopType == GAP && 0.5 * lambda2 <= context.tauEff) {
+		bool tight = false;
+		const int before = convergenceReport.hessianVectorProducts;
+		// Preconditioned, a tight solve is cheap (40-80 Hv) and makes the final step exact; unpreconditioned, the
+		// solve stops once the bracket certifies (a tight one took up to 911 Hv)
+		if (!iterate(1e-10, context.woodburyBuilt ? 250 : 1000, &tight, context.allNormal && !context.woodburyBuilt)) {
+			return false;
+		}
+		convergenceReport.certificationProducts += convergenceReport.hessianVectorProducts - before;
+		lambda2 = s.dot(x);
+		if (tight) {
+			Eigen::VectorXd Hx;
+			if (!product(x, Hx)) return false; // explicit, never the recurrence residual
+			const double low = 2.0 * s.dot(x) - x.dot(Hx);
+			if (context.allNormal) {
+				const Eigen::VectorXd residual = s - Hx;
+				double high = low;
+				for (size_t i = 0; i < n; ++i) {
+					high += residual(i) * residual(i) / context.precision[i];
+				}
+				const double value = newton::gsc(2.0 * context.nuNormal, std::sqrt(std::max(high, 0.0)));
+				convergenceReport.gsc = value;
+				*certified = value <= context.tauEff;
+				*stop = *certified || 0.5 * low <= context.tauEff;
+			} else {
+				*stop = 0.5 * low <= context.tauEff;
+			}
+			lambda2 = low;
+		}
+	} else if (context.stopType == KKT) {
+		*stop = s.cwiseQuotient(diagonal.cwiseSqrt()).cwiseAbs().maxCoeff() < context.tolerance;
+	}
+	convergenceReport.lambda2Half = 0.5 * lambda2;
+	d = -x;
+	return d.allFinite();
+}
+
+CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::newtonIteration(NewtonContext& context) {
+
+	const size_t n = context.F.size();
+	Eigen::VectorXd s, d;
+	bool stop = false, certified = false, damped = false;
+	if (!(context.conjugateGradient ? newtonDirectionCG(context, s, d, &stop, &certified) :
+			newtonDirectionDense(context, s, d, &stop, &certified, &damped))) {
+		return NewtonOutcome::FAILED;
 	}
 
 	// None coordinates get |delta_j| <= hDelta_j when the solve dropped or damped directions: the eta trust region
 	// cannot see directions in the null space of X (2.6)
-	if (solve.method != newton::SolveMethod::CHOLESKY) {
+	if (damped) {
 		double scale = 1.0;
 		for (size_t i = 0; i < n; ++i) {
 			const int j = context.F[i];
@@ -346,17 +529,28 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 	const double width = static_cast<double>(context.F.size());
 	const double bytes = 24.0 * width * width * std::max(1, threads) + 12.0 * entries;
 	const double budget = 256.0 * 1024 * 1024;
-	bool newtonAllowed = true;
-	if (bytes > budget) {
-		std::ostringstream stream;
-		stream << "dense Newton steps would need " << static_cast<long>(bytes / (1024 * 1024)) << " MB (budget "
-			<< static_cast<long>(budget / (1024 * 1024)) << " MB)";
-		if (algorithmType == AlgorithmType::NEWTON) {
-			error->throwError(stream);
-		}
-		newtonAllowed = false;
-		convergenceReport.ineligible = stream.str();
+
+	// Dense or Newton-CG (2.5): CG when the dense factorization would exceed the memory budget, or when its
+	// operation count is lower; CYCLOPS_NEWTON_SOLVER = "dense" or "cg" forces one (tests, gates)
+	// Woodbury preconditioning when its factor fits: M and its Cholesky factor, and the k = 32 columns of W
+	const double woodburyBytes = (16.0 * width * width + 8.0 * 2.0 * 32.0 * width) * std::max(1, threads) + 12.0 * entries;
+	context.woodburyAllowed = woodburyBytes <= budget;
+	if (const char* woodbury = std::getenv("CYCLOPS_NEWTON_WOODBURY")) {
+		context.woodburyAllowed = context.woodburyAllowed && std::atoi(woodbury) != 0;
 	}
+	const double cgRatio = modelSpecifics.newtonCgCostRatio(context.F, context.woodburyAllowed);
+	context.conjugateGradient = bytes > budget || cgRatio < costRatio;
+	if (const char* forced = std::getenv("CYCLOPS_NEWTON_SOLVER")) {
+		const std::string solver(forced);
+		if (solver == "dense" && bytes <= budget) context.conjugateGradient = false;
+		if (solver == "cg") context.conjugateGradient = true;
+	}
+	if (const char* jacobi = std::getenv("CYCLOPS_NEWTON_JACOBI")) {
+		context.jacobi = std::atoi(jacobi) != 0;
+	}
+	convergenceReport.solver = context.conjugateGradient ? "cg" : "dense";
+	const double newtonCost = context.conjugateGradient ? cgRatio : costRatio;
+	convergenceReport.costRatio = newtonCost;
 
 	const int warmStart = 3; // 2.4 step 2
 	bool newtonPhase = false;
@@ -468,8 +662,8 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 
 		if (algorithmType == AlgorithmType::NEWTON && cycles >= warmStart) {
 			newtonPhase = true;
-		} else if (algorithmType == AlgorithmType::AUTO && newtonAllowed && cycles >= warmStart &&
-				cycles >= suppressUntil && nHat > 4.0 * costRatio) {
+		} else if (algorithmType == AlgorithmType::AUTO && cycles >= warmStart &&
+				cycles >= suppressUntil && nHat > 4.0 * newtonCost) {
 			newtonPhase = true;
 		}
 		if (newtonPhase) {
@@ -483,17 +677,17 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 
 		// A curvature certificate on the CCD path: once the estimate is within 100 tau_eff and finishing on CCD
 		// costs more than one H (or it is already below tau_eff), with 2^k cycles between failed attempts
-		if (convergenceType == GAP && !newtonAllowed && !context.allNormal && cycles >= warmStart &&
+		if (convergenceType == GAP && context.conjugateGradient && !context.allNormal && cycles >= warmStart &&
 				gHat <= context.tauEff) { // no curvature certificate within the memory budget: stop on the estimate
 			finish(SUCCESS, "none", gHat);
 			break;
 		}
-		if (convergenceType == GAP && newtonAllowed && cycles >= warmStart && cycles >= certifyAfter) {
+		if (convergenceType == GAP && !context.conjugateGradient && cycles >= warmStart && cycles >= certifyAfter) {
 			const double estimate = context.allNormal ? R : gHat;
 			const double remaining = context.allNormal ?
 				((rho < 1.0 && R > context.tauEff) ? std::log(R / context.tauEff) / -std::log(rho) :
 					std::numeric_limits<double>::infinity()) : nHat;
-			if (estimate <= 100.0 * context.tauEff && (remaining > costRatio || estimate <= context.tauEff)) {
+			if (estimate <= 100.0 * context.tauEff && (remaining > newtonCost || estimate <= context.tauEff)) {
 				double value = NAN, lambda2Half = NAN;
 				if (certifyGap(context, &value, &lambda2Half)) {
 					convergenceReport.gsc = value;

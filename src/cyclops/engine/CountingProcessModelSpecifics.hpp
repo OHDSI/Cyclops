@@ -104,7 +104,14 @@ public:
 
     bool separationDirections(const std::vector<int>& columns, std::vector<int>& direction);
 
+    bool hessianDiagonal(const std::vector<int>& F, std::vector<double>& h);
+
+    bool woodburyParts(const std::vector<int>& F, int rank, std::vector<double>& S2, std::vector<double>& B);
+
+    double newtonCgCostRatio(const std::vector<int>& F, bool preconditioned);
+
 private:
+    double cycleWork(const std::vector<int>& F) const; // sum_j nnz_j + groups touched_j
     using Base::hX;
     using Base::hY;
     using Base::hOffs;
@@ -1058,29 +1065,70 @@ bool CountingProcessModelSpecifics<RealType>::hessianBlock(const std::vector<int
         return true;
     }
 
-    // S2 = X_F' diag(u o dC) X_F from each row's outer product, lower triangle
+    // S2 = X_F' diag(u o dC) X_F, lower triangle. Row p of H is owned by one task: it walks column F[p] and, in
+    // each of its rows k, the entries at positions <= p, so every entry sums over k in increasing order whatever
+    // the threads
+    std::vector<double> r(K, 0.0);
     for (size_t k = 0; k < K; ++k) {
         if (hPid[k] < unused) {
-            const double r = static_cast<double>(hKWeight[k]) * static_cast<double>(offsExpXBeta[k]) *
-                rowHazard(static_cast<int>(k));
-            for (size_t a = soRowStart[k]; a < soRowStart[k + 1]; ++a) {
-                const double ra = r * soValue[a];
-                double* column = H.data() + soPosition[a];
-                for (size_t b = soRowStart[k]; b <= a; ++b) {
-                    column[soPosition[b] * n] += ra * soValue[b];
+            r[k] = static_cast<double>(hKWeight[k]) * static_cast<double>(offsExpXBeta[k]) * rowHazard(static_cast<int>(k));
+        }
+    }
+    auto rowS2 = [&](size_t p, int) {
+        double* row = H.data() + p;
+        for (GenericIterator<RealType> it(hX, F[p]); it; ++it) {
+            const int k = it.index();
+            if (hPid[k] >= unused) {
+                continue;
+            }
+            const double rp = r[k] * static_cast<double>(it.value());
+            for (size_t b = soRowStart[k]; b < soRowStart[k + 1] && static_cast<size_t>(soPosition[b]) <= p; ++b) {
+                row[soPosition[b] * n] += rp * soValue[b];
+            }
+        }
+    };
+    if (pool) {
+        pool->run(n, rowS2);
+    } else { // the same sums in the same order, from each row's outer product (faster on one thread)
+        for (size_t k = 0; k < K; ++k) {
+            if (hPid[k] < unused) {
+                for (size_t a = soRowStart[k]; a < soRowStart[k + 1]; ++a) {
+                    const double ra = r[k] * soValue[a];
+                    double* column = H.data() + soPosition[a];
+                    for (size_t b = soRowStart[k]; b <= a; ++b) {
+                        column[soPosition[b] * n] += ra * soValue[b];
+                    }
                 }
             }
         }
     }
 
-    // A'A: row g of A is sqrt(d_g) / D_g times the risk-set sum S1_g of u x_F, a compensated
-    // running sum over entries and exits. Rows go to a symmetric rank-k update in chunks of groups.
+    // A'A: row g of A is sqrt(d_g) / D_g times the risk-set sum S1_g of u x_F, a compensated running sum over
+    // entries and exits. Chunks of groups go to fixed-width block-column products of the lower triangle, so the
+    // result does not depend on the threads.
     const size_t chunk = std::max<size_t>(1, std::min<size_t>(N, std::min<size_t>(1024, (size_t(1) << 20) / n))); // <= 8 MB
+    const size_t width = 64; // block columns of the lower triangle, one task each
+    const size_t blocks = (n + width - 1) / width;
     Eigen::MatrixXd A(n, chunk);
     Eigen::Map<Eigen::MatrixXd> Hm(H.data(), n, n);
     std::vector<double> run(n, 0.0);
     std::vector<double> compensation(n, 0.0);
     size_t filled = 0;
+    auto subtract = [&](size_t columns) {
+        auto block = [&](size_t b, int) {
+            const size_t c0 = b * width;
+            const size_t w = std::min(width, n - c0);
+            Hm.block(c0, c0, n - c0, w).noalias() -=
+                A.block(c0, 0, n - c0, columns) * A.block(c0, 0, w, columns).transpose();
+        };
+        if (pool) {
+            pool->run(blocks, block);
+        } else {
+            for (size_t b = 0; b < blocks; ++b) {
+                block(b, 0);
+            }
+        }
+    };
     auto scatter = [&](int k, double sign) {
         const double u = sign * static_cast<double>(hKWeight[k]) * static_cast<double>(offsExpXBeta[k]);
         for (size_t e = soRowStart[k]; e < soRowStart[k + 1]; ++e) {
@@ -1105,13 +1153,13 @@ bool CountingProcessModelSpecifics<RealType>::hessianBlock(const std::vector<int
                 A(p, filled) = (run[p] + compensation[p]) * scale;
             }
             if (++filled == chunk) {
-                Hm.template selfadjointView<Eigen::Lower>().rankUpdate(A, -1.0);
+                subtract(filled);
                 filled = 0;
             }
         }
     }
     if (filled > 0) {
-        Hm.template selfadjointView<Eigen::Lower>().rankUpdate(A.leftCols(filled), -1.0);
+        subtract(filled);
     }
 
     for (size_t j = 0; j < n; ++j) {
@@ -1270,13 +1318,7 @@ double CountingProcessModelSpecifics<RealType>::newtonCostRatio(const std::vecto
     // column touches; for one dense iteration, row outer products, the blocked A'A, the Cholesky factor and the
     // O(nnz + K + G) passes of the gradient, two trials and the commit
     const double aCycle = 4.0, aRows = 0.75, aGroups = 0.03, aCholesky = 0.035, aLinear = 1.0;
-    double cycle = 0.0;
-    for (int j : F) {
-        const bool dense = hX.getFormatType(j) == DENSE || hX.getFormatType(j) == INTERCEPT;
-        const double groups = dense || !sparseIndices[j] ? static_cast<double>(N) :
-            static_cast<double>(sparseIndices[j]->size());
-        cycle += static_cast<double>(hX.getNumberOfNonZeroEntries(j)) + groups;
-    }
+    const double cycle = cycleWork(F);
     double rows = 0.0;
     for (size_t k = 0; k < K; ++k) {
         const double m = static_cast<double>(soRowStart[k + 1] - soRowStart[k]);
@@ -1366,6 +1408,135 @@ bool CountingProcessModelSpecifics<RealType>::separationDirections(const std::ve
         }
     }
     return true;
+}
+
+template <typename RealType>
+bool CountingProcessModelSpecifics<RealType>::hessianDiagonal(const std::vector<int>& F, std::vector<double>& h) {
+
+    if (!secondOrderReady()) {
+        return false;
+    }
+    h.assign(F.size(), 0.0);
+    for (size_t p = 0; p < F.size(); ++p) {
+        double gradient = 0.0;
+        if (hX.getNumberOfNonZeroEntries(F[p]) > 0) {
+            dispatchHazardGradientAndHessian(F[p], workspace, &gradient, &h[p], true); // weights are 1 without any
+        }
+    }
+    return true;
+}
+
+template <typename RealType>
+bool CountingProcessModelSpecifics<RealType>::woodburyParts(const std::vector<int>& F, int rank,
+        std::vector<double>& S2, std::vector<double>& B) {
+
+    if (!secondOrderReady() || !secondOrderPrepare(F) || rank < 1) {
+        return false;
+    }
+    prepareGroupLists();
+    const int unused = static_cast<int>(N);
+    const size_t n = F.size();
+    S2.assign(n * n, 0.0);
+    for (size_t k = 0; k < K; ++k) { // as hessianBlock()
+        if (hPid[k] < unused) {
+            const double r = static_cast<double>(hKWeight[k]) * static_cast<double>(offsExpXBeta[k]) *
+                rowHazard(static_cast<int>(k));
+            for (size_t a = soRowStart[k]; a < soRowStart[k + 1]; ++a) {
+                const double ra = r * soValue[a];
+                double* column = S2.data() + soPosition[a];
+                for (size_t b = soRowStart[k]; b <= a; ++b) {
+                    column[soPosition[b] * n] += ra * soValue[b];
+                }
+            }
+        }
+    }
+    for (size_t j = 0; j < n; ++j) {
+        for (size_t i = j + 1; i < n; ++i) {
+            S2[j + i * n] = S2[i + j * n];
+        }
+    }
+
+    // bins of contiguous groups with about equal event weight
+    const int bins = static_cast<int>(std::min<size_t>(rank, N));
+    double total = 0.0;
+    for (size_t g = 0; g < N; ++g) {
+        total += static_cast<double>(hNWeight[g]);
+    }
+    std::vector<int> bin(N), count(bins, 0);
+    double accumulated = 0.0;
+    for (size_t g = 0; g < N; ++g) {
+        bin[g] = std::min(bins - 1, static_cast<int>(std::floor(accumulated / total * bins)));
+        ++count[bin[g]];
+        accumulated += static_cast<double>(hNWeight[g]);
+    }
+    B.assign(static_cast<size_t>(bins) * n, 0.0);
+    std::vector<double> run(n, 0.0), compensation(n, 0.0);
+    auto scatter = [&](int k, double sign) {
+        const double u = sign * static_cast<double>(hKWeight[k]) * static_cast<double>(offsExpXBeta[k]);
+        for (size_t e = soRowStart[k]; e < soRowStart[k + 1]; ++e) {
+            countingAddCompensated(run[soPosition[e]], compensation[soPosition[e]], u * soValue[e]);
+        }
+    };
+    for (size_t g = 0; g < N; ++g) { // the rows of A, as in hessianBlock(), summed into their bins
+        if (static_cast<int>(g) == groupStratumStart[g]) {
+            std::fill(run.begin(), run.end(), 0.0);
+            std::fill(compensation.begin(), compensation.end(), 0.0);
+        }
+        for (int i = soEnterStart[g]; i < soEnterStart[g + 1]; ++i) {
+            scatter(soEnterRows[i], 1.0);
+        }
+        for (int i = soExitStart[g]; i < soExitStart[g + 1]; ++i) {
+            scatter(soExitRows[i], -1.0);
+        }
+        const double d = static_cast<double>(hNWeight[g]);
+        if (d != 0.0) {
+            const double scale = std::sqrt(d) / static_cast<double>(accDenomPid[g]) / std::sqrt(static_cast<double>(count[bin[g]]));
+            for (size_t p = 0; p < n; ++p) {
+                B[bin[g] + p * bins] += (run[p] + compensation[p]) * scale;
+            }
+        }
+    }
+    return true;
+}
+
+template <typename RealType>
+double CountingProcessModelSpecifics<RealType>::cycleWork(const std::vector<int>& F) const {
+    double cycle = 0.0;
+    for (int j : F) {
+        const bool dense = hX.getFormatType(j) == DENSE || hX.getFormatType(j) == INTERCEPT;
+        const double groups = dense || !sparseIndices[j] ? static_cast<double>(N) :
+            static_cast<double>(sparseIndices[j]->size());
+        cycle += static_cast<double>(hX.getNumberOfNonZeroEntries(j)) + groups;
+    }
+    return cycle;
+}
+
+template <typename RealType>
+double CountingProcessModelSpecifics<RealType>::newtonCgCostRatio(const std::vector<int>& F, bool preconditioned) {
+
+    if (!secondOrderReady() || !secondOrderPrepare(F)) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    // Unpreconditioned: about 45 Hv per iteration (E5). With the rank-32 Woodbury preconditioner (Phase 4 study):
+    // about 12 Hv per iteration, each with two triangular solves, and its setup (S2's row outer products, a
+    // Cholesky factor, 32 solves) spread over about 6 iterations
+    const double aCycle = 4.0, aLinear = 1.0, aRows = 0.75, aCholesky = 0.035, aSolve = 0.1;
+    const double hv = 2.0 * static_cast<double>(soRowStart[K]) + static_cast<double>(K) + static_cast<double>(N);
+    const double cycle = cycleWork(F);
+    const double f = static_cast<double>(F.size());
+    double work = 0.0;
+    if (preconditioned) {
+        double rows = 0.0;
+        for (size_t k = 0; k < K; ++k) {
+            const double m = static_cast<double>(soRowStart[k + 1] - soRowStart[k]);
+            rows += 0.5 * m * m;
+        }
+        const double setup = aRows * rows + aCholesky * f * f * f / 3.0 + aSolve * 32.0 * 2.0 * f * f;
+        work = 16.0 * aLinear * hv + 12.0 * aSolve * 2.0 * f * f + setup / 6.0;
+    } else {
+        work = 49.0 * aLinear * hv;
+    }
+    return (cycle > 0.0) ? work / (aCycle * cycle) : std::numeric_limits<double>::quiet_NaN();
 }
 
 } // namespace bsccs

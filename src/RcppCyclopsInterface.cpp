@@ -814,12 +814,16 @@ static void appendNewtonReports(Rcpp::List& list, bsccs::RcppCcdInterface& rcppI
 	const auto& report = interface->getCcd().getConvergenceReport();
 	if (report.present) {
 		list["algorithm"] = report.algorithm;
-		list["convergence"] = List::create(_["gapEstimate"] = report.gapEstimate, _["certified"] = report.certified,
+		List convergence = List::create(_["gapEstimate"] = report.gapEstimate, _["certified"] = report.certified,
 			_["certificate"] = report.certificate, _["tauEff"] = report.tauEff, _["R"] = report.R, _["gsc"] = report.gsc,
 			_["lambda2Half"] = report.lambda2Half, _["cycles"] = report.cycles,
 			_["newtonIterations"] = report.newtonIterations, _["newtonStart"] = report.newtonStart,
 			_["hessians"] = report.hessians, _["fallbacks"] = report.fallbacks, _["costRatio"] = report.costRatio,
 			_["droppedDirections"] = report.droppedDirections, _["ineligible"] = report.ineligible);
+		convergence.push_back(report.solver, "solver"); // List::create takes at most 20 elements
+		convergence.push_back(report.hessianVectorProducts, "hessianVectorProducts");
+		convergence.push_back(report.certificationProducts, "certificationProducts");
+		list["convergence"] = convergence;
 	}
 }
 

@@ -265,6 +265,9 @@ public:
 		int fallbacks = 0;              // Newton phases abandoned for CCD
 		int newtonStart = -1;           // cycle at which Newton took over
 		int droppedDirections = 0;      // aliased directions left out of the last Newton solve
+		std::string solver;             // "dense" or "cg" (Newton-CG) once Newton is considered
+		int hessianVectorProducts = 0;
+		int certificationProducts = 0;  // Hv spent in certification solves
 		std::string ineligible;         // why a requested Newton path ran as CCD
 	};
 
@@ -519,6 +522,10 @@ protected:
 	void findModeGap(const std::function<void()>& cycle, int& iteration, int maxIterations, double tau,
 	                 AlgorithmType algorithmType, int convergenceType);
 	NewtonOutcome newtonIteration(NewtonContext& context);
+	bool newtonDirectionDense(NewtonContext& context, Eigen::VectorXd& s, Eigen::VectorXd& d, bool* stop,
+	                          bool* certified, bool* damped);
+	bool newtonDirectionCG(NewtonContext& context, Eigen::VectorXd& s, Eigen::VectorXd& d, bool* stop,
+	                       bool* certified);
 	bool certifyGap(NewtonContext& context, double* gscValue, double* lambda2Half);
 
 	int shadowMode = 0;

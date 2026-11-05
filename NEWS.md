@@ -16,7 +16,7 @@ Changes:
    coordinate descent that switches to dense Newton steps when an operation count says they are
    cheaper, and back to coordinate descent if they fail; `algorithm = "newton"` takes Newton steps after
    three coordinate-descent cycles. With 571 covariates and 13,152 rows (`cox_counting`), a ridge fit takes
-   0.38 s instead of 1.3 s and reaches the optimum, where the default stopped 0.013 log-likelihood units
+   0.14 s instead of 1.3 s and reaches the optimum, where the default stopped 0.013 log-likelihood units
    short (`survival::coxph()`: 63 s). On large designs where Newton steps cost more than coordinate
    descent, `"auto"` stays with coordinate descent
 5. `createControl(convergenceType = "gap")` stops when a certified bound on the distance to the optimum
@@ -41,6 +41,15 @@ Changes:
    with large finite values or `ILLCONDITIONED` with `NaN`, depending on the data and the convergence
    criterion, so results of separated fits change. Conditional Poisson, SCCS and conditional logistic
    models are not checked yet
+9. Newton steps on `cox` and `cox_counting` designs solve with conjugate gradients (Newton-CG) when an
+   operation count says that is cheaper than a dense factorization, or when the dense matrices of all
+   concurrent fits would exceed 256 MB. A rank-32 Woodbury preconditioner (the row part of the Hessian
+   minus a binned approximation of its risk-set part) cuts the conjugate-gradient work 8-16 fold, and the
+   stop is certified from an explicit-residual bracket. With 3,068 covariates and 13,152 rows a ridge fit
+   to a gap of 1e-8 takes 1.5 s (dense Newton: 7.5 s; coordinate descent did not get there in 25,000
+   cycles), and with 2,016 covariates 0.52 s (dense: 2.5 s)
+10. the Hessian of `cox` and `cox_counting` models (used by `vcov()`, `getSEs()` and Newton steps) is
+   computed on `createControl(threads = )` threads, with results that do not depend on their number
 
 Cyclops v3.8.0
 ==============

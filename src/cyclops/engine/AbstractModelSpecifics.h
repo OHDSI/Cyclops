@@ -230,6 +230,24 @@ public:
 		return false;
 	}
 
+	// diag(H) over F (likelihood part), one pass per column; for Jacobi preconditioning and kkt under Newton-CG
+	virtual bool hessianDiagonal(const std::vector<int>& F, std::vector<double>& h) {
+		return false;
+	}
+
+	// For the Woodbury preconditioner of Newton-CG (Phase 4): S2 = X_F' diag(u o dC) X_F (|F| x |F|, column-major,
+	// both triangles) and B = U'A, the rows of A summed over `rank` bins of contiguous event-time groups with about
+	// equal event weight, each scaled by 1 / sqrt(its number of groups) (rank x |F|, column-major); then
+	// S2 - B'B >= S2 - A'A
+	virtual bool woodburyParts(const std::vector<int>& F, int rank, std::vector<double>& S2, std::vector<double>& B) {
+		return false;
+	}
+
+	// The work of one Newton-CG iteration (about 45 Hv, plan 2.5) in CCD cycles over F; NaN without the API
+	virtual double newtonCgCostRatio(const std::vector<int>& F, bool preconditioned) {
+		return std::numeric_limits<double>::quiet_NaN();
+	}
+
 	// r_B of the Newton plan (2.4): the work of one dense Newton iteration over F in units of one CCD cycle
 	// over F, from compile-time per-term constants; NaN without the second-order API
 	virtual double newtonCostRatio(const std::vector<int>& F) {
