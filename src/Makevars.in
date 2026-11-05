@@ -7,6 +7,7 @@ OBJECTS.cyclops = \
     cyclops/CompressedDataMatrix.o \
     cyclops/CyclicCoordinateDescent.o \
     cyclops/ModelData.o \
+    cyclops/NewtonSolver.o \
     cyclops/Timer.o
 
 OBJECTS.drivers = \

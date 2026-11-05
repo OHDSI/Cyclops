@@ -339,6 +339,11 @@ fitCyclopsModel <- function(cyclopsData,
         fit <- .cyclopsFitModel(cyclopsData$cyclopsInterfacePtr)
     }
 
+    if (warnings && fit$return_flag == "MAX_ITERATIONS" && !is.null(fit$convergence) &&
+        is.finite(fit$convergence$gapEstimate)) {
+        warning("Reached maxIterations; the estimated gap to the optimum is ", signif(fit$convergence$gapEstimate, 3))
+    }
+
     if (fit$return_flag == "POOR_BLR_STEP" && control$convergenceType == "gradient") {
 
         if (warnings) {
@@ -651,6 +656,18 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
         cat("Log likelikehood: ", x$log_likelihood, "\n", sep="")
         cat("       Log prior: ", x$log_prior, "\n", sep="")
     }
+    if (!is.null(x$convergence) && !is.null(x$algorithm)) {
+        conv <- x$convergence
+        cat("       Algorithm: ", x$algorithm, if (conv$newtonIterations > 0)
+            paste0(" (", conv$newtonIterations, " Newton iterations after ", conv$newtonStart, " cycles)"), "\n", sep="")
+        if (is.finite(conv$gapEstimate)) {
+            cat("    Gap estimate: ", signif(conv$gapEstimate, 3),
+                if (conv$certified) paste0(" (certified, ", conv$certificate, ")") else " (not certified)", "\n", sep="")
+        }
+        if (nzchar(conv$ineligible)) {
+            cat("      Newton off: ", conv$ineligible, "\n", sep="")
+        }
+    }
     invisible(x)
 }
 
@@ -660,13 +677,21 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' \code{createControl} creates a Cyclops control object for use with \code{\link{fitCyclopsModel}}.
 #'
 #' @param maxIterations			Integer: maximum iterations of Cyclops to attempt before returning a failed-to-converge error.
-#'                              \code{NULL} (default) means 1000, or 5000 with \code{convergenceType = "kkt"}
+#'                              \code{NULL} (default) means 1000, or 5000 with \code{convergenceType = "kkt"} or
+#'                              \code{"gap"} (where Newton iterations count as iterations too)
 #' @param tolerance					Numeric: maximum relative change in convergence criterion from successive iterations to achieve
 #'                              convergence. \code{NULL} (default) means 1e-6, or 1e-4 with \code{convergenceType = "kkt"},
-#'                              which measures it in standard-error units
+#'                              which measures it in standard-error units, or 1e-6 with \code{convergenceType = "gap"},
+#'                              which measures the distance to the optimum of the log posterior, scaled by the mean
+#'                              positive weight. A tolerance given without \code{convergenceType} is ignored when the
+#'                              fit resolves to \code{"gap"} through \code{algorithm}
 #' @param convergenceType		String: name of convergence criterion to employ (described in more detail below).
-#'                              \code{NULL} (default) means \code{"gradient"}, or \code{"kkt"} for logistic regression with
-#'                              \code{fitter = "super"}
+#'                              \code{NULL} (default) means \code{"gradient"}, \code{"kkt"} for logistic regression with
+#'                              \code{fitter = "super"}, and \code{"gap"} with \code{algorithm = "auto"} or
+#'                              \code{"newton"}. \code{"gap"} stops when a certified bound on the distance to the
+#'                              optimum of the log posterior is below \code{tolerance}; it needs a model with
+#'                              second-order kernels (so far \code{"cox"} and \code{"cox_counting"} in double
+#'                              precision on the CPU) and normal or no priors
 #' @param cvType						String: name of cross validation search.
 #' 													Option \code{"auto"} selects an auto-search following BBR.
 #' 													Option \code{"grid"} selects a grid-search cross validation
@@ -699,7 +724,19 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              \code{"bySubject"} replaces \code{"byRow"} when the data have subjects.
 #' @param initialBound          Numeric: Starting trust-region size
 #' @param maxBoundCount         Numeric: Maximum number of tries to decrease initial trust-region size
-#' @param algorithm             String: name of fitting algorithm to employ; default is `ccd`
+#' @param algorithm             String: name of fitting algorithm to employ: \code{"ccd"} (cyclic coordinate
+#'                              descent), \code{"mm"}, \code{"auto"} (coordinate descent that switches to dense
+#'                              Newton steps when an operation count says they are cheaper, and back on failure) or
+#'                              \code{"newton"} (Newton steps after three coordinate-descent cycles). \code{NULL}
+#'                              (default) means \code{"auto"} for \code{"cox"} and \code{"cox_counting"} with
+#'                              \code{fitter = "super"} and \code{"ccd"} otherwise. Under \code{"auto"}, an explicit
+#'                              \code{convergenceType} other than \code{"gap"} runs \code{"ccd"}; under
+#'                              \code{"newton"}, it maps onto Newton iterations (\code{"gradient"}, \code{"lange"},
+#'                              \code{"mittal"}: relative change of the objective; \code{"kkt"}: the largest
+#'                              standardized gradient; \code{"onestep"}: one Newton iteration). A fit that cannot
+#'                              take Newton steps stops with an error under \code{"newton"} or an explicit
+#'                              \code{"gap"}, and otherwise runs \code{"ccd"} with the criterion it would have had,
+#'                              noted in \code{fit$convergence$ineligible}
 #' @param fitter                String: which fitting code to run. \code{"default"} runs the current code.
 #'                              \code{"legacy"} runs the code of Cyclops 3.7, to reproduce earlier results: for
 #'                              logistic regression (\code{"lr"}), the grouped models (\code{"cpr"}, \code{"sccs"},
@@ -790,7 +827,7 @@ createControl <- function(maxIterations = NULL,
                           selectorType = "auto",
                           initialBound = 2.0,
                           maxBoundCount = 5,
-                          algorithm = "ccd",
+                          algorithm = NULL,
                           fitter = "default",
                           cvConvergenceType = NULL,
                           cvTolerance = NULL,
@@ -813,10 +850,11 @@ createControl <- function(maxIterations = NULL,
     stopifnot(startingVariance == -1 || startingVariance > 0)
     stopifnot(selectorType %in% c("auto","byPid", "byRow", "bySubject"))
 
-    validAlgorithmNames = c("ccd", "mm")
-    stopifnot(algorithm %in% validAlgorithmNames)
+    validAlgorithmNames = c("ccd", "mm", "auto", "newton")
+    stopifnot(is.null(algorithm) || algorithm %in% validAlgorithmNames)
     stopifnot(fitter %in% c("legacy", "default", "super"))
-    validConvergenceNames <- c("gradient", "lange", "mittal", "zhang", "onestep", "kkt")
+    validConvergenceNames <- c("gradient", "lange", "mittal", "zhang", "onestep", "kkt", "gap")
+    stopifnot(is.null(algorithm) || algorithm != "mm" || !identical(convergenceType, "gap"))
     stopifnot(is.null(convergenceType) || convergenceType %in% validConvergenceNames)
     stopifnot(is.null(tolerance) || tolerance >= 0) # 0 runs maxIterations cycles
     stopifnot(is.null(maxIterations) || maxIterations >= 1)
@@ -1026,6 +1064,7 @@ getCrossValidationInfo <- function(object) {
 .activeSetMinCovariates <- 1000
 
 .resolveControl <- function(control, modelType = NULL, nCovariates = NULL) {
+    control <- .resolveAlgorithm(control, modelType, nCovariates)
     settings <- .fitterSettings(control, modelType, nCovariates)
     if (identical(.fitter(control), "super") && identical(modelType, "lr") &&
         !is.null(control$tolerance) && is.null(control$convergenceType)) {
@@ -1041,19 +1080,24 @@ getCrossValidationInfo <- function(object) {
         }
     }
     kkt <- control$convergenceType == "kkt" # in standard-error units; an honest rule needs more cycles
+    gap <- control$convergenceType == "gap" # in log-posterior units (Newton plan 3.3, D3)
     if (is.null(control$tolerance)) {
-        control$tolerance <- if (kkt) 1E-4 else 1E-6
+        control$tolerance <- if (gap) 1E-6 else if (kkt) 1E-4 else 1E-6 # gap: certified bounds are conservative
     }
     if (is.null(control$maxIterations)) {
-        control$maxIterations <- if (kkt) 5000 else 1000
+        control$maxIterations <- if (kkt || gap) 5000 else 1000
+    }
+    if (gap && is.null(control$cvConvergenceType)) { # fold fits stop at a looser gap
+        control$cvConvergenceType <- "gap"
     }
     if (!is.null(control$cvConvergenceType)) { # fold fits with their own rule get its defaults; kkt folds stop earlier
         cvKkt <- control$cvConvergenceType == "kkt"
+        cvGap <- control$cvConvergenceType == "gap"
         if (is.null(control$cvTolerance)) {
-            control$cvTolerance <- if (cvKkt) 3E-3 else 1E-6
+            control$cvTolerance <- if (cvGap) 1E-5 else if (cvKkt) 3E-3 else 1E-6
         }
         if (is.null(control$cvMaxIterations)) {
-            control$cvMaxIterations <- if (cvKkt) 5000 else 1000
+            control$cvMaxIterations <- if (cvKkt || cvGap) 5000 else 1000
         }
     }
     if (control$convergenceType != "kkt" && !identical(control$cvConvergenceType, "kkt")) {
@@ -1066,6 +1110,34 @@ getCrossValidationInfo <- function(object) {
         if (control$adaptiveIntercept) {
             stop("adaptiveIntercept needs convergenceType = \"kkt\" or cvConvergenceType = \"kkt\"", call. = FALSE)
         }
+    }
+    control
+}
+
+# algorithm and the "gap" criterion (Newton plan 2.10). NULL means the fitter's choice: "auto" for Cox models under
+# fitter = "super", else "ccd". An explicit criterion other than "gap" under "auto" runs "ccd", bitwise as before.
+# "auto" or "newton" without a criterion means "gap"; for "auto", the criterion the fitter would have used on CCD
+# is kept as the fallback for a fit that cannot take Newton steps (a tolerance given without a criterion applies
+# only there).
+.resolveAlgorithm <- function(control, modelType = NULL, nCovariates = NULL) {
+    if (is.null(control$algorithm) || is.na(control$algorithm)) {
+        control$algorithm <- if (identical(.fitter(control), "super") && isTRUE(modelType %in% c("cox", "cox_counting")))
+            "auto" else "ccd"
+    }
+    explicitType <- !is.null(control$convergenceType)
+    if (control$algorithm == "auto" && explicitType && control$convergenceType != "gap") {
+        control$algorithm <- "ccd"
+    }
+    control$fallbackConvergenceType <- ""
+    if (control$algorithm %in% c("auto", "newton") && !explicitType) {
+        if (control$algorithm == "auto") {
+            ccd <- .resolveControl(modifyList(control, list(algorithm = "ccd")), modelType, nCovariates)
+            control$fallbackConvergenceType <- ccd$convergenceType
+            control$fallbackTolerance <- ccd$tolerance
+            control$fallbackMaxIterations <- ccd$maxIterations
+        }
+        control$convergenceType <- "gap"
+        control["tolerance"] <- list(NULL)
     }
     control
 }
@@ -1084,9 +1156,13 @@ getCrossValidationInfo <- function(object) {
 
 # Mode-finding options of a resolved control
 .modeControlOptions <- function(control) {
+    valueOr <- function(value, default) if (is.null(value)) default else value
     list(activeSetEvery = as.integer(control$activeSetEvery),
          activeSetThreshold = as.numeric(control$activeSetThreshold),
-         adaptiveIntercept = as.logical(control$adaptiveIntercept))
+         adaptiveIntercept = as.logical(control$adaptiveIntercept),
+         fallbackConvergenceType = valueOr(control$fallbackConvergenceType, ""),
+         fallbackTolerance = as.numeric(valueOr(control$fallbackTolerance, 1E-6)),
+         fallbackMaxIterations = as.integer(valueOr(control$fallbackMaxIterations, 1000)))
 }
 
 .setControl <- function(cyclopsInterfacePtr, control, cyclopsData = NULL) {

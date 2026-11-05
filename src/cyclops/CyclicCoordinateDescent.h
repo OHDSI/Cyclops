@@ -247,6 +247,29 @@ public:
 
 	const std::vector<ShadowRow>& getShadowLog() const { return shadowLog; }
 
+	// What a "gap" fit did (Newton plan 2.10 reporting): the path, the stop's certificate and work counts
+	struct ConvergenceReport {
+		bool present = false;
+		std::string algorithm;          // "ccd", or "newton" once a Newton step was taken
+		std::string certificate = "none"; // "R", "gsc" or "none" (an estimate)
+		bool certified = false;
+		double tauEff = NAN;            // tolerance in log-posterior units: tau times the mean positive weight
+		double gapEstimate = NAN;
+		double R = NAN;
+		double gsc = NAN;
+		double lambda2Half = NAN;
+		double costRatio = NAN;         // r_B: one Newton iteration in CCD cycles
+		int cycles = 0;
+		int newtonIterations = 0;
+		int hessians = 0;
+		int fallbacks = 0;              // Newton phases abandoned for CCD
+		int newtonStart = -1;           // cycle at which Newton took over
+		int droppedDirections = 0;      // aliased directions left out of the last Newton solve
+		std::string ineligible;         // why a requested Newton path ran as CCD
+	};
+
+	const ConvergenceReport& getConvergenceReport() const { return convergenceReport; }
+
 	loggers::ProgressLogger& getProgressLogger() const { return *logger; }
 
 	loggers::ErrorHandler& getErrorHandler() const { return *error; }
@@ -480,6 +503,16 @@ protected:
 	const int kktConsecutiveNeeded = 2; // cycles in a row below the tolerance
 	int kktConsecutive = 0;
 	bool trackKkt = false;
+
+	ConvergenceReport convergenceReport;
+	bool trackStepDecrease = false; // shadow log or "gap": accumulate shadowStepDecrease in the serial cycle
+	std::string secondOrderIneligibility() const;
+	struct NewtonContext;
+	enum class NewtonOutcome { ACCEPTED, REJECTED, CERTIFIED, UNCERTIFIED, FAILED };
+	void findModeGap(const std::function<void()>& cycle, int& iteration, int maxIterations, double tau,
+	                 AlgorithmType algorithmType, int convergenceType);
+	NewtonOutcome newtonIteration(NewtonContext& context);
+	bool certifyGap(NewtonContext& context, double* gscValue, double* lambda2Half);
 
 	int shadowMode = 0;
 	double shadowStepDecrease = 0.0;

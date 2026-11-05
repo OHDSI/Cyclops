@@ -65,6 +65,7 @@ set(CYCLOPS_CORE_SOURCES
     cyclops/CompressedDataMatrix.cpp
     cyclops/CyclicCoordinateDescent.cpp
     cyclops/ModelData.cpp
+    cyclops/NewtonSolver.cpp
     cyclops/Timer.cpp
 
     cyclops/drivers/AbstractCrossValidationDriver.cpp

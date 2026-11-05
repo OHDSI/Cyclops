@@ -107,7 +107,8 @@ enum ConvergenceType {
 	MITTAL,
 	ONE_STEP,
 	ZHANG_OLES,
-	KKT // size of the minimum-norm subgradient over a cycle
+	KKT, // size of the minimum-norm subgradient over a cycle
+	GAP  // certified bound on the objective gap (Newton plan: R, gsc), in log-posterior units
 };
 
 enum NoiseLevels {
@@ -148,6 +149,8 @@ enum class ModelType {
 enum class AlgorithmType {
 	CCD = 0,
 	MM,
+	AUTO,   // CCD with a switch to dense Newton steps when they are cheaper (Newton plan 2.4)
+	NEWTON, // dense Newton steps after a short CCD warm start
 	SIZE_OF_ENUM // Keep at end
 };
 

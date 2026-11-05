@@ -25,7 +25,7 @@ createControl(
   selectorType = "auto",
   initialBound = 2,
   maxBoundCount = 5,
-  algorithm = "ccd",
+  algorithm = NULL,
   fitter = "default",
   cvConvergenceType = NULL,
   cvTolerance = NULL,
@@ -43,15 +43,23 @@ createControl(
 }
 \arguments{
 \item{maxIterations}{Integer: maximum iterations of Cyclops to attempt before returning a failed-to-converge error.
-\code{NULL} (default) means 1000, or 5000 with \code{convergenceType = "kkt"}}
+\code{NULL} (default) means 1000, or 5000 with \code{convergenceType = "kkt"} or
+\code{"gap"} (where Newton iterations count as iterations too)}
 
 \item{tolerance}{Numeric: maximum relative change in convergence criterion from successive iterations to achieve
 convergence. \code{NULL} (default) means 1e-6, or 1e-4 with \code{convergenceType = "kkt"},
-which measures it in standard-error units}
+which measures it in standard-error units, or 1e-6 with \code{convergenceType = "gap"},
+which measures the distance to the optimum of the log posterior, scaled by the mean
+positive weight. A tolerance given without \code{convergenceType} is ignored when the
+fit resolves to \code{"gap"} through \code{algorithm}}
 
 \item{convergenceType}{String: name of convergence criterion to employ (described in more detail below).
-\code{NULL} (default) means \code{"gradient"}, or \code{"kkt"} for logistic regression with
-\code{fitter = "super"}}
+\code{NULL} (default) means \code{"gradient"}, \code{"kkt"} for logistic regression with
+\code{fitter = "super"}, and \code{"gap"} with \code{algorithm = "auto"} or
+\code{"newton"}. \code{"gap"} stops when a certified bound on the distance to the
+optimum of the log posterior is below \code{tolerance}; it needs a model with
+second-order kernels (so far \code{"cox"} and \code{"cox_counting"} in double
+precision on the CPU) and normal or no priors}
 
 \item{cvType}{String: name of cross validation search.
 Option \code{"auto"} selects an auto-search following BBR.
@@ -102,7 +110,19 @@ the average number of rows per stratum is smaller than the number of strata;
 
 \item{maxBoundCount}{Numeric: Maximum number of tries to decrease initial trust-region size}
 
-\item{algorithm}{String: name of fitting algorithm to employ; default is \code{ccd}}
+\item{algorithm}{String: name of fitting algorithm to employ: \code{"ccd"} (cyclic coordinate
+descent), \code{"mm"}, \code{"auto"} (coordinate descent that switches to dense
+Newton steps when an operation count says they are cheaper, and back on failure) or
+\code{"newton"} (Newton steps after three coordinate-descent cycles). \code{NULL}
+(default) means \code{"auto"} for \code{"cox"} and \code{"cox_counting"} with
+\code{fitter = "super"} and \code{"ccd"} otherwise. Under \code{"auto"}, an explicit
+\code{convergenceType} other than \code{"gap"} runs \code{"ccd"}; under
+\code{"newton"}, it maps onto Newton iterations (\code{"gradient"}, \code{"lange"},
+\code{"mittal"}: relative change of the objective; \code{"kkt"}: the largest
+standardized gradient; \code{"onestep"}: one Newton iteration). A fit that cannot
+take Newton steps stops with an error under \code{"newton"} or an explicit
+\code{"gap"}, and otherwise runs \code{"ccd"} with the criterion it would have had,
+noted in \code{fit$convergence$ineligible}}
 
 \item{fitter}{String: which fitting code to run. \code{"default"} runs the current code.
 \code{"legacy"} runs the code of Cyclops 3.7, to reproduce earlier results: for

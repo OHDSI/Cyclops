@@ -698,8 +698,15 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
     args.modeFinding.maxBoundCount = maxBoundCount;
     args.modeFinding.doItAll = doItAll;
 
+    // Set on every call: a "ccd" fit after an "mm" fit on the same data object runs CCD
     if (algorithm == "mm") {
         args.modeFinding.algorithmType = AlgorithmType::MM;
+    } else if (algorithm == "auto") {
+        args.modeFinding.algorithmType = AlgorithmType::AUTO;
+    } else if (algorithm == "newton") {
+        args.modeFinding.algorithmType = AlgorithmType::NEWTON;
+    } else {
+        args.modeFinding.algorithmType = AlgorithmType::CCD;
     }
 
 	// Cross validation control
@@ -736,6 +743,16 @@ void cyclopsSetModeControl(SEXP inRcppCcdInterface, const List& options) {
 	}
 	if (options.containsElementNamed("adaptiveIntercept")) {
 		modeFinding.adaptiveIntercept = as<bool>(options["adaptiveIntercept"]);
+	}
+	if (options.containsElementNamed("fallbackConvergenceType")) { // "": none
+		const std::string type = as<std::string>(options["fallbackConvergenceType"]);
+		modeFinding.fallbackConvergenceType = type.empty() ? -1 : RcppCcdInterface::parseConvergenceType(type);
+	}
+	if (options.containsElementNamed("fallbackTolerance")) {
+		modeFinding.fallbackTolerance = as<double>(options["fallbackTolerance"]);
+	}
+	if (options.containsElementNamed("fallbackMaxIterations")) {
+		modeFinding.fallbackMaxIterations = as<int>(options["fallbackMaxIterations"]);
 	}
 }
 
@@ -883,6 +900,18 @@ List cyclopsFitModel(SEXP inRcppCcdInterface) {
 		list["convergence"] = List::create(_["gapEstimate"] = estimate, _["certified"] = certified,
 			_["certificate"] = certificate, _["R"] = last.R, _["gsc"] = last.gsc, _["gscU"] = last.gscU,
 			_["lambda2Half"] = last.lambda2Half, _["kktMaxR"] = last.kktMaxR, _["cycles"] = last.cycle);
+	}
+
+	// What a "gap" / "auto" / "newton" fit did (Newton plan 2.10); replaces the shadow log's summary
+	const auto& report = interface->getCcd().getConvergenceReport();
+	if (report.present) {
+		list["algorithm"] = report.algorithm;
+		list["convergence"] = List::create(_["gapEstimate"] = report.gapEstimate, _["certified"] = report.certified,
+			_["certificate"] = report.certificate, _["tauEff"] = report.tauEff, _["R"] = report.R, _["gsc"] = report.gsc,
+			_["lambda2Half"] = report.lambda2Half, _["cycles"] = report.cycles,
+			_["newtonIterations"] = report.newtonIterations, _["newtonStart"] = report.newtonStart,
+			_["hessians"] = report.hessians, _["fallbacks"] = report.fallbacks, _["costRatio"] = report.costRatio,
+			_["droppedDirections"] = report.droppedDirections, _["ineligible"] = report.ineligible);
 	}
 	return list;
 }
@@ -1131,6 +1160,8 @@ bsccs::ConvergenceType RcppCcdInterface::parseConvergenceType(const std::string&
 	    type = ONE_STEP;
 	} else if (convergenceName == "kkt") {
 	    type = KKT;
+	} else if (convergenceName == "gap") {
+	    type = GAP;
 	} else {
 		handleError("Invalid convergence type.");
 	}

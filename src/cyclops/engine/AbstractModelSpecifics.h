@@ -218,6 +218,17 @@ public:
 		return false;
 	}
 
+	// max_k |x_k'd| of the direction cached by setDirection(): the eta trust region (Newton plan 2.6)
+	virtual double directionMaxAbs() const {
+		return std::numeric_limits<double>::quiet_NaN();
+	}
+
+	// r_B of the Newton plan (2.4): the work of one dense Newton iteration over F in units of one CCD cycle
+	// over F, from compile-time per-term constants; NaN without the second-order API
+	virtual double newtonCostRatio(const std::vector<int>& F) {
+		return std::numeric_limits<double>::quiet_NaN();
+	}
+
 	virtual void turnOnSyncCV(int foldToCompute) = 0;
 
 	virtual void turnOffSyncCV() = 0;

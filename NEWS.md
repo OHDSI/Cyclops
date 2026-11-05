@@ -12,6 +12,25 @@ Changes:
    unchanged. Results of identified models differ from earlier versions only by rounding
 3. the Fisher information of `cox` and `cox_counting` fits with integer case weights (including 0/1
    weights) no longer stops with "Weights are not yet implemented"; non-integer weights still do
+4. `createControl(algorithm = "auto")` fits `cox` and `cox_counting` models with normal or no priors by
+   coordinate descent that switches to dense Newton steps when an operation count says they are
+   cheaper, and back to coordinate descent if they fail; `algorithm = "newton"` takes Newton steps after
+   three coordinate-descent cycles. With 571 covariates and 13,152 rows (`cox_counting`), a ridge fit takes
+   0.38 s instead of 1.3 s and reaches the optimum, where the default stopped 0.013 log-likelihood units
+   short (`survival::coxph()`: 63 s). On large designs where Newton steps cost more than coordinate
+   descent, `"auto"` stays with coordinate descent
+5. `createControl(convergenceType = "gap")` stops when a certified bound on the distance to the optimum
+   of the log posterior falls below `tolerance` (default 1e-6, scaled by the mean positive weight; 1e-5
+   for cross-validation folds). It is the default under `algorithm = "auto"` or `"newton"`. Fits report
+   the path and the bound in `fit$algorithm` and `fit$convergence`, and a fit that reaches `maxIterations`
+   warns with its estimated gap
+6. `fitter = "super"` fits `cox` and `cox_counting` models with `algorithm = "auto"`. Under the default
+   fitter nothing changes, and an explicit `convergenceType` other than `"gap"` keeps `"auto"` on
+   coordinate descent, with the results of earlier versions. A fit that cannot take Newton steps stops
+   with an error under `"newton"` or an explicit `"gap"`, and otherwise runs coordinate descent with the
+   criterion it would have had
+7. a `"ccd"` fit after an `"mm"` fit on the same data object runs coordinate descent (it kept running
+   `"mm"`)
 
 Cyclops v3.8.0
 ==============

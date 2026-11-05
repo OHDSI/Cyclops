@@ -22,6 +22,7 @@
 //#include "Rcpp.h"
 
 #include "CyclicCoordinateDescent.h"
+#include "NewtonSolver.h"
 #include "Iterators.h"
 #include "Timing.h"
 
@@ -736,11 +737,36 @@ void CyclicCoordinateDescent::saveXBeta(void) {
 
 void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 
-	const auto maxIterations = arguments.maxIterations;
-	const auto convergenceType = arguments.convergenceType;
-	const auto epsilon = arguments.tolerance;
+	auto maxIterations = arguments.maxIterations;
+	auto convergenceType = arguments.convergenceType;
+	auto epsilon = arguments.tolerance;
 	const int maxCount = arguments.maxBoundCount;
-	const auto algorthmType = arguments.algorithmType;
+	auto algorthmType = arguments.algorithmType;
+
+	// Second-order paths (Newton plan 2.10): an ineligible fit errors when "gap" or "newton" was asked for, and
+	// runs the fitter's previous criterion on CCD when "auto" + "gap" came from the defaults
+	convergenceReport = ConvergenceReport();
+	if (convergenceType == GAP || algorthmType == AlgorithmType::AUTO || algorthmType == AlgorithmType::NEWTON) {
+		std::string reason = secondOrderIneligibility();
+		if (reason.empty() && arguments.useKktSwindle) {
+			reason = "the kkt swindle is on";
+		}
+		if (!reason.empty()) {
+			if (arguments.fallbackConvergenceType >= 0 && algorthmType != AlgorithmType::NEWTON) {
+				convergenceType = arguments.fallbackConvergenceType;
+				epsilon = arguments.fallbackTolerance;
+				maxIterations = arguments.fallbackMaxIterations;
+				algorthmType = AlgorithmType::CCD;
+				convergenceReport.present = true;
+				convergenceReport.algorithm = "ccd";
+				convergenceReport.ineligible = reason;
+			} else {
+				std::ostringstream stream;
+				stream << "Newton steps and the \"gap\" criterion are not available for this fit: " << reason;
+				error->throwError(stream);
+			}
+		}
+	}
 	const bool doItAll = arguments.doItAll;
 	const int qnQ = 0;
 
@@ -1150,7 +1176,7 @@ void CyclicCoordinateDescent::findMode(
 		int qnQ, bool doItAll
 		) {
 
-	if (convergenceType < GRADIENT || convergenceType > KKT) {
+	if (convergenceType < GRADIENT || convergenceType > GAP) {
 	    std::ostringstream stream;
 		stream << "Unknown convergence criterion: " << convergenceType;
 		error->throwError(stream);
@@ -1229,6 +1255,8 @@ void CyclicCoordinateDescent::findMode(
 		interceptIndex >= 0 && convergenceType == KKT && noiseLevel <= QUIET);
 	setUpZeroCertificates(algorithmType);
 
+	const bool gapPath = convergenceType == GAP || algorithmType == AlgorithmType::AUTO ||
+		algorithmType == AlgorithmType::NEWTON;
 	shadowLog.clear();
 	shadowDecreases.clear();
 	shadowStepDecrease = 0.0;
@@ -1241,6 +1269,7 @@ void CyclicCoordinateDescent::findMode(
 			shadowMode = mode;
 		}
 	}
+	trackStepDecrease = shadowMode != 0 || gapPath;
 
 	std::vector<double> allDelta;
     double lastLogPosterior; // = getLogLikelihood() + getLogPrior();
@@ -1392,7 +1421,7 @@ void CyclicCoordinateDescent::findMode(
 							accumulateKkt(index, delta, lastGradientHessian);
 						}
 						delta = applyBounds(delta, index);
-						if (shadowMode != 0) {
+						if (trackStepDecrease) {
 							double precision = 0.0;
 							jointPrior->getNormalPrecision(index, &precision);
 							shadowStepDecrease += 0.5 * (lastGradientHessian.second + precision) * delta * delta;
@@ -1612,6 +1641,8 @@ void CyclicCoordinateDescent::findMode(
 	    //     previousSecant = newestSecant;
 	    //     newestSecant = (newestSecant + 1) % qnQ;
 	    // }
+    } else if (gapPath) { // certified stops and Newton moves (NewtonSolver.cpp)
+        findModeGap(cycle, iteration, maxIterations, epsilon, algorithmType, convergenceType);
     } else { // No QN
         while (!done) {
             cycle();
@@ -1879,8 +1910,13 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 		return !fixBeta[j] && hBeta[j] == 0.0 &&
 			(stayedAtZero[j] || jointPrior->getPriorType(j) == priors::LAPLACE);
 	};
-	auto finish = [this, &log](int index, double delta, bool candidate) {
+	auto finish = [this, &log](int index, double delta, bool candidate, double curvature) {
 		delta = applyBounds(delta, index);
+		if (trackStepDecrease) { // as in the serial cycle, in the same coordinate order
+			double precision = 0.0;
+			jointPrior->getNormalPrecision(index, &precision);
+			shadowStepDecrease += 0.5 * (curvature + precision) * delta * delta;
+		}
 		if (delta != 0.0) {
 			sufficientStatisticsKnown = false;
 			updateSufficientStatistics(delta, index);
@@ -1921,7 +1957,7 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 				if (trackKkt) {
 					accumulateKkt(run[r], delta, g);
 				}
-				if (finish(run[r], delta, true)) {
+				if (finish(run[r], delta, true, g.second)) {
 					break;
 				}
 			}
@@ -1932,7 +1968,7 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 			if (trackKkt) {
 				accumulateKkt(index, delta, lastGradientHessian);
 			}
-			finish(index, delta, candidate);
+			finish(index, delta, candidate, lastGradientHessian.second);
 			++index;
 		}
 	}
@@ -2539,52 +2575,6 @@ std::vector<double> CyclicCoordinateDescent::getLogPriors(void) {
 }
 
 
-namespace {
-
-// omega(z) / c^2 with omega(z) = z + (1 - z) log(1 - z): the self-concordant gap bound at c Lambda = z < 1
-double shadowGsc(double c, double lambda) {
-	const double z = c * lambda;
-	if (!(z < 1.0)) {
-		return std::numeric_limits<double>::infinity();
-	}
-	return (z + (1.0 - z) * std::log1p(-z)) / (c * c);
-}
-
-// x' A^-1 b and A^-1 b for symmetric A: Cholesky when well conditioned, else pivoted LDLT, else a minimum-norm
-// eigen solve; dropped directions are counted
-Eigen::VectorXd shadowSolve(const Eigen::MatrixXd& A, const Eigen::VectorXd& b, int* dropped) {
-	*dropped = 0;
-	Eigen::LLT<Eigen::MatrixXd> llt(A);
-	if (llt.info() == Eigen::Success) {
-		const Eigen::VectorXd d = llt.matrixLLT().diagonal().array().square();
-		if (d.size() == 0 || d.minCoeff() >= 1e-10 * d.maxCoeff()) {
-			return llt.solve(b);
-		}
-	}
-	Eigen::LDLT<Eigen::MatrixXd> ldlt(A);
-	if (ldlt.info() == Eigen::Success) {
-		const Eigen::VectorXd d = ldlt.vectorD().cwiseAbs();
-		if (d.minCoeff() >= 1e-10 * d.maxCoeff()) {
-			return ldlt.solve(b);
-		}
-	}
-	Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eigen(A);
-	const Eigen::VectorXd values = eigen.eigenvalues();
-	const double tolerance = 1e-10 * values.cwiseAbs().maxCoeff();
-	Eigen::VectorXd projected = eigen.eigenvectors().transpose() * b;
-	for (Eigen::Index i = 0; i < values.size(); ++i) {
-		if (values(i) > tolerance) {
-			projected(i) /= values(i);
-		} else {
-			projected(i) = 0.0;
-			++*dropped;
-		}
-	}
-	return eigen.eigenvectors() * projected;
-}
-
-} // namespace
-
 void CyclicCoordinateDescent::shadowObserve(int cycle, bool last) {
 
 	ShadowRow row;
@@ -2705,7 +2695,12 @@ void CyclicCoordinateDescent::shadowObserve(int cycle, bool last) {
 			largest = std::max(largest, sS(a) * sS(a) / HS(a, a));
 		}
 	}
-	const double lambda2 = (q > 0) ? sS.dot(shadowSolve(HS, sS, &row.rankDeficit)) : 0.0;
+	double lambda2 = 0.0;
+	if (q > 0) {
+		const newton::SymmetricSolve solve(HS, sS);
+		row.rankDeficit = solve.dropped;
+		lambda2 = sS.dot(solve.x);
+	}
 	row.lambda2Half = 0.5 * lambda2;
 	row.consistency = (largest > 0.0) ? lambda2 / largest : NAN;
 
@@ -2736,7 +2731,7 @@ void CyclicCoordinateDescent::shadowObserve(int cycle, bool last) {
 			}
 		}
 		row.nu = allNormal ? std::min(std::sqrt(nuNormal), nuDiagonal) : nuDiagonal;
-		row.gsc = shadowGsc(2.0 * row.nu, std::sqrt(lambda2));
+		row.gsc = newton::gsc(2.0 * row.nu, std::sqrt(lambda2));
 	}
 
 	// U (None) and P (Normal) free sets: Lambda-bar from the U block and the P precisions (plan 3.1, R_U)
@@ -2795,7 +2790,7 @@ void CyclicCoordinateDescent::shadowObserve(int cycle, bool last) {
 				}
 			}
 			row.nuU = std::sqrt(std::max(nu2, 0.0));
-			row.gscU = shadowGsc(2.0 * row.nuU, std::sqrt(2.0 * row.RU));
+			row.gscU = newton::gsc(2.0 * row.nuU, std::sqrt(2.0 * row.RU));
 		}
 	}
 

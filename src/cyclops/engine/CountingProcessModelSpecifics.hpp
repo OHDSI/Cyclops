@@ -97,6 +97,10 @@ public:
 
     bool commitStep(double t);
 
+    double directionMaxAbs() const;
+
+    double newtonCostRatio(const std::vector<int>& F);
+
 private:
     using Base::hX;
     using Base::hY;
@@ -1235,6 +1239,51 @@ bool CountingProcessModelSpecifics<RealType>::commitStep(double t) {
     computeRemainingStatistics(true); // with weights 1 when the fit has none
     this->makeDirty();
     return true;
+}
+
+template <typename RealType>
+double CountingProcessModelSpecifics<RealType>::directionMaxAbs() const {
+
+    if (!soHasDirection) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    const int unused = static_cast<int>(N);
+    double largest = 0.0;
+    for (size_t k = 0; k < K; ++k) {
+        if (hPid[k] < unused) { // rows outside every risk set do not enter the likelihood's sums
+            largest = std::max(largest, std::abs(soDirection[k]));
+        }
+    }
+    return largest;
+}
+
+template <typename RealType>
+double CountingProcessModelSpecifics<RealType>::newtonCostRatio(const std::vector<int>& F) {
+
+    if (!secondOrderReady() || !secondOrderPrepare(F)) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    // Per-unit costs in ns (arm64, Newton plan Phase 0a/2): a CCD visit per entry and per risk-set group the
+    // column touches; for one dense iteration, row outer products, the blocked A'A, the Cholesky factor and the
+    // O(nnz + K + G) passes of the gradient, two trials and the commit
+    const double aCycle = 4.0, aRows = 0.75, aGroups = 0.03, aCholesky = 0.035, aLinear = 1.0;
+    double cycle = 0.0;
+    for (int j : F) {
+        const bool dense = hX.getFormatType(j) == DENSE || hX.getFormatType(j) == INTERCEPT;
+        const double groups = dense || !sparseIndices[j] ? static_cast<double>(N) :
+            static_cast<double>(sparseIndices[j]->size());
+        cycle += static_cast<double>(hX.getNumberOfNonZeroEntries(j)) + groups;
+    }
+    double rows = 0.0;
+    for (size_t k = 0; k < K; ++k) {
+        const double m = static_cast<double>(soRowStart[k + 1] - soRowStart[k]);
+        rows += 0.5 * m * m;
+    }
+    const double f = static_cast<double>(F.size());
+    const double linear = static_cast<double>(soRowStart[K]) + static_cast<double>(K) + static_cast<double>(N);
+    const double newton = aRows * rows + aGroups * static_cast<double>(N) * f * f + aCholesky * f * f * f / 3.0 +
+        4.0 * aLinear * linear;
+    return (cycle > 0.0) ? newton / (aCycle * cycle) : std::numeric_limits<double>::quiet_NaN();
 }
 
 } // namespace bsccs

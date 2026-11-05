@@ -68,7 +68,7 @@ test_that("Adaptive intercept steps reach the tight optimum", {
     expect_error(createControl(adaptiveIntercept = "yes"))
 })
 
-test_that("The super fitter changes only logistic regression, and createControl() arguments override it", {
+test_that("The super fitter changes logistic regression and Cox models, and createControl() arguments override it", {
     resolve <- function(modelType, nCovariates, ...) {
         Cyclops:::.resolveControl(createControl(fitter = "super", ...), modelType, nCovariates)
     }
@@ -79,11 +79,18 @@ test_that("The super fitter changes only logistic regression, and createControl(
                       cvTolerance = 3E-3, cvSearchDirection = "down", cvRefine = TRUE, cvWarmStart = TRUE,
                       activeSetEvery = 0, adaptiveIntercept = TRUE))
     expect_equal(resolve("lr", 1000)$activeSetEvery, 10)
-    for (modelType in c("cpr", "clr", "cox")) {
+    for (modelType in c("cpr", "clr")) {
         expect_equal(resolve(modelType, 5000)[c("convergenceType", "tolerance", "maxIterations", "activeSetEvery",
                                                 "adaptiveIntercept")],
                      list(convergenceType = "gradient", tolerance = 1E-6, maxIterations = 1000,
                           activeSetEvery = 0, adaptiveIntercept = FALSE))
+    }
+    for (modelType in c("cox", "cox_counting")) { # algorithm "auto" with the "gap" criterion (Newton plan 2.10)
+        expect_equal(resolve(modelType, 5000)[c("algorithm", "convergenceType", "tolerance", "maxIterations",
+                                                "fallbackConvergenceType", "fallbackTolerance")],
+                     list(algorithm = "auto", convergenceType = "gap", tolerance = 1E-6, maxIterations = 5000,
+                          fallbackConvergenceType = "gradient", fallbackTolerance = 1E-6))
+        expect_equal(resolve(modelType, 5000, convergenceType = "gradient")$algorithm, "ccd")
     }
     expect_equal(resolve("lr", 10, convergenceType = "lange", maxIterations = 50)[c("convergenceType",
                                                                                  "tolerance", "maxIterations")],
