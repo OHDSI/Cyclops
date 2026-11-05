@@ -754,6 +754,9 @@ void cyclopsSetModeControl(SEXP inRcppCcdInterface, const List& options) {
 	if (options.containsElementNamed("fallbackMaxIterations")) {
 		modeFinding.fallbackMaxIterations = as<int>(options["fallbackMaxIterations"]);
 	}
+	if (options.containsElementNamed("mergeDuplicates")) {
+		modeFinding.mergeDuplicates = as<bool>(options["mergeDuplicates"]);
+	}
 }
 
 // Cross-validation options; an option missing from the list keeps its value
@@ -808,6 +811,20 @@ static void appendNewtonReports(Rcpp::List& list, bsccs::RcppCcdInterface& rcppI
 			indices[i] = divergent[i] + 1;
 		}
 		list["divergentCoefficients"] = indices;
+	}
+
+	// Merged exact-duplicate columns (Newton plan 2.8), 1-based, representative first
+	const auto& aliased = interface->getCcd().getAliasedColumns();
+	if (!aliased.empty()) {
+		List groups(aliased.size());
+		for (size_t g = 0; g < aliased.size(); ++g) {
+			IntegerVector members(aliased[g].size());
+			for (size_t m = 0; m < aliased[g].size(); ++m) {
+				members[m] = aliased[g][m] + 1;
+			}
+			groups[g] = members;
+		}
+		list["aliasedColumns"] = groups;
 	}
 
 	// What a "gap" / "auto" / "newton" fit did (Newton plan 2.10); replaces the shadow log's summary

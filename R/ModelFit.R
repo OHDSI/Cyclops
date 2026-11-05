@@ -339,6 +339,10 @@ fitCyclopsModel <- function(cyclopsData,
         fit <- .cyclopsFitModel(cyclopsData$cyclopsInterfacePtr)
     }
 
+    if (!is.null(fit$aliasedColumns)) { # merged exact duplicates (Newton plan 2.8), by name
+        names <- .coefficientNames(cyclopsData)
+        fit$aliasedColumns <- lapply(fit$aliasedColumns, function(group) names[group])
+    }
     if (!is.null(fit$divergentCoefficients)) { # separation (D5): names, and a warning when the fit stands
         fit$divergentCoefficients <- .coefficientNames(cyclopsData)[fit$divergentCoefficients]
         if (warnings) {
@@ -800,6 +804,12 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              covariates the intercept otherwise lags behind them. \code{NULL} (default) means
 #'                              \code{TRUE} for logistic regression with \code{fitter = "super"} and \code{FALSE}
 #'                              otherwise
+#' @param mergeDuplicates       Logical: fit each group of exactly duplicated columns (same rows and values, same
+#'                              prior) as one coefficient. A normal prior's coefficients are reported as the equal
+#'                              split of the group's total (the unique maximum), and a Laplace or no prior's with
+#'                              the total on the group's first column; \code{fit$aliasedColumns} names the groups.
+#'                              \code{NULL} (default) means \code{TRUE} with \code{algorithm = "auto"} or
+#'                              \code{"newton"} and \code{FALSE} otherwise
 #' @param doItAll               Currently unused
 #' @param syncCV                Currently unused
 #'
@@ -847,6 +857,7 @@ createControl <- function(maxIterations = NULL,
                           activeSetEvery = NULL,
                           activeSetThreshold = NULL,
                           adaptiveIntercept = NULL,
+                          mergeDuplicates = NULL,
                           doItAll = TRUE,
                           syncCV = FALSE) {
     validCVNames = c("grid", "auto")
@@ -876,6 +887,7 @@ createControl <- function(maxIterations = NULL,
     stopifnot(is.null(activeSetEvery) || activeSetEvery == 0 || activeSetEvery > 1)
     stopifnot(is.null(activeSetThreshold) || (activeSetThreshold >= 0 && activeSetThreshold < 1))
     stopifnot(is.null(adaptiveIntercept) || is.logical(adaptiveIntercept))
+    stopifnot(is.null(mergeDuplicates) || is.logical(mergeDuplicates))
 
     structure(list(maxIterations = maxIterations,
                    tolerance = tolerance,
@@ -909,6 +921,7 @@ createControl <- function(maxIterations = NULL,
                    activeSetEvery = activeSetEvery,
                    activeSetThreshold = activeSetThreshold,
                    adaptiveIntercept = adaptiveIntercept,
+                   mergeDuplicates = mergeDuplicates,
                    doItAll = doItAll,
                    syncCV = syncCV),
               class = "cyclopsControl")
@@ -1170,7 +1183,8 @@ getCrossValidationInfo <- function(object) {
          adaptiveIntercept = as.logical(control$adaptiveIntercept),
          fallbackConvergenceType = valueOr(control$fallbackConvergenceType, ""),
          fallbackTolerance = as.numeric(valueOr(control$fallbackTolerance, 1E-6)),
-         fallbackMaxIterations = as.integer(valueOr(control$fallbackMaxIterations, 1000)))
+         fallbackMaxIterations = as.integer(valueOr(control$fallbackMaxIterations, 1000)),
+         mergeDuplicates = as.logical(valueOr(control$mergeDuplicates, control$algorithm %in% c("auto", "newton"))))
 }
 
 .setControl <- function(cyclopsInterfacePtr, control, cyclopsData = NULL) {

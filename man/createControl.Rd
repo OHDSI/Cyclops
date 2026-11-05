@@ -37,6 +37,7 @@ createControl(
   activeSetEvery = NULL,
   activeSetThreshold = NULL,
   adaptiveIntercept = NULL,
+  mergeDuplicates = NULL,
   doItAll = TRUE,
   syncCV = FALSE
 )
@@ -189,6 +190,13 @@ and its gradient, in standard-error units, exceeds the tolerance. With many
 covariates the intercept otherwise lags behind them. \code{NULL} (default) means
 \code{TRUE} for logistic regression with \code{fitter = "super"} and \code{FALSE}
 otherwise}
+
+\item{mergeDuplicates}{Logical: fit each group of exactly duplicated columns (same rows and values, same
+prior) as one coefficient. A normal prior's coefficients are reported as the equal
+split of the group's total (the unique maximum), and a Laplace or no prior's with
+the total on the group's first column; \code{fit$aliasedColumns} names the groups.
+\code{NULL} (default) means \code{TRUE} with \code{algorithm = "auto"} or
+\code{"newton"} and \code{FALSE} otherwise}
 
 \item{doItAll}{Currently unused}
 

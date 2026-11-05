@@ -105,6 +105,7 @@ struct ModeFindingArguments {
 	int fallbackConvergenceType = -1;
 	double fallbackTolerance = 1E-6;
 	int fallbackMaxIterations = 1000;
+	bool mergeDuplicates = false; // merge exact-duplicate columns for the fit (Newton plan 2.8)
 
 	ModeFindingArguments() :
 		tolerance(1E-6),

@@ -75,12 +75,20 @@ test_that("T13: cross-validation, profiles, confint and bootstrap under Newton",
     expect_equal(nrow(boot$summary), length(coef(fit)))
 })
 
-test_that("T3: an exact duplicate under no prior is not certified, and its sum equals the reduced fit", {
+test_that("T3: an exact duplicate under no prior: merged by default; unmerged, not certified; sums equal the reduced fit", {
     frame <- refitProblem(5)
     frame$X13 <- frame$X4
     duplicated <- as.formula(paste("Surv(start, time, y) ~", paste0("X", 1:13, collapse = " + "), "+ strata(stratum)"))
-    fit <- fitNewton(frame, duplicated, prior = createPrior("none"))
     reduced <- fitNewton(frame, prior = createPrior("none"))
+    merged <- fitNewton(frame, duplicated, prior = createPrior("none"))
+    expect_equal(merged$aliasedColumns, list(c("X4", "X13")))
+    expect_true(merged$convergence$certified)
+    expect_equal(coef(merged)[["X4"]], coef(reduced)[["X4"]], tolerance = 1e-6)
+    expect_equal(coef(merged)[["X13"]], 0)
+
+    fit <- fitCyclopsModel(createCyclopsData(duplicated, data = frame, modelType = "cox_counting"),
+                           prior = createPrior("none"), warnings = FALSE,
+                           control = createControl(algorithm = "newton", mergeDuplicates = FALSE, noiseLevel = "silent"))
     expect_false(fit$convergence$certified)
     expect_gte(fit$convergence$droppedDirections, 1)
     expect_equal(coef(fit)[["X4"]] + coef(fit)[["X13"]], coef(reduced)[["X4"]], tolerance = 1e-6)

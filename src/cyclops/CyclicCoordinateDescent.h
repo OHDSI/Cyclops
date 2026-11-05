@@ -276,6 +276,9 @@ public:
 	// Unpenalized coefficients whose likelihood is monotone (separation, Newton plan 2.7 and D5), as indices
 	const std::vector<int>& getDivergentCoefficients() const { return divergentCoefficients; }
 
+	// Groups of exact-duplicate columns merged in the last fit (Newton plan 2.8), representative first
+	const std::vector<std::vector<int>>& getAliasedColumns() const { return aliasGroups; }
+
 	loggers::ProgressLogger& getProgressLogger() const { return *logger; }
 
 	loggers::ErrorHandler& getErrorHandler() const { return *error; }
@@ -514,6 +517,9 @@ protected:
 	std::vector<int> divergentDirection;   // per coefficient: -1 / +1 when its MLE is at -Inf / +Inf, else 0
 	std::vector<int> divergentCoefficients;
 	void findDivergentCoefficients();
+	std::vector<std::vector<int>> aliasGroups;
+	std::vector<uint64_t> columnHashes; // per column, cached: the data do not change
+	void findAliasGroups();
 	double divergentLimit(int j) const;
 	bool trackStepDecrease = false; // shadow log or "gap": accumulate shadowStepDecrease in the serial cycle
 	std::string secondOrderIneligibility() const;

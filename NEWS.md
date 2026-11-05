@@ -50,6 +50,12 @@ Changes:
    cycles), and with 2,016 covariates 0.52 s (dense: 2.5 s)
 10. the Hessian of `cox` and `cox_counting` models (used by `vcov()`, `getSEs()` and Newton steps) is
    computed on `createControl(threads = )` threads, with results that do not depend on their number
+11. `createControl(mergeDuplicates = )` fits each group of exactly duplicated columns (same rows and values,
+   same prior) as one coefficient: on duplicated designs coordinate descent no longer crawls along the
+   flat direction between duplicates (571 distinct of 597 columns: 551 cycles to the `"kkt"` tolerance
+   instead of more than 30,000). Normal priors report the equal split of the group's total, the unique
+   maximum; Laplace and no priors put the total on the group's first column. `fit$aliasedColumns` names
+   the groups. It is on by default with `algorithm = "auto"` or `"newton"`, and off otherwise
 
 Cyclops v3.8.0
 ==============

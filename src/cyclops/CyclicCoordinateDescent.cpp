@@ -781,6 +781,30 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	int count = 0;
 	bool done = false;
 
+	// Exact-duplicate columns (2.8, D6): each group fits as one coordinate, its total on the representative, through a
+	// prior that is exact for the group; the members stay fixed at 0 until the write-back below
+	aliasGroups.clear();
+	priors::JointPriorPtr unmergedPrior = jointPrior;
+	if (arguments.mergeDuplicates && !arguments.useKktSwindle && !syncCV && !usingGPU && !usingCUDA) {
+		findAliasGroups();
+		if (!aliasGroups.empty()) {
+			std::vector<int> groupSize(J, 1);
+			for (const auto& group : aliasGroups) {
+				double total = 0.0;
+				for (int j : group) {
+					total += hBeta[j];
+				}
+				groupSize[group[0]] = static_cast<int>(group.size());
+				hBeta[group[0]] = total; // the same x'beta: the columns are identical
+				for (size_t m = 1; m < group.size(); ++m) {
+					hBeta[group[m]] = 0.0;
+					fixBeta[group[m]] = true;
+				}
+			}
+			jointPrior = bsccs::make_shared<priors::AliasedJointPrior>(unmergedPrior, groupSize);
+		}
+	}
+
 	findDivergentCoefficients(); // data-only: separated unpenalized coefficients (D5)
 
 	// Divergent coefficients are pinned at their limit for the fit (2.7: "profiled out at their limit"): the
@@ -822,6 +846,23 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	minIterations = 0;
 	for (int j : divergentCoefficients) {
 		fixBeta[j] = false;
+	}
+
+	// Write the merged groups back: Normal groups split equally (the unique MAP), Laplace and flat groups keep all mass
+	// on the representative
+	if (!aliasGroups.empty()) {
+		jointPrior = unmergedPrior;
+		for (const auto& group : aliasGroups) {
+			double precision = 0.0;
+			const bool normal = jointPrior->getNormalPrecision(group[0], &precision) && precision > 0.0;
+			const double total = hBeta[group[0]];
+			for (size_t m = 0; m < group.size(); ++m) {
+				if (m > 0) {
+					fixBeta[group[m]] = false;
+				}
+				hBeta[group[m]] = normal ? total / static_cast<double>(group.size()) : (m == 0 ? total : 0.0);
+			}
+		}
 	}
 
 	// D5: with a prior "none" on every free coefficient, a separated fit is ILLCONDITIONED with NaN in its divergent
@@ -877,6 +918,96 @@ double CyclicCoordinateDescent::divergentLimit(int j) const {
 		return limit(data32->getX());
 	}
 	return 40.0;
+}
+
+void CyclicCoordinateDescent::findAliasGroups() {
+
+	// Hash each column's (format, rows, values) once, but only columns that share their format and number of entries
+	// with another (a duplicate must); candidates with equal hashes are compared entry by entry
+	auto hashColumns = [&](const auto& X) {
+		columnHashes.assign(J, 0);
+		std::map<std::pair<int, size_t>, int> shapes;
+		auto shape = [&](int j) {
+			const FormatType format = X.getFormatType(j);
+			return std::make_pair(static_cast<int>(format), (format == DENSE || format == INTERCEPT) ?
+				static_cast<size_t>(K) : X.getNumberOfEntries(j));
+		};
+		for (int j = 0; j < J; ++j) {
+			++shapes[shape(j)];
+		}
+		for (int j = 0; j < J; ++j) {
+			if (shapes[shape(j)] < 2) {
+				columnHashes[j] = static_cast<uint64_t>(j) + 1; // unique: no duplicate possible
+				continue;
+			}
+			uint64_t h = 1469598103934665603ULL ^ static_cast<uint64_t>(X.getFormatType(j));
+			auto mix = [&h](uint64_t v) { h ^= v + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2); h *= 1099511628211ULL; };
+			for (GenericIterator<typename std::decay<decltype(*X.getDataVector(j))>::type> it(X, j); it; ++it) {
+				const double value = static_cast<double>(it.value());
+				uint64_t bits;
+				std::memcpy(&bits, &value, sizeof(bits));
+				mix(static_cast<uint64_t>(it.index()));
+				mix(bits);
+			}
+			columnHashes[j] = h ^ (1ULL << 63); // apart from the unique tags above
+		}
+	};
+	auto same = [&](const auto& X, int a, int b) {
+		using Real = typename std::decay<decltype(*X.getDataVector(a))>::type;
+		GenericIterator<Real> i(X, a), k(X, b);
+		for (; i && k; ++i, ++k) {
+			if (i.index() != k.index() || i.value() != k.value()) {
+				return false;
+			}
+		}
+		return !i && !k;
+	};
+	auto samePrior = [&](int a, int b) {
+		double x = 0.0, y = 0.0;
+		if (jointPrior->getNormalPrecision(a, &x)) {
+			return jointPrior->getNormalPrecision(b, &y) && x == y;
+		}
+		if (jointPrior->getLaplaceLambda(a, &x)) {
+			return jointPrior->getLaplaceLambda(b, &y) && x == y;
+		}
+		return false;
+	};
+	auto group = [&](const auto& X) {
+		if (columnHashes.size() != static_cast<size_t>(J)) {
+			hashColumns(X);
+		}
+		std::map<uint64_t, std::vector<int>> buckets;
+		for (int j = 0; j < J; ++j) {
+			const FormatType format = hXI.getColumnType(j); // dense columns have no row indices
+			if (!fixBeta[j] && (format == DENSE || format == INTERCEPT || hXI.getNumberOfEntries(j) > 0)) {
+				buckets[columnHashes[j]].push_back(j);
+			}
+		}
+		for (auto& bucket : buckets) {
+			std::vector<int>& columns = bucket.second;
+			std::vector<bool> used(columns.size(), false);
+			for (size_t a = 0; a < columns.size(); ++a) {
+				if (used[a]) continue;
+				std::vector<int> members{columns[a]};
+				for (size_t b = a + 1; b < columns.size(); ++b) {
+					if (!used[b] && X.getFormatType(columns[a]) == X.getFormatType(columns[b]) &&
+							same(X, columns[a], columns[b]) && samePrior(columns[a], columns[b])) {
+						members.push_back(columns[b]);
+						used[b] = true;
+					}
+				}
+				if (members.size() > 1) {
+					aliasGroups.push_back(members);
+				}
+			}
+		}
+		std::sort(aliasGroups.begin(), aliasGroups.end());
+	};
+	if (const auto* data64 = dynamic_cast<const ModelData<double>*>(&hXI)) {
+		group(data64->getX());
+	} else if (const auto* data32 = dynamic_cast<const ModelData<float>*>(&hXI)) {
+		group(data32->getX());
+	}
 }
 
 void CyclicCoordinateDescent::findDivergentCoefficients() {

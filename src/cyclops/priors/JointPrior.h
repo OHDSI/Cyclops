@@ -87,6 +87,10 @@ public:
 		return tmp;
 	}
 
+	const std::vector<VariancePtr>& getVarianceParameters() const {
+		return variance;
+	}
+
 protected:
 
     std::vector<VariancePtr> variance;
@@ -701,6 +705,76 @@ private:
 };
 
 typedef bsccs::shared_ptr<JointPrior> JointPriorPtr;
+
+// Exact-duplicate columns merged into one coordinate for a fit (Newton plan 2.8, Phase 5). The representative of a
+// group of k columns carries the group's total b, and the other members stay fixed at 0. A Normal(sigma^2) prior on
+// each member is then exactly a Normal(k sigma^2) prior on b (the equal split is the unique MAP); a Laplace or flat
+// prior is exact as it is, with all the mass on the representative. Everything else is the wrapped prior's.
+class AliasedJointPrior : public JointPrior {
+public:
+	AliasedJointPrior(JointPriorPtr wrapped, std::vector<int> groupSize)
+		: wrapped(wrapped), groupSize(std::move(groupSize)) {
+		addVarianceParameters(this->wrapped->getVarianceParameters());
+	}
+
+	double logDensity(const DoubleVector& beta, CyclicCoordinateDescent& ccd) const {
+		double value = wrapped->logDensity(beta, ccd);
+		for (size_t j = 0; j < groupSize.size(); ++j) {
+			double precision = 0.0;
+			if (groupSize[j] > 1 && wrapped->getNormalPrecision(static_cast<int>(j), &precision) && precision > 0.0) {
+				value += 0.5 * precision * beta[j] * beta[j] * (1.0 - 1.0 / groupSize[j]); // b^2 / (2 k sigma^2)
+			}
+		}
+		return value;
+	}
+
+	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
+		double precision = 0.0;
+		if (merged(index, &precision)) {
+			return -(gh.first + precision * beta[index]) / (gh.second + precision);
+		}
+		return wrapped->getDelta(gh, beta, index, ccd);
+	}
+
+	GradientHessian getKktResidual(const int index, double gradient, double beta) const {
+		double precision = 0.0;
+		if (merged(index, &precision)) {
+			return GradientHessian(std::abs(gradient + precision * beta), precision);
+		}
+		return wrapped->getKktResidual(index, gradient, beta);
+	}
+
+	bool getNormalPrecision(const int index, double* precision) const {
+		if (!wrapped->getNormalPrecision(index, precision)) {
+			return false;
+		}
+		if (groupSize[index] > 1) {
+			*precision /= groupSize[index];
+		}
+		return true;
+	}
+
+	bool getLaplaceLambda(const int index, double* lambda) const { return wrapped->getLaplaceLambda(index, lambda); }
+	const std::string getDescription() const { return wrapped->getDescription(); }
+	bool getIsRegularized(const int index) const { return wrapped->getIsRegularized(index); }
+	bool getSupportsKktSwindle(const int index) const { return wrapped->getSupportsKktSwindle(index); }
+	bool getSupportsKktSwindle(void) const { return wrapped->getSupportsKktSwindle(); }
+	double getKktBoundary(const int index) const { return wrapped->getKktBoundary(index); }
+	PriorType getPriorType(const int index) { return wrapped->getPriorType(index); }
+
+private:
+	// a merged Normal group's representative, with the precision of the group total
+	bool merged(const int index, double* precision) const {
+		if (groupSize[index] <= 1 || !wrapped->getNormalPrecision(index, precision) || !(*precision > 0.0)) {
+			return false;
+		}
+		*precision /= groupSize[index];
+		return true;
+	}
+
+	JointPriorPtr wrapped;
+	std::vector<int> groupSize; // per coefficient: the size of the group it represents (1: not merged)
+};
 
 } /* namespace priors */
 } /* namespace bsccs */
