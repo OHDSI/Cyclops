@@ -85,6 +85,10 @@
     .Call(`_Cyclops_cyclopsGetFisherInformation`, inRcppCcdInterface, sexpBitCovariates)
 }
 
+.cyclopsSecondOrder <- function(inRcppCcdInterface, sexpBitCovariates, v, t, reps) {
+    .Call(`_Cyclops_cyclopsSecondOrder`, inRcppCcdInterface, sexpBitCovariates, v, t, reps)
+}
+
 .cyclopsSetPrior <- function(inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph, sexpNeighborhood) {
     invisible(.Call(`_Cyclops_cyclopsSetPrior`, inRcppCcdInterface, priorTypeName, variance, excludeNumeric, sexpGraph, sexpNeighborhood))
 }

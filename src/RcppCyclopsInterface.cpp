@@ -7,6 +7,8 @@
 #include <sstream>
 #include <vector>
 #include <map>
+#include <chrono>
+#include <functional>
 #include "Timing.h"
 
 #include "Rcpp.h"
@@ -339,6 +341,74 @@ Eigen::MatrixXd cyclopsGetFisherInformation(SEXP inRcppCcdInterface, const SEXP 
 	}
 
     return interface->getCcd().computeFisherInformation(indices);
+}
+
+// Internal (tests and timing): the second-order kernels over the given columns (all when NULL) at the
+// current coefficients. trial = log likelihood at beta + t v without changing the state; committed = log
+// likelihood after commitStep(t), after which the state is recomputed from beta. seconds per call
+// (gradient, hessian, hv, trial, commit), each kernel run reps times.
+// [[Rcpp::export(".cyclopsSecondOrder")]]
+List cyclopsSecondOrder(SEXP inRcppCcdInterface, const SEXP sexpBitCovariates, const std::vector<double>& v,
+                        double t, int reps) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    CyclicCoordinateDescent& ccd = interface->getCcd();
+    AbstractModelSpecifics& model = ccd.getModelSpecifics();
+
+    std::vector<int> F;
+    if (!Rf_isNull(sexpBitCovariates)) {
+        const std::vector<double>& bitCovariates = as<std::vector<double>>(sexpBitCovariates);
+        ProfileVector covariates = reinterpret_cast<const std::vector<int64_t>&>(bitCovariates);
+        for (auto it = covariates.begin(); it != covariates.end(); ++it) {
+            F.push_back(static_cast<int>(interface->getModelData().getColumnIndex(*it)));
+        }
+    } else {
+        for (size_t index = 0; index < interface->getModelData().getNumberOfCovariates(); ++index) {
+            F.push_back(static_cast<int>(index));
+        }
+    }
+    if (v.size() != F.size()) {
+        Rcpp::stop("v must have one value per covariate");
+    }
+
+    const double logLikelihood = ccd.getLogLikelihood(); // brings the state up to date
+    if (!model.supportsSecondOrder() || !model.secondOrderPrepare(F)) {
+        return List::create(_["supported"] = false);
+    }
+
+    const int times = std::max(1, reps);
+    auto timed = [times](const std::function<void()>& f) {
+        const auto start = std::chrono::steady_clock::now();
+        for (int r = 0; r < times; ++r) {
+            f();
+        }
+        return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count() / times;
+    };
+    std::vector<double> g, H, Hv;
+    std::vector<double> seconds(5, 0.0);
+    bool ok = true;
+    seconds[0] = timed([&]() { ok = model.fullGradient(F, g) && ok; });
+    seconds[1] = timed([&]() { ok = model.hessianBlock(F, H) && ok; });
+    seconds[2] = timed([&]() { ok = model.hessianVector(F, v, Hv) && ok; });
+    ok = model.setDirection(F, v) && ok;
+    const double trial0 = model.trialLogLikelihood(0.0);
+    double trial = 0.0;
+    seconds[3] = timed([&]() { trial = model.trialLogLikelihood(t); });
+    seconds[4] = timed([&]() { ok = model.commitStep(0.0) && ok; }); // a move of zero does the same work
+    ok = model.commitStep(t) && ok;
+    const double committed = model.getLogLikelihood(true); // weights are 1 when the fit has none
+    ccd.makeDirty(); // recompute the state from beta
+    ccd.getLogLikelihood();
+    if (!ok) {
+        return List::create(_["supported"] = false);
+    }
+
+    NumericMatrix hessian(F.size(), F.size());
+    std::copy(H.begin(), H.end(), hessian.begin()); // both column-major
+    return List::create(_["supported"] = ok, _["logLikelihood"] = logLikelihood,
+                        _["gradient"] = g, _["hessian"] = hessian, _["hv"] = Hv,
+                        _["trial0"] = trial0, _["trial"] = trial, _["committed"] = committed,
+                        _["seconds"] = seconds);
 }
 
 // // [[Rcpp::export("test")]]

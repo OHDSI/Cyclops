@@ -219,6 +219,8 @@ public:
 
 	Matrix computeFisherInformation(const std::vector<IdType>& indices) const;
 
+	AbstractModelSpecifics& getModelSpecifics() const { return modelSpecifics; }
+
 	loggers::ProgressLogger& getProgressLogger() const { return *logger; }
 
 	loggers::ErrorHandler& getErrorHandler() const { return *error; }

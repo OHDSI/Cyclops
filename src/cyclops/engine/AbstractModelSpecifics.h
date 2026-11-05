@@ -174,6 +174,50 @@ public:
 		return false;
 	}
 
+	// Second-order API over a set F of columns (engine indices), for multi-coordinate (Newton)
+	// moves and the Fisher information. Derivatives are of the negative log likelihood at the
+	// current state with the current case weights; prior terms are the caller's. Engines without
+	// the API return false from supportsSecondOrder() and from every call below.
+	virtual bool supportsSecondOrder() const {
+		return false;
+	}
+
+	// Prepares the kernels for columns F; the calls below rebuild it when given another F
+	virtual bool secondOrderPrepare(const std::vector<int>& F) {
+		return false;
+	}
+
+	// g = X_F'(u o dC) - c_F
+	virtual bool fullGradient(const std::vector<int>& F, std::vector<double>& g) {
+		return false;
+	}
+
+	// H = X_F' diag(u o dC) X_F - A_F'A_F: |F| x |F|, column-major, both triangles
+	virtual bool hessianBlock(const std::vector<int>& F, std::vector<double>& H) {
+		return false;
+	}
+
+	// Hv = H v without forming H
+	virtual bool hessianVector(const std::vector<int>& F, const std::vector<double>& v,
+	                           std::vector<double>& Hv) {
+		return false;
+	}
+
+	// Caches z = X_F d for trialLogLikelihood() and commitStep()
+	virtual bool setDirection(const std::vector<int>& F, const std::vector<double>& d) {
+		return false;
+	}
+
+	// Log likelihood at beta + t d (d from setDirection()); the state does not change
+	virtual double trialLogLikelihood(double t) {
+		return std::numeric_limits<double>::quiet_NaN();
+	}
+
+	// Moves the state to beta + t d; the caller updates beta itself
+	virtual bool commitStep(double t) {
+		return false;
+	}
+
 	virtual void turnOnSyncCV(int foldToCompute) = 0;
 
 	virtual void turnOffSyncCV() = 0;

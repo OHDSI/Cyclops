@@ -1728,6 +1728,23 @@ double CyclicCoordinateDescent::getAsymptoticVariance(int indexOne, int indexTwo
 
 CyclicCoordinateDescent::Matrix CyclicCoordinateDescent::computeFisherInformation(const std::vector<IdType>& indices) const {
     modelSpecifics.makeDirty(); // clear strata cross terms cached at earlier coefficients
+
+    // One Hessian block where the engine has the second-order kernels; with weights only when they
+    // are all integers (non-integer weights keep the per-pair path, which refuses them)
+    bool integerWeights = true;
+    if (useCrossValidation) {
+        for (size_t k = 0; k < hWeights.size() && integerWeights; ++k) {
+            integerWeights = std::floor(hWeights[k]) == hWeights[k];
+        }
+    }
+    if (modelSpecifics.supportsSecondOrder() && integerWeights) {
+        const std::vector<int> F(indices.begin(), indices.end());
+        std::vector<double> H;
+        if (modelSpecifics.hessianBlock(F, H)) {
+            return Eigen::Map<Matrix>(H.data(), F.size(), F.size());
+        }
+    }
+
     Matrix fisherInformation(indices.size(), indices.size());
     for (size_t ii = 0; ii < indices.size(); ++ii) {
         const int i = indices[ii];
@@ -1757,24 +1774,7 @@ void CyclicCoordinateDescent::computeAsymptoticPrecisionMatrix(void) {
 		}
 	}
 
-	hessianMatrix.resize(indices.size(), indices.size());
-	modelSpecifics.makeDirty(); // clear hessian terms
-
-	for (size_t ii = 0; ii < indices.size(); ++ii) {
-		for (size_t jj = ii; jj < indices.size(); ++jj) {
-			const int i = indices[ii];
-			const int j = indices[jj];
-//			std::cerr << "(" << i << "," << j << ")" << std::endl;
-			double fisherInformation = 0.0;
-			modelSpecifics.computeFisherInformation(i, j, &fisherInformation, useCrossValidation);
-//			if (fisherInformation != 0.0) {
-				// Add tuple to sparse matrix
-//				tripletList.push_back(Triplet<double>(ii,jj,fisherInformation));
-//			}
-			hessianMatrix(jj,ii) = hessianMatrix(ii,jj) = fisherInformation;
-
-		}
-	}
+	hessianMatrix = computeFisherInformation(std::vector<IdType>(indices.begin(), indices.end()));
 
 //	sm.setFromTriplets(tripletList.begin(), tripletList.end());
 //	cout << sm;

@@ -50,6 +50,16 @@ public:
 
 	virtual PriorType getPriorType(const int index) {return PriorType::NONE;};
 
+	// Precision of a quadratic (normal or flat) prior on coordinate index; false for other priors
+	virtual bool getNormalPrecision(const int index, double* precision) const {
+		return false;
+	}
+
+	// Rate of an independent Laplace prior on coordinate index; false for other priors
+	virtual bool getLaplaceLambda(const int index, double* lambda) const {
+		return false;
+	}
+
 //  	virtual JointPrior* clone() const = 0; // pure virtual
 
     void addVarianceParameter(const VariancePtr& ptr) {
@@ -147,6 +157,14 @@ public:
 
 	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
 		return listPriors[index]->getDelta(gh, beta, index, ccd);
+	}
+
+	bool getNormalPrecision(const int index, double* precision) const {
+		return listPriors[index]->getNormalPrecision(precision);
+	}
+
+	bool getLaplaceLambda(const int index, double* lambda) const {
+		return listPriors[index]->getLaplaceLambda(lambda);
 	}
 
 	bool getSupportsKktSwindle(const int index) const {
@@ -630,6 +648,14 @@ public:
 
 	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
 		return singlePrior->getDelta(gh, beta, index, ccd);
+	}
+
+	bool getNormalPrecision(const int index, double* precision) const {
+		return singlePrior->getNormalPrecision(precision);
+	}
+
+	bool getLaplaceLambda(const int index, double* lambda) const {
+		return singlePrior->getLaplaceLambda(lambda);
 	}
 
 	bool getIsRegularized(const int index) const {

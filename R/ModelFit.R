@@ -1136,7 +1136,8 @@ getCrossValidationInfo <- function(object) {
 #' @param object    A Cyclops model fit object
 #' @param covariates    Integer or string vector: list of covariates for which asymptotic standard errors are wanted
 #'
-#' @return Vector of standard error estimates, named by covariate
+#' @return Vector of standard error estimates, named by covariate; \code{NA} for aliased covariates (a singular
+#' Fisher information), with a warning
 #'
 #' @export
 getSEs <- function(object, covariates) {
@@ -1147,7 +1148,7 @@ getSEs <- function(object, covariates) {
     }
 
     fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsData$cyclopsInterfacePtr, covariates)
-    ses <- sqrt(diag(solve(fisherInformation)))
+    ses <- sqrt(diag(.invertInformation(fisherInformation)))
     names(ses) <- .coefficientNames(object, covariates)
     ses
 }
@@ -1586,7 +1587,9 @@ aconfint <- function(object, parm, level = 0.95, control,
 #' @param ... Additional argument(s) for methods
 #'
 #' @return
-#' A matrix of the estimates covariances between all covariate estimates.
+#' A matrix of the estimates covariances between all covariate estimates. When the Fisher information is
+#' singular (aliased covariates, such as exact duplicates), the rows and columns of the aliased covariates
+#' are \code{NA}, with a warning.
 #'
 #' @export
 vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, ...) {
@@ -1596,10 +1599,49 @@ vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, .
     if (.cyclopsGetHasOffset(object$cyclopsData)) {
         fisherInformation <- fisherInformation[2:nrow(fisherInformation), 2:ncol(fisherInformation)]
     }
-    vcov <- solve(fisherInformation)
+    vcov <- .invertInformation(fisherInformation)
     rownames(vcov) <- .coefficientNames(object)
     colnames(vcov) <- rownames(vcov)
     vcov
+}
+
+# Inverse of a Fisher information matrix, from a pivoted Cholesky factorization of its unit-diagonal
+# form. A singular matrix (aliased columns, such as exact duplicates, or columns without information)
+# gets NA rows and columns for every coefficient in an aliased direction, with a warning; the other
+# entries are the same for every generalized inverse, so they come from the inverse of the identified
+# leading block of the factorization.
+.invertInformation <- function(information) {
+    n <- nrow(information)
+    d <- diag(information)
+    if (n == 0 || any(!is.finite(information))) {
+        return(solve(information))
+    }
+    informative <- which(d > 0)
+    scale <- 1 / sqrt(d[informative])
+    factor <- suppressWarnings(chol(information[informative, informative, drop = FALSE] * outer(scale, scale),
+                                    pivot = TRUE))
+    rank <- attr(factor, "rank")
+    pivot <- attr(factor, "pivot")
+    kept <- pivot[seq_len(rank)]
+    aliased <- setdiff(seq_len(n), informative)
+    if (rank < length(informative)) {
+        # Null directions are (-B, I) in pivoted order, B = R11^-1 R12: kept coefficients with a
+        # non-zero coefficient in B are aliased too
+        B <- backsolve(factor[seq_len(rank), seq_len(rank), drop = FALSE],
+                       factor[seq_len(rank), -seq_len(rank), drop = FALSE])
+        aliased <- c(aliased, informative[c(pivot[-seq_len(rank)], kept[rowSums(abs(B) > 1e-6) > 0])])
+    }
+    inverse <- chol2inv(factor[seq_len(rank), seq_len(rank), drop = FALSE]) * outer(scale[kept], scale[kept])
+    keptColumns <- informative[kept]
+    identified <- setdiff(seq_len(n), aliased)
+    position <- match(identified, keptColumns)
+    result <- matrix(NA_real_, n, n, dimnames = dimnames(information))
+    result[identified, identified] <- inverse[position, position]
+    if (length(aliased) > 0) {
+        warning("The Fisher information is singular: ", length(aliased),
+                " aliased coefficients have NA variances")
+    }
+    result
 }
 
 #' @title Convert to Cyclops Prior Variance

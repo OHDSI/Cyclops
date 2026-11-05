@@ -16,7 +16,9 @@
 \item{...}{Additional argument(s) for methods}
 }
 \value{
-A matrix of the estimates covariances between all covariate estimates.
+A matrix of the estimates covariances between all covariate estimates. When the Fisher information is
+singular (aliased covariates, such as exact duplicates), the rows and columns of the aliased covariates
+are \code{NA}, with a warning.
 }
 \description{
 \code{vcov.cyclopsFit} returns the variance-covariance matrix for all covariates of a Cyclops model object

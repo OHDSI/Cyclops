@@ -1,3 +1,18 @@
+Cyclops (development version)
+=============================
+
+Changes:
+
+1. `vcov()`, `getSEs()` and the Fisher information of `cox` and `cox_counting` fits come from one
+   Hessian computation instead of one pass over the data per pair of covariates: with 571 covariates and
+   13,152 rows, 24 s becomes 0.04 s, with results equal to 1e-13 (relative)
+2. `vcov()` and `getSEs()` invert the information through a pivoted Cholesky factorization. When the
+   information is singular (aliased covariates, such as exact duplicates), they return `NA` for the
+   aliased coefficients, with a warning, instead of an error from `solve()`; the other entries are
+   unchanged. Results of identified models differ from earlier versions only by rounding
+3. the Fisher information of `cox` and `cox_counting` fits with integer case weights (including 0/1
+   weights) no longer stops with "Weights are not yet implemented"; non-integer weights still do
+
 Cyclops v3.8.0
 ==============
 
