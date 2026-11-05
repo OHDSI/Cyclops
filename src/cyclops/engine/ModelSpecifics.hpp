@@ -34,6 +34,19 @@
 	#include "Timing.h"
 #endif
 	namespace bsccs {
+
+// The running maximum of the logistic weights in the gradient loop. On arm64, std::fmax is one instruction
+// (fmaxnm). Elsewhere GCC compiles it to a library call per entry (its NaN rules) and clang to a long
+// dependency chain, while the comparison is one maxsd; w is never NaN there, so both give the same result.
+template <typename T>
+inline T runningMax(T lw, T w) {
+#if defined(__aarch64__) || defined(_M_ARM64)
+    return std::fmax(lw, w);
+#else
+    return (w > lw) ? w : lw;
+#endif
+}
+
 	    template <typename RealType>
 	    const std::string DenseIterator<RealType>::name = "Den";
 
@@ -1355,8 +1368,6 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	        constexpr bool scaled = decltype(scaledTag)::value;
 	        constexpr bool track = decltype(trackTag)::value; // largestW only for the drift bounds
 	        RealType g = gradient, h = hessian, lw = largestW; // locals: no store per entry
-	        // lw by compare-select, not std::fmax: GCC calls libm's fmax per entry (its NaN rules) and clang's inline
-	        // version is a long dependency chain; w is never NaN here, so the result is the same
 
 	    if (Weights::isWeighted && activePartition) {
 	        // 0/1 weights with a fold partition: the training entries are two contiguous ranges
@@ -1371,7 +1382,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	                if (IteratorType::isIndicator) {
 	                    g += p;
 	                    h += w;
-	                    if (track) lw = (w > lw) ? w : lw;
+	                    if (track) lw = runningMax(lw, w);
 	                } else {
 	                    const RealType x = t.values[IteratorType::isSparse ? q : i];
 	                    g += p * x;
@@ -1393,7 +1404,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	            if (IteratorType::isIndicator) {
 	                g += train[i] ? p : static_cast<RealType>(0);
 	                h += train[i] ? w : static_cast<RealType>(0);
-	                if (track) lw = (w > lw) ? w : lw; // held-out rows too: an upper bound
+	                if (track) lw = runningMax(lw, w); // held-out rows too: an upper bound
 	            } else {
 	                const RealType x = values[q];
 	                g += train[i] ? p * x : static_cast<RealType>(0);
@@ -1410,7 +1421,7 @@ void ModelSpecifics<BaseModel,RealType>::computeGradientAndHessianImpl(int index
 	        if (IteratorType::isIndicator) {
 	            g += Weights::isWeighted ? weight[i] * p : p;
 	            h += Weights::isWeighted ? weight[i] * w : w;
-	            if (track) lw = (w > lw) ? w : lw;
+	            if (track) lw = runningMax(lw, w);
 	        } else {
 	            const RealType x = values[q];
 	            g += Weights::isWeighted ? weight[i] * (p * x) : p * x;
