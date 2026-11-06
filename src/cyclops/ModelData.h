@@ -13,6 +13,7 @@
 #include <sstream>
 #include <stdexcept>
 
+#include <atomic>
 #include <vector>
 #include <map>
 #include <algorithm>
@@ -495,11 +496,14 @@ public:
 
 	const std::string& getRowLabel(const size_t i) const;
 
-	void clean() const { touchedY = false; touchedX = false; }
+	void clean() const {
+		touchedY.store(false, std::memory_order_relaxed);
+		touchedX.store(false, std::memory_order_relaxed);
+	}
 
-	bool getTouchedY() const { return touchedY; }
+	bool getTouchedY() const { return touchedY.load(std::memory_order_relaxed); }
 
-	bool getTouchedX() const { return touchedX; }
+	bool getTouchedX() const { return touchedX.load(std::memory_order_relaxed); }
 
 	double sum(const IdType covariate, const int power = 1) const;
 
@@ -871,8 +875,9 @@ protected:
     mutable IntVector identityPid;
 
 
-    mutable bool touchedY;
-    mutable bool touchedX;
+    // fold fits in other threads share the data and clear these together
+    mutable std::atomic<bool> touchedY;
+    mutable std::atomic<bool> touchedX;
 };
 
 

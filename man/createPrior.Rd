@@ -11,7 +11,8 @@ createPrior(
   graph = NULL,
   neighborhood = NULL,
   useCrossValidation = FALSE,
-  forceIntercept = FALSE
+  forceIntercept = FALSE,
+  laplaceFraction = NULL
 )
 }
 \arguments{
@@ -28,6 +29,10 @@ createPrior(
 \item{useCrossValidation}{Logical: Perform cross-validation to determine prior \code{variance}.}
 
 \item{forceIntercept}{Logical: Force intercept coefficient into prior}
+
+\item{laplaceFraction}{Numeric between 0 and 1: for an \code{"elasticnet"} prior, the fraction of the penalty
+that is Laplace (\code{alpha} in \code{glmnet}). Required for \code{"elasticnet"} and not
+allowed for other prior types}
 }
 \value{
 A Cyclops prior object of class inheriting from \code{"cyclopsPrior"} for use with \code{fitCyclopsModel}.
@@ -44,6 +49,16 @@ in terms of a rate \code{"lambda"} per observation.
 See \code{"glmnet"}, for example.
 
 variance = 2 * / (nobs * lambda)^2 or lambda = sqrt(2 / variance) / nobs
+
+The \code{"elasticnet"} prior penalizes each coefficient by
+\code{lambda * (laplaceFraction * abs(beta) + (1 - laplaceFraction) / (2 * s) * beta^2)}, with
+\code{lambda = sqrt(2 / variance)} as for the Laplace prior, and \code{s} the standard deviation of the outcome
+(with divisor \code{nobs}) for \code{"ls"} models and 1 for other models, so that \code{"ls"} fits do not
+depend on the units of the outcome. A \code{laplaceFraction} of 1 gives the Laplace prior and 0 a normal prior
+with variance \code{s / lambda}. Cross-validation chooses the variance for a fixed \code{laplaceFraction}, as
+\code{cv.glmnet} chooses \code{lambda} for a fixed \code{alpha}. The \code{glmnet} fit with
+\code{standardize = FALSE} and the same \code{alpha} has \code{lambda = sqrt(2 / variance) / nobs} for
+\code{"lr"} models and \code{sqrt(2 / variance) / (2 * nobs)} for \code{"ls"} models.
 }
 
 \examples{

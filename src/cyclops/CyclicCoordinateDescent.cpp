@@ -48,6 +48,49 @@ double columnFirstOverSecondMoment(const CompressedDataMatrix<RealType>& X, int 
 	}
 	return (s2 > 0.0) ? s1 / s2 : 1.0;
 }
+
+// sum (y - mean(y))^2 over every row; -1 if the outcomes are not available or there are fewer than 2 rows
+double outcomeSumOfSquares(const AbstractModelData& data) {
+	const auto* data64 = dynamic_cast<const ModelData<double>*>(&data);
+	const auto* data32 = dynamic_cast<const ModelData<float>*>(&data);
+	const size_t n = data.getNumberOfRows();
+	if ((!data64 && !data32) || n < 2) {
+		return -1.0;
+	}
+	double mean = 0.0;
+	for (size_t i = 0; i < n; ++i) {
+		mean += data64 ? data64->getYVectorRef()[i] : data32->getYVectorRef()[i];
+	}
+	mean /= static_cast<double>(n);
+	double ss = 0.0;
+	for (size_t i = 0; i < n; ++i) {
+		const double d = (data64 ? data64->getYVectorRef()[i] : data32->getYVectorRef()[i]) - mean;
+		ss += d * d;
+	}
+	return ss;
+}
+
+// Least squares (log likelihood -sum r^2): a kkt residual |g| / sqrt(h) has standard deviation sqrt(2) sigma for a
+// residual standard deviation sigma; sd(y) bounds sigma and scales with y. 1 if y is constant
+double leastSquaresKktScale(const AbstractModelData& data) {
+	const double ss = outcomeSumOfSquares(data);
+	if (ss < 0.0) {
+		return 1.0;
+	}
+	const double scale = std::sqrt(2.0 * ss / static_cast<double>(data.getNumberOfRows() - 1));
+	return (scale > 0.0 && std::isfinite(scale)) ? scale : 1.0;
+}
+
+// Least squares: the outcome's standard deviation over every row (with divisor n, as glmnet), the scale of the normal
+// part of an elastic net prior. 1 if y is constant
+double leastSquaresOutcomeSd(const AbstractModelData& data) {
+	const double ss = outcomeSumOfSquares(data);
+	if (ss < 0.0) {
+		return 1.0;
+	}
+	const double sd = std::sqrt(ss / static_cast<double>(data.getNumberOfRows()));
+	return (sd > 0.0 && std::isfinite(sd)) ? sd : 1.0;
+}
 } // namespace
 
 using namespace std; // TODO Bad form
@@ -1567,6 +1610,9 @@ void CyclicCoordinateDescent::findMode(
 	// off otherwise, which also applies a move left pending by an interrupted fit)
 	const bool lazyIntercept = modelSpecifics.setLazyIntercept(
 		interceptIndex >= 0 && convergenceType == KKT && noiseLevel <= QUIET);
+	interceptIsFree = lazyIntercept && hXI.getModelType() == ModelType::NORMAL;
+	setOutcomeScale();
+	jointPrior->setOutcomeScale(priorOutcomeScale); // the prior may have been replaced since the last fit
 	setUpZeroCertificates(algorithmType);
 
 	const bool gapPath = convergenceType == GAP || algorithmType == AlgorithmType::AUTO ||
@@ -1603,6 +1649,11 @@ void CyclicCoordinateDescent::findMode(
 
 		for (int i=0; i<J; i++) {
 			int type = jointPrior->getPriorType(i);
+			if (type == priors::ELASTIC_NET) {
+				std::ostringstream stream;
+				stream << "The elastic net prior is not implemented on the GPU";
+				error->throwError(stream);
+			}
 			priorList.push_back(type);
 			if (type == 1) {
 				temp[i] = convertVarianceToHyperparameter(varianceList[0]);
@@ -2014,6 +2065,50 @@ double CyclicCoordinateDescent::getLogLikelihoodGradient(int index) {
  	return -gradient;
  }
 
+double CyclicCoordinateDescent::getNullModelVariance(const ModeFindingArguments& arguments) {
+
+	if (jointPrior->getVariance().size() != 1) {
+		return -1.0;
+	}
+	const double saved = jointPrior->getVariance()[0];
+
+	// each penalized coefficient's kink at 0 as a fraction of lambda: 1 for Laplace, laplaceFraction for an
+	// elastic net (whose fraction 0 has no kink, so no null model)
+	std::vector<double> kinkFraction(J, 0.0);
+	bool anyPenalized = false;
+	for (int j = 0; j < J; ++j) {
+		const auto type = jointPrior->getPriorType(j);
+		if (hasZeroKink(j)) {
+			kinkFraction[j] = jointPrior->getKktBoundary(j) / std::sqrt(2.0 / saved);
+			if (!(kinkFraction[j] > 0.0)) {
+				return -1.0;
+			}
+			anyPenalized = true;
+		} else if (type != priors::NONE) {
+			return -1.0;
+		}
+	}
+	if (!anyPenalized) {
+		return -1.0;
+	}
+
+	setHyperprior(0, 1E-30); // lambda = sqrt(2E30): only the unpenalized coefficients move
+	resetBeta();
+	update(arguments);
+
+	// a penalized coefficient stays at 0 while |gradient| <= its kink, fraction * lambda
+	double lambdaMax = 0.0;
+	for (int j = 0; j < J; ++j) {
+		if (kinkFraction[j] > 0.0) {
+			lambdaMax = std::max(lambdaMax, std::abs(getLogLikelihoodGradient(j)) / kinkFraction[j]);
+		}
+	}
+	setHyperprior(0, saved);
+	resetBeta();
+
+	return (lambdaMax > 0.0 && std::isfinite(lambdaMax)) ? 2.0 / (lambdaMax * lambdaMax) : -1.0;
+}
+
 void CyclicCoordinateDescent::computeGradientAndHessian(int index, double *ogradient,
 		double *ohessian) {
 	modelSpecifics.computeGradientAndHessian(index, ogradient, ohessian, useCrossValidation);
@@ -2206,7 +2301,7 @@ void CyclicCoordinateDescent::setThreads(int threads) {
 
 void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<void(int)>& log) {
 
-	// A coordinate at zero that did not move last cycle, or has a Laplace prior, usually stays at
+	// A coordinate at zero that did not move last cycle, or has a Laplace (or elastic net) prior, usually stays at
 	// zero (delta == 0), and then the model state is unchanged. So the gradients of a run of such
 	// coordinates are computed together, and the run is processed in order exactly as the serial
 	// cycle, stopping at the first coordinate that moves (the gradients after it are stale).
@@ -2222,7 +2317,7 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 
 	auto isCandidate = [this](int j) {
 		return !fixBeta[j] && hBeta[j] == 0.0 &&
-			(stayedAtZero[j] || jointPrior->getPriorType(j) == priors::LAPLACE);
+			(stayedAtZero[j] || hasZeroKink(j));
 	};
 	auto finish = [this, &log](int index, double delta, bool candidate, double curvature) {
 		delta = applyBounds(delta, index);
@@ -2321,7 +2416,7 @@ double CyclicCoordinateDescent::scaledKktResidual(int index, double rawDelta,
 		size = std::abs(rawDelta) * gh.second;
 		curvature = gh.second;
 	}
-	return curvature > 0.0 ? size / std::sqrt(curvature) : size; // in standard-error units; NaN if undefined
+	return (curvature > 0.0 ? size / std::sqrt(curvature) : size) / kktOutcomeScale; // in standard-error units; NaN if undefined
 }
 
 void CyclicCoordinateDescent::accumulateKkt(int index, double rawDelta, const priors::GradientHessian& gh) {
@@ -2354,7 +2449,7 @@ double CyclicCoordinateDescent::computeKktResidual() {
 void CyclicCoordinateDescent::setUpAdaptiveIntercept(AlgorithmType algorithmType, double epsilon) {
 	interceptIndex = -1;
 	if (!adaptiveIntercept || algorithmType != AlgorithmType::CCD || usingGPU || usingCUDA || syncCV ||
-		hXI.getModelType() != ModelType::LOGISTIC) {
+		(hXI.getModelType() != ModelType::LOGISTIC && hXI.getModelType() != ModelType::NORMAL)) {
 		return;
 	}
 	for (int j = 0; j < J; ++j) {
@@ -2388,9 +2483,9 @@ void CyclicCoordinateDescent::setUpAdaptiveIntercept(AlgorithmType algorithmType
 void CyclicCoordinateDescent::setUpZeroCertificates(AlgorithmType algorithmType) {
 	useZeroCertificates = algorithmType == AlgorithmType::CCD && !usingGPU && !usingCUDA && !syncCV &&
 		hXI.getModelType() == ModelType::LOGISTIC;
-	bool certifiable = false; // an indicator column with a Laplace prior
+	bool certifiable = false; // an indicator column with a Laplace or elastic net prior
 	for (int j = 0; j < J && useZeroCertificates && !certifiable; ++j) {
-		certifiable = hXI.getColumnType(j) == INDICATOR && jointPrior->getPriorType(j) == priors::LAPLACE;
+		certifiable = hXI.getColumnType(j) == INDICATOR && hasZeroKink(j);
 	}
 	// the model keeps the drift totals only while certificates can use them (restarted when switched on)
 	modelSpecifics.setDriftTracking(useZeroCertificates && certifiable);
@@ -2463,7 +2558,7 @@ void CyclicCoordinateDescent::recordZeroCertificate(int index, double delta) {
 	ZeroCertificate& c = zeroCertificates[index];
 	c.epoch = -1;
 	if (delta != 0.0 || hBeta[index] != 0.0 || certifiedRows[index] == 0.0 ||
-		!(lastGradientHessian.second > 0.0) || jointPrior->getPriorType(index) != priors::LAPLACE) {
+		!(lastGradientHessian.second > 0.0) || !hasZeroKink(index)) {
 		return;
 	}
 	const auto drift = modelSpecifics.getGradientDrift();
@@ -2500,9 +2595,9 @@ void CyclicCoordinateDescent::trackInterceptGradient(int index, double delta, do
 	s.gain += 0.5 * hessian * delta * delta;
 	s.cost += (delta != 0.0) ? 2.0 * columnRows[index] : columnRows[index]; // gradient (+ update) rows
 	const double rate = (s.rate > 0.0) ? s.rate : s.gain / s.cost;
-	if (s.hessian > 0.0 &&
+	if (interceptIsFree ? (delta != 0.0) : (s.hessian > 0.0 &&
 		std::abs(s.gradient) >= interceptFloor * std::sqrt(s.hessian) && // else within the tolerance already
-		s.gradient * s.gradient / (2.0 * s.hessian) >= adaptiveInterceptRatio * rate * 2.0 * static_cast<double>(K)) {
+		s.gradient * s.gradient / (2.0 * s.hessian) >= adaptiveInterceptRatio * rate * 2.0 * static_cast<double>(K))) {
 		// an extra Newton step on the intercept; its update takes one exp() for logistic regression
 		double interceptDelta = ccdUpdateBeta(interceptIndex);
 		if (trackKkt) {
@@ -2607,12 +2702,25 @@ void CyclicCoordinateDescent::computeRemainingStatistics(bool allStats, int inde
 
 double CyclicCoordinateDescent::computeConvergenceCriterion(double newObjFxn, double oldObjFxn) {
 	// This is the stopping criterion that Ken Lange generally uses
-	return abs(newObjFxn - oldObjFxn) / (abs(newObjFxn) + 1.0);
+	setOutcomeScale();
+	return abs(newObjFxn - oldObjFxn) / (abs(newObjFxn) + objectiveFloor);
+}
+
+void CyclicCoordinateDescent::setOutcomeScale() {
+	if (outcomeScaleKnown) { // y does not change
+		return;
+	}
+	kktOutcomeScale = (hXI.getModelType() == ModelType::NORMAL) ? leastSquaresKktScale(hXI) : 1.0;
+	objectiveFloor = (hXI.getModelType() == ModelType::NORMAL) ? kktOutcomeScale * kktOutcomeScale / 2.0 : 1.0;
+	priorOutcomeScale = (hXI.getModelType() == ModelType::NORMAL) ? leastSquaresOutcomeSd(hXI) : 1.0;
+	outcomeScaleKnown = true;
 }
 
 double CyclicCoordinateDescent::applyBounds(double delta, int index) {
 
-    auto doBound = true;
+    // least squares: the Newton step is the exact minimum along the coordinate, and a bound in units of beta
+    // would depend on the units of y
+    auto doBound = hXI.getModelType() != ModelType::NORMAL;
     if (doBound) {
 	    if (delta < -hDelta[index]) {
 		    delta = -hDelta[index];
@@ -2752,6 +2860,11 @@ void CyclicCoordinateDescent::turnOnSyncCV(int foldToCompute) {
 
 	for (int i=0; i<J; i++) {
 		int type = jointPrior->getPriorType(i);
+		if (type == priors::ELASTIC_NET) {
+			std::ostringstream stream;
+			stream << "The elastic net prior is not implemented with syncCV";
+			error->throwError(stream);
+		}
 		priorList.push_back(type);
 		if (type == 1) {
 			temp[i] = convertVarianceToHyperparameter(varianceList[0]);

@@ -271,6 +271,32 @@ Changes:
     intercept steps are applied to the rows once per cycle, which changes results only by rounding. In
     benchmarks with 20,000-400,000 rows, L1 fits are 1.3-2.5x faster and cross-validation 1.1-2.4x;
     with 1.6 million rows, 1.0-1.1x
+44. `createControl(cvNullModelBound = )`: with a Laplace prior, the auto-search does not evaluate variances
+    below the null-model variance (the largest at which every penalized coefficient is 0), and starts there
+    when `startingVariance` lies below it; when the null model scores best, it first looks up to 100 times
+    its variance. On by default for `lr` under `fitter = "super"`, whose search steps down first: below that
+    variance every fold fit is the same model, and the search could stop on the run of equal scores and return
+    a model without covariates (often, with about 100 events and PatientLevelPrediction's starting variance of
+    0.01). Fits on propensity-score data, where the search stays well above that variance, are unchanged
+45. least-squares (`ls`) models: the auto-search starts at the null-model variance, steps up, fits its quadratic to
+    the best point and its two neighbours and refines its result, so the selected variance no longer depends on the
+    units of the outcome (the earlier start and first step did, and a quadratic through every point could land far
+    from the optimum). Fits use the `"kkt"` criterion, measured in units of the outcome's standard deviation (the
+    `"gradient"` criterion could stop far from the optimum, and a `tolerance` given without `convergenceType` is now
+    in standard-error units), with active-set cycling, adaptive intercept steps and unbounded steps; they keep the
+    residual of each row and update the intercept in constant time. `fitter = "super"` also fits the
+    cross-validation folds to a `"kkt"` tolerance of 0.1, and `fitter = "legacy"` keeps the earlier settings. In
+    benchmarks with 20,000-1,000,000 rows and 2,000-10,000 sparse binary covariates, cross-validation is 2.3-17x
+    faster (`super`: 3.0-20x), with the same or lower held-out error
+46. `createPrior("elasticnet", laplaceFraction = )` creates an elastic net prior: a mix of the Laplace and
+    normal priors, with the penalty `lambda * (laplaceFraction * |beta| + (1 - laplaceFraction) / 2 * beta^2)`
+    and `lambda = sqrt(2 / variance)`. `laplaceFraction` is `glmnet`'s `alpha`, and cross-validation chooses
+    the variance for a fixed `laplaceFraction`; its null-model variance (`cvNullModelBound`) is
+    `laplaceFraction^2` times the Laplace prior's. For `ls` models the normal part is divided by the outcome's
+    standard deviation, as in `glmnet`, so that fits do not depend on the units of the outcome
+47. cross-validation with `threads > 1` no longer writes shared state from several threads without
+    synchronization (data races reported by ThreadSanitizer; every thread wrote the same value, so results do
+    not change)
 
 Cyclops v3.7.1
 ==============

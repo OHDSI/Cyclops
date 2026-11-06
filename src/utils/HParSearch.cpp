@@ -95,7 +95,11 @@ StepValue UniModalSearch::step() //recommend: do/not next step, and the next x v
 			    ret.expected = best->second.m;
 			}
 		}else { //max is 'bracketed'
-            QuadrCoefs coefs = QuadrLogFit( y_by_x );
+            // m_local_fit: the best point and its two neighbours, as points far from the maximum (as the null
+            // model) would tilt a fit to all of them
+            QuadrCoefs coefs = m_local_fit ?
+                QuadrLogFit( map<double,UniModalSearch::MS>( std::prev(best), std::next(std::next(best)) ) ) :
+                QuadrLogFit( y_by_x );
             double log_argmax = - coefs.c1 / coefs.c2 / 2;
             double expected_max = - coefs.c1*coefs.c1 / coefs.c2 / 4 + coefs.c0;
 

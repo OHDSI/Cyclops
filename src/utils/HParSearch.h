@@ -48,9 +48,11 @@ public:
     }
     StepValue step(); // recommend: do/not next step, the next x value
     //ctor
+    // localFit: fit the quadratic to the best point and its two neighbours only, instead of to every point
     UniModalSearch( double stdstep=100, double stop_by_y=.01, double stop_by_x=log(1.5),
-        double firstCut=1.0 )
-        : m_stdstep(stdstep), m_stop_by_y(stop_by_y), m_stop_by_x(stop_by_x), m_first_cut(firstCut) {}
+        double firstCut=1.0, bool localFit=false )
+        : m_stdstep(stdstep), m_stop_by_y(stop_by_y), m_stop_by_x(stop_by_x), m_first_cut(firstCut),
+          m_local_fit(localFit) {}
 
     friend std::ostream& operator<< (std::ostream& stream, const UniModalSearch& search);
 
@@ -60,6 +62,7 @@ private:
     const double m_stdstep;
     const double m_stop_by_y, m_stop_by_x;
     const double m_first_cut;
+    const bool m_local_fit;
     std::map<double,MS> y_by_x;
     std::map<double,MS>::const_iterator best;
 };

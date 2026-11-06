@@ -79,6 +79,11 @@ public:
 
 	double getLogLikelihoodGradient(int index);
 
+	// The largest variance at which every Laplace-penalized coefficient is 0 (2 / lambda max^2), from a fit of
+	// the unpenalized coefficients only; -1 unless all penalized coefficients share one Laplace or elastic net
+	// prior variance (an elastic net with laplaceFraction a has lambda max divided by a)
+	double getNullModelVariance(const ModeFindingArguments& arguments);
+
 	double getLogPriorGradient(int index);
 
 	//double getPredictiveLogLikelihood(double* weights);
@@ -417,6 +422,13 @@ protected:
 	double ccdUpdateBeta(int index);
 
 	double scaledKktResidual(int index, double rawDelta, const priors::GradientHessian& gh) const;
+	// Least squares: sqrt(2) sd(y), so that kkt residuals are in standard errors for any units of y, and var(y), the
+	// floor of the objective's scale in computeConvergenceCriterion(); 1 otherwise. Set by setOutcomeScale()
+	double kktOutcomeScale = 1.0;
+	double priorOutcomeScale = 1.0; // least squares: sd(y) over every row, for an elastic net prior's normal part
+	double objectiveFloor = 1.0;
+	bool outcomeScaleKnown = false;
+	void setOutcomeScale();
 
 	void accumulateKkt(int index, double rawDelta, const priors::GradientHessian& gh);
 
@@ -427,6 +439,12 @@ protected:
 	void setUpAdaptiveIntercept(AlgorithmType algorithmType, double epsilon);
 
 	void trackInterceptGradient(int index, double delta, double hessian);
+
+	// a Laplace or elastic net prior: a coordinate at zero stays there while |gradient| is within the kink
+	bool hasZeroKink(int index) {
+		const auto type = jointPrior->getPriorType(index);
+		return type == priors::LAPLACE || type == priors::ELASTIC_NET;
+	}
 
 	void setUpZeroCertificates(AlgorithmType algorithmType);
 
@@ -595,6 +613,7 @@ protected:
 	bool adaptiveIntercept = false;
 	static constexpr double adaptiveInterceptRatio = 0.25;
 	int interceptIndex = -1; // in the current findMode(); -1 when off
+	bool interceptIsFree = false; // least squares with a lazy intercept: a step costs O(1), taken after every move
 	double interceptFloor = 0.0; // the tolerance, in standard-error units
 	std::vector<double> interceptMomentRatio; // sum_i x_ij / sum_i x_ij^2 by column
 	std::vector<double> columnRows; // stored entries by column (K for dense and intercept)

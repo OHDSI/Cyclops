@@ -51,6 +51,7 @@ struct CrossValidationArguments {
     int foldMinIterations;      // fold fits only, when one of the three above is set
     bool warmStart;             // each fold starts from its own solution at the nearest hyperparameter tried
     bool refineSearch;          // auto-search: refine the result by local quadratic fits around the best point
+    bool nullModelBound;        // auto-search: never below the variance at which every Laplace coefficient is 0
 
     CrossValidationArguments() :
         doCrossValidation(false),
@@ -71,7 +72,8 @@ struct CrossValidationArguments {
 		foldMaxIterations(-1),
 		foldMinIterations(5),
 		warmStart(false),
-		refineSearch(false)
+		refineSearch(false),
+		nullModelBound(false)
         { }
 };
 

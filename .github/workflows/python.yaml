@@ -48,7 +48,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python: ['3.9', '3.12']
+        python: ['3.11', '3.12']
         include:
           # The oldest and newest supported interpreters carry the signal; the
           # middle versions add build time without adding coverage.
