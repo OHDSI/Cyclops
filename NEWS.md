@@ -73,6 +73,12 @@ Changes:
    the estimate (chord Newton steps, whose first step is the tangent of the profile), with a certificate
    that allows for the Hessian's lag; with SelfControlledCaseSeries' defaults, a fit with its profiles,
    confidence intervals and null likelihoods takes 1.8 s instead of 12.9 s
+15. `algorithm = "auto"` and `"newton"` also fit `lr` models (normal, Laplace or no priors), by dense
+   Newton, Newton-CG or prox-Newton, in cross-validation folds too. A propensity-score model with 1,755
+   covariates and 197,753 rows reaches its optimum in 2.8-3.1 s with a normal prior and 1.5-3.3 s with
+   a Laplace prior, where coordinate descent stopped 15-24 log-likelihood units short of a ridge optimum
+   after 10-31 s. `vcov()` of an `lr` fit with integer weights now treats them as row counts (it
+   stopped with an error)
 
 Cyclops v3.8.0
 ==============

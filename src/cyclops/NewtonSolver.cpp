@@ -80,7 +80,7 @@ std::string CyclicCoordinateDescent::secondOrderIneligibility() const {
 		return "cross-validation folds are synchronized";
 	}
 	if (!modelSpecifics.supportsSecondOrder()) {
-		return "the model has no second-order kernels (so far cox and cox_counting in double precision on the CPU)";
+		return "the model has no second-order kernels (so far cox, cox_counting, cpr, sccs, clr and lr in double precision on the CPU)";
 	}
 	for (int j = 0; j < J; ++j) {
 		double value = 0.0;

@@ -59,9 +59,10 @@ test_that("explicit criteria under auto, and default controls, leave fits as the
 })
 
 test_that("ineligible fits error under newton or an explicit gap, and fall back under auto", {
-    lr <- createCyclopsData(case ~ spontaneous + induced, data = infert, modelType = "lr")
-    expect_error(fitCyclopsModel(lr, control = createControl(algorithm = "newton")), "not available")
-    expect_error(fitCyclopsModel(lr, control = createControl(convergenceType = "gap")), "not available")
+    pr <- createCyclopsData(counts ~ outcome, data = data.frame(counts = c(18, 17, 15, 20, 10, 20, 25, 13, 12),
+                                                               outcome = gl(3, 1, 9)), modelType = "pr")
+    expect_error(fitCyclopsModel(pr, control = createControl(algorithm = "newton")), "not available")
+    expect_error(fitCyclopsModel(pr, control = createControl(convergenceType = "gap")), "not available")
 
     problem <- newtonProblem(4)
     other <- createPrior("barupdate", variance = 1)

@@ -59,8 +59,8 @@ fit resolves to \code{"gap"} through \code{algorithm}}
 \code{fitter = "super"}, and \code{"gap"} with \code{algorithm = "auto"} or
 \code{"newton"}. \code{"gap"} stops when a certified bound on the distance to the
 optimum of the log posterior is below \code{tolerance}; it needs a model with
-second-order kernels (so far \code{"cox"}, \code{"cox_counting"}, \code{"cpr"}, \code{"sccs"} and
-\code{"clr"} in double precision on the CPU) and normal, Laplace or no priors; with Laplace priors the stop is an
+second-order kernels (so far \code{"cox"}, \code{"cox_counting"}, \code{"cpr"}, \code{"sccs"},
+\code{"clr"} and \code{"lr"} in double precision on the CPU) and normal, Laplace or no priors; with Laplace priors the stop is an
 estimate rather than a certified bound}
 
 \item{cvType}{String: name of cross validation search.

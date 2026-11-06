@@ -49,9 +49,17 @@ test_that("vcov for cpr ignores strata without events", {
     expect_equal(vcov(fitWithEmpty), vcov(fit), tolerance = 1E-6)
 })
 
-test_that("vcov with weights reports that weights are not supported", {
-    fit <- fitCyclopsModel(createCyclopsData(case ~ spontaneous + induced, data = infert, modelType = "lr"),
-                           weights = rep(c(1, 2), length.out = nrow(infert)))
+test_that("vcov with weights: integer weights count rows, others are not supported", {
+    formula <- case ~ spontaneous + induced
+    twice <- rep(c(1, 2), length.out = nrow(infert))
+    control <- createControl(tolerance = 1E-10, noiseLevel = "silent")
+    fit <- fitCyclopsModel(createCyclopsData(formula, data = infert, modelType = "lr"), weights = twice, control = control)
+    replicated <- fitCyclopsModel(createCyclopsData(formula, data = infert[rep(seq_len(nrow(infert)), twice), ],
+                                                    modelType = "lr"), control = control)
+    expect_equal(vcov(fit), vcov(replicated), tolerance = 1E-6)
+
+    fit <- fitCyclopsModel(createCyclopsData(formula, data = infert, modelType = "lr"),
+                           weights = rep(c(1, 1.5), length.out = nrow(infert)))
     expect_error(vcov(fit), "Weights are not yet implemented in Fisher Information calculations")
 })
 

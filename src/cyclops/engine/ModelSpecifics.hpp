@@ -3285,5 +3285,6 @@ void ModelSpecifics<BaseModel,RealType>::initialize(
 } // namespace
 
 #include "GroupedSecondOrder.hpp"
+#include "LogisticSecondOrder.hpp"
 
 #endif /* MODELSPECIFICS_HPP_ */

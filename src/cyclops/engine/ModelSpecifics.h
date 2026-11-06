@@ -91,6 +91,7 @@ struct Layout {
 template <typename RealType> struct SelfControlledCaseSeries;
 template <typename RealType> struct ConditionalPoissonRegression;
 template <typename RealType> struct ConditionalLogisticRegression;
+template <typename RealType> struct LogisticRegression;
 
 template <class BaseModel, typename RealType>
 class ModelSpecifics : public AbstractModelSpecifics, BaseModel {
@@ -621,7 +622,7 @@ private:
 
 public:
 	// Second-order API for the grouped models cpr, sccs and clr in double precision (GroupedSecondOrder.hpp)
-	bool supportsSecondOrder() const { return groupedSecondOrder; }
+	bool supportsSecondOrder() const { return groupedSecondOrder || logisticSecondOrder; }
 	bool secondOrderPrepare(const std::vector<int>& F);
 	bool fullGradient(const std::vector<int>& F, std::vector<double>& g);
 	bool hessianBlock(const std::vector<int>& F, std::vector<double>& H);
@@ -633,12 +634,27 @@ public:
 	double newtonCostRatio(const std::vector<int>& F);
 	bool hessianDiagonal(const std::vector<int>& F, std::vector<double>& h);
 	bool separationDirections(const std::vector<int>& columns, std::vector<int>& direction);
+	double newtonCgCostRatio(const std::vector<int>& F, bool preconditioned);
 
 private:
 	static constexpr bool groupedSecondOrder = std::is_same<RealType, double>::value &&
 		(std::is_same<BaseModel, SelfControlledCaseSeries<RealType>>::value ||
 		 std::is_same<BaseModel, ConditionalPoissonRegression<RealType>>::value ||
 		 std::is_same<BaseModel, ConditionalLogisticRegression<RealType>>::value);
+	// and for logistic regression (LogisticSecondOrder.hpp)
+	static constexpr bool logisticSecondOrder = std::is_same<RealType, double>::value &&
+		std::is_same<BaseModel, LogisticRegression<RealType>>::value;
+	bool lrReady() const;
+	bool lrFullGradient(const std::vector<int>& F, std::vector<double>& g);
+	bool lrHessianBlock(const std::vector<int>& F, std::vector<double>& H);
+	bool lrHessianVector(const std::vector<int>& F, const std::vector<double>& v, std::vector<double>& Hv);
+	bool lrHessianDiagonal(const std::vector<int>& F, std::vector<double>& h);
+	bool lrSetDirection(const std::vector<int>& F, const std::vector<double>& d);
+	double lrTrialLogLikelihood(double t);
+	bool lrCommitStep(double t);
+	double lrDirectionMaxAbs() const;
+	double lrNewtonCostRatio(const std::vector<int>& F, bool conjugateGradient, bool preconditioned);
+	std::vector<double> lrDirection;   // X_F d by row
 	bool groupedReady() const;
 	void prepareGroupedStrata();
 	double stratumHazard(size_t s) const;

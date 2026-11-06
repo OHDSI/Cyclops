@@ -47,7 +47,7 @@ void ModelSpecifics<BaseModel,RealType>::prepareGroupedStrata() {
 template <class BaseModel, typename RealType>
 bool ModelSpecifics<BaseModel,RealType>::secondOrderPrepare(const std::vector<int>& F) {
 
-	if (!groupedSecondOrder) {
+	if (!groupedSecondOrder && !logisticSecondOrder) {
 		return false;
 	}
 	if (gsLayout[0].prepared && gsColumns == F) {
@@ -102,8 +102,11 @@ bool ModelSpecifics<BaseModel,RealType>::secondOrderPrepare(const std::vector<in
 	std::swap(gsLayout[0], gsLayout[1]);
 	grouped::Layout& L = gsLayout[0];
 
-	// Rows with an entry in F, ordered by stratum then row (the rows of these models are stored by stratum)
-	prepareGroupedStrata();
+	// Rows with an entry in F, ordered by stratum then row (the rows of these models are stored by stratum);
+	// logistic regression has no strata
+	if (!logisticSecondOrder) {
+		prepareGroupedStrata();
+	}
 	if (gsRowIndex.size() != K) {
 		gsRowIndex.assign(K, -1);
 	}
@@ -118,7 +121,7 @@ bool ModelSpecifics<BaseModel,RealType>::secondOrderPrepare(const std::vector<in
 			L.rows.push_back(static_cast<int>(k));
 		}
 	}
-	if (!gsSortedStrata) {
+	if (!logisticSecondOrder && !gsSortedStrata) {
 		std::stable_sort(L.rows.begin(), L.rows.end(), [this](int a, int b) { return hPid[a] < hPid[b]; });
 	}
 	for (size_t i = 0; i < L.rows.size(); ++i) {
@@ -153,7 +156,7 @@ bool ModelSpecifics<BaseModel,RealType>::secondOrderPrepare(const std::vector<in
 	// each stratum touches
 	L.segmentStratum.clear();
 	L.segmentStart.assign(1, 0);
-	for (size_t i = 0; i < L.rows.size(); ++i) {
+	for (size_t i = 0; i < L.rows.size() && !logisticSecondOrder; ++i) {
 		if (i == 0 || hPid[L.rows[i]] != hPid[L.rows[i - 1]]) {
 			if (i > 0) {
 				L.segmentStart.push_back(static_cast<int>(i));
@@ -200,6 +203,10 @@ void ModelSpecifics<BaseModel,RealType>::groupedProductXv(const std::vector<doub
 template <class BaseModel, typename RealType>
 bool ModelSpecifics<BaseModel,RealType>::fullGradient(const std::vector<int>& F, std::vector<double>& g) {
 
+	if (logisticSecondOrder) {
+		return lrFullGradient(F, g);
+	}
+
 	if (!groupedReady() || !secondOrderPrepare(F)) {
 		return false;
 	}
@@ -228,6 +235,10 @@ bool ModelSpecifics<BaseModel,RealType>::fullGradient(const std::vector<int>& F,
 
 template <class BaseModel, typename RealType>
 bool ModelSpecifics<BaseModel,RealType>::hessianBlock(const std::vector<int>& F, std::vector<double>& H) {
+
+	if (logisticSecondOrder) {
+		return lrHessianBlock(F, H);
+	}
 
 	if (!groupedReady() || !secondOrderPrepare(F)) {
 		return false;
@@ -319,6 +330,10 @@ template <class BaseModel, typename RealType>
 bool ModelSpecifics<BaseModel,RealType>::hessianVector(const std::vector<int>& F, const std::vector<double>& v,
                                                        std::vector<double>& Hv) {
 
+	if (logisticSecondOrder) {
+		return lrHessianVector(F, v, Hv);
+	}
+
 	if (!groupedReady() || !secondOrderPrepare(F) || v.size() != F.size()) {
 		return false;
 	}
@@ -354,6 +369,10 @@ bool ModelSpecifics<BaseModel,RealType>::hessianVector(const std::vector<int>& F
 
 template <class BaseModel, typename RealType>
 bool ModelSpecifics<BaseModel,RealType>::setDirection(const std::vector<int>& F, const std::vector<double>& d) {
+
+	if (logisticSecondOrder) {
+		return lrSetDirection(F, d);
+	}
 
 	if (!groupedReady() || !secondOrderPrepare(F) || d.size() != F.size()) {
 		return false;
@@ -408,6 +427,10 @@ bool ModelSpecifics<BaseModel,RealType>::setDirection(const std::vector<int>& F,
 template <class BaseModel, typename RealType>
 double ModelSpecifics<BaseModel,RealType>::trialLogLikelihood(double t) {
 
+	if (logisticSecondOrder) {
+		return lrTrialLogLikelihood(t);
+	}
+
 	if (!groupedReady() || !gsHasDirection) {
 		return std::numeric_limits<double>::quiet_NaN();
 	}
@@ -441,6 +464,10 @@ double ModelSpecifics<BaseModel,RealType>::trialLogLikelihood(double t) {
 template <class BaseModel, typename RealType>
 bool ModelSpecifics<BaseModel,RealType>::commitStep(double t) {
 
+	if (logisticSecondOrder) {
+		return lrCommitStep(t);
+	}
+
 	if (!groupedReady() || !gsHasDirection) {
 		return false;
 	}
@@ -473,6 +500,10 @@ bool ModelSpecifics<BaseModel,RealType>::commitStep(double t) {
 template <class BaseModel, typename RealType>
 double ModelSpecifics<BaseModel,RealType>::directionMaxAbs() const {
 
+	if (logisticSecondOrder) {
+		return lrDirectionMaxAbs();
+	}
+
 	if (!gsHasDirection) {
 		return std::numeric_limits<double>::quiet_NaN();
 	}
@@ -488,6 +519,10 @@ double ModelSpecifics<BaseModel,RealType>::directionMaxAbs() const {
 
 template <class BaseModel, typename RealType>
 double ModelSpecifics<BaseModel,RealType>::newtonCostRatio(const std::vector<int>& F) {
+
+	if (logisticSecondOrder) {
+		return lrNewtonCostRatio(F, false, false);
+	}
 
 	if (!groupedReady() || !secondOrderPrepare(F)) {
 		return std::numeric_limits<double>::quiet_NaN();
@@ -531,7 +566,19 @@ double ModelSpecifics<BaseModel,RealType>::newtonCostRatio(const std::vector<int
 }
 
 template <class BaseModel, typename RealType>
+double ModelSpecifics<BaseModel,RealType>::newtonCgCostRatio(const std::vector<int>& F, bool preconditioned) {
+	if (logisticSecondOrder) {
+		return lrNewtonCostRatio(F, true, preconditioned);
+	}
+	return std::numeric_limits<double>::quiet_NaN();
+}
+
+template <class BaseModel, typename RealType>
 bool ModelSpecifics<BaseModel,RealType>::hessianDiagonal(const std::vector<int>& F, std::vector<double>& h) {
+
+	if (logisticSecondOrder) {
+		return lrHessianDiagonal(F, h);
+	}
 
 	if (!groupedReady()) {
 		return false;
