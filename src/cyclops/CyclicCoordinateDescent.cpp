@@ -902,19 +902,19 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 		fixBeta[j] = false;
 	}
 
-	// Write the merged groups back: Normal groups split equally (the unique MAP), Laplace and flat groups keep all mass
-	// on the representative
+	// Write the merged groups back: groups with a quadratic part (Normal, elastic net) split equally (the unique MAP),
+	// Laplace and flat groups keep all mass on the representative
 	if (!aliasGroups.empty()) {
 		jointPrior = unmergedPrior;
 		for (const auto& group : aliasGroups) {
-			double precision = 0.0;
-			const bool normal = jointPrior->getNormalPrecision(group[0], &precision) && precision > 0.0;
+			double precision = 0.0, lambda = 0.0;
+			const bool split = jointPrior->getNewtonPenalty(group[0], &precision, &lambda) && precision > 0.0;
 			const double total = hBeta[group[0]];
 			for (size_t m = 0; m < group.size(); ++m) {
 				if (m > 0) {
 					fixBeta[group[m]] = false;
 				}
-				hBeta[group[m]] = normal ? total / static_cast<double>(group.size()) : (m == 0 ? total : 0.0);
+				hBeta[group[m]] = split ? total / static_cast<double>(group.size()) : (m == 0 ? total : 0.0);
 			}
 		}
 	}
@@ -1038,15 +1038,10 @@ void CyclicCoordinateDescent::findAliasGroups() {
 		}
 		return !i && !k;
 	};
-	auto samePrior = [&](int a, int b) {
-		double x = 0.0, y = 0.0;
-		if (jointPrior->getNormalPrecision(a, &x)) {
-			return jointPrior->getNormalPrecision(b, &y) && x == y;
-		}
-		if (jointPrior->getLaplaceLambda(a, &x)) {
-			return jointPrior->getLaplaceLambda(b, &y) && x == y;
-		}
-		return false;
+	auto samePrior = [&](int a, int b) { // the same Normal, Laplace, elastic-net or flat penalty
+		double pa = 0.0, la = 0.0, pb = 0.0, lb = 0.0;
+		return jointPrior->getNewtonPenalty(a, &pa, &la) && jointPrior->getNewtonPenalty(b, &pb, &lb) &&
+			pa == pb && la == lb;
 	};
 	auto group = [&](const auto& X) {
 		if (columnHashes.size() != static_cast<size_t>(J)) {
@@ -1788,7 +1783,8 @@ void CyclicCoordinateDescent::findMode(
 						delta = applyBounds(delta, index);
 						if (trackStepDecrease) {
 							double precision = 0.0;
-							jointPrior->getNormalPrecision(index, &precision);
+							double rate = 0.0; // the L1 rate (unused): the step counts the quadratic part, normal or elastic net
+							jointPrior->getNewtonPenalty(index, &precision, &rate);
 							shadowStepDecrease += 0.5 * (lastGradientHessian.second + precision) * delta * delta;
 						}
 						if (activeSetEvery != 0) {
@@ -2323,7 +2319,8 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 		delta = applyBounds(delta, index);
 		if (trackStepDecrease) { // as in the serial cycle, in the same coordinate order
 			double precision = 0.0;
-			jointPrior->getNormalPrecision(index, &precision);
+			double rate = 0.0; // the L1 rate (unused): the step counts the quadratic part, normal or elastic net
+			jointPrior->getNewtonPenalty(index, &precision, &rate);
 			shadowStepDecrease += 0.5 * (curvature + precision) * delta * delta;
 		}
 		if (delta != 0.0) {

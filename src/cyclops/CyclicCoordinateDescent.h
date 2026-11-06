@@ -561,6 +561,7 @@ protected:
 	NewtonOutcome newtonIteration(NewtonContext& context);
 	NewtonOutcome proxNewtonIteration(NewtonContext& context);
 	bool proxFitsDense(const std::vector<int>& W) const;
+	double strongConvexityBound(const NewtonContext& context, const std::vector<double>& gradient) const;
 	bool newtonDirectionDense(NewtonContext& context, Eigen::VectorXd& s, Eigen::VectorXd& d, bool* stop,
 	                          bool* certified, bool* damped);
 	bool newtonDirectionCG(NewtonContext& context, Eigen::VectorXd& s, Eigen::VectorXd& d, bool* stop,

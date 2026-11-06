@@ -174,6 +174,18 @@ public:
 		return false;
 	}
 
+	// The quadratic precision and L1 rate of -log density, for Newton moves: (1 / sigma^2, 0) for normal, (0, lambda)
+	// for Laplace, (0, 0) for none and (lambda2, lambda1) for the elastic net; false for other priors
+	virtual bool getNewtonPenalty(double* precision, double* lambda) const {
+		*precision = 0.0;
+		*lambda = 0.0;
+		if (getNormalPrecision(precision)) {
+			return true;
+		}
+		*precision = 0.0;
+		return getLaplaceLambda(lambda);
+	}
+
 	// The outcome's scale for a prior whose terms scale differently with it (an elastic net with least squares);
 	// set at the start of each fit, and 1 otherwise
 	virtual void setOutcomeScale(double scale) { }
@@ -667,6 +679,12 @@ public:
 
 	void setOutcomeScale(double scale) {
 		outcomeScale.store(scale, std::memory_order_relaxed);
+	}
+
+	bool getNewtonPenalty(double* precision, double* lambda) const {
+		*precision = getLambda2();
+		*lambda = getLambda1();
+		return true;
 	}
 
 private:

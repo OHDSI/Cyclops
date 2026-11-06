@@ -23,17 +23,17 @@ aliasFit <- function(frame, prior, ...) {
 }
 objective <- function(fit) -(fit$log_likelihood + fit$log_prior)
 
-test_that("T12: merged fits reach the unmerged optimum for normal, Laplace and no priors", {
+test_that("T12: merged fits reach the unmerged optimum for normal, Laplace, elastic-net and no priors", {
     frame <- aliasProblem()
     for (prior in list(createPrior("normal", variance = 0.5), createPrior("laplace", variance = 0.1),
-                       createPrior("none"))) {
+                       createPrior("elasticnet", variance = 0.1, laplaceFraction = 0.5), createPrior("none"))) {
         unmerged <- aliasFit(frame, prior, convergenceType = "kkt", tolerance = 1e-10, maxIterations = 1e5)
         merged <- aliasFit(frame, prior, convergenceType = "kkt", tolerance = 1e-10, maxIterations = 1e5,
                            mergeDuplicates = TRUE)
         expect_equal(merged$aliasedColumns, list(c("X2", "D1", "D2"), c("X5", "D3")))
         expect_lt(abs(objective(merged) - objective(unmerged)), 1e-8 * abs(objective(unmerged)))
         b <- coef(merged)
-        if (prior$priorType == "normal") { # the equal split, the unique maximum
+        if (prior$priorType == "normal" || isTRUE(prior$laplaceFraction < 1)) { # the equal split, the unique maximum
             expect_equal(unname(b[c("D1", "D2")]), rep(b[["X2"]], 2))
             expect_equal(b, coef(unmerged), tolerance = 1e-6)
         } else { # all on the representative

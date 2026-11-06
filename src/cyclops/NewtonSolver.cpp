@@ -21,11 +21,12 @@
 namespace bsccs {
 
 struct CyclicCoordinateDescent::NewtonContext {
-	std::vector<int> F;             // free coordinates (Normal or None priors)
-	std::vector<double> precision;  // prior precision 1 / sigma_j^2 (0 for None and Laplace)
-	std::vector<double> lambda;     // Laplace rate (0 for None and Normal)
-	bool anyLaplace = false;
+	std::vector<int> F;             // free coordinates (normal, Laplace, elastic net or no priors)
+	std::vector<double> precision;  // quadratic precision: 1 / sigma_j^2, or the elastic net's lambda2 (0 otherwise)
+	std::vector<double> lambda;     // L1 rate: Laplace, or the elastic net's lambda1 (0 otherwise)
+	bool anyLaplace = false;        // some L1 rate: prox-Newton
 	bool allNormal = true;
+	bool allStrong = true;          // every precision positive (normal, elastic net with alpha < 1): R certifies
 	double tauEff = 0.0;
 	double nuNormal = NAN;          // all-Normal form of nu, fixed for the fit
 	double eta = 5.0;               // eta trust region: t max_k |x_k'd| <= eta (2.6)
@@ -83,9 +84,9 @@ std::string CyclicCoordinateDescent::secondOrderIneligibility() const {
 		return "the model has no second-order kernels (so far cox, cox_counting, cpr, sccs, clr and lr in double precision on the CPU)";
 	}
 	for (int j = 0; j < J; ++j) {
-		double value = 0.0;
-		if (!fixBeta[j] && !jointPrior->getNormalPrecision(j, &value) && !jointPrior->getLaplaceLambda(j, &value)) {
-			return "a free coefficient has a prior other than normal, Laplace or none";
+		double precision = 0.0, lambda = 0.0;
+		if (!fixBeta[j] && !jointPrior->getNewtonPenalty(j, &precision, &lambda)) {
+			return "a free coefficient has a prior other than normal, Laplace, elastic net or none";
 		}
 	}
 	return "";
@@ -415,6 +416,22 @@ bool CyclicCoordinateDescent::newtonDirectionCG(NewtonContext& context, Eigen::V
 // residual <= sqrt(2 tau_eff); it is an estimate (uncertified). Phase 2 dropped the separate zero-set condition.
 // Dense prox-Newton over the columns W fits the memory budget of dense Newton (2.5): H, its factor and workspace per
 // concurrent fit, plus the row-wise copy of X_W for engines that keep one (logistic regression reads its columns)
+// R = s' P^-1 s / 2 >= gap (3.1), from the likelihood gradient over F. With every precision p_j > 0 the objective is
+// strongly convex with modulus P = diag(p) through the prior alone, so for any subgradient s of it, f(beta) - f* <=
+// s' P^-1 s / 2; s is the minimum-norm one, soft-thresholded where an L1 rate applies (elastic net)
+double CyclicCoordinateDescent::strongConvexityBound(const NewtonContext& context,
+                                                     const std::vector<double>& gradient) const {
+	double sum = 0.0;
+	for (size_t i = 0; i < context.F.size(); ++i) {
+		const double b = hBeta[context.F[i]];
+		const double g = gradient[i] + context.precision[i] * b;
+		const double l = context.lambda[i];
+		const double s = (l == 0.0) ? g : (b != 0.0 ? g + (b > 0.0 ? l : -l) : std::max(std::abs(g) - l, 0.0));
+		sum += s * s / context.precision[i];
+	}
+	return 0.5 * sum;
+}
+
 bool CyclicCoordinateDescent::proxFitsDense(const std::vector<int>& W) const {
 	const double width = static_cast<double>(W.size());
 	double entries = 0.0;
@@ -434,6 +451,12 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 	std::vector<double> gradient;
 	if (!modelSpecifics.fullGradient(context.F, gradient)) {
 		return NewtonOutcome::FAILED;
+	}
+	if (context.allStrong && context.stopType == GAP) { // elastic net: R certifies from the gradient in hand
+		convergenceReport.R = strongConvexityBound(context, gradient);
+		if (convergenceReport.R <= context.tauEff) {
+			return NewtonOutcome::CERTIFIED;
+		}
 	}
 	std::vector<int> W;    // positions in F
 	std::vector<int> Wcol; // columns
@@ -807,17 +830,13 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		if (fixBeta[j] || separated) { // separated coefficients (2.7) stay with CCD; Newton works conditionally on them
 			continue;
 		}
-		if (jointPrior->getNormalPrecision(j, &precision)) {
+		if (jointPrior->getNewtonPenalty(j, &precision, &lambda)) {
 			context.F.push_back(j);
 			context.precision.push_back(precision);
-			context.lambda.push_back(0.0);
-			context.allNormal = context.allNormal && precision > 0.0;
-		} else if (jointPrior->getLaplaceLambda(j, &lambda)) {
-			context.F.push_back(j);
-			context.precision.push_back(0.0);
 			context.lambda.push_back(lambda);
-			context.allNormal = false;
-			context.anyLaplace = true;
+			context.allNormal = context.allNormal && precision > 0.0 && lambda == 0.0;
+			context.allStrong = context.allStrong && precision > 0.0;
+			context.anyLaplace = context.anyLaplace || lambda > 0.0;
 		}
 	}
 	double weight = 1.0; // tau_eff = tau times the mean positive weight (3.3, D3)
@@ -1007,7 +1026,11 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 			++convergenceReport.newtonIterations;
 			const NewtonOutcome outcome = context.anyLaplace ? proxNewtonIteration(context) : newtonIteration(context);
 			if (outcome == NewtonOutcome::CERTIFIED) {
-				finish(SUCCESS, "gsc", convergenceReport.gsc);
+				if (context.anyLaplace) {
+					finish(SUCCESS, "R", convergenceReport.R);
+				} else {
+					finish(SUCCESS, "gsc", convergenceReport.gsc);
+				}
 				break;
 			}
 			if (outcome == NewtonOutcome::UNCERTIFIED) {
@@ -1068,20 +1091,16 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		const double nHat = (gHat <= context.tauEff) ? 0.0 :
 			((rho < 1.0) ? std::log(gHat / context.tauEff) / -std::log(rho) : std::numeric_limits<double>::infinity());
 
-		// Certificate first (2.4 step 3): R when every free coordinate is Normal. Its gradient pass is skipped while
+		// Certificate first (2.4 step 3): R when every free coordinate has a positive precision (normal, or elastic net
+		// with alpha < 1, where it is an extra certified stop beside the prox-Newton estimate). Its gradient pass is skipped while
 		// the step-decrease estimate is still far above tau_eff (R >= gap, so no stop is missed; the
 		// estimate reads at most a few times low, E16); every 16th cycle computes it regardless, since the estimate
 		// reads far too high where the rate nears 1
 		const bool farAway = std::isfinite(gHat) && gHat > 1e3 * context.tauEff && cycles > 1 && cycles % 16 != 0;
-		if (context.allNormal && !farAway) {
+		if (context.allStrong && !farAway) {
 			std::vector<double> gradient;
 			if (modelSpecifics.fullGradient(context.F, gradient)) {
-				double sum = 0.0;
-				for (size_t i = 0; i < context.F.size(); ++i) {
-					const double s = gradient[i] + context.precision[i] * hBeta[context.F[i]];
-					sum += s * s / context.precision[i];
-				}
-				R = 0.5 * sum;
+				R = strongConvexityBound(context, gradient);
 				convergenceReport.R = R;
 				if (!std::isfinite(R)) {
 					finish(ILLCONDITIONED, "none", NAN);
@@ -1137,6 +1156,10 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 					++iteration;
 					++convergenceReport.newtonIterations;
 					const NewtonOutcome outcome = proxNewtonIteration(context);
+					if (outcome == NewtonOutcome::CERTIFIED) {
+						finish(SUCCESS, "R", convergenceReport.R);
+						break;
+					}
 					if (outcome == NewtonOutcome::UNCERTIFIED) {
 						finish(SUCCESS, "none", convergenceReport.lambda2Half);
 						break;

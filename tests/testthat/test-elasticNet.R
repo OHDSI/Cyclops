@@ -52,20 +52,22 @@ test_that("createPrior checks laplaceFraction", {
 })
 
 test_that("An elastic net with laplaceFraction 1 is the Laplace prior", {
-    # both by coordinate descent: elastic nets have no Newton moves, and "lr" Laplace fits default to "auto"
+    # on the default path ("auto": prox-Newton for "lr") and by coordinate descent
     for (modelType in c("lr", "ls")) {
         sim <- simulateElasticNet(modelType)
         for (threads in c(1, 2)) {
-            laplace <- fitWith(sim, createPrior("laplace", 0.05), threads = threads, algorithm = "ccd")
-            enet <- fitWith(sim, createPrior("elasticnet", 0.05, laplaceFraction = 1), threads = threads,
-                            algorithm = "ccd")
-            expect_identical(coef(enet), coef(laplace))
-            expect_identical(logLik(enet), logLik(laplace))
+            for (algorithm in c("auto", "ccd")) {
+                laplace <- fitWith(sim, createPrior("laplace", 0.05), threads = threads, algorithm = algorithm)
+                enet <- fitWith(sim, createPrior("elasticnet", 0.05, laplaceFraction = 1), threads = threads,
+                                algorithm = algorithm)
+                expect_identical(coef(enet), coef(laplace))
+                expect_identical(logLik(enet), logLik(laplace))
+            }
         }
         laplace <- fitWith(sim, createPrior("laplace", useCrossValidation = TRUE),
-                           cvType = "auto", fold = 5, seed = 1, algorithm = "ccd")
+                           cvType = "auto", fold = 5, seed = 1)
         enet <- fitWith(sim, createPrior("elasticnet", laplaceFraction = 1, useCrossValidation = TRUE),
-                        cvType = "auto", fold = 5, seed = 1, algorithm = "ccd")
+                        cvType = "auto", fold = 5, seed = 1)
         expect_identical(coef(enet), coef(laplace))
         expect_identical(getHyperParameter(enet), getHyperParameter(laplace))
     }
@@ -93,6 +95,46 @@ test_that("Elastic net fits meet the optimality conditions", {
                 expect_true(any(coef(fit)[-1] == 0)) # the Laplace part sets some coefficients to zero
             }
         }
+    }
+})
+
+# -log likelihood plus the elastic-net penalty on all but the intercept
+penalizedObjective <- function(fit, variance, laplaceFraction) {
+    b <- coef(fit)
+    b <- b[names(b) != "(Intercept)"]
+    lambda <- sqrt(2 / variance)
+    -fit$log_likelihood + sum(laplaceFraction * lambda * abs(b) + (1 - laplaceFraction) * lambda / 2 * b^2)
+}
+
+test_that("Elastic nets under auto use Newton moves and reach the coordinate-descent optimum", {
+    sim <- simulateElasticNet("lr")
+    for (laplaceFraction in c(0, 0.5, 0.9, 1)) {
+        prior <- createPrior("elasticnet", 0.002, laplaceFraction = laplaceFraction)
+        auto <- fitWith(sim, prior)
+        reference <- fitWith(sim, prior, algorithm = "ccd", convergenceType = "kkt", tolerance = 1E-10,
+                             maxIterations = 1E5)
+        expect_equal(auto$return_flag, "SUCCESS")
+        if (laplaceFraction > 0) {
+            expect_equal(auto$algorithm, "newton") # prox-Newton, with the normal part on the Hessian's diagonal
+        }
+        expect_lt(abs(penalizedObjective(auto, 0.002, laplaceFraction) -
+                      penalizedObjective(reference, 0.002, laplaceFraction)), 1E-8)
+        expect_equal(coef(auto), coef(reference), tolerance = 1E-7)
+    }
+})
+
+test_that("An elastic net with every coefficient penalized is certified by its normal part", {
+    # strongly convex through the prior: F(b) - F* <= 1/2 sum s_j^2 / lambda2, with s the min-norm subgradient
+    sim <- simulateElasticNet("lr")
+    sim$data <- createCyclopsData(sim$y ~ sim$x - 1, modelType = "lr") # no unpenalized intercept
+    for (laplaceFraction in c(0, 0.5, 0.9)) {
+        prior <- createPrior("elasticnet", 0.002, laplaceFraction = laplaceFraction)
+        fit <- fitWith(sim, prior)
+        reference <- fitWith(sim, prior, algorithm = "ccd", convergenceType = "kkt", tolerance = 1E-10,
+                             maxIterations = 1E5)
+        expect_equal(fit$convergence$certificate, "R")
+        gap <- penalizedObjective(fit, 0.002, laplaceFraction) - penalizedObjective(reference, 0.002, laplaceFraction)
+        expect_lte(gap, fit$convergence$R + 1E-9)
     }
 })
 

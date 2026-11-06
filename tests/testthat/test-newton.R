@@ -73,7 +73,7 @@ test_that("ineligible fits error under newton or an explicit gap, and fall back 
     expect_identical(coef(auto), coef(default))
     expect_identical(auto$iterations, default$iterations)
     expect_equal(auto$algorithm, "ccd")
-    expect_match(auto$convergence$ineligible, "prior other than normal, Laplace or none")
+    expect_match(auto$convergence$ineligible, "prior other than normal, Laplace, elastic net or none")
     expect_error(newtonFit(problem, other, algorithm = "newton"), "not available")
 
     # a tolerance given without a criterion applies to the fallback only
