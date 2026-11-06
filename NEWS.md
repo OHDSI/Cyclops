@@ -77,7 +77,8 @@ Changes:
    Newton, Newton-CG or prox-Newton, in cross-validation folds too. A propensity-score model with 1,755
    covariates and 197,753 rows reaches its optimum in 2.8-3.1 s with a normal prior and 1.5-3.3 s with
    a Laplace prior, where coordinate descent stopped 15-24 log-likelihood units short of a ridge optimum
-   after 10-31 s. `vcov()` of an `lr` fit with integer weights now treats them as row counts (it
+   after 10-31 s; one with 19,591 covariates and a million rows reaches its Laplace optimum in 17 s, where
+   coordinate descent stopped 21 units short after 35 s. `vcov()` of an `lr` fit with integer weights now treats them as row counts (it
    stopped with an error)
 16. **The default algorithm is now `"auto"`** (with the `"gap"` criterion) for `cox`, `cox_counting`,
    `cpr`, `sccs`, `clr` and `lr` models. Across 57 benchmark problems it reached the optimum every time,

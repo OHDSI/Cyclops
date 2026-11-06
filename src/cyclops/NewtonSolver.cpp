@@ -413,6 +413,21 @@ bool CyclicCoordinateDescent::newtonDirectionCG(NewtonContext& context, Eigen::V
 // a face unbounded along a null direction is followed to a sign boundary); composite Armijo on the penalized
 // objective. The stop needs an exact face solve with model decrease -m <= tau_eff and the largest standardized
 // residual <= sqrt(2 tau_eff); it is an estimate (uncertified). Phase 2 dropped the separate zero-set condition.
+// Dense prox-Newton over the columns W fits the memory budget of dense Newton (2.5): H, its factor and workspace per
+// concurrent fit, plus the row-wise copy of X_W for engines that keep one (logistic regression reads its columns)
+bool CyclicCoordinateDescent::proxFitsDense(const std::vector<int>& W) const {
+	const double width = static_cast<double>(W.size());
+	double entries = 0.0;
+	if (hXI.getModelType() != ModelType::LOGISTIC) {
+		for (int j : W) {
+			const FormatType format = hXI.getColumnType(j);
+			entries += (format == DENSE || format == INTERCEPT) ? static_cast<double>(K) :
+				static_cast<double>(hXI.getNumberOfEntries(j));
+		}
+	}
+	return 24.0 * width * width * std::max(1, threads) + 12.0 * entries <= 256.0 * 1024 * 1024;
+}
+
 CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIteration(NewtonContext& context) {
 
 	const size_t n = context.F.size();
@@ -431,7 +446,7 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 		}
 	}
 	const size_t w = W.size();
-	if (w > 2000) { // CCD when |W| > 2,000
+	if (!proxFitsDense(Wcol)) { // CCD when dense prox-Newton over W exceeds the memory budget
 		return NewtonOutcome::FAILED;
 	}
 	if (w == 0) {
@@ -914,7 +929,7 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 	auto proxCost = [&]() {
 		const std::vector<int> W = workingSet();
 		if (W.empty()) return 0.0;
-		if (W.size() > 2000) return std::numeric_limits<double>::infinity(); // prox-Newton is dense over W: CCD
+		if (!proxFitsDense(W)) return std::numeric_limits<double>::infinity(); // prox-Newton is dense over W: CCD
 		return modelSpecifics.newtonCostRatio(W) * entryCount(W) / std::max(entryCount(context.F), 1.0);
 	};
 	double costRatio = context.anyLaplace ? proxCost() : modelSpecifics.newtonCostRatio(context.F);
@@ -1021,8 +1036,9 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		shadowStepDecrease = 0.0;
 		cycle(); // advances iteration
 		++cycles;
-		// steps cut short by their bounds (far from the optimum, or rows saturating): no estimate means anything yet,
-		// so neither Newton steps nor a certification attempt, as coordinate descent's own rule declines convergence
+		// steps cut short by their bounds (far from the optimum, or rows saturating): the gap estimate means nothing yet,
+		// so no certification attempt, as coordinate descent's own rule declines convergence. (Newton steps may still
+		// start: with thousands of columns some step is bound-limited in most early cycles)
 		const bool stepsLimited = boundLimitedStep;
 		if (context.anyLaplace && (cycles == stopFrom || cycles == warmStart || cycles % 16 == 0)) {
 			newtonCost = proxCost();
@@ -1081,7 +1097,7 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		if (algorithmType == AlgorithmType::NEWTON && cycles >= warmStart && !saturated()) {
 			newtonPhase = true;
 		} else if (algorithmType == AlgorithmType::AUTO && (cycles >= warmStart || (cycles >= stopFrom && newtonCost < 1.0)) &&
-				cycles >= suppressUntil && nHat > 4.0 * newtonCost && !stepsLimited && !saturated()) {
+				cycles >= suppressUntil && nHat > 4.0 * newtonCost && !saturated()) {
 			// (Laplace fits screen for 10 cycles unless prox-Newton over the working set costs under one cycle)
 			newtonPhase = true;
 		}
@@ -1110,7 +1126,7 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 			if (estimate <= 100.0 * context.tauEff && (remaining > newtonCost || estimate <= context.tauEff) && !saturated()) {
 				double value = NAN, lambda2Half = NAN;
 				Eigen::VectorXd step;
-				if (context.anyLaplace && workingSet().size() > 2000) {
+				if (context.anyLaplace && !proxFitsDense(workingSet())) {
 					// no prox-Newton over so large a working set: stop on the estimate, as without a curvature
 					// certificate under Newton-CG
 					if (gHat <= context.tauEff) {

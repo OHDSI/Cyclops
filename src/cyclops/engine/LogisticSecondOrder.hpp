@@ -6,8 +6,8 @@
  * with p read from e = offsExpXBeta as the coordinate-descent gradient reads it. Every call flushes a pending lazy
  * intercept first. Rows of weight 0 are skipped: under a fold fit with held-out rows unused their eta is stale. A
  * commit moves only the rows the direction moves (only the training rows when held-out rows are unused), then
- * starts a new drift epoch. The gradient, Hv, the diagonal and the direction are column passes over X's own storage;
- * only the dense Hessian block uses the row layout of GroupedSecondOrder.hpp (one row per "stratum").
+ * starts a new drift epoch. Everything is computed from X's own column storage: the gradient, Hv, the diagonal and
+ * the direction are column passes, and the dense Hessian block transposes a chunk of rows at a time.
  * Included at the end of ModelSpecifics.hpp, after GroupedSecondOrder.hpp.
  */
 
@@ -81,33 +81,87 @@ bool ModelSpecifics<BaseModel,RealType>::lrFullGradient(const std::vector<int>& 
 template <class BaseModel, typename RealType>
 bool ModelSpecifics<BaseModel,RealType>::lrHessianBlock(const std::vector<int>& F, std::vector<double>& H) {
 	flushIntercept();
-	if (!lrReady() || !secondOrderPrepare(F)) {
+	if (!lrReady()) {
 		return false;
 	}
-	const grouped::Layout& L = gsLayout[0];
 	const size_t n = F.size();
 	H.assign(n * n, 0.0);
-	for (size_t i = 0; i < L.rows.size(); ++i) {
-		const int k = L.rows[i];
-		const double w = static_cast<double>(hKWeight[k]);
-		if (w == 0.0) {
-			continue;
+	if (n == 0) {
+		return true;
+	}
+
+	// H = X_F' diag(w p (1 - p)) X_F from each row's outer product. The rows of F's columns are transposed a chunk of
+	// rows at a time into a small buffer (columns keep a cursor into their ascending rows), so no row-wise copy of X_F
+	// is held: memory is H plus the buffer
+	std::vector<const int*> rows(n);
+	std::vector<const RealType*> values(n);
+	std::vector<size_t> count(n), cursor(n, 0);
+	double entries = 0.0;
+	for (size_t p = 0; p < n; ++p) {
+		const FormatType format = hX.getFormatType(F[p]);
+		const bool dense = format == DENSE || format == INTERCEPT;
+		rows[p] = dense ? nullptr : hX.getCompressedColumnVector(F[p]);
+		values[p] = (format == SPARSE || format == DENSE) ? hX.getDataVector(F[p]) : nullptr;
+		count[p] = dense ? K : hX.getNumberOfEntries(F[p]);
+		entries += static_cast<double>(count[p]);
+	}
+	const size_t chunk = std::max<size_t>(1024, std::min<size_t>(K, static_cast<size_t>(
+		static_cast<double>(1 << 21) / std::max(entries / static_cast<double>(K), 1e-9)))); // about 2M entries
+	std::vector<int> rowStart(chunk + 1);
+	std::vector<int> position;
+	std::vector<double> value;
+	for (size_t r0 = 0; r0 < K; r0 += chunk) {
+		const size_t r1 = std::min(K, r0 + chunk);
+		std::fill(rowStart.begin(), rowStart.end(), 0);
+		for (size_t p = 0; p < n; ++p) { // count, without moving the cursors
+			if (rows[p] == nullptr) {
+				for (size_t k = r0; k < r1; ++k) {
+					++rowStart[k - r0 + 1];
+				}
+			} else {
+				for (size_t e = cursor[p]; e < count[p] && static_cast<size_t>(rows[p][e]) < r1; ++e) {
+					++rowStart[rows[p][e] - r0 + 1];
+				}
+			}
 		}
-		const double p = readP(offsExpXBeta[k]);
-		const double c = w * p * (1.0 - p);
-		if (c == 0.0) {
-			continue;
+		for (size_t i = 0; i < r1 - r0; ++i) {
+			rowStart[i + 1] += rowStart[i];
 		}
-		for (size_t a = L.rowStart[i]; a < L.rowStart[i + 1]; ++a) {
-			const int pa = gsMap[L.position[a]];
-			if (pa < 0) {
+		position.resize(rowStart[r1 - r0]);
+		value.resize(rowStart[r1 - r0]);
+		std::vector<int> next(rowStart.begin(), rowStart.begin() + (r1 - r0));
+		for (size_t p = 0; p < n; ++p) { // fill column by column: positions ascend within each row
+			if (rows[p] == nullptr) {
+				for (size_t k = r0; k < r1; ++k) {
+					const int e = next[k - r0]++;
+					position[e] = static_cast<int>(p);
+					value[e] = (values[p] == nullptr) ? 1.0 : static_cast<double>(values[p][k]);
+				}
+			} else {
+				for (; cursor[p] < count[p] && static_cast<size_t>(rows[p][cursor[p]]) < r1; ++cursor[p]) {
+					const size_t k = rows[p][cursor[p]];
+					const int e = next[k - r0]++;
+					position[e] = static_cast<int>(p);
+					value[e] = (values[p] == nullptr) ? 1.0 : static_cast<double>(values[p][cursor[p]]);
+				}
+			}
+		}
+		for (size_t i = 0; i < r1 - r0; ++i) {
+			const size_t k = r0 + i;
+			const double w = static_cast<double>(hKWeight[k]);
+			if (w == 0.0) {
 				continue;
 			}
-			const double ca = c * L.value[a];
-			for (size_t b = L.rowStart[i]; b <= a; ++b) {
-				const int pb = gsMap[L.position[b]];
-				if (pb >= 0) { // lower triangle
-					H[std::max(pa, pb) + std::min(pa, pb) * n] += ca * L.value[b];
+			const double pk = readP(offsExpXBeta[k]);
+			const double c = w * pk * (1.0 - pk);
+			if (c == 0.0) {
+				continue;
+			}
+			for (int a = rowStart[i]; a < rowStart[i + 1]; ++a) {
+				const double ca = c * value[a];
+				double* column = H.data() + position[a];
+				for (int b = rowStart[i]; b <= a; ++b) {
+					column[position[b] * n] += ca * value[b];
 				}
 			}
 		}

@@ -542,6 +542,7 @@ protected:
 	                 AlgorithmType algorithmType, int convergenceType);
 	NewtonOutcome newtonIteration(NewtonContext& context);
 	NewtonOutcome proxNewtonIteration(NewtonContext& context);
+	bool proxFitsDense(const std::vector<int>& W) const;
 	bool newtonDirectionDense(NewtonContext& context, Eigen::VectorXd& s, Eigen::VectorXd& d, bool* stop,
 	                          bool* certified, bool* damped);
 	bool newtonDirectionCG(NewtonContext& context, Eigen::VectorXd& s, Eigen::VectorXd& d, bool* stop,
