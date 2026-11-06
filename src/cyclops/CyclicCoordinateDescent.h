@@ -286,6 +286,10 @@ public:
 	void beginProfileReference();
 	void endProfileReference();
 	void shareProfileReference(const CyclicCoordinateDescent& other);
+	// The reference a refit starts from: profile drivers pass each point the one its parent ended with, so that results
+	// do not depend on which thread ran which points
+	std::shared_ptr<const void> currentProfileReference() const;
+	void useProfileReference(const std::shared_ptr<const void>& reference);
 
 		loggers::ProgressLogger& getProgressLogger() const { return *logger; }
 
@@ -542,10 +546,11 @@ protected:
 	                          bool* certified, bool* damped);
 	bool newtonDirectionCG(NewtonContext& context, Eigen::VectorXd& s, Eigen::VectorXd& d, bool* stop,
 	                       bool* certified);
-	bool certifyGap(NewtonContext& context, double* gscValue, double* lambda2Half);
+	bool certifyGap(NewtonContext& context, double* gscValue, double* lambda2Half, Eigen::VectorXd* step = nullptr);
+	bool finishingStep(NewtonContext& context, const Eigen::VectorXd& d);
 	struct ProfileReference;
 	struct ProfileFactor;
-	std::vector<std::shared_ptr<const ProfileReference>> profilePool; // the mode first; kept between profile calls
+	std::vector<std::shared_ptr<const ProfileReference>> profilePool; // the mode's, kept between profile calls
 	std::shared_ptr<const ProfileReference> profileReference;          // in use
 	bool profileActive = false;
 	std::shared_ptr<const ProfileReference> makeProfileReference(const ProfileReference* like);

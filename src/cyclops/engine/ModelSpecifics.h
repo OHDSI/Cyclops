@@ -655,6 +655,9 @@ private:
 	double lrDirectionMaxAbs() const;
 	double lrNewtonCostRatio(const std::vector<int>& F, bool conjugateGradient, bool preconditioned);
 	std::vector<double> lrDirection;   // X_F d by row
+	double lrColumnDot(int j, const std::vector<double>& a, bool squared) const;
+	void lrColumnAxpy(int j, double a, std::vector<double>& y) const;
+	void lrRowWeights(bool curvature, std::vector<double>& a) const;
 	bool groupedReady() const;
 	void prepareGroupedStrata();
 	double stratumHazard(size_t s) const;

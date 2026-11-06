@@ -22,7 +22,8 @@ shadowFit <- function(problem, prior, shadow, control = list()) {
     on.exit(if (is.na(old)) Sys.unsetenv("CYCLOPS_SHADOW") else Sys.setenv(CYCLOPS_SHADOW = old))
     Sys.setenv(CYCLOPS_SHADOW = shadow)
     fitCyclopsModel(createCyclopsData(problem$formula, data = problem$frame, modelType = problem$model),
-                    prior = prior, control = do.call(createControl, c(list(noiseLevel = "silent"), control)))
+                    prior = prior, control = do.call(createControl, c(list(noiseLevel = "silent", algorithm = "ccd"),
+                                                                       control))) # the shadow log observes CCD
 }
 
 test_that("the shadow log does not change fits", {

@@ -1341,21 +1341,87 @@ bool CountingProcessModelSpecifics<RealType>::separationDirections(const std::ve
     if (!hasLayout || hNWeight.size() < N || hXjY.size() < J) {
         return false;
     }
-    prepareGroupLists();
     const int unused = static_cast<int>(N);
-    std::vector<int> atRisk(N, 0); // rows at risk in each group
+    std::vector<int> atRisk(N + 1, 0); // rows at risk in each group: entries minus exits, summed within strata
+    for (size_t k = 0; k < K; ++k) {
+        if (hPid[k] < unused) {
+            ++atRisk[hPid[k]];
+            --atRisk[hExitPid[k]]; // group N is unused
+        }
+    }
     for (size_t g = 0, count = 0; g < N; ++g) {
         if (static_cast<int>(g) == groupStratumStart[g]) {
             count = 0;
         }
-        count += (soEnterStart[g + 1] - soEnterStart[g]) - (soExitStart[g + 1] - soExitStart[g]);
+        count += atRisk[g];
         atRisk[g] = static_cast<int>(count);
     }
     direction.assign(columns.size(), 0);
     struct Change { int group; double value; bool enters; };
     std::vector<Change> changes;
+    std::vector<int> delta(N + 1, 0); // single-valued columns: entries minus exits of non-zero rows by group
+    std::vector<int> touched;
     for (size_t c = 0; c < columns.size(); ++c) {
         const int j = columns[c];
+        const double observed = static_cast<double>(hXjY[j]);
+
+        // A column whose non-zero entries share one value v (indicators, mostly) has risk-set extremes that follow
+        // from two counts: v where it is at risk, 0 where a row without it is. The same sums, without a sort or a
+        // multiset (separation is checked on every fit, and every bootstrap replicate)
+        double v = 0.0;
+        bool single = true;
+        for (GenericIterator<RealType> it(hX, j); it && single; ++it) {
+            const double x = static_cast<double>(it.value());
+            if (x != 0.0) {
+                single = (v == 0.0 || x == v);
+                v = x;
+            }
+        }
+        if (single) {
+            touched.clear();
+            for (GenericIterator<RealType> it(hX, j); it; ++it) {
+                const int k = it.index();
+                if (hPid[k] < unused && it.value() != static_cast<RealType>(0)) {
+                    ++delta[hPid[k]];
+                    touched.push_back(hPid[k]);
+                    if (hExitPid[k] < unused) {
+                        --delta[hExitPid[k]];
+                        touched.push_back(hExitPid[k]);
+                    }
+                }
+            }
+            double lowest = 0.0, highest = 0.0, scale = 0.0;
+            int count = 0;
+            for (size_t g = 0; g < N; ++g) {
+                if (static_cast<int>(g) == groupStratumStart[g]) {
+                    count = 0;
+                }
+                count += delta[g];
+                const double d = static_cast<double>(hNWeight[g]);
+                if (d == 0.0 || atRisk[g] == 0 || count == 0) {
+                    continue; // no non-zero row at risk: x = 0 throughout
+                }
+                const bool zeros = count < atRisk[g];
+                const double low = zeros ? std::min(v, 0.0) : v;
+                const double high = zeros ? std::max(v, 0.0) : v;
+                lowest += d * low;
+                highest += d * high;
+                scale += d * std::max(std::abs(low), std::abs(high));
+            }
+            for (int g : touched) {
+                delta[g] = 0;
+            }
+            const double tolerance = 1e-12 * std::max(scale, 1.0);
+            if (highest - lowest > tolerance) {
+                if (std::abs(observed - lowest) <= tolerance) {
+                    direction[c] = -1;
+                } else if (std::abs(observed - highest) <= tolerance) {
+                    direction[c] = 1;
+                }
+            }
+            continue;
+        }
+
         changes.clear();
         for (GenericIterator<RealType> it(hX, j); it; ++it) {
             const int k = it.index();
@@ -1397,7 +1463,6 @@ bool CountingProcessModelSpecifics<RealType>::separationDirections(const std::ve
             highest += d * high;
             scale += d * std::max(std::abs(low), std::abs(high));
         }
-        const double observed = static_cast<double>(hXjY[j]);
         const double tolerance = 1e-12 * std::max(scale, 1.0);
         if (highest - lowest > tolerance) { // the column varies within some risk set
             if (std::abs(observed - lowest) <= tolerance) {

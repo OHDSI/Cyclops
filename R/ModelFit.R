@@ -81,8 +81,12 @@ fitCyclopsModel <- function(cyclopsData,
                                startingCoefficients, fixedCoefficients))
     }
 
-    # Delegate to prior$fitHook if exists
+    # Delegate to prior$fitHook if exists; its loop of refits (BrokenAdaptiveRidge, IterativeHardThresholding,
+    # createNonSeparablePrior) keeps coordinate descent unless an algorithm is given (Newton plan D1)
     if (!is.null(prior$fitHook)) {
+        if (is.null(control$algorithm)) {
+            control$algorithm <- "ccd"
+        }
         return(prior$fitHook(cyclopsData, prior, control,
                              weights, forceNewObject, returnEstimates,
                              startingCoefficients, fixedCoefficients))
@@ -339,11 +343,16 @@ fitCyclopsModel <- function(cyclopsData,
         fit <- .cyclopsFitModel(cyclopsData$cyclopsInterfacePtr)
     }
 
+    if (!is.null(fit$aliasedColumns) || !is.null(fit$divergentCoefficients)) { # labels to names, one lookup
+        ids <- as.character(getCovariateIds(cyclopsData))
+        names <- .coefficientNames(cyclopsData)
+        byLabel <- function(labels) names[match(as.character(bit64::as.integer64(labels)), ids)]
+    }
     if (!is.null(fit$aliasedColumns)) { # merged exact duplicates (Newton plan 2.8), by name
-        fit$aliasedColumns <- lapply(fit$aliasedColumns, function(group) .coefficientNames(cyclopsData, group))
+        fit$aliasedColumns <- lapply(fit$aliasedColumns, byLabel)
     }
     if (!is.null(fit$divergentCoefficients)) { # separation (D5): names, and a warning when the fit stands
-        fit$divergentCoefficients <- .coefficientNames(cyclopsData, fit$divergentCoefficients)
+        fit$divergentCoefficients <- byLabel(fit$divergentCoefficients)
         if (warnings) {
             warning("Separation: coefficient may be infinite (", paste(fit$divergentCoefficients, collapse = ", "), "); ",
                     "reported at its limit (fit$divergentCoefficients)")
@@ -354,7 +363,13 @@ fitCyclopsModel <- function(cyclopsData,
         warning("Reached maxIterations; the estimated gap to the optimum is ", signif(fit$convergence$gapEstimate, 3))
     }
 
-    if (fit$return_flag == "POOR_BLR_STEP" && control$convergenceType == "gradient") {
+    # POOR_BLR_STEP comes from the "gradient" criterion: explicit, the default, or the one a fit that could not take
+    # Newton steps fell back to under "auto"
+    usedType <- control$convergenceType
+    if (isTRUE(nzchar(fit$convergence$ineligible)) && !is.null(control$fallbackConvergenceType)) {
+        usedType <- control$fallbackConvergenceType
+    }
+    if (fit$return_flag == "POOR_BLR_STEP" && (is.null(usedType) || identical(usedType, "gradient"))) {
 
         if (warnings) {
             warning("BLR convergence criterion failed; coefficient may be infinite")
@@ -739,8 +754,10 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              descent), \code{"mm"}, \code{"auto"} (coordinate descent that switches to dense
 #'                              Newton steps when an operation count says they are cheaper, and back on failure) or
 #'                              \code{"newton"} (Newton steps after three coordinate-descent cycles). \code{NULL}
-#'                              (default) means \code{"auto"} for \code{"cox"} and \code{"cox_counting"} with
-#'                              \code{fitter = "super"} and \code{"ccd"} otherwise. Under \code{"auto"}, an explicit
+#'                              (default) means \code{"auto"} for \code{"cox"}, \code{"cox_counting"}, \code{"cpr"},
+#'                              \code{"sccs"}, \code{"clr"} and \code{"lr"} and \code{"ccd"} otherwise, under \code{fitter = "legacy"},
+#'                              and for the refits of a prior with a \code{fitHook} (BrokenAdaptiveRidge, IterativeHardThresholding,
+#'                              \code{\link{createNonSeparablePrior}}). Under \code{"auto"}, an explicit
 #'                              \code{convergenceType} other than \code{"gap"} runs \code{"ccd"}; under
 #'                              \code{"newton"}, it maps onto Newton iterations (\code{"gradient"}, \code{"lange"},
 #'                              \code{"mittal"}: relative change of the objective; \code{"kkt"}: the largest
@@ -1139,9 +1156,12 @@ getCrossValidationInfo <- function(object) {
 # "auto" or "newton" without a criterion means "gap"; for "auto", the criterion the fitter would have used on CCD
 # is kept as the fallback for a fit that cannot take Newton steps (a tolerance given without a criterion applies
 # only there).
+# Models with second-order kernels (Newton plan 2.2): the default algorithm is "auto" for them
+.secondOrderModels <- c("cox", "cox_counting", "cpr", "sccs", "clr", "lr")
+
 .resolveAlgorithm <- function(control, modelType = NULL, nCovariates = NULL) {
-    if (is.null(control$algorithm) || is.na(control$algorithm)) {
-        control$algorithm <- if (identical(.fitter(control), "super") && isTRUE(modelType %in% c("cox", "cox_counting")))
+    if (is.null(control$algorithm) || is.na(control$algorithm)) { # D1: auto wherever there are second-order kernels
+        control$algorithm <- if (!identical(.fitter(control), "legacy") && isTRUE(modelType %in% .secondOrderModels))
             "auto" else "ccd"
     }
     explicitType <- !is.null(control$convergenceType)

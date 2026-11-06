@@ -45,17 +45,19 @@ test_that("auto, newton and gap reach the optimum within the certified gap", {
     }
 })
 
-test_that("explicit criteria under auto, and default controls, leave fits as they were", {
+test_that("explicit criteria under auto leave fits as they were, and the default is auto", {
     problem <- newtonProblem(3)
     prior <- createPrior("normal", variance = 0.5)
-    for (control in list(list(), list(convergenceType = "kkt", tolerance = 1e-6), list(convergenceType = "gradient"))) {
+    for (control in list(list(convergenceType = "kkt", tolerance = 1e-6), list(convergenceType = "gradient"))) {
         before <- do.call(newtonFit, c(list(problem, prior), control))
-        under <- do.call(newtonFit, c(list(problem, prior), control,
-                                      list(algorithm = if (length(control)) "auto" else "ccd")))
+        under <- do.call(newtonFit, c(list(problem, prior), control, list(algorithm = "auto")))
         expect_identical(coef(under), coef(before))
         expect_identical(under$iterations, before$iterations)
         expect_null(before$convergence)
     }
+    default <- newtonFit(problem, prior) # Newton plan D1
+    expect_identical(coef(default), coef(newtonFit(problem, prior, algorithm = "auto")))
+    expect_false(is.null(default$convergence))
 })
 
 test_that("ineligible fits error under newton or an explicit gap, and fall back under auto", {

@@ -418,7 +418,8 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	std::vector<int> lowerCnts(indices.size());
 	std::vector<int> upperCnts(indices.size());
 
-	auto getBound = [this,
+	const std::shared_ptr<const void> modeReference = ccd->currentProfileReference();
+	auto getBound = [this, &modeReference,
 	            &x0s, &curvatures,
 	            &indices, &lowerPts, &upperPts,
                 &lowerCnts, &upperCnts, includePenalty, mode, threshold, legacy
@@ -432,6 +433,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	    // Bound edge, starting at the mode so that bounds do not depend on their order or the threads
 	    if (!legacy) {
 	        ccd->setBeta(x0s);
+	        ccd->useProfileReference(modeReference);
 	    }
 	    OptimizationProfile eval(*ccd, arguments, index, mode, threshold, includePenalty);
 
@@ -843,14 +845,17 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
     nThreads = std::max(1, std::min(nThreads, static_cast<int>(maxWidth)));
 
     std::vector<std::vector<double>> solutions(nPoints);
+    std::vector<std::shared_ptr<const void>> references(nPoints); // Newton plan 2.9: each point's from its parent's
+    const std::shared_ptr<const void> modeReference = ccd->currentProfileReference();
     const bool keepAll = betas != nullptr;
 
-    auto evaluate = [this, index, includePenalty, doDerivative, J, keepAll,
+    auto evaluate = [this, index, includePenalty, doDerivative, J, keepAll, &modeReference, &references,
                      &x0s, &starts, &parent, &children, &solutions, &points, &values, &derivatives](
                          const int i, CyclicCoordinateDescent* ccd) {
 
         const int p = parent[i];
         ccd->setBeta(p == -1 ? x0s : (p < -1 ? starts[-2 - p] : solutions[p]));
+        ccd->useProfileReference((p >= 0 && references[p]) ? references[p] : modeReference);
 
         OptimizationProfile eval(*ccd, arguments, index,
                                  0.0, 0.0, includePenalty);
@@ -864,6 +869,7 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
             for (int j = 0; j < J; ++j) {
                 solutions[i][j] = ccd->getBeta(j);
             }
+            references[i] = ccd->currentProfileReference();
         }
     };
 
@@ -907,6 +913,7 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
             for (int i : tasks) {
                 if (parent[i] >= 0 && --children[parent[i]] == 0) {
                     std::vector<double>().swap(solutions[parent[i]]);
+                    references[parent[i]].reset();
                 }
             }
         }

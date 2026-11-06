@@ -92,7 +92,8 @@ std::string CyclicCoordinateDescent::secondOrderIneligibility() const {
 }
 
 // One H at the current point: Lambda^2 / 2 and, when H is well conditioned, gsc (3.1)
-bool CyclicCoordinateDescent::certifyGap(NewtonContext& context, double* gscValue, double* lambda2Half) {
+bool CyclicCoordinateDescent::certifyGap(NewtonContext& context, double* gscValue, double* lambda2Half,
+                                         Eigen::VectorXd* step) {
 	*gscValue = std::numeric_limits<double>::infinity();
 	*lambda2Half = NAN;
 	const size_t n = context.F.size();
@@ -110,6 +111,9 @@ bool CyclicCoordinateDescent::certifyGap(NewtonContext& context, double* gscValu
 	const newton::SymmetricSolve solve(H, s);
 	const double lambda2 = s.dot(solve.x);
 	*lambda2Half = 0.5 * lambda2;
+	if (step != nullptr) {
+		*step = -solve.x; // the Newton step (minimum norm when H is singular)
+	}
 	if (solve.method != newton::SolveMethod::CHOLESKY || !(lambda2 >= 0.0)) {
 		return false;
 	}
@@ -130,6 +134,52 @@ bool CyclicCoordinateDescent::certifyGap(NewtonContext& context, double* gscValu
 		nu = std::min(nu, context.nuNormal);
 	}
 	*gscValue = newton::gsc(2.0 * nu, std::sqrt(lambda2)); // c = 2 nu for the Cox engine
+	return true;
+}
+
+// The Newton step d from a point the CCD path has just certified (or stopped at uncertified on a singular H), as the
+// Newton path takes its last step: it costs a trial and a commit, and leaves the coefficients quadratically closer
+// to the optimum than the certificate alone. Kept only when it decreases the penalized objective.
+bool CyclicCoordinateDescent::finishingStep(NewtonContext& context, const Eigen::VectorXd& d) {
+	const size_t n = context.F.size();
+	if (static_cast<size_t>(d.size()) != n || !d.allFinite() || d.cwiseAbs().maxCoeff() == 0.0) {
+		return false;
+	}
+	const std::vector<double> direction(d.data(), d.data() + n);
+	if (!modelSpecifics.setDirection(context.F, direction)) {
+		return false;
+	}
+	auto objective = [&](double t) {
+		double penalty = 0.0;
+		for (size_t i = 0; i < n; ++i) {
+			const double b = hBeta[context.F[i]] + t * d(i);
+			penalty += 0.5 * context.precision[i] * b * b;
+		}
+		return -modelSpecifics.trialLogLikelihood(t) + penalty;
+	};
+	const double largest = modelSpecifics.directionMaxAbs();
+	double t = (largest > context.eta) ? context.eta / largest : 1.0;
+	const double f0 = objective(0.0);
+	bool accepted = false;
+	for (int halving = 0; halving < 10 && !accepted; ++halving) {
+		const double ft = objective(t);
+		accepted = std::isfinite(ft) && ft <= f0;
+		if (!accepted) {
+			t *= 0.5;
+		}
+	}
+	if (!accepted || !modelSpecifics.commitStep(t)) {
+		return false;
+	}
+	for (size_t i = 0; i < n; ++i) {
+		const int j = context.F[i];
+		const double change = t * d(i);
+		hBeta[j] += change;
+		hDelta[j] = std::max(hDelta[j], 2.0 * std::abs(change));
+	}
+	kktConsecutive = 0;
+	xBetaKnown = true;
+	sufficientStatisticsKnown = true;
 	return true;
 }
 
@@ -557,10 +607,23 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 		stop = maxR < context.tolerance;
 	}
 
-	// composite Armijo on the penalized objective over W, inside the eta trust region
-	const Eigen::VectorXd d = z - bw;
+	// composite Armijo on the penalized objective over W, inside the eta trust region. Unpenalized coordinates move
+	// at most hDelta_j, as in a damped Newton step: where the rows saturate (logistic p of 0 or 1) the curvature
+	// vanishes and the model's ray along them is unbounded, which the eta region alone cannot see
+	Eigen::VectorXd d = z - bw;
 	if (d.cwiseAbs().maxCoeff() == 0.0) {
 		return stop ? NewtonOutcome::UNCERTIFIED : NewtonOutcome::FAILED;
+	}
+	double scale = 1.0;
+	for (size_t a = 0; a < w; ++a) {
+		const int j = Wcol[a];
+		if (lw(a) == 0.0 && context.precision[W[a]] == 0.0 && std::abs(d(a)) > hDelta[j]) {
+			scale = std::min(scale, hDelta[j] / std::abs(d(a)));
+		}
+	}
+	if (scale < 1.0) {
+		d *= scale;
+		z = bw + d;
 	}
 	const std::vector<double> direction(d.data(), d.data() + w);
 	if (!modelSpecifics.setDirection(Wcol, direction)) {
@@ -601,10 +664,6 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 		const double delta = (t == 1.0) ? (z(a) - bw(a)) : t * d(a);
 		hBeta[j] = (t == 1.0) ? z(a) : bw(a) + delta; // exact zeros stay zero
 		hDelta[j] = std::max(hDelta[j], 2.0 * std::abs(delta));
-		if (lastStep.size() == hDelta.size()) {
-			lastStep[j] = 0.0;
-			flipCount[j] = 0;
-		}
 	}
 	kktConsecutive = 0;
 	xBetaKnown = true;
@@ -692,10 +751,6 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::newtonIteration(
 		const double delta = t * d(i);
 		hBeta[j] += delta;
 		hDelta[j] = std::max(hDelta[j], 2.0 * std::abs(delta));
-		if (lastStep.size() == hDelta.size()) {
-			lastStep[j] = 0.0;
-			flipCount[j] = 0;
-		}
 	}
 	kktConsecutive = 0;
 	xBetaKnown = true;
@@ -782,10 +837,40 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		};
 		context.nuNormal = (data != nullptr) ? std::sqrt(rowMaximum(*data, context.F, variance, 2, K, positive)) : NAN;
 	}
+	// Logistic rows saturate (p exactly 0 or 1, e.g. from an extreme start): the curvature of an unpenalized column
+	// whose rows all saturate vanishes, a Newton or prox-Newton model has an unbounded flat direction there, and its
+	// moves (which also reset coordinate descent's step bounds) can send the fit away. Until it clears, coordinate
+	// descent's own trust region recovers
+	std::vector<int> unpenalized;
+	if (hXI.getModelType() == ModelType::LOGISTIC) {
+		for (size_t i = 0; i < context.F.size(); ++i) {
+			const FormatType format = hXI.getColumnType(context.F[i]);
+			if (context.precision[i] == 0.0 && context.lambda[i] == 0.0 &&
+					(format == DENSE || format == INTERCEPT || hXI.getNumberOfEntries(context.F[i]) > 0)) {
+				unpenalized.push_back(context.F[i]);
+			}
+		}
+	}
+	auto saturated = [&]() {
+		if (unpenalized.empty()) {
+			return false;
+		}
+		std::vector<double> h;
+		if (!modelSpecifics.hessianDiagonal(unpenalized, h)) {
+			return false;
+		}
+		for (double value : h) {
+			if (!(value > 0.0)) {
+				return true;
+			}
+		}
+		return false;
+	};
+
 	// Profile and confint refits (2.9): chord Newton steps on the reference Hessian, at most 8, before the usual
 	// driver and its cost estimates
 	if (profileActive && profileReference && convergenceType == GAP && algorithmType != AlgorithmType::CCD &&
-			!context.anyLaplace) {
+			!context.anyLaplace && !saturated()) {
 		for (int chord = 0; chord < 8 && iteration < maxIterations; ++chord) {
 			++iteration;
 			++convergenceReport.newtonIterations;
@@ -829,6 +914,7 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 	auto proxCost = [&]() {
 		const std::vector<int> W = workingSet();
 		if (W.empty()) return 0.0;
+		if (W.size() > 2000) return std::numeric_limits<double>::infinity(); // prox-Newton is dense over W: CCD
 		return modelSpecifics.newtonCostRatio(W) * entryCount(W) / std::max(entryCount(context.F), 1.0);
 	};
 	double costRatio = context.anyLaplace ? proxCost() : modelSpecifics.newtonCostRatio(context.F);
@@ -918,6 +1004,11 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 				++failures;
 				++convergenceReport.fallbacks;
 				suppressUntil = cycles + (1 << std::min(failures, 20)) * 20;
+				// CCD resumes as from a fresh start at this point: Newton's moves widened its step bounds (hDelta grows
+				// to twice each move), which on a flat or saturated direction would let it run away
+				for (int j : context.F) {
+					hDelta[j] = initialBound;
+				}
 				if (noiseLevel > SILENT) {
 					std::ostringstream stream;
 					stream << "Newton steps stopped; continuing with coordinate descent";
@@ -930,7 +1021,10 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		shadowStepDecrease = 0.0;
 		cycle(); // advances iteration
 		++cycles;
-		if (context.anyLaplace && (cycles == warmStart || cycles % 16 == 0)) {
+		// steps cut short by their bounds (far from the optimum, or rows saturating): no estimate means anything yet,
+		// so neither Newton steps nor a certification attempt, as coordinate descent's own rule declines convergence
+		const bool stepsLimited = boundLimitedStep;
+		if (context.anyLaplace && (cycles == stopFrom || cycles == warmStart || cycles % 16 == 0)) {
 			newtonCost = proxCost();
 			convergenceReport.costRatio = newtonCost;
 		}
@@ -984,10 +1078,11 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 			}
 		}
 
-		if (algorithmType == AlgorithmType::NEWTON && cycles >= warmStart) {
+		if (algorithmType == AlgorithmType::NEWTON && cycles >= warmStart && !saturated()) {
 			newtonPhase = true;
-		} else if (algorithmType == AlgorithmType::AUTO && cycles >= warmStart &&
-				cycles >= suppressUntil && nHat > 4.0 * newtonCost) {
+		} else if (algorithmType == AlgorithmType::AUTO && (cycles >= warmStart || (cycles >= stopFrom && newtonCost < 1.0)) &&
+				cycles >= suppressUntil && nHat > 4.0 * newtonCost && !stepsLimited && !saturated()) {
+			// (Laplace fits screen for 10 cycles unless prox-Newton over the working set costs under one cycle)
 			newtonPhase = true;
 		}
 		if (newtonPhase) {
@@ -1002,18 +1097,27 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		// A curvature certificate on the CCD path: once the estimate is within 100 tau_eff and finishing on CCD
 		// costs more than one H (or it is already below tau_eff), with 2^k cycles between failed attempts
 		if (convergenceType == GAP && context.conjugateGradient && !context.allNormal && cycles >= stopFrom &&
-				gHat <= context.tauEff) { // no curvature certificate within the memory budget: stop on the estimate
+				gHat <= context.tauEff && !stepsLimited) { // no curvature certificate within the memory budget: stop on the estimate
 			finish(SUCCESS, "none", gHat);
 			break;
 		}
-		if (convergenceType == GAP && !context.conjugateGradient && cycles >= stopFrom && cycles >= certifyAfter) {
+		if (convergenceType == GAP && !context.conjugateGradient && cycles >= stopFrom && cycles >= certifyAfter &&
+				!stepsLimited) {
 			const double estimate = context.allNormal ? R : gHat;
 			const double remaining = context.allNormal ?
 				((rho < 1.0 && R > context.tauEff) ? std::log(R / context.tauEff) / -std::log(rho) :
 					std::numeric_limits<double>::infinity()) : nHat;
-			if (estimate <= 100.0 * context.tauEff && (remaining > newtonCost || estimate <= context.tauEff)) {
+			if (estimate <= 100.0 * context.tauEff && (remaining > newtonCost || estimate <= context.tauEff) && !saturated()) {
 				double value = NAN, lambda2Half = NAN;
-				if (context.anyLaplace) { // one prox-Newton iteration: its L1 decrease stops the fit, or its step helps
+				Eigen::VectorXd step;
+				if (context.anyLaplace && workingSet().size() > 2000) {
+					// no prox-Newton over so large a working set: stop on the estimate, as without a curvature
+					// certificate under Newton-CG
+					if (gHat <= context.tauEff) {
+						finish(SUCCESS, "none", gHat);
+						break;
+					}
+				} else if (context.anyLaplace) { // one prox-Newton iteration: its L1 decrease stops the fit, or its step helps
 					++iteration;
 					++convergenceReport.newtonIterations;
 					const NewtonOutcome outcome = proxNewtonIteration(context);
@@ -1021,10 +1125,11 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 						finish(SUCCESS, "none", convergenceReport.lambda2Half);
 						break;
 					}
-				} else if (certifyGap(context, &value, &lambda2Half)) {
+				} else if (certifyGap(context, &value, &lambda2Half, &step)) {
 					convergenceReport.gsc = value;
 					convergenceReport.lambda2Half = lambda2Half;
 					if (value <= context.tauEff) {
+						finishingStep(context, step);
 						finish(SUCCESS, "gsc", value);
 						break;
 					}
@@ -1034,6 +1139,7 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 					// uncertified; otherwise "auto" continues with Newton steps
 					convergenceReport.lambda2Half = lambda2Half;
 					if (lambda2Half <= context.tauEff) {
+						finishingStep(context, step);
 						finish(SUCCESS, "none", lambda2Half);
 						break;
 					}
@@ -1138,8 +1244,8 @@ void CyclicCoordinateDescent::beginProfileReference() {
 	if (!modelSpecifics.supportsSecondOrder() || usingGPU || usingCUDA || syncCV) {
 		return;
 	}
-	// The pool survives between profile calls on the same fit (the adaptive profile calls in batches): its first
-	// entry is the mode, reused while the coefficients there are unchanged
+	// The mode's reference survives between profile calls on the same fit (the adaptive profile calls in batches),
+	// reused while the coefficients there are unchanged
 	if (!profilePool.empty()) {
 		const std::vector<double>& mode = profilePool[0]->beta;
 		bool same = mode.size() == hBeta.size();
@@ -1179,25 +1285,22 @@ void CyclicCoordinateDescent::shareProfileReference(const CyclicCoordinateDescen
 	profileFactor.reset();
 }
 
+std::shared_ptr<const void> CyclicCoordinateDescent::currentProfileReference() const {
+	return profileReference;
+}
+
+void CyclicCoordinateDescent::useProfileReference(const std::shared_ptr<const void>& reference) {
+	if (profileActive && reference) {
+		profileReference = std::static_pointer_cast<const ProfileReference>(reference);
+	}
+}
+
 CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::chordIteration(NewtonContext& context) {
 
 	const size_t n = context.F.size();
 
-	// The reference nearest by a bound on the lag (sum_j max|x_j| |beta_j - beta~_j| >= delta), then its lag
-	// delta = max_k |eta_k - eta~_k|. Past 0.5 a new reference is taken here: profile points run outward from the
-	// mode in chains, so the next points reuse it
-	auto bound = [this](const ProfileReference& reference) {
-		double sum = 0.0;
-		for (int j = 0; j < J; ++j) {
-			sum += (*reference.columnMax)[j] * std::abs(hBeta[j] - reference.beta[j]);
-		}
-		return sum;
-	};
-	for (const auto& candidate : profilePool) {
-		if (bound(*candidate) < bound(*profileReference)) {
-			profileReference = candidate;
-		}
-	}
+	// The lag delta = max_k |eta_k - eta~_k| from the reference in use (the parent point's: see CcdInterface's profile
+	// drivers). Past 0.5 a new reference is taken here, and the point's children inherit it
 	std::vector<double> eta = modelSpecifics.getXBeta();
 	double delta = 0.0;
 	for (size_t k = 0; k < eta.size() && k < profileReference->eta.size(); ++k) {
@@ -1209,10 +1312,6 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::chordIteration(N
 			return NewtonOutcome::FAILED;
 		}
 		++convergenceReport.hessians;
-		if (profilePool.size() >= 6) {
-			profilePool.erase(profilePool.begin() + 1); // the oldest after the mode
-		}
-		profilePool.push_back(moved);
 		profileReference = moved;
 		delta = 0.0;
 	}
@@ -1341,10 +1440,6 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::chordIteration(N
 		const double change = t * d(i);
 		hBeta[j] += change;
 		hDelta[j] = std::max(hDelta[j], 2.0 * std::abs(change));
-		if (lastStep.size() == hDelta.size()) {
-			lastStep[j] = 0.0;
-			flipCount[j] = 0;
-		}
 	}
 	kktConsecutive = 0;
 	xBetaKnown = true;

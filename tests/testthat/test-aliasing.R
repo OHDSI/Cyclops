@@ -46,7 +46,8 @@ test_that("T12: merged fits reach the unmerged optimum for normal, Laplace and n
 test_that("merging is on by default only on auto and newton paths", {
     frame <- aliasProblem(2)
     prior <- createPrior("normal", variance = 0.5)
-    expect_null(aliasFit(frame, prior)$aliasedColumns)
+    expect_length(aliasFit(frame, prior)$aliasedColumns, 2) # the default algorithm is "auto" (Newton plan D1)
+    expect_null(aliasFit(frame, prior, algorithm = "ccd")$aliasedColumns)
     expect_length(aliasFit(frame, prior, algorithm = "auto")$aliasedColumns, 2)
     expect_null(aliasFit(frame, prior, algorithm = "auto", mergeDuplicates = FALSE)$aliasedColumns)
 })

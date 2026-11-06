@@ -107,7 +107,8 @@ test_that("Using parameterized cross-validation", {
 
     prior2 <- createPrior("laplace", exclude = c(0), useCrossValidation = TRUE)
 
-    control <- createControl(noiseLevel = "silent", cvType = "auto", cvRepetitions = 1, seed = 666, threads = 1, resetCoefficients = TRUE)
+    control <- createControl(noiseLevel = "silent", cvType = "auto", cvRepetitions = 1, seed = 666, threads = 1, resetCoefficients = TRUE,
+                             algorithm = "ccd") # parameterized priors fit by CCD: compare like with like
 
     time1 <- system.time(fit1 <- fitCyclopsModel(cyclopsData,
                                                  prior=prior1,

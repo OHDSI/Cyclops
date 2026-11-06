@@ -79,6 +79,15 @@ Changes:
    a Laplace prior, where coordinate descent stopped 15-24 log-likelihood units short of a ridge optimum
    after 10-31 s. `vcov()` of an `lr` fit with integer weights now treats them as row counts (it
    stopped with an error)
+16. **The default algorithm is now `"auto"`** (with the `"gap"` criterion) for `cox`, `cox_counting`,
+   `cpr`, `sccs`, `clr` and `lr` models. Across 57 benchmark problems it reached the optimum every time,
+   where the earlier default stopped more than 1e-3 short of it on 31 (by up to 1,322 log-likelihood
+   units) and reached its iteration limit on 5; it was a median 7.1 times faster where the earlier default
+   fell short, and 10-15% slower where that default was already accurate and fast. Results therefore
+   change, and cross-validated variances can move where earlier fold fits were not converged.
+   `createControl(algorithm = "ccd")` reproduces earlier results exactly. Fits under `fitter = "legacy"`,
+   other models, and the refits of priors with a `fitHook` (BrokenAdaptiveRidge,
+   IterativeHardThresholding, `createNonSeparablePrior()`) keep coordinate descent
 
 Cyclops v3.8.0
 ==============

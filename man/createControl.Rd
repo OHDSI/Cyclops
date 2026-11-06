@@ -116,8 +116,10 @@ the average number of rows per stratum is smaller than the number of strata;
 descent), \code{"mm"}, \code{"auto"} (coordinate descent that switches to dense
 Newton steps when an operation count says they are cheaper, and back on failure) or
 \code{"newton"} (Newton steps after three coordinate-descent cycles). \code{NULL}
-(default) means \code{"auto"} for \code{"cox"} and \code{"cox_counting"} with
-\code{fitter = "super"} and \code{"ccd"} otherwise. Under \code{"auto"}, an explicit
+(default) means \code{"auto"} for \code{"cox"}, \code{"cox_counting"}, \code{"cpr"},
+\code{"sccs"}, \code{"clr"} and \code{"lr"} and \code{"ccd"} otherwise, under \code{fitter = "legacy"},
+and for the refits of a prior with a \code{fitHook} (BrokenAdaptiveRidge, IterativeHardThresholding,
+\code{\link{createNonSeparablePrior}}). Under \code{"auto"}, an explicit
 \code{convergenceType} other than \code{"gap"} runs \code{"ccd"}; under
 \code{"newton"}, it maps onto Newton iterations (\code{"gradient"}, \code{"lange"},
 \code{"mittal"}: relative change of the objective; \code{"kkt"}: the largest

@@ -28,10 +28,11 @@ test_that("vcov after refitting the same cyclopsData uses the current coefficien
     cd <- createCyclopsData(event ~ exgr + agegr + strata(indiv) + offset(loginterval), data = data, modelType = "cpr")
     first <- fitCyclopsModel(cd)
     invisible(vcov(first))
-    second <- fitCyclopsModel(cd, prior = createPrior("normal", variance = 0.1))
+    tight <- createControl(convergenceType = "gap", tolerance = 1E-12) # two starts: the same optimum
+    second <- fitCyclopsModel(cd, prior = createPrior("normal", variance = 0.1), control = tight)
     fresh <- fitCyclopsModel(createCyclopsData(event ~ exgr + agegr + strata(indiv) + offset(loginterval),
                                                data = data, modelType = "cpr"),
-                             prior = createPrior("normal", variance = 0.1))
+                             prior = createPrior("normal", variance = 0.1), control = tight)
     expect_equal(coef(second), coef(fresh), tolerance = 1E-6)
     expect_equal(vcov(second), vcov(fresh), tolerance = 1E-6)
 })
