@@ -20,6 +20,7 @@
 
 #include <Eigen/Dense>
 #include <deque>
+#include <memory>
 
 #include "Types.h"
 
@@ -224,7 +225,78 @@ public:
 
 	Matrix computeFisherInformation(const std::vector<IdType>& indices) const;
 
-	loggers::ProgressLogger& getProgressLogger() const { return *logger; }
+	AbstractModelSpecifics& getModelSpecifics() const { return modelSpecifics; }
+
+	// Observe-only stopping statistics (Newton plan, Phase 2). With the environment variable CYCLOPS_SHADOW set
+	// (1: curvature at log-spaced cycles and the last; 2: every cycle), serial CPU CCD fits on an engine with the
+	// second-order API log one row per cycle; the fit itself is unchanged. NaN where a statistic does not apply.
+	struct ShadowRow {
+		int cycle = 0;
+		bool curvature = false;     // the Hessian was formed this cycle
+		double f = NAN;             // -(log likelihood + log prior)
+		double stepDecrease = NAN;  // sum over the cycle's steps of h_j delta_j^2 / 2 (h_j with the prior's curvature)
+		double rhoHat = NAN;        // trigger: rate from the last min(t, 20) step decreases
+		double gHat = NAN;          // trigger: stepDecrease rho / (1 - rho)
+		double R = NAN;             // sum sigma_j^2 s_j^2 / 2, all free coordinates Normal
+		double kktMaxR = NAN;       // max |s_j| / sqrt(H_jj), end of cycle
+		double lambda2Half = NAN;   // s_S' H_SS^-1 s_S / 2 (Laplace: S = nonzeros and violating zeros)
+		double nu = NAN;            // bound on max_k ||x_k||_{H^-1}
+		double gsc = NAN;           // omega(c Lambda) / c^2, c = 2 nu; Inf when c Lambda >= 1
+		double RU = NAN;            // Lambda-bar^2 / 2 on U (None) and P (Normal) free sets
+		double nuU = NAN;
+		double gscU = NAN;          // omega(c Lambda-bar) / c^2
+		double bracketLow = NAN;    // Lambda^2 / 2 bounds from 5 conjugate-gradient iterations, all Normal
+		double bracketHigh = NAN;
+		double consistency = NAN;   // Lambda^2 / max_j s_j^2 / H_jj (>= 1)
+		int rankDeficit = 0;        // directions dropped from H_SS
+	};
+
+	const std::vector<ShadowRow>& getShadowLog() const { return shadowLog; }
+
+	// What a "gap" fit did (Newton plan 2.10 reporting): the path, the stop's certificate and work counts
+	struct ConvergenceReport {
+		bool present = false;
+		std::string algorithm;          // "ccd", or "newton" once a Newton step was taken
+		std::string certificate = "none"; // "R", "gsc" or "none" (an estimate)
+		bool certified = false;
+		double tauEff = NAN;            // tolerance in log-posterior units: tau times the mean positive weight
+		double gapEstimate = NAN;
+		double R = NAN;
+		double gsc = NAN;
+		double lambda2Half = NAN;
+		double costRatio = NAN;         // r_B: one Newton iteration in CCD cycles
+		int cycles = 0;
+		int newtonIterations = 0;
+		int hessians = 0;
+		int fallbacks = 0;              // Newton phases abandoned for CCD
+		int newtonStart = -1;           // cycle at which Newton took over
+		int droppedDirections = 0;      // aliased directions left out of the last Newton solve
+		std::string solver;             // "dense" or "cg" (Newton-CG) once Newton is considered
+		int hessianVectorProducts = 0;
+		int certificationProducts = 0;  // Hv spent in certification solves
+		std::string ineligible;         // why a requested Newton path ran as CCD
+	};
+
+	const ConvergenceReport& getConvergenceReport() const { return convergenceReport; }
+
+	// Unpenalized coefficients whose likelihood is monotone (separation, Newton plan 2.7 and D5), as indices
+	const std::vector<int>& getDivergentCoefficients() const { return divergentCoefficients; }
+
+	// Groups of exact-duplicate columns merged in the last fit (Newton plan 2.8), representative first
+	const std::vector<std::vector<int>>& getAliasedColumns() const { return aliasGroups; }
+
+	// Profile and confint refits (Newton plan 2.9): the likelihood Hessian at the current coefficients, from which
+	// refits under "auto" / "newton" + "gap" take chord Newton steps with a certificate that allows for the lag.
+	// Inactive when the model has no second-order kernels, a free coefficient has a Laplace prior, or H is too large
+	void beginProfileReference();
+	void endProfileReference();
+	void shareProfileReference(const CyclicCoordinateDescent& other);
+	// The reference a refit starts from: profile drivers pass each point the one its parent ended with, so that results
+	// do not depend on which thread ran which points
+	std::shared_ptr<const void> currentProfileReference() const;
+	void useProfileReference(const std::shared_ptr<const void>& reference);
+
+		loggers::ProgressLogger& getProgressLogger() const { return *logger; }
 
 	loggers::ErrorHandler& getErrorHandler() const { return *error; }
 
@@ -470,6 +542,46 @@ protected:
 	const int kktConsecutiveNeeded = 2; // cycles in a row below the tolerance
 	int kktConsecutive = 0;
 	bool trackKkt = false;
+
+	ConvergenceReport convergenceReport;
+	std::vector<int> divergentDirection;   // per coefficient: -1 / +1 when its MLE is at -Inf / +Inf, else 0
+	std::vector<int> divergentCoefficients;
+	void findDivergentCoefficients();
+	std::vector<std::vector<int>> aliasGroups;
+	std::vector<uint64_t> columnHashes; // per column, cached: the data do not change
+	void findAliasGroups();
+	double divergentLimit(int j) const;
+	std::vector<signed char> separationCache; // per column: -1, 0, +1, or 2 not yet computed (cleared with the weights)
+	bool trackStepDecrease = false; // shadow log or "gap": accumulate shadowStepDecrease in the serial cycle
+	std::string secondOrderIneligibility() const;
+	struct NewtonContext;
+	enum class NewtonOutcome { ACCEPTED, REJECTED, CERTIFIED, UNCERTIFIED, FAILED };
+	void findModeGap(const std::function<void()>& cycle, int& iteration, int maxIterations, double tau,
+	                 AlgorithmType algorithmType, int convergenceType);
+	NewtonOutcome newtonIteration(NewtonContext& context);
+	NewtonOutcome proxNewtonIteration(NewtonContext& context);
+	bool proxFitsDense(const std::vector<int>& W) const;
+	double strongConvexityBound(const NewtonContext& context, const std::vector<double>& gradient) const;
+	bool newtonDirectionDense(NewtonContext& context, Eigen::VectorXd& s, Eigen::VectorXd& d, bool* stop,
+	                          bool* certified, bool* damped);
+	bool newtonDirectionCG(NewtonContext& context, Eigen::VectorXd& s, Eigen::VectorXd& d, bool* stop,
+	                       bool* certified);
+	bool certifyGap(NewtonContext& context, double* gscValue, double* lambda2Half, Eigen::VectorXd* step = nullptr);
+	bool finishingStep(NewtonContext& context, const Eigen::VectorXd& d);
+	struct ProfileReference;
+	struct ProfileFactor;
+	std::vector<std::shared_ptr<const ProfileReference>> profilePool; // the mode's, kept between profile calls
+	std::shared_ptr<const ProfileReference> profileReference;          // in use
+	bool profileActive = false;
+	std::shared_ptr<const ProfileReference> makeProfileReference(const ProfileReference* like);
+	std::shared_ptr<ProfileFactor> profileFactor; // cached per set of free columns
+	NewtonOutcome chordIteration(NewtonContext& context);
+
+	int shadowMode = 0;
+	double shadowStepDecrease = 0.0;
+	std::vector<double> shadowDecreases;
+	std::vector<ShadowRow> shadowLog;
+	void shadowObserve(int cycle, bool last);
 	priors::GradientHessian lastGradientHessian; // as passed to getDelta() by ccdUpdateBeta()
 
 	// Active-set cycling (with "kkt" convergence): between full sweeps, cycles visit only coordinates

@@ -68,9 +68,9 @@ test_that("Adaptive intercept steps reach the tight optimum", {
     expect_error(createControl(adaptiveIntercept = "yes"))
 })
 
-test_that("The super fitter changes only logistic regression, and createControl() arguments override it", {
-    resolve <- function(modelType, nCovariates, ...) {
-        Cyclops:::.resolveControl(createControl(fitter = "super", ...), modelType, nCovariates)
+test_that("The super fitter changes logistic regression and Cox models, and createControl() arguments override it", {
+    resolve <- function(modelType, nCovariates, ..., algorithm = "ccd") { # super's coordinate-descent settings
+        Cyclops:::.resolveControl(createControl(fitter = "super", algorithm = algorithm, ...), modelType, nCovariates)
     }
     lr <- resolve("lr", 999)
     expect_equal(lr[c("convergenceType", "tolerance", "maxIterations", "cvConvergenceType", "cvTolerance",
@@ -104,12 +104,25 @@ test_that("The super fitter changes only logistic regression, and createControl(
     expect_silent(ls <- resolve("ls", 10, tolerance = 1E-8))
     expect_equal(ls$tolerance, 1E-8)
     expect_equal(resolve("lr", 1000)$activeSetEvery, 10)
-    for (modelType in c("cpr", "clr", "cox")) {
+    for (modelType in c("cpr", "clr")) {
         expect_equal(resolve(modelType, 5000)[c("convergenceType", "tolerance", "maxIterations", "activeSetEvery",
                                                 "adaptiveIntercept")],
                      list(convergenceType = "gradient", tolerance = 1E-6, maxIterations = 1000,
                           activeSetEvery = 0, adaptiveIntercept = FALSE))
     }
+    # By default every model with second-order kernels runs "auto" with the "gap" criterion (Newton plan D1, D8, D9),
+    # and a fit that cannot take Newton steps falls back to the coordinate-descent settings above
+    for (modelType in c("cox", "cox_counting", "cpr", "sccs", "clr", "lr")) {
+        fallback <- if (modelType == "lr") list("kkt", 1E-4) else list("gradient", 1E-6)
+        expect_equal(resolve(modelType, 5000, algorithm = NULL)[c("algorithm", "convergenceType", "tolerance",
+                                                                  "maxIterations", "fallbackConvergenceType",
+                                                                  "fallbackTolerance")],
+                     list(algorithm = "auto", convergenceType = "gap", tolerance = 1E-6, maxIterations = 5000,
+                          fallbackConvergenceType = fallback[[1]], fallbackTolerance = fallback[[2]]))
+        expect_equal(resolve(modelType, 5000, convergenceType = "gradient", algorithm = NULL)$algorithm, "ccd")
+    }
+    expect_equal(Cyclops:::.resolveControl(createControl(), "pr", 10)$algorithm, "ccd") # no second-order kernels
+    expect_equal(Cyclops:::.resolveControl(createControl(fitter = "legacy"), "lr", 10)$algorithm, "ccd")
     expect_equal(resolve("lr", 10, convergenceType = "lange", maxIterations = 50)[c("convergenceType",
                                                                                  "tolerance", "maxIterations")],
                  list(convergenceType = "lange", tolerance = 1E-6, maxIterations = 50))
@@ -124,12 +137,13 @@ test_that("The super fitter changes only logistic regression, and createControl(
                  list(cvWarmStart = FALSE, cvRefine = FALSE, cvNullModelBound = FALSE, cvSearchDirection = "auto",
                       activeSetEvery = 0, cvConvergenceType = "lange", cvTolerance = 1E-6, cvMaxIterations = 1000))
     expect_error(createControl(cvNullModelBound = "yes"))
-    default <- Cyclops:::.resolveControl(createControl(cvConvergenceType = "kkt", activeSetEvery = 20), "lr", 10)
+    default <- Cyclops:::.resolveControl(createControl(cvConvergenceType = "kkt", activeSetEvery = 20, algorithm = "ccd"),
+                                         "lr", 10)
     expect_equal(default[c("convergenceType", "tolerance", "cvTolerance", "cvMaxIterations", "activeSetEvery",
                            "cvWarmStart")],
                  list(convergenceType = "gradient", tolerance = 1E-6, cvTolerance = 3E-3, cvMaxIterations = 5000,
                       activeSetEvery = 20, cvWarmStart = TRUE)) # resetCoefficients = FALSE
-    expect_null(Cyclops:::.resolveControl(createControl(cvTolerance = 1E-8), "lr", 10)$cvConvergenceType)
+    expect_null(Cyclops:::.resolveControl(createControl(cvTolerance = 1E-8, algorithm = "ccd"), "lr", 10)$cvConvergenceType)
 
     # Without "kkt", the fitter's settings that need it lapse
     lapsed <- resolve("lr", 5000, convergenceType = "lange", cvConvergenceType = "lange")

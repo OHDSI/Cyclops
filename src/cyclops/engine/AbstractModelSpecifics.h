@@ -174,6 +174,86 @@ public:
 		return false;
 	}
 
+	// Second-order API over a set F of columns (engine indices), for multi-coordinate (Newton)
+	// moves and the Fisher information. Derivatives are of the negative log likelihood at the
+	// current state with the current case weights; prior terms are the caller's. Engines without
+	// the API return false from supportsSecondOrder() and from every call below.
+	virtual bool supportsSecondOrder() const {
+		return false;
+	}
+
+	// Prepares the kernels for columns F; the calls below rebuild it when given another F
+	virtual bool secondOrderPrepare(const std::vector<int>& F) {
+		return false;
+	}
+
+	// g = X_F'(u o dC) - c_F
+	virtual bool fullGradient(const std::vector<int>& F, std::vector<double>& g) {
+		return false;
+	}
+
+	// H = X_F' diag(u o dC) X_F - A_F'A_F: |F| x |F|, column-major, both triangles
+	virtual bool hessianBlock(const std::vector<int>& F, std::vector<double>& H) {
+		return false;
+	}
+
+	// Hv = H v without forming H
+	virtual bool hessianVector(const std::vector<int>& F, const std::vector<double>& v,
+	                           std::vector<double>& Hv) {
+		return false;
+	}
+
+	// Caches z = X_F d for trialLogLikelihood() and commitStep()
+	virtual bool setDirection(const std::vector<int>& F, const std::vector<double>& d) {
+		return false;
+	}
+
+	// Log likelihood at beta + t d (d from setDirection()); the state does not change
+	virtual double trialLogLikelihood(double t) {
+		return std::numeric_limits<double>::quiet_NaN();
+	}
+
+	// Moves the state to beta + t d; the caller updates beta itself
+	virtual bool commitStep(double t) {
+		return false;
+	}
+
+	// max_k |x_k'd| of the direction cached by setDirection(): the eta trust region (Newton plan 2.6)
+	virtual double directionMaxAbs() const {
+		return std::numeric_limits<double>::quiet_NaN();
+	}
+
+	// Monotone likelihood in single coordinates (Newton plan 2.7): direction[i] = -1 (+1) when the likelihood
+	// does not increase (decrease) in columns[i] whatever the other coefficients, so an unpenalized coefficient
+	// diverges to -Inf (+Inf); 0 otherwise. False when the engine cannot tell.
+	virtual bool separationDirections(const std::vector<int>& columns, std::vector<int>& direction) {
+		return false;
+	}
+
+	// diag(H) over F (likelihood part), one pass per column; for Jacobi preconditioning and kkt under Newton-CG
+	virtual bool hessianDiagonal(const std::vector<int>& F, std::vector<double>& h) {
+		return false;
+	}
+
+	// For the Woodbury preconditioner of Newton-CG (Phase 4): S2 = X_F' diag(u o dC) X_F (|F| x |F|, column-major,
+	// both triangles) and B = U'A, the rows of A summed over `rank` bins of contiguous event-time groups with about
+	// equal event weight, each scaled by 1 / sqrt(its number of groups) (rank x |F|, column-major); then
+	// S2 - B'B >= S2 - A'A
+	virtual bool woodburyParts(const std::vector<int>& F, int rank, std::vector<double>& S2, std::vector<double>& B) {
+		return false;
+	}
+
+	// The work of one Newton-CG iteration (about 45 Hv, plan 2.5) in CCD cycles over F; NaN without the API
+	virtual double newtonCgCostRatio(const std::vector<int>& F, bool preconditioned) {
+		return std::numeric_limits<double>::quiet_NaN();
+	}
+
+	// r_B of the Newton plan (2.4): the work of one dense Newton iteration over F in units of one CCD cycle
+	// over F, from compile-time per-term constants; NaN without the second-order API
+	virtual double newtonCostRatio(const std::vector<int>& F) {
+		return std::numeric_limits<double>::quiet_NaN();
+	}
+
 	virtual void turnOnSyncCV(int foldToCompute) = 0;
 
 	virtual void turnOffSyncCV() = 0;

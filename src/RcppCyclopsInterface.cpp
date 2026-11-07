@@ -7,6 +7,8 @@
 #include <sstream>
 #include <vector>
 #include <map>
+#include <chrono>
+#include <functional>
 #include "Timing.h"
 
 #include "Rcpp.h"
@@ -341,6 +343,74 @@ Eigen::MatrixXd cyclopsGetFisherInformation(SEXP inRcppCcdInterface, const SEXP 
     return interface->getCcd().computeFisherInformation(indices);
 }
 
+// Internal (tests and timing): the second-order kernels over the given columns (all when NULL) at the
+// current coefficients. trial = log likelihood at beta + t v without changing the state; committed = log
+// likelihood after commitStep(t), after which the state is recomputed from beta. seconds per call
+// (gradient, hessian, hv, trial, commit), each kernel run reps times.
+// [[Rcpp::export(".cyclopsSecondOrder")]]
+List cyclopsSecondOrder(SEXP inRcppCcdInterface, const SEXP sexpBitCovariates, const std::vector<double>& v,
+                        double t, int reps) {
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    CyclicCoordinateDescent& ccd = interface->getCcd();
+    AbstractModelSpecifics& model = ccd.getModelSpecifics();
+
+    std::vector<int> F;
+    if (!Rf_isNull(sexpBitCovariates)) {
+        const std::vector<double>& bitCovariates = as<std::vector<double>>(sexpBitCovariates);
+        ProfileVector covariates = reinterpret_cast<const std::vector<int64_t>&>(bitCovariates);
+        for (auto it = covariates.begin(); it != covariates.end(); ++it) {
+            F.push_back(static_cast<int>(interface->getModelData().getColumnIndex(*it)));
+        }
+    } else {
+        for (size_t index = 0; index < interface->getModelData().getNumberOfCovariates(); ++index) {
+            F.push_back(static_cast<int>(index));
+        }
+    }
+    if (v.size() != F.size()) {
+        Rcpp::stop("v must have one value per covariate");
+    }
+
+    const double logLikelihood = ccd.getLogLikelihood(); // brings the state up to date
+    if (!model.supportsSecondOrder() || !model.secondOrderPrepare(F)) {
+        return List::create(_["supported"] = false);
+    }
+
+    const int times = std::max(1, reps);
+    auto timed = [times](const std::function<void()>& f) {
+        const auto start = std::chrono::steady_clock::now();
+        for (int r = 0; r < times; ++r) {
+            f();
+        }
+        return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count() / times;
+    };
+    std::vector<double> g, H, Hv;
+    std::vector<double> seconds(5, 0.0);
+    bool ok = true;
+    seconds[0] = timed([&]() { ok = model.fullGradient(F, g) && ok; });
+    seconds[1] = timed([&]() { ok = model.hessianBlock(F, H) && ok; });
+    seconds[2] = timed([&]() { ok = model.hessianVector(F, v, Hv) && ok; });
+    ok = model.setDirection(F, v) && ok;
+    const double trial0 = model.trialLogLikelihood(0.0);
+    double trial = 0.0;
+    seconds[3] = timed([&]() { trial = model.trialLogLikelihood(t); });
+    seconds[4] = timed([&]() { ok = model.commitStep(0.0) && ok; }); // a move of zero does the same work
+    ok = model.commitStep(t) && ok;
+    const double committed = model.getLogLikelihood(true); // weights are 1 when the fit has none
+    ccd.makeDirty(); // recompute the state from beta
+    ccd.getLogLikelihood();
+    if (!ok) {
+        return List::create(_["supported"] = false);
+    }
+
+    NumericMatrix hessian(F.size(), F.size());
+    std::copy(H.begin(), H.end(), hessian.begin()); // both column-major
+    return List::create(_["supported"] = ok, _["logLikelihood"] = logLikelihood,
+                        _["gradient"] = g, _["hessian"] = hessian, _["hv"] = Hv,
+                        _["trial0"] = trial0, _["trial"] = trial, _["committed"] = committed,
+                        _["seconds"] = seconds);
+}
+
 // // [[Rcpp::export("test")]]
 // void cyclopsTest(std::vector<int> map, std::vector<std::vector<int> > list) {
 //     for(auto it = begin(map); it != end(map); ++it) {
@@ -629,8 +699,15 @@ void cyclopsSetControl(SEXP inRcppCcdInterface,
     args.modeFinding.maxBoundCount = maxBoundCount;
     args.modeFinding.doItAll = doItAll;
 
+    // Set on every call: a "ccd" fit after an "mm" fit on the same data object runs CCD
     if (algorithm == "mm") {
         args.modeFinding.algorithmType = AlgorithmType::MM;
+    } else if (algorithm == "auto") {
+        args.modeFinding.algorithmType = AlgorithmType::AUTO;
+    } else if (algorithm == "newton") {
+        args.modeFinding.algorithmType = AlgorithmType::NEWTON;
+    } else {
+        args.modeFinding.algorithmType = AlgorithmType::CCD;
     }
 
 	// Cross validation control
@@ -667,6 +744,19 @@ void cyclopsSetModeControl(SEXP inRcppCcdInterface, const List& options) {
 	}
 	if (options.containsElementNamed("adaptiveIntercept")) {
 		modeFinding.adaptiveIntercept = as<bool>(options["adaptiveIntercept"]);
+	}
+	if (options.containsElementNamed("fallbackConvergenceType")) { // "": none
+		const std::string type = as<std::string>(options["fallbackConvergenceType"]);
+		modeFinding.fallbackConvergenceType = type.empty() ? -1 : RcppCcdInterface::parseConvergenceType(type);
+	}
+	if (options.containsElementNamed("fallbackTolerance")) {
+		modeFinding.fallbackTolerance = as<double>(options["fallbackTolerance"]);
+	}
+	if (options.containsElementNamed("fallbackMaxIterations")) {
+		modeFinding.fallbackMaxIterations = as<int>(options["fallbackMaxIterations"]);
+	}
+	if (options.containsElementNamed("mergeDuplicates")) {
+		modeFinding.mergeDuplicates = as<bool>(options["mergeDuplicates"]);
 	}
 }
 
@@ -713,6 +803,55 @@ void cyclopsSetCvControl(SEXP inRcppCcdInterface, const List& options) {
 	}
 }
 
+// Separation (D5) and the "gap" / "auto" / "newton" report of the last fit (Newton plan 2.7, 2.10)
+static void appendNewtonReports(Rcpp::List& list, bsccs::RcppCcdInterface& rcppInterface) {
+	using namespace Rcpp;
+	bsccs::RcppCcdInterface* interface = &rcppInterface;
+	// Columns are reported by covariate label, as in estimation$column_label (engine indices count an offset column)
+	auto& data = interface->getModelData();
+	auto label = [&data](int column) { return static_cast<double>(data.getColumnNumericalLabel(column)); };
+
+	// Separated unpenalized coefficients (Newton plan 2.7, D5)
+	const auto& divergent = interface->getCcd().getDivergentCoefficients();
+	if (!divergent.empty()) {
+		NumericVector labels(divergent.size());
+		for (size_t i = 0; i < divergent.size(); ++i) {
+			labels[i] = label(divergent[i]);
+		}
+		list["divergentCoefficients"] = labels;
+	}
+
+	// Merged exact-duplicate columns (Newton plan 2.8), representative first
+	const auto& aliased = interface->getCcd().getAliasedColumns();
+	if (!aliased.empty()) {
+		List groups(aliased.size());
+		for (size_t g = 0; g < aliased.size(); ++g) {
+			NumericVector members(aliased[g].size());
+			for (size_t m = 0; m < aliased[g].size(); ++m) {
+				members[m] = label(aliased[g][m]);
+			}
+			groups[g] = members;
+		}
+		list["aliasedColumns"] = groups;
+	}
+
+	// What a "gap" / "auto" / "newton" fit did (Newton plan 2.10); replaces the shadow log's summary
+	const auto& report = interface->getCcd().getConvergenceReport();
+	if (report.present) {
+		list["algorithm"] = report.algorithm;
+		List convergence = List::create(_["gapEstimate"] = report.gapEstimate, _["certified"] = report.certified,
+			_["certificate"] = report.certificate, _["tauEff"] = report.tauEff, _["R"] = report.R, _["gsc"] = report.gsc,
+			_["lambda2Half"] = report.lambda2Half, _["cycles"] = report.cycles,
+			_["newtonIterations"] = report.newtonIterations, _["newtonStart"] = report.newtonStart,
+			_["hessians"] = report.hessians, _["fallbacks"] = report.fallbacks, _["costRatio"] = report.costRatio,
+			_["droppedDirections"] = report.droppedDirections, _["ineligible"] = report.ineligible);
+		convergence.push_back(report.solver, "solver"); // List::create takes at most 20 elements
+		convergence.push_back(report.hessianVectorProducts, "hessianVectorProducts");
+		convergence.push_back(report.certificationProducts, "certificationProducts");
+		list["convergence"] = convergence;
+	}
+}
+
 // [[Rcpp::export(".cyclopsRunCrossValidation")]]
 List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface) {
 	using namespace bsccs;
@@ -728,6 +867,7 @@ List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface) {
 			Rcpp::Named("timeFit")=timeUpdate
 		);
 	RcppCcdInterface::appendRList(list, interface->getResult());
+	appendNewtonReports(list, *interface);
 	return list;
 }
 
@@ -775,6 +915,51 @@ List cyclopsFitModel(SEXP inRcppCcdInterface) {
 			Rcpp::Named("timeFit")=timeUpdate
 		);
 	RcppCcdInterface::appendRList(list, interface->getResult());
+
+	// Observe-only stopping statistics (CYCLOPS_SHADOW; Newton plan, Phase 2)
+	const auto& shadow = interface->getCcd().getShadowLog();
+	if (!shadow.empty()) {
+		const size_t n = shadow.size();
+		IntegerVector cycle(n), rankDeficit(n);
+		LogicalVector curvature(n);
+		NumericVector f(n), stepDecrease(n), rhoHat(n), gHat(n), R(n), kktMaxR(n), lambda2Half(n), nu(n), gsc(n),
+			RU(n), nuU(n), gscU(n), bracketLow(n), bracketHigh(n), consistency(n);
+		for (size_t i = 0; i < n; ++i) {
+			const auto& r = shadow[i];
+			cycle[i] = r.cycle; curvature[i] = r.curvature; rankDeficit[i] = r.rankDeficit;
+			f[i] = r.f; stepDecrease[i] = r.stepDecrease; rhoHat[i] = r.rhoHat; gHat[i] = r.gHat; R[i] = r.R;
+			kktMaxR[i] = r.kktMaxR; lambda2Half[i] = r.lambda2Half; nu[i] = r.nu; gsc[i] = r.gsc; RU[i] = r.RU;
+			nuU[i] = r.nuU; gscU[i] = r.gscU; bracketLow[i] = r.bracketLow; bracketHigh[i] = r.bracketHigh;
+			consistency[i] = r.consistency;
+		}
+		list["shadow"] = DataFrame::create(_["cycle"] = cycle, _["curvature"] = curvature, _["f"] = f,
+			_["stepDecrease"] = stepDecrease, _["rhoHat"] = rhoHat, _["gHat"] = gHat, _["R"] = R,
+			_["kktMaxR"] = kktMaxR, _["lambda2Half"] = lambda2Half, _["nu"] = nu, _["gsc"] = gsc, _["RU"] = RU,
+			_["nuU"] = nuU, _["gscU"] = gscU, _["bracketLow"] = bracketLow, _["bracketHigh"] = bracketHigh,
+			_["consistency"] = consistency, _["rankDeficit"] = rankDeficit);
+
+		// At the returned point: the smallest certified bound (R, gsc or the U-form gsc), else the Lambda^2 / 2
+		// estimate, uncertified
+		const auto& last = shadow.back();
+		std::string certificate = "none";
+		double estimate = NAN;
+		const std::pair<const char*, double> bounds[] = {{"R", last.R}, {"gsc", last.gsc}, {"gscU", last.gscU}};
+		for (const auto& bound : bounds) {
+			if (std::isfinite(bound.second) && !(bound.second >= estimate)) {
+				certificate = bound.first;
+				estimate = bound.second;
+			}
+		}
+		const bool certified = certificate != "none";
+		if (!certified) {
+			estimate = last.lambda2Half;
+		}
+		list["convergence"] = List::create(_["gapEstimate"] = estimate, _["certified"] = certified,
+			_["certificate"] = certificate, _["R"] = last.R, _["gsc"] = last.gsc, _["gscU"] = last.gscU,
+			_["lambda2Half"] = last.lambda2Half, _["kktMaxR"] = last.kktMaxR, _["cycles"] = last.cycle);
+	}
+
+	appendNewtonReports(list, *interface);
 	return list;
 }
 
@@ -1022,6 +1207,8 @@ bsccs::ConvergenceType RcppCcdInterface::parseConvergenceType(const std::string&
 	    type = ONE_STEP;
 	} else if (convergenceName == "kkt") {
 	    type = KKT;
+	} else if (convergenceName == "gap") {
+	    type = GAP;
 	} else {
 		handleError("Invalid convergence type.");
 	}

@@ -5,8 +5,8 @@ library("survival")
 # createControl(fitter = ): "legacy" runs the Cyclops 3.7 code, "default" the current code
 #
 
-fitterControl <- function(fitter, ...) {
-    createControl(noiseLevel = "silent", fitter = fitter, ...)
+fitterControl <- function(fitter, ...) { # the fitters' coordinate-descent code
+    createControl(noiseLevel = "silent", fitter = fitter, algorithm = "ccd", ...)
 }
 
 fitterModels <- function() {

@@ -53,7 +53,8 @@ test_that("A final fit that fails the gradient criterion does not repeat the cro
     expect_warning(log <- capture.output(
         fit <- fitCyclopsModel(cyclopsData, prior = createPrior("laplace", useCrossValidation = TRUE),
                                control = createControl(noiseLevel = "quiet", cvType = "grid", lowerLimit = 1e-4,
-                                                       upperLimit = 1e-4, gridSteps = 1, fold = 5, seed = 1))),
+                                                       upperLimit = 1e-4, gridSteps = 1, fold = 5, seed = 1,
+                                                       algorithm = "ccd"))), # the "gradient" criterion's failure
         "BLR convergence")
     expect_equal(length(grep("pred log like = ", log)), 5) # each fold fit once
     expect_equal(length(grep("Not computed", log)), 0)

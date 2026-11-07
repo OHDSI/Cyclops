@@ -1,3 +1,95 @@
+Cyclops (development version)
+=============================
+
+Changes:
+
+1. `vcov()`, `getSEs()` and the Fisher information of `cox` and `cox_counting` fits come from one
+   Hessian computation instead of one pass over the data per pair of covariates: with 571 covariates and
+   13,152 rows, 24 s becomes 0.04 s, with results equal to 1e-13 (relative)
+2. `vcov()` and `getSEs()` invert the information through a pivoted Cholesky factorization. When the
+   information is singular (aliased covariates, such as exact duplicates), they return `NA` for the
+   aliased coefficients, with a warning, instead of an error from `solve()`; the other entries are
+   unchanged. Results of identified models differ from earlier versions only by rounding
+3. the Fisher information of `cox` and `cox_counting` fits with integer case weights (including 0/1
+   weights) no longer stops with "Weights are not yet implemented"; non-integer weights still do
+4. `createControl(algorithm = "auto")` fits `cox` and `cox_counting` models with normal or no priors by
+   coordinate descent that switches to dense Newton steps when an operation count says they are
+   cheaper, and back to coordinate descent if they fail; `algorithm = "newton"` takes Newton steps after
+   three coordinate-descent cycles. With 571 covariates and 13,152 rows (`cox_counting`), a ridge fit takes
+   0.14 s instead of 1.3 s and reaches the optimum, where the default stopped 0.013 log-likelihood units
+   short (`survival::coxph()`: 63 s). On large designs where Newton steps cost more than coordinate
+   descent, `"auto"` stays with coordinate descent
+5. `createControl(convergenceType = "gap")` stops when a certified bound on the distance to the optimum
+   of the log posterior falls below `tolerance` (default 1e-6, scaled by the mean positive weight; 1e-5
+   for cross-validation folds). It is the default under `algorithm = "auto"` or `"newton"`. Fits report
+   the path and the bound in `fit$algorithm` and `fit$convergence`, and a fit that reaches `maxIterations`
+   warns with its estimated gap
+6. `fitter = "super"` fits `cox` and `cox_counting` models with `algorithm = "auto"`. Under the default
+   fitter nothing changes, and an explicit `convergenceType` other than `"gap"` keeps `"auto"` on
+   coordinate descent, with the results of earlier versions. A fit that cannot take Newton steps stops
+   with an error under `"newton"` or an explicit `"gap"`, and otherwise runs coordinate descent with the
+   criterion it would have had
+7. a `"ccd"` fit after an `"mm"` fit on the same data object runs coordinate descent (it kept running
+   `"mm"`)
+8. separation: an unpenalized coefficient whose likelihood is monotone in it alone (`cox` and `cox_counting`:
+   every event at its risk set's minimum or maximum of the covariate; `cpr`, `sccs` and `clr`: likewise
+   within each stratum; `lr`: every row with a non-zero value has the same outcome, by sign) is detected
+   before fitting and held at its limit while the other coefficients are fit, which then equal those of
+   the limiting model. With no prior on any coefficient the fit is `ILLCONDITIONED`; otherwise it is
+   `SUCCESS`. Either way the divergent coefficients stay at their limit (so the log likelihood, profiles
+   and the other coefficients' `confint()` are those of the limiting model), the fit warns, and
+   `fit$divergentCoefficients` names them; `confint()` returns `NA` for them in an `ILLCONDITIONED` fit.
+   Earlier versions returned `SUCCESS` with large finite values or `ILLCONDITIONED` with `NaN`, depending
+   on the data and the convergence criterion, so results of separated fits change; code that found
+   separated coefficients by `is.nan(coef(fit, ignoreConvergence = TRUE))` should read
+   `fit$divergentCoefficients`
+9. Newton steps on `cox` and `cox_counting` designs solve with conjugate gradients (Newton-CG) when an
+   operation count says that is cheaper than a dense factorization, or when the dense matrices of all
+   concurrent fits would exceed 256 MB. A rank-32 Woodbury preconditioner (the row part of the Hessian
+   minus a binned approximation of its risk-set part) cuts the conjugate-gradient work 8-16 fold, and the
+   stop is certified from an explicit-residual bracket. With 3,068 covariates and 13,152 rows a ridge fit
+   to a gap of 1e-8 takes 1.5 s (dense Newton: 7.5 s; coordinate descent did not get there in 25,000
+   cycles), and with 2,016 covariates 0.52 s (dense: 2.5 s)
+10. the Hessian of `cox` and `cox_counting` models (used by `vcov()`, `getSEs()` and Newton steps) is
+   computed on `createControl(threads = )` threads, with results that do not depend on their number
+11. `createControl(mergeDuplicates = )` fits each group of exactly duplicated columns (same rows and values,
+   same prior) as one coefficient: on duplicated designs coordinate descent no longer crawls along the
+   flat direction between duplicates (571 distinct of 597 columns: 551 cycles to the `"kkt"` tolerance
+   instead of more than 30,000). Normal priors report the equal split of the group's total, the unique
+   maximum; Laplace and no priors put the total on the group's first column. `fit$aliasedColumns` names
+   the groups. It is on by default with `algorithm = "auto"` or `"newton"`, and off otherwise
+12. `algorithm = "auto"` and `"newton"` also fit `cox` and `cox_counting` models with Laplace priors, by
+   prox-Newton: Newton steps on the working set of nonzero, violating and unpenalized coefficients, with
+   the L1 model minimized by coordinate descent and then exactly on its signed active face. With 597
+   covariates (13,152 rows) a Laplace fit to its optimum takes 0.14-0.35 s; the `"kkt"` criterion on
+   coordinate descent took 3.4-94 s to a looser tolerance. Its stop, an exact model decrease below
+   `tolerance`, is an estimate rather than a certified bound (`fit$convergence$certified` is `FALSE`)
+13. `algorithm = "auto"` and `"newton"` also fit `cpr`, `sccs` and `clr` models (normal, Laplace or no
+   priors). The SCCS design of the package vignette (20,000 cases, 1.18 million rows) fits in 0.6 s
+   instead of 5.5 s and reaches the optimum, and designs with age and calendar-time splines, where
+   coordinate descent reached its iteration limit in 63 of 66 cases, all converge in under 0.3 s.
+   Designs where columns are constant within every stratum are fit to their minimum-norm solution
+14. under `"auto"` and `"newton"`, profile likelihoods and `confint()` refit each point from the Hessian at
+   the estimate (chord Newton steps, whose first step is the tangent of the profile), with a certificate
+   that allows for the Hessian's lag; with SelfControlledCaseSeries' defaults, a fit with its profiles,
+   confidence intervals and null likelihoods takes 1.8 s instead of 12.9 s
+15. `algorithm = "auto"` and `"newton"` also fit `lr` models (normal, Laplace or no priors), by dense
+   Newton, Newton-CG or prox-Newton, in cross-validation folds too. A propensity-score model with 1,755
+   covariates and 197,753 rows reaches its optimum in 2.8-3.1 s with a normal prior and 1.5-3.3 s with
+   a Laplace prior, where coordinate descent stopped 15-24 log-likelihood units short of a ridge optimum
+   after 10-31 s; one with 19,591 covariates and a million rows reaches its Laplace optimum in 17 s, where
+   coordinate descent stopped 21 units short after 35 s. `vcov()` of an `lr` fit with integer weights now treats them as row counts (it
+   stopped with an error)
+16. **The default algorithm is now `"auto"`** (with the `"gap"` criterion) for `cox`, `cox_counting`,
+   `cpr`, `sccs`, `clr` and `lr` models. Across 57 benchmark problems it reached the optimum every time,
+   where the earlier default stopped more than 1e-3 short of it on 31 (by up to 1,322 log-likelihood
+   units) and reached its iteration limit on 5; it was a median 7.1 times faster where the earlier default
+   fell short, and 10-15% slower where that default was already accurate and fast. Results therefore
+   change, and cross-validated variances can move where earlier fold fits were not converged.
+   `createControl(algorithm = "ccd")` reproduces earlier results exactly. Fits under `fitter = "legacy"`,
+   other models, and the refits of priors with a `fitHook` (BrokenAdaptiveRidge,
+   IterativeHardThresholding, `createNonSeparablePrior()`) keep coordinate descent
+
 Cyclops v3.8.0
 ==============
 

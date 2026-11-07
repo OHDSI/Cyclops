@@ -50,6 +50,21 @@ public:
 
 	virtual PriorType getPriorType(const int index) {return PriorType::NONE;};
 
+	// Precision of a quadratic (normal or flat) prior on coordinate index; false for other priors
+	virtual bool getNormalPrecision(const int index, double* precision) const {
+		return false;
+	}
+
+	// Rate of an independent Laplace prior on coordinate index; false for other priors
+	virtual bool getLaplaceLambda(const int index, double* lambda) const {
+		return false;
+	}
+
+	// See CovariatePrior::getNewtonPenalty()
+	virtual bool getNewtonPenalty(const int index, double* precision, double* lambda) const {
+		return false;
+	}
+
 	// See CovariatePrior::setOutcomeScale()
 	virtual void setOutcomeScale(double scale) { }
 
@@ -78,6 +93,10 @@ public:
 	        tmp.push_back(v.get());
 	    }
 		return tmp;
+	}
+
+	const std::vector<VariancePtr>& getVarianceParameters() const {
+		return variance;
 	}
 
 protected:
@@ -150,6 +169,18 @@ public:
 
 	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
 		return listPriors[index]->getDelta(gh, beta, index, ccd);
+	}
+
+	bool getNormalPrecision(const int index, double* precision) const {
+		return listPriors[index]->getNormalPrecision(precision);
+	}
+
+	bool getLaplaceLambda(const int index, double* lambda) const {
+		return listPriors[index]->getLaplaceLambda(lambda);
+	}
+
+	bool getNewtonPenalty(const int index, double* precision, double* lambda) const {
+		return listPriors[index]->getNewtonPenalty(precision, lambda);
 	}
 
 	bool getSupportsKktSwindle(const int index) const {
@@ -641,6 +672,18 @@ public:
 		return singlePrior->getDelta(gh, beta, index, ccd);
 	}
 
+	bool getNormalPrecision(const int index, double* precision) const {
+		return singlePrior->getNormalPrecision(precision);
+	}
+
+	bool getLaplaceLambda(const int index, double* lambda) const {
+		return singlePrior->getLaplaceLambda(lambda);
+	}
+
+	bool getNewtonPenalty(const int index, double* precision, double* lambda) const {
+		return singlePrior->getNewtonPenalty(precision, lambda);
+	}
+
 	bool getIsRegularized(const int index) const {
 	    return singlePrior->getIsRegularized();
 	}
@@ -688,6 +731,97 @@ private:
 };
 
 typedef bsccs::shared_ptr<JointPrior> JointPriorPtr;
+
+// Exact-duplicate columns merged into one coordinate for a fit (Newton plan 2.8, Phase 5). The representative of a
+// group of k columns carries the group's total b, and the other members stay fixed at 0. A penalty
+// lambda |b_i| + precision / 2 b_i^2 on each member with precision > 0 (Normal, elastic net) is then exactly
+// lambda |b| + precision / (2 k) b^2 on b: both terms are least at the equal split, the unique MAP. A Laplace or flat
+// prior is exact as it is, with all the mass on the representative. Everything else is the wrapped prior's.
+class AliasedJointPrior : public JointPrior {
+public:
+	AliasedJointPrior(JointPriorPtr wrapped, std::vector<int> groupSize)
+		: wrapped(wrapped), groupSize(std::move(groupSize)) {
+		addVarianceParameters(this->wrapped->getVarianceParameters());
+	}
+
+	// sum over the members at the equal split: the wrapped prior has precision / 2 b^2 on the representative
+	double logDensity(const DoubleVector& beta, CyclicCoordinateDescent& ccd) const {
+		double value = wrapped->logDensity(beta, ccd);
+		for (size_t j = 0; j < groupSize.size(); ++j) {
+			double precision = 0.0, lambda = 0.0;
+			if (merged(static_cast<int>(j), &precision, &lambda)) {
+				value += 0.5 * precision * groupSize[j] * beta[j] * beta[j] * (1.0 - 1.0 / groupSize[j]);
+			}
+		}
+		return value;
+	}
+
+	double getDelta(const GradientHessian gh, const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
+		double precision = 0.0, lambda = 0.0;
+		if (!merged(index, &precision, &lambda)) {
+			return wrapped->getDelta(gh, beta, index, ccd);
+		}
+		const double b = beta[index];
+		const double gradient = gh.first + precision * b;
+		const double hessian = gh.second + precision;
+		if (lambda == 0.0) {
+			return -gradient / hessian;
+		}
+		// the elastic-net step: soft-threshold, and stop at 0 rather than cross it
+		const double down = -(gradient - lambda) / hessian;
+		const double up = -(gradient + lambda) / hessian;
+		if (b == 0.0) {
+			return down < 0.0 ? down : (up > 0.0 ? up : 0.0);
+		}
+		const double delta = b < 0.0 ? down : up;
+		return ((b + delta) * b <= 0.0) ? -b : delta;
+	}
+
+	GradientHessian getKktResidual(const int index, double gradient, double beta) const {
+		double precision = 0.0, lambda = 0.0;
+		if (!merged(index, &precision, &lambda)) {
+			return wrapped->getKktResidual(index, gradient, beta);
+		}
+		const double residual = (beta == 0.0 && lambda > 0.0) ? std::max(std::abs(gradient) - lambda, 0.0) :
+			std::abs(gradient + precision * beta + (beta > 0.0 ? lambda : (beta < 0.0 ? -lambda : 0.0)));
+		return GradientHessian(residual, precision);
+	}
+
+	bool getNormalPrecision(const int index, double* precision) const {
+		if (!wrapped->getNormalPrecision(index, precision)) {
+			return false;
+		}
+		if (groupSize[index] > 1) {
+			*precision /= groupSize[index];
+		}
+		return true;
+	}
+
+	bool getLaplaceLambda(const int index, double* lambda) const { return wrapped->getLaplaceLambda(index, lambda); }
+	bool getNewtonPenalty(const int index, double* precision, double* lambda) const {
+		return merged(index, precision, lambda) || wrapped->getNewtonPenalty(index, precision, lambda);
+	}
+	const std::string getDescription() const { return wrapped->getDescription(); }
+	bool getIsRegularized(const int index) const { return wrapped->getIsRegularized(index); }
+	bool getSupportsKktSwindle(const int index) const { return wrapped->getSupportsKktSwindle(index); }
+	bool getSupportsKktSwindle(void) const { return wrapped->getSupportsKktSwindle(); }
+	double getKktBoundary(const int index) const { return wrapped->getKktBoundary(index); }
+	void setOutcomeScale(double scale) { wrapped->setOutcomeScale(scale); }
+	PriorType getPriorType(const int index) { return wrapped->getPriorType(index); }
+
+private:
+	// a merged group's representative with a quadratic part: the penalty of the group total
+	bool merged(const int index, double* precision, double* lambda) const {
+		if (groupSize[index] <= 1 || !wrapped->getNewtonPenalty(index, precision, lambda) || !(*precision > 0.0)) {
+			return false;
+		}
+		*precision /= groupSize[index];
+		return true;
+	}
+
+	JointPriorPtr wrapped;
+	std::vector<int> groupSize; // per coefficient: the size of the group it represents (1: not merged)
+};
 
 } /* namespace priors */
 } /* namespace bsccs */

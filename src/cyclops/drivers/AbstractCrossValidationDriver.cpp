@@ -248,6 +248,9 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 	ModeFindingArguments foldModeFinding = allArguments.modeFinding;
 	if (arguments.foldConvergenceType >= 0) {
 		foldModeFinding.convergenceType = arguments.foldConvergenceType;
+		if (foldModeFinding.algorithmType == AlgorithmType::AUTO && arguments.foldConvergenceType != GAP) {
+			foldModeFinding.algorithmType = AlgorithmType::CCD; // as for a final fit: auto with another rule is CCD
+		}
 	}
 	if (arguments.foldTolerance > 0.0) {
 		foldModeFinding.tolerance = arguments.foldTolerance;

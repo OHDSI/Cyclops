@@ -28,10 +28,11 @@ test_that("vcov after refitting the same cyclopsData uses the current coefficien
     cd <- createCyclopsData(event ~ exgr + agegr + strata(indiv) + offset(loginterval), data = data, modelType = "cpr")
     first <- fitCyclopsModel(cd)
     invisible(vcov(first))
-    second <- fitCyclopsModel(cd, prior = createPrior("normal", variance = 0.1))
+    tight <- createControl(convergenceType = "gap", tolerance = 1E-12) # two starts: the same optimum
+    second <- fitCyclopsModel(cd, prior = createPrior("normal", variance = 0.1), control = tight)
     fresh <- fitCyclopsModel(createCyclopsData(event ~ exgr + agegr + strata(indiv) + offset(loginterval),
                                                data = data, modelType = "cpr"),
-                             prior = createPrior("normal", variance = 0.1))
+                             prior = createPrior("normal", variance = 0.1), control = tight)
     expect_equal(coef(second), coef(fresh), tolerance = 1E-6)
     expect_equal(vcov(second), vcov(fresh), tolerance = 1E-6)
 })
@@ -49,9 +50,17 @@ test_that("vcov for cpr ignores strata without events", {
     expect_equal(vcov(fitWithEmpty), vcov(fit), tolerance = 1E-6)
 })
 
-test_that("vcov with weights reports that weights are not supported", {
-    fit <- fitCyclopsModel(createCyclopsData(case ~ spontaneous + induced, data = infert, modelType = "lr"),
-                           weights = rep(c(1, 2), length.out = nrow(infert)))
+test_that("vcov with weights: integer weights count rows, others are not supported", {
+    formula <- case ~ spontaneous + induced
+    twice <- rep(c(1, 2), length.out = nrow(infert))
+    control <- createControl(tolerance = 1E-10, noiseLevel = "silent")
+    fit <- fitCyclopsModel(createCyclopsData(formula, data = infert, modelType = "lr"), weights = twice, control = control)
+    replicated <- fitCyclopsModel(createCyclopsData(formula, data = infert[rep(seq_len(nrow(infert)), twice), ],
+                                                    modelType = "lr"), control = control)
+    expect_equal(vcov(fit), vcov(replicated), tolerance = 1E-6)
+
+    fit <- fitCyclopsModel(createCyclopsData(formula, data = infert, modelType = "lr"),
+                           weights = rep(c(1, 1.5), length.out = nrow(infert)))
     expect_error(vcov(fit), "Weights are not yet implemented in Fisher Information calculations")
 })
 

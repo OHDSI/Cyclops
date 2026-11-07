@@ -102,6 +102,12 @@ struct ModeFindingArguments {
 	double activeSetThreshold = 0.01; // active-set cycling: relative step size below which a coordinate is skipped
 	bool adaptiveIntercept = false; // extra intercept steps; see CyclicCoordinateDescent::trackInterceptGradient()
 	int minIterations; // no convergence (SUCCESS) before this many cycles
+	// algorithm "auto" with convergence "gap" from the fitter's defaults: the criterion to use instead when the fit
+	// is not eligible for second-order steps (-1: none, the "gap" request was explicit and errors)
+	int fallbackConvergenceType = -1;
+	double fallbackTolerance = 1E-6;
+	int fallbackMaxIterations = 1000;
+	bool mergeDuplicates = false; // merge exact-duplicate columns for the fit (Newton plan 2.8)
 
 	ModeFindingArguments() :
 		tolerance(1E-6),

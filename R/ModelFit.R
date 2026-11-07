@@ -81,8 +81,12 @@ fitCyclopsModel <- function(cyclopsData,
                                startingCoefficients, fixedCoefficients))
     }
 
-    # Delegate to prior$fitHook if exists
+    # Delegate to prior$fitHook if exists; its loop of refits (BrokenAdaptiveRidge, IterativeHardThresholding,
+    # createNonSeparablePrior) keeps coordinate descent unless an algorithm is given (Newton plan D1)
     if (!is.null(prior$fitHook)) {
+        if (is.null(control$algorithm)) {
+            control$algorithm <- "ccd"
+        }
         return(prior$fitHook(cyclopsData, prior, control,
                              weights, forceNewObject, returnEstimates,
                              startingCoefficients, fixedCoefficients))
@@ -339,7 +343,33 @@ fitCyclopsModel <- function(cyclopsData,
         fit <- .cyclopsFitModel(cyclopsData$cyclopsInterfacePtr)
     }
 
-    if (fit$return_flag == "POOR_BLR_STEP" && control$convergenceType == "gradient") {
+    if (!is.null(fit$aliasedColumns) || !is.null(fit$divergentCoefficients)) { # labels to names, one lookup
+        ids <- as.character(getCovariateIds(cyclopsData))
+        names <- .coefficientNames(cyclopsData)
+        byLabel <- function(labels) names[match(as.character(bit64::as.integer64(labels)), ids)]
+    }
+    if (!is.null(fit$aliasedColumns)) { # merged exact duplicates (Newton plan 2.8), by name
+        fit$aliasedColumns <- lapply(fit$aliasedColumns, byLabel)
+    }
+    if (!is.null(fit$divergentCoefficients)) { # separation (D5): names, and a warning when the fit stands
+        fit$divergentCoefficients <- byLabel(fit$divergentCoefficients)
+        if (warnings) {
+            warning("Separation: coefficient may be infinite (", paste(fit$divergentCoefficients, collapse = ", "), "); ",
+                    "reported at its limit (fit$divergentCoefficients)")
+        }
+    }
+    if (warnings && fit$return_flag == "MAX_ITERATIONS" && !is.null(fit$convergence) &&
+        is.finite(fit$convergence$gapEstimate)) {
+        warning("Reached maxIterations; the estimated gap to the optimum is ", signif(fit$convergence$gapEstimate, 3))
+    }
+
+    # POOR_BLR_STEP comes from the "gradient" criterion: explicit, the default, or the one a fit that could not take
+    # Newton steps fell back to under "auto"
+    usedType <- control$convergenceType
+    if (isTRUE(nzchar(fit$convergence$ineligible)) && !is.null(control$fallbackConvergenceType)) {
+        usedType <- control$fallbackConvergenceType
+    }
+    if (fit$return_flag == "POOR_BLR_STEP" && (is.null(usedType) || identical(usedType, "gradient"))) {
 
         if (warnings) {
             warning("BLR convergence criterion failed; coefficient may be infinite")
@@ -651,6 +681,18 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
         cat("Log likelikehood: ", x$log_likelihood, "\n", sep="")
         cat("       Log prior: ", x$log_prior, "\n", sep="")
     }
+    if (!is.null(x$convergence) && !is.null(x$algorithm)) {
+        conv <- x$convergence
+        cat("       Algorithm: ", x$algorithm, if (conv$newtonIterations > 0)
+            paste0(" (", conv$newtonIterations, " Newton iterations after ", conv$newtonStart, " cycles)"), "\n", sep="")
+        if (is.finite(conv$gapEstimate)) {
+            cat("    Gap estimate: ", signif(conv$gapEstimate, 3),
+                if (conv$certified) paste0(" (certified, ", conv$certificate, ")") else " (not certified)", "\n", sep="")
+        }
+        if (nzchar(conv$ineligible)) {
+            cat("      Newton off: ", conv$ineligible, "\n", sep="")
+        }
+    }
     invisible(x)
 }
 
@@ -660,17 +702,26 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' \code{createControl} creates a Cyclops control object for use with \code{\link{fitCyclopsModel}}.
 #'
 #' @param maxIterations			Integer: maximum iterations of Cyclops to attempt before returning a failed-to-converge error.
-#'                              \code{NULL} (default) means 1000, or 5000 with \code{convergenceType = "kkt"}
+#'                              \code{NULL} (default) means 1000, or 5000 with \code{convergenceType = "kkt"} or
+#'                              \code{"gap"} (where Newton iterations count as iterations too)
 #' @param tolerance					Numeric: maximum relative change in convergence criterion from successive iterations to achieve
 #'                              convergence. \code{NULL} (default) means 1e-6, or 1e-4 with \code{convergenceType = "kkt"},
-#'                              which measures it in standard-error units. For least squares, whose default
-#'                              criterion is \code{"kkt"}, a given tolerance is in those units (a tighter one costs
-#'                              little more there); under \code{fitter = "super"}, logistic regression ignores a
-#'                              tolerance given without \code{convergenceType}
+#'                              which measures it in standard-error units, or 1e-6 with \code{convergenceType = "gap"},
+#'                              which measures the distance to the optimum of the log posterior, scaled by the mean
+#'                              positive weight. For least squares, whose default criterion is \code{"kkt"}, a given
+#'                              tolerance is in those units (a tighter one costs little more there); under
+#'                              \code{fitter = "super"}, logistic regression ignores a tolerance given without
+#'                              \code{convergenceType}, and a tolerance given without \code{convergenceType} is ignored
+#'                              when the fit resolves to \code{"gap"} through \code{algorithm}
 #' @param convergenceType		String: name of convergence criterion to employ (described in more detail below).
-#'                              \code{NULL} (default) means \code{"gradient"}, or \code{"kkt"} for logistic regression with
+#'                              \code{NULL} (default) means \code{"gradient"}, \code{"kkt"} for logistic regression with
 #'                              \code{fitter = "super"} and for least squares (\code{"ls"}) other than under
-#'                              \code{fitter = "legacy"}
+#'                              \code{fitter = "legacy"}, and \code{"gap"} with \code{algorithm = "auto"} or
+#'                              \code{"newton"}. \code{"gap"} stops when a certified bound on the distance to the
+#'                              optimum of the log posterior is below \code{tolerance}; it needs a model with
+#'                              second-order kernels (so far \code{"cox"}, \code{"cox_counting"}, \code{"cpr"}, \code{"sccs"},
+#'                              \code{"clr"} and \code{"lr"} in double precision on the CPU) and normal, Laplace or no priors; with Laplace priors the stop is an
+#'                              estimate rather than a certified bound
 #' @param cvType						String: name of cross validation search.
 #' 													Option \code{"auto"} selects an auto-search following BBR.
 #' 													Option \code{"grid"} selects a grid-search cross validation
@@ -705,7 +756,21 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              \code{"bySubject"} replaces \code{"byRow"} when the data have subjects.
 #' @param initialBound          Numeric: Starting trust-region size
 #' @param maxBoundCount         Numeric: Maximum number of tries to decrease initial trust-region size
-#' @param algorithm             String: name of fitting algorithm to employ; default is `ccd`
+#' @param algorithm             String: name of fitting algorithm to employ: \code{"ccd"} (cyclic coordinate
+#'                              descent), \code{"mm"}, \code{"auto"} (coordinate descent that switches to dense
+#'                              Newton steps when an operation count says they are cheaper, and back on failure) or
+#'                              \code{"newton"} (Newton steps after three coordinate-descent cycles). \code{NULL}
+#'                              (default) means \code{"auto"} for \code{"cox"}, \code{"cox_counting"}, \code{"cpr"},
+#'                              \code{"sccs"}, \code{"clr"} and \code{"lr"} and \code{"ccd"} otherwise, under \code{fitter = "legacy"},
+#'                              and for the refits of a prior with a \code{fitHook} (BrokenAdaptiveRidge, IterativeHardThresholding,
+#'                              \code{\link{createNonSeparablePrior}}). Under \code{"auto"}, an explicit
+#'                              \code{convergenceType} other than \code{"gap"} runs \code{"ccd"}; under
+#'                              \code{"newton"}, it maps onto Newton iterations (\code{"gradient"}, \code{"lange"},
+#'                              \code{"mittal"}: relative change of the objective; \code{"kkt"}: the largest
+#'                              standardized gradient; \code{"onestep"}: one Newton iteration). A fit that cannot
+#'                              take Newton steps stops with an error under \code{"newton"} or an explicit
+#'                              \code{"gap"}, and otherwise runs \code{"ccd"} with the criterion it would have had,
+#'                              noted in \code{fit$convergence$ineligible}
 #' @param fitter                String: which fitting code to run. \code{"default"} runs the current code.
 #'                              \code{"legacy"} runs the code of Cyclops 3.7, to reproduce earlier results: for
 #'                              logistic regression (\code{"lr"}), the grouped models (\code{"cpr"}, \code{"sccs"},
@@ -780,6 +845,12 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              them. \code{NULL} (default) means \code{TRUE} for logistic regression with
 #'                              \code{fitter = "super"} and for least squares other than under
 #'                              \code{fitter = "legacy"}, and \code{FALSE} otherwise
+#' @param mergeDuplicates       Logical: fit each group of exactly duplicated columns (same rows and values, same
+#'                              prior) as one coefficient. A normal prior's coefficients are reported as the equal
+#'                              split of the group's total (the unique maximum), and a Laplace or no prior's with
+#'                              the total on the group's first column; \code{fit$aliasedColumns} names the groups.
+#'                              \code{NULL} (default) means \code{TRUE} with \code{algorithm = "auto"} or
+#'                              \code{"newton"} and \code{FALSE} otherwise
 #' @param doItAll               Currently unused
 #' @param syncCV                Currently unused
 #'
@@ -815,7 +886,7 @@ createControl <- function(maxIterations = NULL,
                           selectorType = "auto",
                           initialBound = 2.0,
                           maxBoundCount = 5,
-                          algorithm = "ccd",
+                          algorithm = NULL,
                           fitter = "default",
                           cvConvergenceType = NULL,
                           cvTolerance = NULL,
@@ -828,6 +899,7 @@ createControl <- function(maxIterations = NULL,
                           activeSetEvery = NULL,
                           activeSetThreshold = NULL,
                           adaptiveIntercept = NULL,
+                          mergeDuplicates = NULL,
                           doItAll = TRUE,
                           syncCV = FALSE) {
     validCVNames = c("grid", "auto")
@@ -839,10 +911,11 @@ createControl <- function(maxIterations = NULL,
     stopifnot(startingVariance == -1 || startingVariance > 0)
     stopifnot(selectorType %in% c("auto","byPid", "byRow", "bySubject"))
 
-    validAlgorithmNames = c("ccd", "mm")
-    stopifnot(algorithm %in% validAlgorithmNames)
+    validAlgorithmNames = c("ccd", "mm", "auto", "newton")
+    stopifnot(is.null(algorithm) || algorithm %in% validAlgorithmNames)
     stopifnot(fitter %in% c("legacy", "default", "super"))
-    validConvergenceNames <- c("gradient", "lange", "mittal", "zhang", "onestep", "kkt")
+    validConvergenceNames <- c("gradient", "lange", "mittal", "zhang", "onestep", "kkt", "gap")
+    stopifnot(is.null(algorithm) || algorithm != "mm" || !identical(convergenceType, "gap"))
     stopifnot(is.null(convergenceType) || convergenceType %in% validConvergenceNames)
     stopifnot(is.null(tolerance) || tolerance >= 0) # 0 runs maxIterations cycles
     stopifnot(is.null(maxIterations) || maxIterations >= 1)
@@ -857,6 +930,7 @@ createControl <- function(maxIterations = NULL,
     stopifnot(is.null(activeSetEvery) || activeSetEvery == 0 || activeSetEvery > 1)
     stopifnot(is.null(activeSetThreshold) || (activeSetThreshold >= 0 && activeSetThreshold < 1))
     stopifnot(is.null(adaptiveIntercept) || is.logical(adaptiveIntercept))
+    stopifnot(is.null(mergeDuplicates) || is.logical(mergeDuplicates))
 
     structure(list(maxIterations = maxIterations,
                    tolerance = tolerance,
@@ -891,6 +965,7 @@ createControl <- function(maxIterations = NULL,
                    activeSetEvery = activeSetEvery,
                    activeSetThreshold = activeSetThreshold,
                    adaptiveIntercept = adaptiveIntercept,
+                   mergeDuplicates = mergeDuplicates,
                    doItAll = doItAll,
                    syncCV = syncCV),
               class = "cyclopsControl")
@@ -1092,6 +1167,7 @@ getCrossValidationInfo <- function(object) {
 .activeSetMinCovariates <- 1000
 
 .resolveControl <- function(control, modelType = NULL, nCovariates = NULL) {
+    control <- .resolveAlgorithm(control, modelType, nCovariates)
     settings <- .fitterSettings(control, modelType, nCovariates)
     if (identical(.fitter(control), "super") && identical(modelType, "lr") &&
         !is.null(control$tolerance) && is.null(control$convergenceType)) {
@@ -1107,19 +1183,24 @@ getCrossValidationInfo <- function(object) {
         }
     }
     kkt <- control$convergenceType == "kkt" # in standard-error units; an honest rule needs more cycles
+    gap <- control$convergenceType == "gap" # in log-posterior units (Newton plan 3.3, D3)
     if (is.null(control$tolerance)) {
-        control$tolerance <- if (kkt) 1E-4 else 1E-6
+        control$tolerance <- if (gap) 1E-6 else if (kkt) 1E-4 else 1E-6 # gap: certified bounds are conservative
     }
     if (is.null(control$maxIterations)) {
-        control$maxIterations <- if (kkt) 5000 else 1000
+        control$maxIterations <- if (kkt || gap) 5000 else 1000
+    }
+    if (gap && is.null(control$cvConvergenceType)) { # fold fits stop at a looser gap
+        control$cvConvergenceType <- "gap"
     }
     if (!is.null(control$cvConvergenceType)) { # fold fits with their own rule get its defaults; kkt folds stop earlier
         cvKkt <- control$cvConvergenceType == "kkt"
+        cvGap <- control$cvConvergenceType == "gap"
         if (is.null(control$cvTolerance)) {
-            control$cvTolerance <- if (cvKkt) 3E-3 else 1E-6
+            control$cvTolerance <- if (cvGap) 1E-5 else if (cvKkt) 3E-3 else 1E-6
         }
         if (is.null(control$cvMaxIterations)) {
-            control$cvMaxIterations <- if (cvKkt) 5000 else 1000
+            control$cvMaxIterations <- if (cvKkt || cvGap) 5000 else 1000
         }
     }
     if (control$convergenceType != "kkt" && !identical(control$cvConvergenceType, "kkt")) {
@@ -1132,6 +1213,37 @@ getCrossValidationInfo <- function(object) {
         if (control$adaptiveIntercept) {
             stop("adaptiveIntercept needs convergenceType = \"kkt\" or cvConvergenceType = \"kkt\"", call. = FALSE)
         }
+    }
+    control
+}
+
+# algorithm and the "gap" criterion (Newton plan 2.10). NULL means the fitter's choice: "auto" for Cox models under
+# fitter = "super", else "ccd". An explicit criterion other than "gap" under "auto" runs "ccd", bitwise as before.
+# "auto" or "newton" without a criterion means "gap"; for "auto", the criterion the fitter would have used on CCD
+# is kept as the fallback for a fit that cannot take Newton steps (a tolerance given without a criterion applies
+# only there).
+# Models with second-order kernels (Newton plan 2.2): the default algorithm is "auto" for them
+.secondOrderModels <- c("cox", "cox_counting", "cpr", "sccs", "clr", "lr")
+
+.resolveAlgorithm <- function(control, modelType = NULL, nCovariates = NULL) {
+    if (is.null(control$algorithm) || is.na(control$algorithm)) { # D1: auto wherever there are second-order kernels
+        control$algorithm <- if (!identical(.fitter(control), "legacy") && isTRUE(modelType %in% .secondOrderModels))
+            "auto" else "ccd"
+    }
+    explicitType <- !is.null(control$convergenceType)
+    if (control$algorithm == "auto" && explicitType && control$convergenceType != "gap") {
+        control$algorithm <- "ccd"
+    }
+    control$fallbackConvergenceType <- ""
+    if (control$algorithm %in% c("auto", "newton") && !explicitType) {
+        if (control$algorithm == "auto") {
+            ccd <- .resolveControl(modifyList(control, list(algorithm = "ccd")), modelType, nCovariates)
+            control$fallbackConvergenceType <- ccd$convergenceType
+            control$fallbackTolerance <- ccd$tolerance
+            control$fallbackMaxIterations <- ccd$maxIterations
+        }
+        control$convergenceType <- "gap"
+        control["tolerance"] <- list(NULL)
     }
     control
 }
@@ -1151,9 +1263,14 @@ getCrossValidationInfo <- function(object) {
 
 # Mode-finding options of a resolved control
 .modeControlOptions <- function(control) {
+    valueOr <- function(value, default) if (is.null(value)) default else value
     list(activeSetEvery = as.integer(control$activeSetEvery),
          activeSetThreshold = as.numeric(control$activeSetThreshold),
-         adaptiveIntercept = as.logical(control$adaptiveIntercept))
+         adaptiveIntercept = as.logical(control$adaptiveIntercept),
+         fallbackConvergenceType = valueOr(control$fallbackConvergenceType, ""),
+         fallbackTolerance = as.numeric(valueOr(control$fallbackTolerance, 1E-6)),
+         fallbackMaxIterations = as.integer(valueOr(control$fallbackMaxIterations, 1000)),
+         mergeDuplicates = as.logical(valueOr(control$mergeDuplicates, control$algorithm %in% c("auto", "newton"))))
 }
 
 .setControl <- function(cyclopsInterfacePtr, control, cyclopsData = NULL) {
@@ -1203,7 +1320,8 @@ getCrossValidationInfo <- function(object) {
 #' @param object    A Cyclops model fit object
 #' @param covariates    Integer or string vector: list of covariates for which asymptotic standard errors are wanted
 #'
-#' @return Vector of standard error estimates, named by covariate
+#' @return Vector of standard error estimates, named by covariate; \code{NA} for aliased covariates (a singular
+#' Fisher information), with a warning
 #'
 #' @export
 getSEs <- function(object, covariates) {
@@ -1214,7 +1332,7 @@ getSEs <- function(object, covariates) {
     }
 
     fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsData$cyclopsInterfacePtr, covariates)
-    ses <- sqrt(diag(solve(fisherInformation)))
+    ses <- sqrt(diag(.invertInformation(fisherInformation)))
     names(ses) <- .coefficientNames(object, covariates)
     ses
 }
@@ -1310,12 +1428,26 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
         }
     }
 
-    hessianDiagonal <- .cyclopsGetLogLikelihoodHessianDiagonal(object$cyclopsData$cyclopsInterfacePtr,
-                                                               parm)
-
-    convergenceType <- .cyclopsGetConvergenceType(object$cyclopsData$cyclopsInterfacePtr)
     prof <- NULL
-    if (convergenceType != 1 && any(hessianDiagonal >= maximumCurvature)) {
+    if (!is.null(object$divergentCoefficients) && object$return_flag == "ILLCONDITIONED") {
+        # separation with no prior on any coefficient (D5): no interval for the divergent coefficients; the others'
+        # come from the fit at their limit
+        divergent <- .coefficientNames(object, parm) %in% object$divergentCoefficients
+        if (any(divergent)) {
+            prof <- data.frame(covariate = as.numeric(parm), lower = NA_real_, upper = NA_real_, evaluations = NA_real_)
+            if (!all(divergent)) {
+                rest <- confint.cyclopsFit(object, parm = parm[!divergent], level = level,
+                                           overrideNoRegularization = overrideNoRegularization,
+                                           includePenalty = includePenalty, maximumCurvature = maximumCurvature)
+                prof[!divergent, 2:4] <- rest[, 2:4]
+            }
+        }
+    }
+
+    hessianDiagonal <- if (is.null(prof)) .cyclopsGetLogLikelihoodHessianDiagonal(object$cyclopsData$cyclopsInterfacePtr,
+                                                                                  parm)
+    convergenceType <- .cyclopsGetConvergenceType(object$cyclopsData$cyclopsInterfacePtr)
+    if (is.null(prof) && convergenceType != 1 && any(hessianDiagonal >= maximumCurvature)) {
 
         .cyclopsSetConvergenceType(object$interface, "lange")
         newFit <- .cyclopsFitModel(object$cyclopsData$cyclopsInterfacePtr)
@@ -1653,7 +1785,9 @@ aconfint <- function(object, parm, level = 0.95, control,
 #' @param ... Additional argument(s) for methods
 #'
 #' @return
-#' A matrix of the estimates covariances between all covariate estimates.
+#' A matrix of the estimates covariances between all covariate estimates. When the Fisher information is
+#' singular (aliased covariates, such as exact duplicates), the rows and columns of the aliased covariates
+#' are \code{NA}, with a warning.
 #'
 #' @export
 vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, ...) {
@@ -1663,10 +1797,49 @@ vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, .
     if (.cyclopsGetHasOffset(object$cyclopsData)) {
         fisherInformation <- fisherInformation[2:nrow(fisherInformation), 2:ncol(fisherInformation)]
     }
-    vcov <- solve(fisherInformation)
+    vcov <- .invertInformation(fisherInformation)
     rownames(vcov) <- .coefficientNames(object)
     colnames(vcov) <- rownames(vcov)
     vcov
+}
+
+# Inverse of a Fisher information matrix, from a pivoted Cholesky factorization of its unit-diagonal
+# form. A singular matrix (aliased columns, such as exact duplicates, or columns without information)
+# gets NA rows and columns for every coefficient in an aliased direction, with a warning; the other
+# entries are the same for every generalized inverse, so they come from the inverse of the identified
+# leading block of the factorization.
+.invertInformation <- function(information) {
+    n <- nrow(information)
+    d <- diag(information)
+    if (n == 0 || any(!is.finite(information))) {
+        return(solve(information))
+    }
+    informative <- which(d > 0)
+    scale <- 1 / sqrt(d[informative])
+    factor <- suppressWarnings(chol(information[informative, informative, drop = FALSE] * outer(scale, scale),
+                                    pivot = TRUE))
+    rank <- attr(factor, "rank")
+    pivot <- attr(factor, "pivot")
+    kept <- pivot[seq_len(rank)]
+    aliased <- setdiff(seq_len(n), informative)
+    if (rank < length(informative)) {
+        # Null directions are (-B, I) in pivoted order, B = R11^-1 R12: kept coefficients with a
+        # non-zero coefficient in B are aliased too
+        B <- backsolve(factor[seq_len(rank), seq_len(rank), drop = FALSE],
+                       factor[seq_len(rank), -seq_len(rank), drop = FALSE])
+        aliased <- c(aliased, informative[c(pivot[-seq_len(rank)], kept[rowSums(abs(B) > 1e-6) > 0])])
+    }
+    inverse <- chol2inv(factor[seq_len(rank), seq_len(rank), drop = FALSE]) * outer(scale[kept], scale[kept])
+    keptColumns <- informative[kept]
+    identified <- setdiff(seq_len(n), aliased)
+    position <- match(identified, keptColumns)
+    result <- matrix(NA_real_, n, n, dimnames = dimnames(information))
+    result[identified, identified] <- inverse[position, position]
+    if (length(aliased) > 0) {
+        warning("The Fisher information is singular: ", length(aliased),
+                " aliased coefficients have NA variances")
+    }
+    result
 }
 
 #' @title Convert to Cyclops Prior Variance

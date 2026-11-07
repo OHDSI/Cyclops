@@ -54,8 +54,8 @@ test_that("Separable covariates in logistic regression", {
 
     expect_equivalent(coef(scFit)[separability], 0.0)
 
-    # Use estimate existence condition
-    separability <- is.nan(coef(fit, ignoreConvergence = TRUE))
+    # Use estimate existence condition (the divergent coefficients, D5)
+    separability <- names(coef(fit, ignoreConvergence = TRUE)) %in% fit$divergentCoefficients
 
     ecFit <- fitCyclopsModel(data, prior = createPrior("none"),
                              forceNewObject = TRUE,

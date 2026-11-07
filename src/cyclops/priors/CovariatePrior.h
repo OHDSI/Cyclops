@@ -164,6 +164,28 @@ public:
 
 	virtual std::vector<VariancePtr> getVarianceParameters() const = 0 ; // pure virtual
 
+	// Precision of a quadratic (normal or flat) log-density, for Newton moves; false for other priors
+	virtual bool getNormalPrecision(double* precision) const {
+		return false;
+	}
+
+	// Rate lambda of an independent Laplace (L1) log-density, for Newton moves; false for other priors
+	virtual bool getLaplaceLambda(double* lambda) const {
+		return false;
+	}
+
+	// The quadratic precision and L1 rate of -log density, for Newton moves: (1 / sigma^2, 0) for normal, (0, lambda)
+	// for Laplace, (0, 0) for none and (lambda2, lambda1) for the elastic net; false for other priors
+	virtual bool getNewtonPenalty(double* precision, double* lambda) const {
+		*precision = 0.0;
+		*lambda = 0.0;
+		if (getNormalPrecision(precision)) {
+			return true;
+		}
+		*precision = 0.0;
+		return getLaplaceLambda(lambda);
+	}
+
 	// The outcome's scale for a prior whose terms scale differently with it (an elastic net with least squares);
 	// set at the start of each fit, and 1 otherwise
 	virtual void setOutcomeScale(double scale) { }
@@ -208,6 +230,11 @@ public:
 
 	double getDelta(GradientHessian gh,const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const {
 		return -(gh.first / gh.second); // No regularization
+	}
+
+	bool getNormalPrecision(double* precision) const {
+		*precision = 0.0;
+		return true;
 	}
 
 	GradientHessian getKktResidual(double gradient, double beta) const {
@@ -309,6 +336,11 @@ public:
 		return lambda;
 	}
 
+	bool getLaplaceLambda(double* lambda) const {
+		*lambda = getLambda();
+		return true;
+	}
+
 	GradientHessian getKktResidual(double gradient, double beta) const {
 		const double lambda = getLambda();
 		const double residual = (beta == 0.0) ? std::max(std::abs(gradient) - lambda, 0.0) :
@@ -403,6 +435,10 @@ class FusedLaplacePrior : public LaplacePrior {
 public:
 
 	typedef std::vector<int> NeighborList;
+
+	bool getLaplaceLambda(double* lambda) const { // the fused penalty is not independent L1
+		return false;
+	}
 
 	FusedLaplacePrior(double variance1, double variance2,
 				NeighborList neighborList) :
@@ -499,6 +535,11 @@ public:
 		double beta = betaVector[index];
 		return - (gh.first + (beta / sigma2Beta)) /
 				  (gh.second + (1.0 / sigma2Beta));
+	}
+
+	bool getNormalPrecision(double* precision) const {
+		*precision = 1.0 / getVariance();
+		return true;
 	}
 
 	GradientHessian getKktResidual(double gradient, double beta) const {
@@ -638,6 +679,12 @@ public:
 
 	void setOutcomeScale(double scale) {
 		outcomeScale.store(scale, std::memory_order_relaxed);
+	}
+
+	bool getNewtonPenalty(double* precision, double* lambda) const {
+		*precision = getLambda2();
+		*lambda = getLambda1();
+		return true;
 	}
 
 private:
@@ -793,6 +840,10 @@ public:
     double logDensity(const DoubleVector& beta, const int index, CyclicCoordinateDescent& ccd) const;
 
     double getDelta(GradientHessian gh, const DoubleVector& betaVector, const int index, CyclicCoordinateDescent& ccd) const;
+
+    bool getNormalPrecision(double* precision) const { // not independent across coordinates
+        return false;
+    }
 
     GradientHessian getKktResidual(double gradient, double beta) const {
         return CovariatePrior::getKktResidual(gradient, beta);

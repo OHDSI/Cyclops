@@ -280,7 +280,7 @@ test_that("Check very small Cox example with weights and censor weights defined 
     cyclopsFit2 <- Cyclops:::fitCyclopsModel(dataPtr)
 
     tolerance <- 1E-4
-    expect_equivalent(coef(cyclopsFit1), coef(cyclopsFit2), tolerance = tolerance)
+    expect_equivalent(coef(cyclopsFit1, ignoreConvergence = TRUE), coef(cyclopsFit2, ignoreConvergence = TRUE), tolerance = tolerance) # x2 is separated (D5)
 })
 
 test_that("Check very small Fine-Gray example with weights and censor weights defined.", {

@@ -13,6 +13,7 @@
 #include <cstring>
 #include <limits>
 #include <map>
+#include <tuple>
 #include <time.h>
 #include <set>
 #include <list>
@@ -22,6 +23,7 @@
 //#include "Rcpp.h"
 
 #include "CyclicCoordinateDescent.h"
+#include "NewtonSolver.h"
 #include "Iterators.h"
 #include "Timing.h"
 
@@ -307,6 +309,8 @@ void CyclicCoordinateDescent::init(bool offset) {
 
 	useCrossValidation = false;
 	validWeights = false;
+	separationCache.clear();
+	profilePool.clear();
 	sufficientStatisticsKnown = false;
 	fisherInformationKnown = false;
 	varianceKnown = false;
@@ -663,6 +667,8 @@ void CyclicCoordinateDescent::setHeldOutRowsUnused(bool unused) {
 	if (unused != heldOutRowsUnused) {
 		heldOutRowsUnused = unused;
 		validWeights = false;
+		separationCache.clear();
+		profilePool.clear();
 	}
 }
 
@@ -674,6 +680,8 @@ void CyclicCoordinateDescent::setFoldPartition(FoldPartitionPtr partition, int f
 	foldPartition = partition;
 	foldPartitionFold = fold;
 	validWeights = false;
+	separationCache.clear();
+	profilePool.clear();
 }
 
 void CyclicCoordinateDescent::clearFoldPartition() {
@@ -697,6 +705,8 @@ void CyclicCoordinateDescent::setWeights(double* iWeights) {
 		// Turn off weights
 		useCrossValidation = false;
 		validWeights = false;
+		separationCache.clear();
+		profilePool.clear();
 		sufficientStatisticsKnown = false;
 	} else {
 
@@ -708,6 +718,8 @@ void CyclicCoordinateDescent::setWeights(double* iWeights) {
 		}
 		useCrossValidation = true;
 		validWeights = false;
+		separationCache.clear();
+		profilePool.clear();
 		sufficientStatisticsKnown = false;
 	}
 }
@@ -779,11 +791,36 @@ void CyclicCoordinateDescent::saveXBeta(void) {
 
 void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 
-	const auto maxIterations = arguments.maxIterations;
-	const auto convergenceType = arguments.convergenceType;
-	const auto epsilon = arguments.tolerance;
+	auto maxIterations = arguments.maxIterations;
+	auto convergenceType = arguments.convergenceType;
+	auto epsilon = arguments.tolerance;
 	const int maxCount = arguments.maxBoundCount;
-	const auto algorthmType = arguments.algorithmType;
+	auto algorthmType = arguments.algorithmType;
+
+	// Second-order paths (Newton plan 2.10): an ineligible fit errors when "gap" or "newton" was asked for, and
+	// runs the fitter's previous criterion on CCD when "auto" + "gap" came from the defaults
+	convergenceReport = ConvergenceReport();
+	if (convergenceType == GAP || algorthmType == AlgorithmType::AUTO || algorthmType == AlgorithmType::NEWTON) {
+		std::string reason = secondOrderIneligibility();
+		if (reason.empty() && arguments.useKktSwindle) {
+			reason = "the kkt swindle is on";
+		}
+		if (!reason.empty()) {
+			if (arguments.fallbackConvergenceType >= 0 && algorthmType != AlgorithmType::NEWTON) {
+				convergenceType = arguments.fallbackConvergenceType;
+				epsilon = arguments.fallbackTolerance;
+				maxIterations = arguments.fallbackMaxIterations;
+				algorthmType = AlgorithmType::CCD;
+				convergenceReport.present = true;
+				convergenceReport.algorithm = "ccd";
+				convergenceReport.ineligible = reason;
+			} else {
+				std::ostringstream stream;
+				stream << "Newton steps and the \"gap\" criterion are not available for this fit: " << reason;
+				error->throwError(stream);
+			}
+		}
+	}
 	const bool doItAll = arguments.doItAll;
 	const int qnQ = 0;
 
@@ -797,6 +834,40 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 
 	int count = 0;
 	bool done = false;
+
+	// Exact-duplicate columns (2.8, D6): each group fits as one coordinate, its total on the representative, through a
+	// prior that is exact for the group; the members stay fixed at 0 until the write-back below
+	aliasGroups.clear();
+	priors::JointPriorPtr unmergedPrior = jointPrior;
+	if (arguments.mergeDuplicates && !arguments.useKktSwindle && !syncCV && !usingGPU && !usingCUDA) {
+		findAliasGroups();
+		if (!aliasGroups.empty()) {
+			std::vector<int> groupSize(J, 1);
+			for (const auto& group : aliasGroups) {
+				double total = 0.0;
+				for (int j : group) {
+					total += hBeta[j];
+				}
+				groupSize[group[0]] = static_cast<int>(group.size());
+				hBeta[group[0]] = total; // the same x'beta: the columns are identical
+				for (size_t m = 1; m < group.size(); ++m) {
+					hBeta[group[m]] = 0.0;
+					fixBeta[group[m]] = true;
+				}
+			}
+			jointPrior = bsccs::make_shared<priors::AliasedJointPrior>(unmergedPrior, groupSize);
+		}
+	}
+
+	findDivergentCoefficients(); // data-only: separated unpenalized coefficients (D5)
+
+	// Divergent coefficients are pinned at their limit for the fit (2.7: "profiled out at their limit"): the
+	// others are then estimated as the coefficient goes to +/-Inf, and none overflows
+	for (int j : divergentCoefficients) {
+		hBeta[j] = divergentDirection[j] * divergentLimit(j);
+		fixBeta[j] = true;
+		xBetaKnown = false;
+	}
 
 	if (syncCV) {
 		donePool.resize(syncCVFolds);
@@ -818,7 +889,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	    }
 	    ++count;
 
-	    if (lastReturnFlag == ILLCONDITIONED && count < maxCount) {
+	    if (lastReturnFlag == ILLCONDITIONED && count < maxCount && divergentCoefficients.empty()) {
 	        // Reset beta and shrink bounding box
 	        initialBound /= 10.0;
             resetBeta();
@@ -827,6 +898,270 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	    }
 	}
 	minIterations = 0;
+	for (int j : divergentCoefficients) {
+		fixBeta[j] = false;
+	}
+
+	// Write the merged groups back: groups with a quadratic part (Normal, elastic net) split equally (the unique MAP),
+	// Laplace and flat groups keep all mass on the representative
+	if (!aliasGroups.empty()) {
+		jointPrior = unmergedPrior;
+		for (const auto& group : aliasGroups) {
+			double precision = 0.0, lambda = 0.0;
+			const bool split = jointPrior->getNewtonPenalty(group[0], &precision, &lambda) && precision > 0.0;
+			const double total = hBeta[group[0]];
+			for (size_t m = 0; m < group.size(); ++m) {
+				if (m > 0) {
+					fixBeta[group[m]] = false;
+				}
+				hBeta[group[m]] = split ? total / static_cast<double>(group.size()) : (m == 0 ? total : 0.0);
+			}
+		}
+	}
+
+	// D5: with a prior "none" on every free coefficient, a separated fit is ILLCONDITIONED; otherwise it is SUCCESS.
+	// Either way the divergent coefficients stay at their limit, so the state, the log likelihood, the other
+	// coefficients' intervals and profiles are those of the limit, and the divergent coefficients are reported
+	if (!divergentCoefficients.empty() && !syncCV) {
+		bool allNone = true;
+		for (int j = 0; j < J && allNone; ++j) {
+			double precision = 0.0;
+			allNone = fixBeta[j] || (jointPrior->getNormalPrecision(j, &precision) && precision == 0.0);
+		}
+		const bool failed = lastReturnFlag == ILLCONDITIONED;
+		if (allNone) {
+			lastReturnFlag = ILLCONDITIONED;
+		} else if (!failed) {
+			lastReturnFlag = SUCCESS;
+		}
+	}
+}
+
+double CyclicCoordinateDescent::divergentLimit(int j) const {
+	// 40 over the column's smallest spacing between distinct values (0 included when it has zeros) puts the
+	// likelihood at its limit to machine precision; |x beta| <= 600 keeps exp() finite
+	auto limit = [&](const auto& X) {
+		std::vector<double> values;
+		double largest = 0.0;
+		size_t entries = 0;
+		for (GenericIterator<typename std::decay<decltype(*X.getDataVector(j))>::type> it(X, j); it; ++it) {
+			values.push_back(static_cast<double>(it.value()));
+			largest = std::max(largest, std::abs(values.back()));
+			++entries;
+		}
+		if (entries < X.getNumberOfRows()) {
+			values.push_back(0.0);
+		}
+		std::sort(values.begin(), values.end());
+		values.erase(std::unique(values.begin(), values.end()), values.end());
+		double spacing = std::numeric_limits<double>::infinity();
+		for (size_t i = 1; i < values.size(); ++i) {
+			spacing = std::min(spacing, values[i] - values[i - 1]);
+		}
+		if (!(largest > 0.0) || !std::isfinite(spacing)) {
+			return 40.0;
+		}
+		return std::min(40.0 / spacing, 600.0 / largest);
+	};
+	if (const auto* data64 = dynamic_cast<const ModelData<double>*>(&hXI)) {
+		return limit(data64->getX());
+	} else if (const auto* data32 = dynamic_cast<const ModelData<float>*>(&hXI)) {
+		return limit(data32->getX());
+	}
+	return 40.0;
+}
+
+void CyclicCoordinateDescent::findAliasGroups() {
+
+	// Hash each column's (format, rows, values) once, but only columns that share their format, number of entries and
+	// first and last rows with another (a duplicate must; all O(1) to read); equal hashes are compared entry by entry
+	auto hashColumns = [&](const auto& X) {
+		columnHashes.assign(J, 0);
+		typedef std::tuple<int, size_t, int, int> Shape;
+		auto shape = [&](int j) {
+			const FormatType format = X.getFormatType(j);
+			if (format == DENSE || format == INTERCEPT) {
+				return std::make_tuple(static_cast<int>(format), static_cast<size_t>(K), -1, -1);
+			}
+			const size_t count = X.getNumberOfEntries(j);
+			const int* rows = X.getCompressedColumnVector(j);
+			return std::make_tuple(static_cast<int>(format), count, count ? rows[0] : -1, count ? rows[count - 1] : -1);
+		};
+		std::vector<std::pair<Shape, int>> shapes(J); // sorted, not a map: no allocation per column
+		for (int j = 0; j < J; ++j) {
+			shapes[j] = std::make_pair(shape(j), j);
+		}
+		std::sort(shapes.begin(), shapes.end());
+		std::vector<char> shared(J, 0);
+		for (int a = 0; a + 1 < J; ++a) {
+			if (std::get<0>(shapes[a]) == std::get<0>(shapes[a + 1])) {
+				shared[shapes[a].second] = shared[shapes[a + 1].second] = 1;
+			}
+		}
+		for (int j = 0; j < J; ++j) {
+			if (!shared[j]) {
+				columnHashes[j] = static_cast<uint64_t>(j) + 1; // unique: no duplicate possible
+				continue;
+			}
+			// raw arrays, not the generic iterator: the rows of sparse and indicator columns, the values of dense and
+			// sparse ones (a multiply-xorshift per word)
+			const FormatType format = X.getFormatType(j);
+			uint64_t h = 1469598103934665603ULL ^ static_cast<uint64_t>(format);
+			auto mix = [&h](uint64_t v) { h = (h ^ v) * 0x9E3779B97F4A7C15ULL; h ^= h >> 29; };
+			if (format == SPARSE || format == INDICATOR) {
+				const int* rows = X.getCompressedColumnVector(j);
+				const size_t count = X.getNumberOfEntries(j);
+				for (size_t e = 0; e < count; ++e) {
+					mix(static_cast<uint64_t>(rows[e]));
+				}
+			}
+			if (format == SPARSE || format == DENSE) {
+				const auto* values = X.getDataVector(j);
+				const size_t count = (format == DENSE) ? static_cast<size_t>(K) : X.getNumberOfEntries(j);
+				for (size_t e = 0; e < count; ++e) {
+					const double value = static_cast<double>(values[e]);
+					uint64_t bits;
+					std::memcpy(&bits, &value, sizeof(bits));
+					mix(bits);
+				}
+			}
+			columnHashes[j] = h | (1ULL << 63); // the top bit marks a hashed column, apart from the unique tags above
+		}
+	};
+	auto same = [&](const auto& X, int a, int b) {
+		using Real = typename std::decay<decltype(*X.getDataVector(a))>::type;
+		GenericIterator<Real> i(X, a), k(X, b);
+		for (; i && k; ++i, ++k) {
+			if (i.index() != k.index() || i.value() != k.value()) {
+				return false;
+			}
+		}
+		return !i && !k;
+	};
+	auto samePrior = [&](int a, int b) { // the same Normal, Laplace, elastic-net or flat penalty
+		double pa = 0.0, la = 0.0, pb = 0.0, lb = 0.0;
+		return jointPrior->getNewtonPenalty(a, &pa, &la) && jointPrior->getNewtonPenalty(b, &pb, &lb) &&
+			pa == pb && la == lb;
+	};
+	auto group = [&](const auto& X) {
+		if (columnHashes.size() != static_cast<size_t>(J)) {
+			hashColumns(X);
+		}
+		std::vector<std::pair<uint64_t, int>> candidates; // hashed (shared-shape) free columns, sorted by hash
+		for (int j = 0; j < J; ++j) {
+			const FormatType format = hXI.getColumnType(j); // dense columns have no row indices
+			if (!fixBeta[j] && (columnHashes[j] >> 63) &&
+					(format == DENSE || format == INTERCEPT || hXI.getNumberOfEntries(j) > 0)) {
+				candidates.emplace_back(columnHashes[j], j);
+			}
+		}
+		std::sort(candidates.begin(), candidates.end());
+		for (size_t begin = 0; begin < candidates.size(); ) {
+			size_t end = begin + 1;
+			while (end < candidates.size() && candidates[end].first == candidates[begin].first) ++end;
+			std::vector<int> columns;
+			for (size_t c = begin; c < end; ++c) columns.push_back(candidates[c].second);
+			begin = end;
+			if (columns.size() < 2) continue;
+			std::vector<bool> used(columns.size(), false);
+			for (size_t a = 0; a < columns.size(); ++a) {
+				if (used[a]) continue;
+				std::vector<int> members{columns[a]};
+				for (size_t b = a + 1; b < columns.size(); ++b) {
+					if (!used[b] && X.getFormatType(columns[a]) == X.getFormatType(columns[b]) &&
+							same(X, columns[a], columns[b]) && samePrior(columns[a], columns[b])) {
+						members.push_back(columns[b]);
+						used[b] = true;
+					}
+				}
+				if (members.size() > 1) {
+					aliasGroups.push_back(members);
+				}
+			}
+		}
+		std::sort(aliasGroups.begin(), aliasGroups.end());
+	};
+	if (const auto* data64 = dynamic_cast<const ModelData<double>*>(&hXI)) {
+		group(data64->getX());
+	} else if (const auto* data32 = dynamic_cast<const ModelData<float>*>(&hXI)) {
+		group(data32->getX());
+	}
+}
+
+void CyclicCoordinateDescent::findDivergentCoefficients() {
+
+	divergentDirection.assign(J, 0);
+	divergentCoefficients.clear();
+	std::vector<int> columns; // free coefficients without a prior
+	for (int j = 0; j < J; ++j) {
+		double precision = 0.0;
+		if (!fixBeta[j] && jointPrior->getNormalPrecision(j, &precision) && precision == 0.0) {
+			columns.push_back(j);
+		}
+	}
+	if (columns.empty() || usingGPU || usingCUDA || syncCV) {
+		return;
+	}
+	if (!validWeights) { // the event sums the engine compares with
+		computeNEvents();
+		computeFixedTermsInLogLikelihood();
+		computeFixedTermsInGradientAndHessian();
+		validWeights = true;
+	}
+	// Directions depend only on the data and the weights: cached per column until the weights change (profile
+	// and confint refits fix one column at a time)
+	if (separationCache.size() != static_cast<size_t>(J)) {
+		separationCache.assign(J, 2);
+	}
+	std::vector<int> all;
+	all.swap(columns);
+	for (int j : all) {
+		if (separationCache[j] == 2) {
+			columns.push_back(j);
+		}
+	}
+	std::vector<int> direction;
+	if (columns.empty()) {
+		// every column cached
+	} else if (!modelSpecifics.separationDirections(columns, direction)) {
+		direction.assign(columns.size(), 0);
+		if (hXI.getModelType() == ModelType::LOGISTIC) {
+			// d l / d beta_j = sum_k x_kj (y_k - p_k): one-signed when every row with x_kj != 0 has y_k = 1 exactly
+			// where x_kj > 0 (+Inf), or y_k = 0 exactly where x_kj > 0 (-Inf)
+			auto separation = [&](const auto& data) {
+				const auto& y = data.getYVectorRef();
+				for (size_t c = 0; c < columns.size(); ++c) {
+					bool up = true, down = true, any = false;
+					for (GenericIterator<typename std::decay<decltype(y[0])>::type> it(data.getX(), columns[c]); it && (up || down); ++it) {
+						const int k = it.index();
+						if (it.value() == 0 || (useCrossValidation && static_cast<size_t>(k) < hWeights.size() && hWeights[k] <= 0.0)) {
+							continue;
+						}
+						any = true;
+						const bool positive = it.value() > 0;
+						const bool event = y[k] != 0;
+						up = up && (positive == event);
+						down = down && (positive != event);
+					}
+					direction[c] = !any ? 0 : (up ? 1 : (down ? -1 : 0));
+				}
+			};
+			if (const auto* data64 = dynamic_cast<const ModelData<double>*>(&hXI)) {
+				separation(*data64);
+			} else if (const auto* data32 = dynamic_cast<const ModelData<float>*>(&hXI)) {
+				separation(*data32);
+			}
+		}
+	}
+	for (size_t c = 0; c < columns.size(); ++c) {
+		separationCache[columns[c]] = static_cast<signed char>(direction[c]);
+	}
+	for (int j : all) {
+		if (separationCache[j] != 0) {
+			divergentDirection[j] = separationCache[j];
+			divergentCoefficients.push_back(j);
+		}
+	}
 }
 
 typedef std::tuple<
@@ -1193,7 +1528,7 @@ void CyclicCoordinateDescent::findMode(
 		int qnQ, bool doItAll
 		) {
 
-	if (convergenceType < GRADIENT || convergenceType > KKT) {
+	if (convergenceType < GRADIENT || convergenceType > GAP) {
 	    std::ostringstream stream;
 		stream << "Unknown convergence criterion: " << convergenceType;
 		error->throwError(stream);
@@ -1274,6 +1609,22 @@ void CyclicCoordinateDescent::findMode(
 	setOutcomeScale();
 	jointPrior->setOutcomeScale(priorOutcomeScale); // the prior may have been replaced since the last fit
 	setUpZeroCertificates(algorithmType);
+
+	const bool gapPath = convergenceType == GAP || algorithmType == AlgorithmType::AUTO ||
+		algorithmType == AlgorithmType::NEWTON;
+	shadowLog.clear();
+	shadowDecreases.clear();
+	shadowStepDecrease = 0.0;
+	shadowMode = 0;
+	if (const char* shadow = std::getenv("CYCLOPS_SHADOW")) {
+		const int mode = std::atoi(shadow);
+		if (mode > 0 && algorithmType != AlgorithmType::MM && !usingGPU && !usingCUDA && !syncCV &&
+				!(threads > 1 && modelSpecifics.supportsConcurrentGradients()) &&
+				modelSpecifics.supportsSecondOrder()) {
+			shadowMode = mode;
+		}
+	}
+	trackStepDecrease = shadowMode != 0 || gapPath;
 
 	std::vector<double> allDelta;
     double lastLogPosterior; // = getLogLikelihood() + getLogPrior();
@@ -1430,6 +1781,12 @@ void CyclicCoordinateDescent::findMode(
 							accumulateKkt(index, delta, lastGradientHessian);
 						}
 						delta = applyBounds(delta, index);
+						if (trackStepDecrease) {
+							double precision = 0.0;
+							double rate = 0.0; // the L1 rate (unused): the step counts the quadratic part, normal or elastic net
+							jointPrior->getNewtonPenalty(index, &precision, &rate);
+							shadowStepDecrease += 0.5 * (lastGradientHessian.second + precision) * delta * delta;
+						}
 						if (activeSetEvery != 0) {
 							lastStepSE[index] = std::abs(delta) * std::sqrt(std::max(lastGradientHessian.second, 0.0));
 							cycleMaxStepSE = std::max(cycleMaxStepSE, lastStepSE[index]);
@@ -1645,10 +2002,15 @@ void CyclicCoordinateDescent::findMode(
 	    //     previousSecant = newestSecant;
 	    //     newestSecant = (newestSecant + 1) % qnQ;
 	    // }
+    } else if (gapPath) { // certified stops and Newton moves (NewtonSolver.cpp)
+        findModeGap(cycle, iteration, maxIterations, epsilon, algorithmType, convergenceType);
     } else { // No QN
         while (!done) {
             cycle();
             done = check();
+            if (shadowMode != 0) {
+                shadowObserve(iteration, done);
+            }
         }
     }
 	if (lazyIntercept) {
@@ -1823,6 +2185,23 @@ double CyclicCoordinateDescent::getAsymptoticVariance(int indexOne, int indexTwo
 
 CyclicCoordinateDescent::Matrix CyclicCoordinateDescent::computeFisherInformation(const std::vector<IdType>& indices) const {
     modelSpecifics.makeDirty(); // clear strata cross terms cached at earlier coefficients
+
+    // One Hessian block where the engine has the second-order kernels; with weights only when they
+    // are all integers (non-integer weights keep the per-pair path, which refuses them)
+    bool integerWeights = true;
+    if (useCrossValidation) {
+        for (size_t k = 0; k < hWeights.size() && integerWeights; ++k) {
+            integerWeights = std::floor(hWeights[k]) == hWeights[k];
+        }
+    }
+    if (modelSpecifics.supportsSecondOrder() && integerWeights) {
+        const std::vector<int> F(indices.begin(), indices.end());
+        std::vector<double> H;
+        if (modelSpecifics.hessianBlock(F, H)) {
+            return Eigen::Map<Matrix>(H.data(), F.size(), F.size());
+        }
+    }
+
     Matrix fisherInformation(indices.size(), indices.size());
     for (size_t ii = 0; ii < indices.size(); ++ii) {
         const int i = indices[ii];
@@ -1852,24 +2231,7 @@ void CyclicCoordinateDescent::computeAsymptoticPrecisionMatrix(void) {
 		}
 	}
 
-	hessianMatrix.resize(indices.size(), indices.size());
-	modelSpecifics.makeDirty(); // clear hessian terms
-
-	for (size_t ii = 0; ii < indices.size(); ++ii) {
-		for (size_t jj = ii; jj < indices.size(); ++jj) {
-			const int i = indices[ii];
-			const int j = indices[jj];
-//			std::cerr << "(" << i << "," << j << ")" << std::endl;
-			double fisherInformation = 0.0;
-			modelSpecifics.computeFisherInformation(i, j, &fisherInformation, useCrossValidation);
-//			if (fisherInformation != 0.0) {
-				// Add tuple to sparse matrix
-//				tripletList.push_back(Triplet<double>(ii,jj,fisherInformation));
-//			}
-			hessianMatrix(jj,ii) = hessianMatrix(ii,jj) = fisherInformation;
-
-		}
-	}
+	hessianMatrix = computeFisherInformation(std::vector<IdType>(indices.begin(), indices.end()));
 
 //	sm.setFromTriplets(tripletList.begin(), tripletList.end());
 //	cout << sm;
@@ -1953,8 +2315,14 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 		return !fixBeta[j] && hBeta[j] == 0.0 &&
 			(stayedAtZero[j] || hasZeroKink(j));
 	};
-	auto finish = [this, &log](int index, double delta, bool candidate) {
+	auto finish = [this, &log](int index, double delta, bool candidate, double curvature) {
 		delta = applyBounds(delta, index);
+		if (trackStepDecrease) { // as in the serial cycle, in the same coordinate order
+			double precision = 0.0;
+			double rate = 0.0; // the L1 rate (unused): the step counts the quadratic part, normal or elastic net
+			jointPrior->getNewtonPenalty(index, &precision, &rate);
+			shadowStepDecrease += 0.5 * (curvature + precision) * delta * delta;
+		}
 		if (delta != 0.0) {
 			sufficientStatisticsKnown = false;
 			updateSufficientStatistics(delta, index);
@@ -1995,7 +2363,7 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 				if (trackKkt) {
 					accumulateKkt(run[r], delta, g);
 				}
-				if (finish(run[r], delta, true)) {
+				if (finish(run[r], delta, true, g.second)) {
 					break;
 				}
 			}
@@ -2006,7 +2374,7 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 			if (trackKkt) {
 				accumulateKkt(index, delta, lastGradientHessian);
 			}
-			finish(index, delta, candidate);
+			finish(index, delta, candidate, lastGradientHessian.second);
 			++index;
 		}
 	}
@@ -2581,6 +2949,8 @@ void CyclicCoordinateDescent::setWeights(double* iWeights, int syncCVIndex) {
 	}
 	useCrossValidation = true;
 	validWeights = false;
+	separationCache.clear();
+	profilePool.clear();
 	sufficientStatisticsKnown = false;
 }
 
@@ -2630,6 +3000,252 @@ std::vector<double> CyclicCoordinateDescent::getLogPriors(void) {
 	return result;
 }
 
+
+void CyclicCoordinateDescent::shadowObserve(int cycle, bool last) {
+
+	ShadowRow row;
+	row.cycle = cycle;
+	row.stepDecrease = shadowStepDecrease;
+	shadowStepDecrease = 0.0;
+	shadowDecreases.push_back(row.stepDecrease);
+
+	// Trigger statistics (plan 2.4): the rate of the last min(t, 20) step decreases on a log scale
+	const int m = std::min<int>(static_cast<int>(shadowDecreases.size()), 20);
+	if (m >= 2) {
+		bool positive = true;
+		double sx = 0.0, sy = 0.0, sxx = 0.0, sxy = 0.0;
+		for (int i = 0; i < m; ++i) {
+			const double value = shadowDecreases[shadowDecreases.size() - m + i];
+			positive = positive && value > 0.0;
+			const double y = positive ? std::log(value) : 0.0;
+			sx += i; sy += y; sxx += static_cast<double>(i) * i; sxy += i * y;
+		}
+		if (positive) {
+			const double slope = (m * sxy - sx * sy) / (m * sxx - sx * sx);
+			row.rhoHat = std::exp(slope);
+			if (row.rhoHat < 1.0) {
+				row.gHat = row.stepDecrease * row.rhoHat / (1.0 - row.rhoHat);
+			}
+		}
+	}
+
+	// Read-only: the engine's log likelihood at its current state (no lazy recomputation)
+	row.f = -(modelSpecifics.getLogLikelihood(useCrossValidation) + getLogPrior());
+
+	// Free coordinates and their priors: Normal (precision > 0), None (precision 0) or Laplace
+	std::vector<int> columns;
+	std::vector<double> precision, rate;
+	bool supported = true, anyNone = false, anyNormal = false, anyLaplace = false;
+	for (int j = 0; j < J; ++j) {
+		if (fixBeta[j]) {
+			continue;
+		}
+		double value = 0.0;
+		if (jointPrior->getNormalPrecision(j, &value)) {
+			columns.push_back(j); precision.push_back(value); rate.push_back(0.0);
+			(value == 0.0 ? anyNone : anyNormal) = true;
+		} else if (jointPrior->getLaplaceLambda(j, &value)) {
+			columns.push_back(j); precision.push_back(0.0); rate.push_back(value);
+			anyLaplace = true;
+		} else {
+			supported = false;
+		}
+	}
+	std::vector<double> gradient;
+	if (!supported || columns.empty() || !modelSpecifics.fullGradient(columns, gradient)) {
+		shadowLog.push_back(row);
+		return;
+	}
+
+	// Minimum-norm subgradient s of f; S = free coordinates except Laplace zeros within the penalty
+	const int n = static_cast<int>(columns.size());
+	Eigen::VectorXd s(n);
+	std::vector<int> S;
+	for (int i = 0; i < n; ++i) {
+		const double b = hBeta[columns[i]];
+		const double g = gradient[i];
+		if (rate[i] == 0.0) {
+			s(i) = g + precision[i] * b;
+			S.push_back(i);
+		} else if (b != 0.0) {
+			s(i) = g + (b > 0.0 ? rate[i] : -rate[i]);
+			S.push_back(i);
+		} else {
+			s(i) = (std::abs(g) > rate[i]) ? (g > 0.0 ? g - rate[i] : g + rate[i]) : 0.0;
+			if (std::abs(g) > rate[i]) {
+				S.push_back(i);
+			}
+		}
+	}
+	const bool allNormal = anyNormal && !anyNone && !anyLaplace;
+	if (allNormal) {
+		double sum = 0.0;
+		for (int i = 0; i < n; ++i) {
+			sum += s(i) * s(i) / precision[i];
+		}
+		row.R = 0.5 * sum;
+	}
+
+	const bool curvature = shadowMode >= 2 || last || cycle <= 5 ||
+		((cycle & (cycle - 1)) == 0) || (cycle % 3 == 0 && ((cycle / 3) & (cycle / 3 - 1)) == 0);
+	std::vector<double> block;
+	if (!curvature || !modelSpecifics.hessianBlock(columns, block)) {
+		shadowLog.push_back(row);
+		return;
+	}
+	row.curvature = true;
+	Eigen::MatrixXd H = Eigen::Map<Eigen::MatrixXd>(block.data(), n, n); // likelihood part
+	Eigen::MatrixXd Hp = H;
+	for (int i = 0; i < n; ++i) {
+		Hp(i, i) += precision[i];
+	}
+
+	double kkt = 0.0;
+	for (int i = 0; i < n; ++i) {
+		if (Hp(i, i) > 0.0) {
+			kkt = std::max(kkt, std::abs(s(i)) / std::sqrt(Hp(i, i)));
+		}
+	}
+	row.kktMaxR = kkt;
+
+	const int q = static_cast<int>(S.size());
+	Eigen::MatrixXd HS(q, q);
+	Eigen::VectorXd sS(q);
+	double largest = 0.0;
+	for (int a = 0; a < q; ++a) {
+		sS(a) = s(S[a]);
+		for (int b = 0; b < q; ++b) {
+			HS(a, b) = Hp(S[a], S[b]);
+		}
+		if (HS(a, a) > 0.0) {
+			largest = std::max(largest, sS(a) * sS(a) / HS(a, a));
+		}
+	}
+	double lambda2 = 0.0;
+	if (q > 0) {
+		const newton::SymmetricSolve solve(HS, sS);
+		row.rankDeficit = solve.dropped;
+		lambda2 = sS.dot(solve.x);
+	}
+	row.lambda2Half = 0.5 * lambda2;
+	row.consistency = (largest > 0.0) ? lambda2 / largest : NAN;
+
+	const auto* data = dynamic_cast<const ModelData<double>*>(&hXI);
+	auto positiveRow = [this](int k) {
+		return !useCrossValidation || static_cast<size_t>(k) >= hWeights.size() || hWeights[k] > 0.0;
+	};
+
+	// gsc on smooth fits with a positive-definite H; c = 2 nu for the Cox engine (the only one with the API)
+	if (!anyLaplace && row.rankDeficit == 0 && data != nullptr) {
+		const Eigen::MatrixXd inverse = Hp.llt().solve(Eigen::MatrixXd::Identity(n, n));
+		std::vector<double> normal(K, 0.0), diagonal(K, 0.0);
+		for (int i = 0; i < n; ++i) {
+			const double root = std::sqrt(std::max(inverse(i, i), 0.0));
+			for (GenericIterator<double> it(data->getX(), columns[i]); it; ++it) {
+				const double x = it.value();
+				if (allNormal) {
+					normal[it.index()] += x * x / precision[i];
+				}
+				diagonal[it.index()] += std::abs(x) * root;
+			}
+		}
+		double nuNormal = 0.0, nuDiagonal = 0.0;
+		for (int k = 0; k < K; ++k) {
+			if (positiveRow(k)) {
+				nuNormal = std::max(nuNormal, normal[k]);
+				nuDiagonal = std::max(nuDiagonal, diagonal[k]);
+			}
+		}
+		row.nu = allNormal ? std::min(std::sqrt(nuNormal), nuDiagonal) : nuDiagonal;
+		row.gsc = newton::gsc(2.0 * row.nu, std::sqrt(lambda2));
+	}
+
+	// U (None) and P (Normal) free sets: Lambda-bar from the U block and the P precisions (plan 3.1, R_U)
+	if (anyNone && !anyLaplace && data != nullptr) {
+		std::vector<int> U, P;
+		for (int i = 0; i < n; ++i) {
+			(precision[i] == 0.0 ? U : P).push_back(i);
+		}
+		const int u = static_cast<int>(U.size()), r = static_cast<int>(P.size());
+		Eigen::MatrixXd HUU(u, u), HPU(r, u);
+		Eigen::VectorXd sU(u), sP(r);
+		for (int a = 0; a < u; ++a) {
+			sU(a) = s(U[a]);
+			for (int b = 0; b < u; ++b) HUU(a, b) = H(U[a], U[b]);
+			for (int b = 0; b < r; ++b) HPU(b, a) = H(P[b], U[a]);
+		}
+		for (int b = 0; b < r; ++b) sP(b) = s(P[b]);
+		Eigen::LLT<Eigen::MatrixXd> llt(HUU);
+		const Eigen::VectorXd d = llt.matrixLLT().diagonal().array().square();
+		if (u <= 200 && llt.info() == Eigen::Success && d.minCoeff() >= 1e-10 * d.maxCoeff()) {
+			const Eigen::VectorXd y = llt.solve(sU);
+			const Eigen::VectorXd gP = sP - HPU * y;
+			double sum = sU.dot(y);
+			for (int b = 0; b < r; ++b) {
+				sum += gP(b) * gP(b) / precision[P[b]];
+			}
+			row.RU = 0.5 * sum;
+
+			// nu_U^2 = max_k x_kU' HUU^-1 x_kU + sum_P sigma^2 (x_kP - M x_kU)^2, M = HPU HUU^-1
+			const Eigen::MatrixXd Q = llt.solve(Eigen::MatrixXd::Identity(u, u));
+			const Eigen::MatrixXd M = HPU * Q;
+			Eigen::MatrixXd W = Eigen::MatrixXd::Zero(u, u); // M' diag(sigma^2) M
+			for (int b = 0; b < r; ++b) {
+				W += (M.row(b).transpose() * M.row(b)) / precision[P[b]];
+			}
+			Eigen::MatrixXd XU = Eigen::MatrixXd::Zero(K, u);
+			for (int a = 0; a < u; ++a) {
+				for (GenericIterator<double> it(data->getX(), columns[U[a]]); it; ++it) {
+					XU(it.index(), a) = it.value();
+				}
+			}
+			std::vector<double> total(K, 0.0);
+			for (int b = 0; b < r; ++b) {
+				const double sigma2 = 1.0 / precision[P[b]];
+				for (GenericIterator<double> it(data->getX(), columns[P[b]]); it; ++it) {
+					const int k = it.index();
+					const double x = it.value();
+					total[k] += sigma2 * x * (x - 2.0 * M.row(b).dot(XU.row(k)));
+				}
+			}
+			double nu2 = 0.0;
+			for (int k = 0; k < K; ++k) {
+				if (positiveRow(k)) {
+					const Eigen::VectorXd xk = XU.row(k).transpose();
+					nu2 = std::max(nu2, total[k] + xk.dot((Q + W) * xk));
+				}
+			}
+			row.nuU = std::sqrt(std::max(nu2, 0.0));
+			row.gscU = newton::gsc(2.0 * row.nuU, std::sqrt(2.0 * row.RU));
+		}
+	}
+
+	// Bracket on Lambda^2 from 5 conjugate-gradient iterations on H_pen d = s (all Normal)
+	if (allNormal) {
+		Eigen::VectorXd d = Eigen::VectorXd::Zero(n), residual = s, direction = s;
+		double rr = residual.squaredNorm();
+		for (int it = 0; it < std::min(5, n) && rr > 0.0; ++it) {
+			const Eigen::VectorXd Hd = Hp * direction;
+			const double alpha = rr / direction.dot(Hd);
+			d += alpha * direction;
+			residual -= alpha * Hd;
+			const double next = residual.squaredNorm();
+			direction = residual + (next / rr) * direction;
+			rr = next;
+		}
+		const Eigen::VectorXd Hd = Hp * d; // explicit, never the recurrence residual
+		const double low = 2.0 * s.dot(d) - d.dot(Hd);
+		const Eigen::VectorXd explicitResidual = s - Hd;
+		double high = low;
+		for (int i = 0; i < n; ++i) {
+			high += explicitResidual(i) * explicitResidual(i) / precision[i];
+		}
+		row.bracketLow = 0.5 * low;
+		row.bracketHigh = 0.5 * high;
+	}
+
+	shadowLog.push_back(row);
+}
 
 bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
                                                       double epsilon,

@@ -395,6 +395,11 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	stream2 << "Using " << nThreads << " thread(s)";
 	logger->writeLine(stream2);
 
+	if (!legacy && arguments.modeFinding.convergenceType == GAP && arguments.modeFinding.algorithmType != AlgorithmType::CCD &&
+	        arguments.modeFinding.algorithmType != AlgorithmType::MM) {
+	    ccd->beginProfileReference(); // refits take chord Newton steps from the mode (Newton plan 2.9)
+	}
+
 	std::vector<CyclicCoordinateDescent*> ccdPool;
 
 	ccdPool.push_back(ccd);
@@ -404,6 +409,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	    for (int j = 0; j < J; ++j) {
 	        copy->setFixedBeta(j, ccd->getFixedBeta(j));
 	    }
+	    copy->shareProfileReference(*ccd);
 	    ccdPool.push_back(copy);
 	}
 
@@ -412,7 +418,8 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	std::vector<int> lowerCnts(indices.size());
 	std::vector<int> upperCnts(indices.size());
 
-	auto getBound = [this,
+	const std::shared_ptr<const void> modeReference = ccd->currentProfileReference();
+	auto getBound = [this, &modeReference,
 	            &x0s, &curvatures,
 	            &indices, &lowerPts, &upperPts,
                 &lowerCnts, &upperCnts, includePenalty, mode, threshold, legacy
@@ -426,6 +433,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	    // Bound edge, starting at the mode so that bounds do not depend on their order or the threads
 	    if (!legacy) {
 	        ccd->setBeta(x0s);
+	        ccd->useProfileReference(modeReference);
 	    }
 	    OptimizationProfile eval(*ccd, arguments, index, mode, threshold, includePenalty);
 
@@ -489,6 +497,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
     for (int i = 1; i < nThreads; ++i) {
         delete ccdPool[i]; // TODO use unique_ptr
     }
+    ccd->endProfileReference();
 
         // Build result serially
         auto itLowerPt = std::begin(lowerPts);
@@ -751,6 +760,10 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
     }
 
     ccd->makeDirty(); // Reset internal memory
+    if (arguments.modeFinding.convergenceType == GAP && arguments.modeFinding.algorithmType != AlgorithmType::CCD &&
+	        arguments.modeFinding.algorithmType != AlgorithmType::MM) {
+        ccd->beginProfileReference(); // refits take chord Newton steps (Newton plan 2.9)
+    }
 
     // Each point starts from the solution at the nearest of: the current coefficients, the supplied
     // starting solutions and (chain) the requested points between it and the current value. The choice
@@ -832,14 +845,17 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
     nThreads = std::max(1, std::min(nThreads, static_cast<int>(maxWidth)));
 
     std::vector<std::vector<double>> solutions(nPoints);
+    std::vector<std::shared_ptr<const void>> references(nPoints); // Newton plan 2.9: each point's from its parent's
+    const std::shared_ptr<const void> modeReference = ccd->currentProfileReference();
     const bool keepAll = betas != nullptr;
 
-    auto evaluate = [this, index, includePenalty, doDerivative, J, keepAll,
+    auto evaluate = [this, index, includePenalty, doDerivative, J, keepAll, &modeReference, &references,
                      &x0s, &starts, &parent, &children, &solutions, &points, &values, &derivatives](
                          const int i, CyclicCoordinateDescent* ccd) {
 
         const int p = parent[i];
         ccd->setBeta(p == -1 ? x0s : (p < -1 ? starts[-2 - p] : solutions[p]));
+        ccd->useProfileReference((p >= 0 && references[p]) ? references[p] : modeReference);
 
         OptimizationProfile eval(*ccd, arguments, index,
                                  0.0, 0.0, includePenalty);
@@ -853,6 +869,7 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
             for (int j = 0; j < J; ++j) {
                 solutions[i][j] = ccd->getBeta(j);
             }
+            references[i] = ccd->currentProfileReference();
         }
     };
 
@@ -864,6 +881,7 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
         for (int j = 0; j < J; ++j) {
             copy->setFixedBeta(j, ccd->getFixedBeta(j));
         }
+        copy->shareProfileReference(*ccd);
         ccdPool.push_back(copy);
     }
 
@@ -895,6 +913,7 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
             for (int i : tasks) {
                 if (parent[i] >= 0 && --children[parent[i]] == 0) {
                     std::vector<double>().swap(solutions[parent[i]]);
+                    references[parent[i]].reset();
                 }
             }
         }
@@ -909,6 +928,7 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
 
     // Reset exactly (incremental updates leave the coefficients off by rounding), and recompute
     // X beta now, as prediction reads it directly
+    ccd->endProfileReference();
     ccd->setBeta(x0s);
     ccd->getLogLikelihood();
     // DEBUG
