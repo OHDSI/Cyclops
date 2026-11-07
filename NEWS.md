@@ -297,6 +297,9 @@ Changes:
 47. cross-validation with `threads > 1` no longer writes shared state from several threads without
     synchronization (data races reported by ThreadSanitizer; every thread wrote the same value, so results do
     not change)
+48. logistic regression with `fitter = "default"` or `"super"` on x86-64: the gradient keeps the running maximum
+    of the weights by a comparison instead of `std::fmax()`, which GCC compiles to a library call per entry; fits
+    take about half the time, with identical results (arm64 keeps `std::fmax()`, a single instruction there)
 
 Cyclops v3.7.1
 ==============
