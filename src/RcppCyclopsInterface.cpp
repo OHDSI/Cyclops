@@ -848,6 +848,8 @@ static void appendNewtonReports(Rcpp::List& list, bsccs::RcppCcdInterface& rcppI
 		convergence.push_back(report.solver, "solver"); // List::create takes at most 20 elements
 		convergence.push_back(report.hessianVectorProducts, "hessianVectorProducts");
 		convergence.push_back(report.certificationProducts, "certificationProducts");
+		convergence.push_back(report.rankDeficientFaceRounds, "rankDeficientFaceRounds");
+		convergence.push_back(report.eigenFaceRounds, "eigenFaceRounds");
 		list["convergence"] = convergence;
 	}
 }

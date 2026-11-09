@@ -274,6 +274,8 @@ public:
 		std::string solver;             // "dense" or "cg" (Newton-CG) once Newton is considered
 		int hessianVectorProducts = 0;
 		int certificationProducts = 0;  // Hv spent in certification solves
+		int rankDeficientFaceRounds = 0; // prox-Newton face rounds on a singular face
+		int eigenFaceRounds = 0;         // prox-Newton face rounds solved by an eigendecomposition
 		std::string ineligible;         // why a requested Newton path ran as CCD
 	};
 
