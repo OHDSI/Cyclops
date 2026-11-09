@@ -145,18 +145,17 @@ int cyclopsGetNumberOfStrata(Environment object) {
 NumericVector cyclopsGetCovariateIds(Environment object) {
     using namespace bsccs;
 	XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);
-	NumericVector covariates;
+	const size_t first = data->getHasOffsetCovariate() ? 1 : 0;
+	const size_t total = data->getNumberOfCovariates();
+	NumericVector covariates(total > first ? total - first : 0); // Vector::push_back() would copy the vector per element
 
-	size_t i = 0;
-	if (data->getHasOffsetCovariate()) i++;
-
-	for (; i < data->getNumberOfCovariates(); ++i) {
+	for (size_t i = first; i < total; ++i) {
 	    int64_t label = data->getColumnNumericalLabel(i);
 
 	    double bit;
 	    std::memcpy(&bit, &label, sizeof(double));
 
-		covariates.push_back(bit);
+		covariates[i - first] = bit;
 	}
 	covariates.attr("class") = "integer64";
 	return covariates;

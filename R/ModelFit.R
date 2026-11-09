@@ -349,7 +349,9 @@ fitCyclopsModel <- function(cyclopsData,
         byLabel <- function(labels) names[match(as.character(bit64::as.integer64(labels)), ids)]
     }
     if (!is.null(fit$aliasedColumns)) { # merged exact duplicates (Newton plan 2.8), by name
-        fit$aliasedColumns <- lapply(fit$aliasedColumns, byLabel)
+        groups <- fit$aliasedColumns # one match() for all groups: each call hashes every covariate name
+        members <- byLabel(unlist(groups, use.names = FALSE))
+        fit$aliasedColumns <- unname(split(members, rep.int(seq_along(groups), lengths(groups))))
     }
     if (!is.null(fit$divergentCoefficients)) { # separation (D5): names, and a warning when the fit stands
         fit$divergentCoefficients <- byLabel(fit$divergentCoefficients)

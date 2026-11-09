@@ -67,3 +67,31 @@ test_that("duplicates with different priors or a fixed member are not merged", {
     expect_equal(fixed$aliasedColumns, list(c("X2", "D1", "D2")))
     expect_equal(coef(fixed)[["D3"]], 0)
 })
+
+test_that("names of merged groups keep each group's members and the order of the groups", {
+    set.seed(11)
+    n <- 1500
+    X <- matrix(rbinom(n * 24, 1, 0.2), n, 24)
+    X <- cbind(X, X[, 1:12], X[, 3]) # 12 groups (more than 9: names must not sort as text), the third with 3 members
+    ids <- 4e9 + 1000 * seq_len(ncol(X)) + 210 # above the 32-bit range
+    entries <- which(X != 0, arr.ind = TRUE)
+    data <- convertToCyclopsData(data.frame(rowId = seq_len(n), y = rbinom(n, 1, 0.3)),
+                                 data.frame(rowId = entries[, 1], covariateId = ids[entries[, 2]], covariateValue = 1),
+                                 modelType = "lr", addIntercept = TRUE, quiet = TRUE)
+    fit <- fitCyclopsModel(data, prior = createPrior("laplace", variance = 0.1, exclude = 0),
+                           control = createControl(noiseLevel = "silent"), warnings = FALSE)
+    expected <- lapply(1:12, function(k) as.character(bit64::as.integer64(ids[c(k, 24 + k, if (k == 3) 37)])))
+    expect_equal(fit$aliasedColumns, expected)
+    expect_equal(names(coef(fit))[1], "(Intercept)")
+})
+
+test_that("getCovariateIds() leaves out the offset and returns integer64", {
+    counts <- c(18, 17, 15, 20, 10, 20, 25, 13, 12)
+    outcome <- gl(3, 1, 9)
+    treatment <- gl(3, 3)
+    exposure <- c(2, 3, 4, 2, 3, 4, 2, 3, 4)
+    data <- createCyclopsData(counts ~ outcome + treatment + offset(log(exposure)), modelType = "pr")
+    ids <- getCovariateIds(data)
+    expect_s3_class(ids, "integer64")
+    expect_equal(as.character(ids), as.character(1:5))
+})
