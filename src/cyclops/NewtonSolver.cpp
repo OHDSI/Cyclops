@@ -414,8 +414,8 @@ bool CyclicCoordinateDescent::newtonDirectionCG(NewtonContext& context, Eigen::V
 // a face unbounded along a null direction is followed to a sign boundary); composite Armijo on the penalized
 // objective. The stop needs an exact face solve with model decrease -m <= tau_eff and the largest standardized
 // residual <= sqrt(2 tau_eff); it is an estimate (uncertified). Phase 2 dropped the separate zero-set condition.
-// Dense prox-Newton over the columns W fits the memory budget of dense Newton (2.5): H, its factor and workspace per
-// concurrent fit, plus the row-wise copy of X_W for engines that keep one (logistic regression reads its columns)
+// Dense prox-Newton over the columns W fits the memory budget of dense Newton (2.5): H, its factor and workspace of
+// this fit (its threads share them), plus the row-wise copy of X_W for engines that keep one (logistic regression reads its columns)
 // R = s' P^-1 s / 2 >= gap (3.1), from the likelihood gradient over F. With every precision p_j > 0 the objective is
 // strongly convex with modulus P = diag(p) through the prior alone, so for any subgradient s of it, f(beta) - f* <=
 // s' P^-1 s / 2; s is the minimum-norm one, soft-thresholded where an L1 rate applies (elastic net)
@@ -442,7 +442,7 @@ bool CyclicCoordinateDescent::proxFitsDense(const std::vector<int>& W) const {
 				static_cast<double>(hXI.getNumberOfEntries(j));
 		}
 	}
-	return 24.0 * width * width * std::max(1, threads) + 12.0 * entries <= 256.0 * 1024 * 1024;
+	return 24.0 * width * width + 12.0 * entries <= 256.0 * 1024 * 1024;
 }
 
 CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIteration(NewtonContext& context) {
@@ -566,8 +566,10 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 				for (int b = 0; b < m; ++b) HS(a, b) = H(S[a], S[b]);
 			}
 			const newton::SymmetricSolve solve(HS, rS);
+			if (solve.method == newton::SolveMethod::RANK_DEFICIENT) ++convergenceReport.rankDeficientFaceRounds;
+			if (solve.method == newton::SolveMethod::EIGEN) ++convergenceReport.eigenFaceRounds;
 			Eigen::VectorXd rN = Eigen::VectorXd::Zero(m);
-			if (solve.method == newton::SolveMethod::EIGEN && solve.dropped > 0) {
+			if (solve.dropped > 0) {
 				rN = solve.nullBasis * (solve.nullBasis.transpose() * rS);
 			}
 			if (m > 0 && rN.norm() > std::max(1e-8 * rS.norm(), kktTol)) {
@@ -954,7 +956,7 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 	double costRatio = context.anyLaplace ? proxCost() : modelSpecifics.newtonCostRatio(context.F);
 	convergenceReport.costRatio = costRatio;
 
-	// Memory gate (2.5): H, its factor and workspace for each concurrent fit, plus the row-wise copy of X_F. Above
+	// Memory gate (2.5): H, its factor and workspace of this fit (its threads share them), plus the row-wise copy of X_F. Above
 	// the budget dense Newton is off (Newton-CG takes these fits in a later version): "auto" stays on CCD and
 	// "newton" stops at setup
 	double entries = 0.0;
@@ -964,13 +966,13 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 			static_cast<double>(hXI.getNumberOfEntries(j));
 	}
 	const double width = static_cast<double>(context.F.size());
-	const double bytes = 24.0 * width * width * std::max(1, threads) + 12.0 * entries;
+	const double bytes = 24.0 * width * width + 12.0 * entries;
 	const double budget = 256.0 * 1024 * 1024;
 
 	// Dense or Newton-CG (2.5): CG when the dense factorization would exceed the memory budget, or when its
 	// operation count is lower; CYCLOPS_NEWTON_SOLVER = "dense" or "cg" forces one (tests, gates)
 	// Woodbury preconditioning when its factor fits: M and its Cholesky factor, and the k = 32 columns of W
-	const double woodburyBytes = (16.0 * width * width + 8.0 * 2.0 * 32.0 * width) * std::max(1, threads) + 12.0 * entries;
+	const double woodburyBytes = 16.0 * width * width + 8.0 * 2.0 * 32.0 * width + 12.0 * entries;
 	context.woodburyAllowed = woodburyBytes <= budget;
 	if (const char* woodbury = std::getenv("CYCLOPS_NEWTON_WOODBURY")) {
 		context.woodburyAllowed = context.woodburyAllowed && std::atoi(woodbury) != 0;
