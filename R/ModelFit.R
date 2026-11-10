@@ -302,6 +302,9 @@ fitCyclopsModel <- function(cyclopsData,
         }
 
         .cyclopsSetWeights(cyclopsData$cyclopsInterfacePtr, weights)
+    } else if (length(.cyclopsGetWeights(cyclopsData$cyclopsInterfacePtr)) > 0) {
+        # this fit is unweighted: release the weights an earlier fit on this interface set
+        .cyclopsSetWeights(cyclopsData$cyclopsInterfacePtr, NULL)
     }
 
     # censorWeight check for the Fine-Gray model

@@ -128,6 +128,8 @@ Changes:
    where the estimate read 2.3e-9; it now takes two more Newton steps. The gap costs about one gradient and is
    computed only where the estimate would stop. A tolerance below what the gap can certify in floating point (about
    1e-14 relative) stops on the estimate as before
+17. a fit without `weights` on a data object that an earlier fit had weighted is unweighted; it reused the
+   earlier weights (also in 3.7.1), so it repeated the weighted fit
 
 Cyclops v3.8.0
 ==============

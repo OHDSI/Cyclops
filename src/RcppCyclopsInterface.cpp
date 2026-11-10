@@ -167,11 +167,16 @@ bool cyclopsGetIsRegularized(SEXP inRcppCcdInterface, const int index) {
 
 // [[Rcpp::export(".cyclopsSetWeights")]]
 void cyclopsSetWeights(SEXP inRcppCcdInterface,
-    NumericVector& weights) {
+    Rcpp::Nullable<NumericVector> weights) { // NULL: no weights (every row counts once)
     using namespace bsccs;
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
-    interface->getCcd().setWeights(&weights[0]);
+    if (weights.isNull()) {
+        interface->getCcd().setWeights(NULL);
+    } else {
+        NumericVector values(weights);
+        interface->getCcd().setWeights(&values[0]);
+    }
 }
 
 // [[Rcpp::export(".cyclopsGetWeights")]]

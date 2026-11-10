@@ -256,6 +256,24 @@ test_that("Small Poisson dense regression with weighting", {
                            control = createControl(minCVData = 1, noiseLevel = "quiet"))
 })
 
+test_that("A fit without weights after a weighted fit on the same data is unweighted", {
+    # weights stayed on the reused interface: the second fit repeated the weighted one
+    set.seed(3)
+    n <- 400
+    outcomes <- data.frame(rowId = 1:n, y = rbinom(n, 1, 0.3))
+    covariates <- data.frame(rowId = rep(1:n, each = 2), covariateId = rep(1:2, n), covariateValue = rnorm(2 * n))
+    make <- function() convertToCyclopsData(outcomes, covariates, modelType = "lr", addIntercept = TRUE, quiet = TRUE)
+    control <- createControl(noiseLevel = "silent")
+    data <- make()
+    weighted <- fitCyclopsModel(data, prior = createPrior("none"), control = control,
+                                weights = rep(c(1, 0), length.out = n))
+    again <- fitCyclopsModel(data, prior = createPrior("none"), control = control)
+    fresh <- fitCyclopsModel(make(), prior = createPrior("none"), control = control)
+    expect_equal(coef(again), coef(fresh))
+    expect_false(isTRUE(all.equal(coef(again), coef(weighted))))
+    expect_length(.cyclopsGetWeights(data$cyclopsInterfacePtr), 0)
+})
+
 test_that("Check conditional Poisson with cross-validation",{
     set.seed(123)
     sim <- simulateCyclopsData(nstrata=1000,

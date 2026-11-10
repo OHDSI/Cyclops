@@ -133,12 +133,12 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsSetWeights
-void cyclopsSetWeights(SEXP inRcppCcdInterface, NumericVector& weights);
+void cyclopsSetWeights(SEXP inRcppCcdInterface, Rcpp::Nullable<NumericVector> weights);
 RcppExport SEXP _Cyclops_cyclopsSetWeights(SEXP inRcppCcdInterfaceSEXP, SEXP weightsSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
-    Rcpp::traits::input_parameter< NumericVector& >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Nullable<NumericVector> >::type weights(weightsSEXP);
     cyclopsSetWeights(inRcppCcdInterface, weights);
     return R_NilValue;
 END_RCPP
