@@ -269,6 +269,9 @@ struct ModelData::Impl {
     std::shared_ptr<BufferedLogger> logger;
     std::shared_ptr<ThrowingErrorHandler> error;
     std::unique_ptr<bsccs::AbstractModelData> data;
+    /// The outcome's row ids when set_outcome() was given them, else empty. The core reads the rows of a sparse
+    /// covariate as these ids; Python passes positions, which add_covariates_csc() translates.
+    std::vector<std::int64_t> rowIds;
 
     /// Number of columns present before any offset/intercept manipulation, used
     /// to validate coefficient-length arguments.
@@ -314,7 +317,13 @@ void ModelData::set_outcome(const std::vector<double>& y,
     if (y.empty()) {
         throw CyclopsError("Outcome vector is empty");
     }
+    if (std::unordered_set<std::int64_t>(row_id.begin(), row_id.end()).size() != row_id.size()) {
+        throw CyclopsError("Row ids must be distinct"); // the core keeps one row per id
+    }
     impl_->data->loadY(stratum_id, row_id, y, time);
+    if (!row_id.empty()) {
+        impl_->rowIds = row_id;
+    }
 }
 
 void ModelData::add_covariates_csc(const std::vector<std::int64_t>& indptr,
@@ -395,6 +404,11 @@ void ModelData::add_covariates_csc(const std::vector<std::int64_t>& indptr,
             // column instead, because the loaders drop zero entries.
             columnRows.assign(1, 0);
             columnValues.assign(1, 0.0);
+        }
+        if (!impl_->rowIds.empty()) { // positions to the outcome's row ids, which the core maps back to positions
+            for (auto& row : columnRows) {
+                row = impl_->rowIds[static_cast<std::size_t>(row)];
+            }
         }
 
         impl_->data->loadX(covariate_ids[column], columnRows, columnValues,

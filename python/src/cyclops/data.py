@@ -256,7 +256,8 @@ class CyclopsData:
         ``strata`` is given and ``row_ids`` is not, positional identifiers are
         substituted. Row identifiers also give every row a text label, which
         costs one small string per row — hence they are not supplied
-        unconditionally.
+        unconditionally. Covariate matrices are always read by position: row
+        ``k`` of a matrix belongs to ``y[k]``, whatever its row identifier.
         """
         y = _as_1d(y, "y")
         strata = None if strata is None else _as_1d(strata, "strata", dtype=np.int64)

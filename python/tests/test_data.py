@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import scipy.sparse as sp
 
-from cyclops import CyclopsError
+from cyclops import CyclopsError, CyclopsModel
 from cyclops.data import INTERCEPT_ID, CyclopsData
 
 
@@ -260,6 +260,38 @@ def test_wide_sparse_batch_loads_in_linear_time(small):
     large_batch = _load_seconds(small.n_samples, small.y, 200_000)
     ratio = large_batch / max(small_batch, 1e-3)
     assert ratio < 10.0, f"4x the columns took {ratio:.1f}x as long ({small_batch:.2f} s, {large_batch:.2f} s)"
+
+
+def test_row_ids_label_rows_without_moving_covariates():
+    """Sparse covariates are read by position whatever the row ids (they were read as ids: a permutation of
+    0..n-1 silently moved them to other rows, and other ids failed)."""
+    rng = np.random.default_rng(2)
+    n, p = 300, 6
+    X = sp.random(n, p, density=0.3, format="csc", random_state=rng)
+    X.data[:] = 1.0
+    y = (rng.random(n) < 1 / (1 + np.exp(-(X @ np.linspace(-1, 1, p) - 0.5)))).astype(float)
+
+    def coefficients(row_ids):
+        data = CyclopsData.create("lr")
+        data.set_outcome(y, row_ids=row_ids)
+        data.add_covariates(X)
+        data.add_intercept()
+        data.finalize()
+        return CyclopsModel(data).fit().coefficients
+
+    plain = coefficients(None)
+    np.testing.assert_array_equal(coefficients(np.arange(n)[::-1].copy()), plain)
+    np.testing.assert_array_equal(coefficients(np.arange(1001, 1001 + n)), plain)
+    lowest = np.iinfo(np.int64).min  # a row id at the bottom of the range is an id like any other
+    np.testing.assert_array_equal(coefficients(np.arange(lowest, lowest + n)), plain)
+
+
+def test_duplicate_row_ids_raise(small):
+    data = CyclopsData.create("lr")
+    ids = np.arange(small.n_samples)
+    ids[-1] = ids[0]
+    with pytest.raises(CyclopsError, match="distinct"):
+        data.set_outcome(small.y, row_ids=ids)
 
 
 def test_shape_mismatch_raises(small):

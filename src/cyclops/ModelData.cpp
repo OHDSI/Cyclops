@@ -241,10 +241,10 @@ int ModelData<RealType>::loadMultipleX(
 
 		// Grab whole column worth of data
 		const auto columnId = *columnIdItr;
-		auto lastRowId = *rowIdItr - 1;
+		const auto columnStart = rowIdItr;
 
 		while (columnIdItr != columnIdEnd && *columnIdItr == columnId) {
-		    if (*rowIdItr == lastRowId) {
+		    if (rowIdItr != columnStart && *rowIdItr == *(rowIdItr - 1)) {
 		        std::ostringstream stream;
 		        stream << "Repeated row-column entry at ";
 		        stream << *rowIdItr << " - " << *columnIdItr;
@@ -267,8 +267,6 @@ int ModelData<RealType>::loadMultipleX(
 		    } else {
 		        column.getColumnsVector().push_back(mappedRow);
 		    }
-
-		    lastRowId = *rowIdItr;
 
 			++columnIdItr;
 			++rowIdItr;
@@ -365,10 +363,8 @@ int ModelData<RealType>::loadX(
             auto covariateValueItr = std::begin(covariateValue);
             const auto rowIdEnd = std::end(rowId);
 
-            auto lastRowId = *rowIdItr - 1;
-
             while (rowIdItr != rowIdEnd) {
-                if (*rowIdItr == lastRowId) {
+                if (rowIdItr != std::begin(rowId) && *rowIdItr == *(rowIdItr - 1)) {
                     std::ostringstream stream;
                     stream << "Repeated row-column entry at";
                     stream << *rowIdItr << " - " << covariateId;
@@ -391,7 +387,6 @@ int ModelData<RealType>::loadX(
                 } else {
                     column.getColumnsVector().push_back(mappedRow);
                 }
-                lastRowId = *rowIdItr;
                 ++rowIdItr;
             }
         }
