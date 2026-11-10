@@ -163,3 +163,33 @@ test_that("Check multitype SCCS", {
 })
 
 
+
+test_that("Several outcome types give one coefficient per type, whatever type is", {
+    # type indexed a contrast matrix, which gave the codes the data need only for a factor of two levels: three levels
+    # merged two types and added empty columns (the fit failed), and a character vector or 0/1 codes crashed R
+    set.seed(3)
+    n <- 900
+    k <- factor(rep(c("A", "B", "C"), n / 3))
+    z <- rnorm(n)
+    frame <- data.frame(y = rpois(n, exp(c(0.2, 0.8, 1.4)[k] + c(0.1, -0.3, 0.5)[k] * z)), z = z, k = k)
+    gold <- glm(y ~ 0 + k + k:z, data = frame, family = poisson()) # an intercept and a slope per type
+    fit <- function(data) coef(fitCyclopsModel(data, prior = createPrior("none"),
+                                               control = createControl(noiseLevel = "silent")))
+
+    byFactor <- createCyclopsData(y ~ z, type = frame$k, data = frame, modelType = "pr")
+    expect_equal(getNumberOfTypes(byFactor), 3)
+    a <- fit(byFactor)
+    expect_equal(names(a), c("(Intercept):A", "(Intercept):B", "(Intercept):C", "z:A", "z:B", "z:C"))
+    expect_equal(unname(a), unname(coef(gold)), tolerance = 1e-6)
+    expect_equal(fit(createCyclopsData(y ~ z, type = as.character(frame$k), data = frame, modelType = "pr")), a)
+    expect_equal(fit(createCyclopsData(Multitype(y, k) ~ z, data = frame, modelType = "pr")), a)
+
+    two <- frame[frame$k != "C", ]
+    b <- fit(createCyclopsData(y ~ z, type = droplevels(two$k), data = two, modelType = "pr"))
+    expect_equal(unname(fit(createCyclopsData(y ~ z, type = as.integer(two$k == "B"), data = two, modelType = "pr"))),
+                 unname(b))
+
+    expect_error(createCyclopsData(y ~ z, type = frame$k[-1], data = frame, modelType = "pr"), "one value per row")
+    expect_error(createCyclopsData(y ~ z, type = replace(frame$k, 5, NA), data = frame, modelType = "pr"),
+                 "missing values")
+})

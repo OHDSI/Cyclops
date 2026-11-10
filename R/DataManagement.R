@@ -60,7 +60,8 @@
 #' @param y
 #' Currently undocumented
 #' @param type
-#' Currently undocumented
+#' Optional vector of outcome types, one per row: a factor, or values that \code{as.factor()} makes one. Each covariate
+#' then gets one column per level, named \code{covariate:level}. \code{\link{Multitype}} in \code{formula} sets it
 #' @param time
 #' Currently undocumented
 #' @param dx
@@ -114,7 +115,6 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
     hasIntercept <- FALSE
     colnames <- NULL
 
-    contrasts <- NULL
     sortOrder <- NULL
     startTime <- NULL
     subjectId <- NULL
@@ -151,9 +151,9 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
                 time <- as.numeric(outcome[,1])
                 y <- as.numeric(outcome[,2])
             }
-        } else if (inherits(outcome, "Multitype")) {
-            contrasts <- attr(outcome, "contrasts")
-            type <- outcome[,2]
+        } else if (inherits(outcome, "Multitype")) { # the codes of a factor, with its levels as contrast row names
+            typeLevels <- rownames(attr(outcome, "contrasts"))
+            type <- factor(typeLevels[outcome[,2]], levels = typeLevels)
             y <- outcome[,1]
         } else {
             y <- outcome
@@ -347,17 +347,23 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
         }
     }
 
-    # Handle multiple outcome types
+    # Handle multiple outcome types: each covariate gets one column per level of type, which the data take as the
+    # codes 0, 1, ... (indexing a contrast matrix by type gave these only for a factor of two levels)
     numTypes <- 1
-    if (!missing(type)) {
-        if (is.null(contrasts)) {
-            contrasts <- contrasts(as.factor(type))
+    if (!is.null(type)) {
+        if (length(type) != length(y)) {
+            stop("type must have one value per row")
         }
-        numTypes <- length(contrasts)
-        type <- contrasts[type]
+        if (anyNA(type)) {
+            stop("type must not have missing values")
+        }
+        type <- as.factor(type)
+        typeLevels <- levels(type)
+        numTypes <- length(typeLevels)
+        type <- as.integer(type) - 1L
         if (!is.null(colnames)) {
             colnames <- as.vector(sapply(colnames, function(x, y) { paste(x,y,sep=":")},
-                                         y = dimnames(contrasts)[[1]], USE.NAMES=F))
+                                         y = typeLevels, USE.NAMES=F))
         }
     }
 

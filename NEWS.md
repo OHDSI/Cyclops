@@ -130,6 +130,10 @@ Changes:
    1e-14 relative) stops on the estimate as before
 17. a fit without `weights` on a data object that an earlier fit had weighted is unweighted; it reused the
    earlier weights (also in 3.7.1), so it repeated the weighted fit
+18. `createCyclopsData()` with outcome types (`type`, or `Multitype()` in the formula) of three or more levels
+   gives each covariate one column per type; it merged two types and added empty columns, so the fit failed.
+   A character `type`, or numeric codes other than 1 and 2, crashed R; `type` is now taken as a factor.
+   Fits with two types do not change
 
 Cyclops v3.8.0
 ==============

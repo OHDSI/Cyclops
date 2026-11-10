@@ -52,7 +52,8 @@ createCyclopsData(
 
 \item{y}{Currently undocumented}
 
-\item{type}{Currently undocumented}
+\item{type}{Optional vector of outcome types, one per row: a factor, or values that \code{as.factor()} makes one. Each covariate
+then gets one column per level, named \code{covariate:level}. \code{\link{Multitype}} in \code{formula} sets it}
 
 \item{dx}{Optional dense \code{"\link[Matrix]{Matrix}"} of covariates}
 
