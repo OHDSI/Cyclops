@@ -89,6 +89,15 @@ Changes:
    `createControl(algorithm = "ccd")` reproduces earlier results exactly. Fits under `fitter = "legacy"`,
    other models, and the refits of priors with a `fitHook` (BrokenAdaptiveRidge,
    IterativeHardThresholding, `createNonSeparablePrior()`) keep coordinate descent
+17. Newton-CG (used by `algorithm = "auto"` and `"newton"` when a dense Hessian is too large or costs more)
+   certifies its `"gap"` stop when up to 32 coefficients have no prior, such as an unpenalized intercept,
+   through a lower bound on the Hessian from the Schur complement of their block. Before, only fits with a
+   normal prior on every coefficient could certify by Newton-CG, and with an unpenalized intercept and normal
+   priors of very different variances the certification could not stop: on such a simulated logistic design
+   with 3,000 rows `algorithm = "newton"` reached its iteration limit after 24 s, and now certifies in 0.1 s;
+   with 13,334 rows and 18,933 covariates it had not finished after 25 minutes, and now certifies in 58 s.
+   After a fallback to coordinate descent, `algorithm = "newton"` waits before its next Newton steps, as
+   `"auto"` does. Fits with a normal prior on every coefficient do not change otherwise
 
 Cyclops v3.8.0
 ==============
