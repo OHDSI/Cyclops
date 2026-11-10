@@ -30,6 +30,19 @@ def test_intercept_is_prepended_with_id_zero(small):
     assert data.n_covariates == small.n_features + 1
     assert data.covariate_ids[0] == INTERCEPT_ID
     assert data.intercept_label == INTERCEPT_ID
+    # stored as R's convertToCyclopsData() stores it (not as a dense column of ones), so the fitters that look
+    # for an intercept column, such as the adaptive intercept, find it
+    assert data.covariate_formats[0] == "intercept"
+
+
+def test_making_the_intercept_dense_keeps_it(small):
+    """An intercept column is dense already; converting it used to crash the process."""
+    data = CyclopsData.create("lr")
+    data.set_outcome(small.y)
+    data.add_dense_covariate(1, small.X[:, 0])
+    data.add_intercept()
+    data.make_dense([INTERCEPT_ID])
+    assert data.covariate_formats == ["intercept", "dense"]
 
 
 def test_column_formats_follow_content(small):

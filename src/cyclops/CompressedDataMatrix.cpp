@@ -291,7 +291,7 @@ void CompressedDataColumn<RealType>::convertColumnToSparse(void) {
 
 template <typename RealType>
 void CompressedDataColumn<RealType>::convertColumnToDense(int nRows) {
-	if (formatType == DENSE) {
+	if (formatType == DENSE || formatType == INTERCEPT) { // an intercept is dense already: 1 in every row, nothing stored
 		return;
 	}
 

@@ -141,6 +141,12 @@ Changes:
    smaller, and the held-out AUC fell from 0.887 to 0.876. With this release's Newton changes the folds are also
    faster on real FeatureExtraction designs (3-fold super cross-validation 1.1-2.3x faster, the same variances).
    Under `algorithm = "ccd"` and with a given `cvConvergenceType` nothing changes
+17. `finalizeSqlCyclopsData(addIntercept = TRUE)` (and `add_intercept()` in the Python package) store the
+   intercept as an intercept column, as `convertToCyclopsData()` does, instead of a dense column of ones.
+   The optimum is the same, but `fitter = "super"` now takes its adaptive intercept steps on such data too:
+   a simulated sparse logistic design with 400 covariates took 21 coordinate-descent iterations instead of 39.
+   Asking for an intercept to be stored densely (`makeCovariatesDense`, or `make_dense()` in Python) leaves it
+   as it is; on data from `convertToCyclopsData()` it crashed R
 
 Cyclops v3.8.0
 ==============

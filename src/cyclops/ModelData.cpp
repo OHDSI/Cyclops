@@ -791,13 +791,11 @@ IntVector ModelData<RealType>::getPidVectorSTL() const {
 
 template <typename RealType>
 void ModelData<RealType>::addIntercept() {
-    // TODO Use INTERCEPT
-    X.insert(0, DENSE); // add to front, TODO fix if offset
+    // The column loadX() makes for an intercept: INTERCEPT storage (1 in every row, no stored values) at column 0.
+    // Code that finds the intercept by its storage, such as the adaptive intercept, needs it; a DENSE column of ones
+    // fits the same but is not recognised. Callers add it before an offset covariate, which must stay in column 0.
+    X.insert(0, INTERCEPT);
     setHasInterceptCovariate(true);
-    const size_t numRows = getNumberOfRows();
-    for (size_t i = 0; i < numRows; ++i) {
-        X.getColumn(0).add_data(i, static_cast<RealType>(1));
-    }
 }
 
 template <typename RealType>

@@ -912,7 +912,7 @@ loadNewSqlCyclopsDataStratTimeEffects <- function(object,
 #' @param offsetAlreadyOnLogScale						Set to \code{TRUE} to indicate that offsets were log-transformed before importing into Cyclops data object.
 #' @param sortCovariates			Sort covariates in numeric-order with intercept first if it exists.
 #' @param makeCovariatesDense List of numeric or character covariates names to densely represent in Cyclops data object.
-#' 														For efficiency, we suggest making at least the intercept dense.
+#' 														An intercept needs no conversion: it is stored densely already (a 1 in every row, no stored values).
 ##' @keywords internal
 #' @export
 finalizeSqlCyclopsData <- function(object,
