@@ -797,14 +797,17 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              \code{"kkt"} tolerance of 0.1
 #' @param cvConvergenceType     String: convergence criterion of the cross-validation fold fits only.
 #'                              \code{NULL} (default) means that of the final fit, or \code{"kkt"} for logistic
-#'                              regression and least squares with \code{fitter = "super"}
+#'                              regression and least squares with \code{fitter = "super"}. Under
+#'                              \code{algorithm = "auto"}, fold fits with a criterion other than \code{"gap"} run
+#'                              \code{"ccd"}, as a final fit would
 #' @param cvTolerance           Numeric: tolerance of the cross-validation fold fits only. \code{NULL} (default)
 #'                              means 0.1 for least squares with \code{fitter = "super"}, 3e-3 with
-#'                              \code{cvConvergenceType = "kkt"}, 1e-6 with another \code{cvConvergenceType}, and
-#'                              \code{tolerance} without one
+#'                              \code{cvConvergenceType = "kkt"}, 1e-5 with \code{"gap"}, 1e-6 with another
+#'                              \code{cvConvergenceType}, and \code{tolerance} without one
 #' @param cvMaxIterations       Integer: maximum iterations of the cross-validation fold fits only.
-#'                              \code{NULL} (default) means 5000 with \code{cvConvergenceType = "kkt"}, 1000 with
-#'                              another \code{cvConvergenceType}, and \code{maxIterations} without one
+#'                              \code{NULL} (default) means 5000 with \code{cvConvergenceType = "kkt"} or
+#'                              \code{"gap"}, 1000 with another \code{cvConvergenceType}, and \code{maxIterations}
+#'                              without one
 #' @param cvMinIterations       Integer: minimum iterations of a cross-validation fold fit when
 #'                              \code{cvConvergenceType}, \code{cvTolerance} or \code{cvMaxIterations} applies;
 #'                              \code{NULL} (default) means 5
