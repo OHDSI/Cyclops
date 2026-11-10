@@ -190,6 +190,8 @@ public:
 
 	void convertColumnToDense(int nRows);
 
+	void convertColumnToIntercept(size_t nRows);
+
 	void convertColumnToSparse(void);
 
 	void fill(RealVector& values, int nRows) const;

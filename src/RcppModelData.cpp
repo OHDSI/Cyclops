@@ -438,7 +438,11 @@ std::vector<double> cyclopsNormalizeCovariates(Environment x, const std::string&
 void cyclopsSetHasIntercept(Environment x, bool hasIntercept) {
     using namespace bsccs;
     XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
-    data->setHasInterceptCovariate(hasIntercept);
+    if (hasIntercept) {
+        data->setInterceptCovariate(); // stored as convertToCyclopsData() stores an intercept, not as dense ones
+    } else {
+        data->setHasInterceptCovariate(false);
+    }
 }
 
 // [[Rcpp::export(".cyclopsGetHasIntercept")]]

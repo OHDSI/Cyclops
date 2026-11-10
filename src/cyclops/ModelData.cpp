@@ -793,6 +793,21 @@ void ModelData<RealType>::addIntercept() {
     setHasInterceptCovariate(true);
 }
 
+// The intercept of data loaded with its columns, such as R's formula data: the column after any offset, a dense column
+// of ones. It gets the storage addIntercept() gives an intercept (see there). A column that is not all ones (formula
+// data with several outcome types has one intercept column per type) stays dense and is still the intercept
+template <typename RealType>
+void ModelData<RealType>::setInterceptCovariate() {
+    const size_t index = hasOffsetCovariate ? 1 : 0;
+    if (index >= getNumberOfColumns()) {
+        std::ostringstream stream;
+        stream << "No intercept column";
+        error->throwError(stream);
+    }
+    X.getColumn(index).convertColumnToIntercept(getNumberOfRows());
+    setHasInterceptCovariate(true);
+}
+
 template <typename RealType>
 void ModelData<RealType>::logTransformCovariate(const IdType covariate) {
     X.getColumn(covariate).transform([](RealType x) {
@@ -821,6 +836,13 @@ void ModelData<RealType>::setOffsetCovariate(const IdType covariate) {
         index = getNumberOfCovariates() - 1;
     } else {
         index = getColumnIndexByName(covariate);
+    }
+    if (hasInterceptCovariate && index == (hasOffsetCovariate ? 1 : 0)) {
+        // Code finds the intercept after any offset: the column behind it would be taken for the intercept (and an
+        // intercept column has no values to log-transform)
+        std::ostringstream stream;
+        stream << "The intercept cannot be the offset covariate";
+        error->throwError(stream);
     }
     X.moveToFront(index);
     X.getColumn(0).add_label(-1); // TODO Generic label for offset?

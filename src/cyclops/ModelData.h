@@ -117,6 +117,8 @@ public:
 
     virtual void setHasInterceptCovariate(bool hasIntercept) = 0;
 
+    virtual void setInterceptCovariate() = 0;
+
     virtual bool getIsFinalized() const = 0;
 
     virtual void setIsFinalized(bool finalized) = 0;
@@ -435,6 +437,8 @@ public:
 //	}
 
     void addIntercept();
+
+    void setInterceptCovariate();
 
 	void setOffsetCovariate(const IdType covariate);
 

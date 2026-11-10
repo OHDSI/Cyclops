@@ -289,6 +289,18 @@ void CompressedDataColumn<RealType>::convertColumnToSparse(void) {
 	formatType = SPARSE;
 }
 
+// A DENSE column of ones in all nRows rows is an intercept: INTERCEPT storage holds no values. Any other column, an
+// INTERCEPT one included, is left as it is
+template <typename RealType>
+void CompressedDataColumn<RealType>::convertColumnToIntercept(size_t nRows) {
+	if (formatType != DENSE || !data || data->size() != nRows ||
+		std::any_of(data->begin(), data->end(), [](RealType x) { return x != static_cast<RealType>(1); })) {
+		return;
+	}
+	data.reset();
+	formatType = INTERCEPT;
+}
+
 template <typename RealType>
 void CompressedDataColumn<RealType>::convertColumnToDense(int nRows) {
 	if (formatType == DENSE || formatType == INTERCEPT) { // an intercept is dense already: 1 in every row, nothing stored

@@ -128,23 +128,26 @@ Changes:
    where the estimate read 2.3e-9; it now takes two more Newton steps. The gap costs about one gradient and is
    computed only where the estimate would stop. A tolerance below what the gap can certify in floating point (about
    1e-14 relative) stops on the estimate as before
-17. a fit without `weights` on a data object that an earlier fit had weighted is unweighted; it reused the
+23. a fit without `weights` on a data object that an earlier fit had weighted is unweighted; it reused the
    earlier weights (also in 3.7.1), so it repeated the weighted fit
-18. `createCyclopsData()` with outcome types (`type`, or `Multitype()` in the formula) of three or more levels
+24. `createCyclopsData()` with outcome types (`type`, or `Multitype()` in the formula) of three or more levels
    gives each covariate one column per type; it merged two types and added empty columns, so the fit failed.
    A character `type`, or numeric codes other than 1 and 2, crashed R; `type` is now taken as a factor.
    Fits with two types do not change
-19. `fitter = "super"` with `algorithm = "auto"` (the default) or `"newton"` fits its cross-validation folds as
+25. `fitter = "super"` with `algorithm = "auto"` (the default) or `"newton"` fits its cross-validation folds as
    the final fit, with the `"gap"` criterion (fold tolerance 1e-5). They ran coordinate descent to a `"kkt"`
    tolerance of 3e-3, its setting for `algorithm = "ccd"`; on a real logistic design with 13,420 covariates 18
    of 30 fold fits reached the iteration limit, the variance search stopped early and chose a variance six times
    smaller, and the held-out AUC fell from 0.887 to 0.876. With this release's Newton changes the folds are also
    faster on real FeatureExtraction designs (3-fold super cross-validation 1.1-2.3x faster, the same variances).
    Under `algorithm = "ccd"` and with a given `cvConvergenceType` nothing changes
-17. `finalizeSqlCyclopsData(addIntercept = TRUE)` (and `add_intercept()` in the Python package) store the
-   intercept as an intercept column, as `convertToCyclopsData()` does, instead of a dense column of ones.
-   The optimum is the same, but `fitter = "super"` now takes its adaptive intercept steps on such data too:
-   a simulated sparse logistic design with 400 covariates took 21 coordinate-descent iterations instead of 39.
+26. `createCyclopsData()` (a formula with an intercept), `finalizeSqlCyclopsData(addIntercept = TRUE)` and
+   `add_intercept()` in the Python package store the intercept as an intercept column, as
+   `convertToCyclopsData()` does, instead of a dense column of ones. The optimum is the same, but adaptive
+   intercept steps now apply to such data too (logistic regression under `fitter = "super"` with
+   `algorithm = "ccd"`, its cross-validation folds included, and least squares under `"default"` and
+   `"super"`): a simulated sparse logistic design with 400 covariates took 21 iterations instead of 39, and
+   over 269 such fits of simulated formula data the median fit took 2.6 times fewer iterations (never more).
    Asking for an intercept to be stored densely (`makeCovariatesDense`, or `make_dense()` in Python) leaves it
    as it is; on data from `convertToCyclopsData()` it crashed R
 
