@@ -150,7 +150,8 @@ public:
             const std::vector<double>& covariateValue,
             const bool reload,
             const bool append,
-            const bool forceSparse
+            const bool forceSparse,
+            const bool checkExisting = true // false: the caller has already checked that covariateId is new
     ) = 0;
 
     virtual int loadMultipleX(
@@ -326,7 +327,8 @@ public:
 		const std::vector<double>& covariateValue,
 		const bool reload,
 		const bool append,
-		const bool forceSparse
+		const bool forceSparse,
+		const bool checkExisting = true
 	);
 
 	int loadMultipleX(

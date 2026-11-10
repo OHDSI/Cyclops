@@ -16,6 +16,7 @@
 #include <cmath>
 #include <numeric>
 #include <sstream>
+#include <unordered_set>
 #include <utility>
 
 #include <Eigen/Dense>
@@ -346,6 +347,33 @@ void ModelData::add_covariates_csc(const std::vector<std::int64_t>& indptr,
             throw CyclopsError("Row index out of range");
         }
     }
+    for (std::size_t column = 0; column < covariate_ids.size(); ++column) {
+        if (indptr[column + 1] < indptr[column]) {
+            throw CyclopsError("indptr must be non-decreasing");
+        }
+        for (auto k = indptr[column] + 1; k < indptr[column + 1]; ++k) { // as loadX() checks, on consecutive entries
+            if (row_indices[k] == row_indices[k - 1]) {
+                std::ostringstream stream;
+                stream << "Repeated row-column entry at " << row_indices[k] << " - " << covariate_ids[column];
+                throw CyclopsError(stream.str());
+            }
+        }
+    }
+
+    // Covariate ids must be new and distinct. They are checked here once, with a hash set: loadX() would otherwise search
+    // all existing columns for every column (quadratic in the number of columns). The ids, indptr and repeated rows are
+    // validated before the first column is loaded, so such a batch is rejected whole and leaves the data unchanged.
+    const auto existing = this->covariate_ids(); // the parameter covariate_ids hides the member function
+    std::unordered_set<std::int64_t> ids;
+    ids.reserve(existing.size() + covariate_ids.size());
+    ids.insert(existing.begin(), existing.end());
+    for (const auto id : covariate_ids) {
+        if (!ids.insert(id).second) {
+            std::ostringstream stream;
+            stream << "Variable " << id << " already exists";
+            throw CyclopsError(stream.str());
+        }
+    }
 
     std::vector<std::int64_t> columnRows;
     std::vector<double> columnValues;
@@ -353,9 +381,6 @@ void ModelData::add_covariates_csc(const std::vector<std::int64_t>& indptr,
     for (std::size_t column = 0; column < covariate_ids.size(); ++column) {
         const auto begin = indptr[column];
         const auto end = indptr[column + 1];
-        if (end < begin) {
-            throw CyclopsError("indptr must be non-decreasing");
-        }
 
         columnRows.assign(row_indices.begin() + begin, row_indices.begin() + end);
         if (hasValues) {
@@ -373,7 +398,7 @@ void ModelData::add_covariates_csc(const std::vector<std::int64_t>& indptr,
         }
 
         impl_->data->loadX(covariate_ids[column], columnRows, columnValues,
-                           /*reload=*/false, /*append=*/false, force_sparse);
+                           /*reload=*/false, /*append=*/false, force_sparse, /*checkExisting=*/false);
     }
 }
 

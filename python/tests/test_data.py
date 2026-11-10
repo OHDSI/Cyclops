@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 import numpy as np
 import pytest
 import scipy.sparse as sp
@@ -184,6 +186,67 @@ def test_duplicate_covariate_ids_raise(small):
     ids = np.ones(small.n_features, dtype=np.int64)
     with pytest.raises(CyclopsError, match="already exists"):
         CyclopsData.from_arrays(small.X, small.y, "lr", covariate_ids=ids)
+
+
+def test_sparse_batch_with_a_bad_id_is_rejected_whole(small):
+    """Ids are checked before any column is loaded, so a rejected batch leaves the data unchanged."""
+    X = sp.csc_matrix((small.X[:, :3] > 0).astype(np.float64))
+    data = CyclopsData.create("lr")
+    data.set_outcome(small.y)
+    data.add_covariates(X[:, :1], covariate_ids=[5])
+    with pytest.raises(CyclopsError, match="Variable 7 already exists"):
+        data.add_covariates(X, covariate_ids=[6, 7, 7])  # repeated within the batch
+    with pytest.raises(CyclopsError, match="Variable 5 already exists"):
+        data.add_covariates(X, covariate_ids=[6, 8, 5])  # already loaded
+    assert data.n_covariates == 1
+    data.add_covariates(X, covariate_ids=[6, 7, 8])
+    np.testing.assert_array_equal(data.covariate_ids, [5, 6, 7, 8])
+
+
+def test_malformed_sparse_batch_is_rejected_whole(small):
+    """A decreasing indptr or a repeated row within a column is found before anything is loaded."""
+    n = small.n_samples
+    data = CyclopsData.create("lr")
+    data.set_outcome(small.y)
+    data.add_covariates(sp.csc_matrix(np.eye(n, 1)), covariate_ids=[1])
+    rows = np.array([0, 1, 2], dtype=np.int64)
+    ones = np.ones(3)
+    with pytest.raises(CyclopsError, match="non-decreasing"):
+        data._handle.add_covariates_csc(np.array([0, 2, 1, 3], dtype=np.int64), rows, ones, np.array([2, 3, 4]), False)
+    repeated = sp.csc_matrix((ones, np.array([0, 1, 1]), np.array([0, 1, 3])), shape=(n, 2))  # row 1 twice in column 2
+    with pytest.raises(CyclopsError, match="Repeated row-column entry"):
+        data.add_covariates(repeated, covariate_ids=[2, 3])
+    np.testing.assert_array_equal(data.covariate_ids, [1])
+
+
+def _load_seconds(n_rows, y, p):
+    rng = np.random.default_rng(3)
+    rows = rng.integers(0, n_rows, size=2 * p)
+    X = sp.csc_matrix((np.ones(2 * p), (rows, np.repeat(np.arange(p), 2))), shape=(n_rows, p))
+    X.data[:] = 1.0  # duplicates were summed by the conversion
+    ids = np.arange(1000, 1000 + p, dtype=np.int64)
+    data = CyclopsData.create("lr")
+    data.set_outcome(y)
+    start = time.perf_counter()
+    data.add_covariates(X, covariate_ids=ids)
+    seconds = time.perf_counter() - start
+    np.testing.assert_array_equal(data.covariate_ids, ids)
+    return seconds
+
+
+def test_wide_sparse_batch_loads_in_linear_time(small):
+    """FeatureExtraction-sized batches keep their ids, and loading time grows linearly with the columns.
+
+    Checking each new id against every existing column made loading quadratic: 1.6 s for 50,000 columns
+    and 40 s for 200,000, against 0.04 s and 0.11 s now (one laptop core). Four times the columns should
+    take about four times as long; quadratic loading takes 16 times (26 measured). The ratio does not
+    depend on the speed of the machine.
+    """
+    _load_seconds(small.n_samples, small.y, 1_000)  # warm up
+    small_batch = _load_seconds(small.n_samples, small.y, 50_000)
+    large_batch = _load_seconds(small.n_samples, small.y, 200_000)
+    ratio = large_batch / max(small_batch, 1e-3)
+    assert ratio < 10.0, f"4x the columns took {ratio:.1f}x as long ({small_batch:.2f} s, {large_batch:.2f} s)"
 
 
 def test_shape_mismatch_raises(small):

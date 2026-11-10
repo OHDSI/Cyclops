@@ -289,7 +289,8 @@ int ModelData<RealType>::loadX(
 		const std::vector<double>& covariateValue,
 		const bool reload,
 		const bool append,
-		const bool forceSparse) {
+		const bool forceSparse,
+		const bool checkExisting) {
 
     const bool hasCovariateValues = covariateValue.size() > 0;
     const bool useRowMap = rowIdMap.size() > 0;
@@ -307,8 +308,8 @@ int ModelData<RealType>::loadX(
 //         return rowIdMap[id];
 //     };
 
-    // Determine if covariate already exists
-    int index = getColumnIndexByName(covariateId);
+    // Determine if covariate already exists (a linear search over the columns, which batch loaders do once instead)
+    int index = checkExisting ? getColumnIndexByName(covariateId) : -1;
     if (index >= 0) {
         // already exists
         if (!reload) {
