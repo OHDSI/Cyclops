@@ -178,3 +178,48 @@ test_that("prox-Newton reaches the optimum when a column is the sum of others", 
     expect_gt(newton$convergence$faceRounds, 0)
     expect_equal(newton$log_likelihood + newton$log_prior, ccd$log_likelihood + ccd$log_prior, tolerance = 1e-6)
 })
+
+test_that("Newton fits and cross-validation are the same bit for bit on 1 and 4 threads", {
+    # The logistic Hessian block splits its columns into ranges, one owner per entry, each a sum over rows in increasing
+    # order: its result does not depend on the threads. 600 columns (a third with values other than 1) and a weak
+    # penalty give blocks of several ranges; 8 threads over 3 folds give each fold's block 2
+    skip_on_cran() # threads
+    set.seed(31)
+    n <- 4000
+    p <- 600
+    X <- matrix(rbinom(n * p, 1, runif(p, 0.01, 0.4)[col(matrix(0, n, p))]), n, p)
+    X[, 1:200] <- X[, 1:200] * runif(n * 200, 0.5, 2)
+    y <- rbinom(n, 1, plogis(-1 + drop(X[, 1:20] %*% rnorm(20, 0, 0.5))))
+    nz <- which(X != 0, arr.ind = TRUE)
+    covariates <- data.frame(rowId = nz[, 1], covariateId = nz[, 2], covariateValue = X[nz])
+    covariates <- covariates[order(covariates$rowId, covariates$covariateId), ]
+    data <- convertToCyclopsData(data.frame(rowId = 1:n, y = y), covariates, modelType = "lr", addIntercept = TRUE,
+                                 quiet = TRUE)
+    fit <- function(data, prior, threads, cv = FALSE) {
+        control <- if (cv) createControl(algorithm = "newton", threads = threads, cvType = "auto", fold = 3, seed = 1,
+                                         noiseLevel = "silent") else
+            createControl(algorithm = "newton", threads = threads, noiseLevel = "silent")
+        fitCyclopsModel(data, prior = prior, control = control, forceNewObject = TRUE, warnings = FALSE)
+    }
+    for (prior in list(createPrior("laplace", variance = 5, exclude = 0),
+                       createPrior("normal", variance = 0.5, exclude = 0))) {
+        one <- fit(data, prior, 1)
+        four <- fit(data, prior, 4)
+        expect_identical(coef(one), coef(four))
+        expect_identical(one$log_likelihood, four$log_likelihood)
+    }
+    prior <- createPrior("laplace", useCrossValidation = TRUE, exclude = 0)
+    one <- fit(data, prior, 1, cv = TRUE)
+    eight <- fit(data, prior, 8, cv = TRUE)
+    expect_identical(one$variance, eight$variance)
+    expect_identical(coef(one), coef(eight))
+
+    # dense continuous columns (the formula interface stores them densely)
+    Z <- as.data.frame(matrix(rnorm(2000 * 100), 2000, 100))
+    Z$y <- rbinom(2000, 1, plogis(drop(as.matrix(Z[, 1:5]) %*% rep(0.3, 5))))
+    dense <- createCyclopsData(as.formula(paste("y ~", paste(names(Z)[1:100], collapse = " + "))), data = Z,
+                               modelType = "lr")
+    one <- fit(dense, createPrior("normal", variance = 0.5, exclude = 1), 1)
+    four <- fit(dense, createPrior("normal", variance = 0.5, exclude = 1), 4)
+    expect_identical(coef(one), coef(four))
+})

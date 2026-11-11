@@ -161,6 +161,10 @@ public:
 
 	virtual void setThreads(int threads) {};
 
+	// threads for the second-order kernels alone (the logistic Hessian block), in cross-validation folds whose
+	// coordinate descent keeps one thread; engines without such a kernel ignore it
+	virtual void setSecondOrderThreads(int threads) {};
+
 	// Gradients and Hessians of several coordinates at the current state, for coordinates that do
 	// not change in between; returns false when the engine computes them one at a time
 	virtual bool computeGradientsAndHessians(const std::vector<int>& indices,

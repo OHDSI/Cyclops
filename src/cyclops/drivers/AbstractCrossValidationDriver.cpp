@@ -5,6 +5,7 @@
  *      Author: msuchard
  */
 
+#include <memory>
 #include <numeric>
 #include <algorithm>
 #include <limits>
@@ -135,6 +136,7 @@ void AbstractCrossValidationDriver::drive(
     if (nThreads < 1) {
         nThreads = 1;
     }
+	const int allThreads = nThreads; // before the clamp: see the second-order threads below
 
 	// More threads than folds to compute would only hold unused copies of the model
 	if (nThreads > allArguments.crossValidation.foldToCompute) {
@@ -162,8 +164,16 @@ void AbstractCrossValidationDriver::drive(
 	ccdPool.push_back(&ccd);
 	selectorPool.push_back(&selector); // folds read the fold assignments of doCrossValidationStep()
 
+	// The copies are owned here and the fit's second-order threads reset when cross-validation ends, also when a fold
+	// throws (a copy's Hessian threads would otherwise stay alive)
+	std::vector<std::unique_ptr<CyclicCoordinateDescent>> copies;
+	struct SecondOrderReset {
+		CyclicCoordinateDescent& ccd;
+		~SecondOrderReset() { ccd.setSecondOrderThreads(1); } // fitModel() restores the threads for the final fit
+	} secondOrderReset{ccd};
 	for (int i = 1; i < nThreads; ++i) {
-		ccdPool.push_back(ccd.clone(allArguments.computeDevice));
+		copies.emplace_back(ccd.clone(allArguments.computeDevice));
+		ccdPool.push_back(copies.back().get());
 	}
 
 	// Check of poor allocation
@@ -187,6 +197,12 @@ void AbstractCrossValidationDriver::drive(
     }
 	// End of multi-thread set-up
 
+	// Threads beyond the folds in parallel go to each fold's logistic Hessian block, whose result does not depend on
+	// its threads (coordinate descent in a fold keeps one)
+	for (auto element : ccdPool) {
+		element->setSecondOrderThreads(allThreads / nThreads);
+	}
+
 	failedFolds = 0;
 
 	// With warm starts, each fold starts from its own solution at the nearest hyperparameter tried
@@ -198,9 +214,7 @@ void AbstractCrossValidationDriver::drive(
 	std::vector<std::vector<FoldSolution>>().swap(foldSolutions);
 
 	// Clean up
-	for (int i = 1; i < nThreads; ++i) {
-		delete ccdPool[i];
-	}
+	copies.clear();
 	ccd.setHeldOutRowsUnused(false); // later fits keep every row up to date
 
 	// Report results

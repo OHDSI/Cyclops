@@ -79,20 +79,29 @@ bool ModelSpecifics<BaseModel,RealType>::lrFullGradient(const std::vector<int>& 
 }
 
 template <class BaseModel, typename RealType>
+void ModelSpecifics<BaseModel,RealType>::setThreads(int threads) {
+	if (!logisticSecondOrder || threads <= 1) {
+		lrPool.reset();
+	} else if (!lrPool || lrPool->size() != threads) {
+		lrPool.reset(new WorkerPool(threads));
+	}
+}
+
+template <class BaseModel, typename RealType>
 bool ModelSpecifics<BaseModel,RealType>::lrHessianBlock(const std::vector<int>& F, std::vector<double>& H) {
 	flushIntercept();
 	if (!lrReady()) {
 		return false;
 	}
 	const size_t n = F.size();
-	H.assign(n * n, 0.0);
 	if (n == 0) {
+		H.clear();
 		return true;
 	}
 
 	// H = X_F' diag(w p (1 - p)) X_F from each row's outer product. The rows of F's columns are transposed a chunk of
 	// rows at a time into a small buffer (columns keep a cursor into their ascending rows), so no row-wise copy of X_F
-	// is held: memory is H plus the buffer
+	// is held: memory is the (permuted) block plus the buffer, then the block and H
 	std::vector<const int*> rows(n);
 	std::vector<const RealType*> values(n);
 	std::vector<size_t> count(n), cursor(n, 0);
@@ -105,11 +114,50 @@ bool ModelSpecifics<BaseModel,RealType>::lrHessianBlock(const std::vector<int>& 
 		count[p] = dense ? K : hX.getNumberOfEntries(F[p]);
 		entries += static_cast<double>(count[p]);
 	}
+	// The accumulation order of the columns: by entries, most first, so the pairs of the densest columns (most of the
+	// work) fall in a block that stays in cache; each row then adds its pairs into whole columns of the upper
+	// triangle, contiguous in memory (the order of F put each pair n doubles apart). Every entry is a sum over rows in
+	// increasing order, whatever the order of the columns or the threads, so the block is the same bit for bit
+	std::vector<size_t> order(n);
+	std::iota(order.begin(), order.end(), 0);
+	std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) { return count[a] > count[b]; });
+	std::vector<double> permuted(n * n, 0.0);
+	double* acc = permuted.data();
+
 	const size_t chunk = std::max<size_t>(1024, std::min<size_t>(K, static_cast<size_t>(
 		static_cast<double>(1 << 21) / std::max(entries / static_cast<double>(K), 1e-9)))); // about 2M entries
 	std::vector<int> rowStart(chunk + 1);
 	std::vector<int> position;
 	std::vector<double> value;
+	// Contiguous ranges of columns (in accumulation order), about equal in work, one task each: a column's pairs are
+	// those with the earlier columns of its rows, about its entries times the entries of the denser columns in a row.
+	// A task adds the pairs whose later column is in its range; in each row those are a run of the sorted positions.
+	// On one thread the ranges are cache tiles, worth it only for a large block (every range passes over the rows):
+	// one per 128 columns, at most 16 (measured best on real FeatureExtraction designs); with threads, 8 per thread,
+	// at least 32 columns each
+	const size_t tasks = lrPool ?
+		std::max<size_t>(1, std::min<size_t>(8 * static_cast<size_t>(lrPool->size()), n / 32)) :
+		std::max<size_t>(1, std::min<size_t>(16, n / 128));
+	std::vector<size_t> rangeStart(tasks + 1, n); // the starts the loop below does not set stay n: empty ranges
+	{
+		std::vector<double> work(n);
+		double before = 0.0, total = 0.0;
+		for (size_t slot = 0; slot < n; ++slot) {
+			const double c = static_cast<double>(count[order[slot]]);
+			work[slot] = c * (before + 1.0);
+			before += c / static_cast<double>(K);
+			total += work[slot];
+		}
+		double run = 0.0;
+		size_t task = 0;
+		rangeStart[0] = 0;
+		for (size_t slot = 0; slot < n && task + 1 < tasks; ++slot) {
+			run += work[slot];
+			while (task + 1 < tasks && run >= total * static_cast<double>(task + 1) / static_cast<double>(tasks)) {
+				rangeStart[++task] = slot + 1;
+			}
+		}
+	}
 	for (size_t r0 = 0; r0 < K; r0 += chunk) {
 		const size_t r1 = std::min(K, r0 + chunk);
 		std::fill(rowStart.begin(), rowStart.end(), 0);
@@ -130,45 +178,72 @@ bool ModelSpecifics<BaseModel,RealType>::lrHessianBlock(const std::vector<int>& 
 		position.resize(rowStart[r1 - r0]);
 		value.resize(rowStart[r1 - r0]);
 		std::vector<int> next(rowStart.begin(), rowStart.begin() + (r1 - r0));
-		for (size_t p = 0; p < n; ++p) { // fill column by column: positions ascend within each row
+		for (size_t slot = 0; slot < n; ++slot) { // fill in accumulation order: positions ascend within each row
+			const size_t p = order[slot];
 			if (rows[p] == nullptr) {
 				for (size_t k = r0; k < r1; ++k) {
 					const int e = next[k - r0]++;
-					position[e] = static_cast<int>(p);
+					position[e] = static_cast<int>(slot);
 					value[e] = (values[p] == nullptr) ? 1.0 : static_cast<double>(values[p][k]);
 				}
 			} else {
 				for (; cursor[p] < count[p] && static_cast<size_t>(rows[p][cursor[p]]) < r1; ++cursor[p]) {
 					const size_t k = rows[p][cursor[p]];
 					const int e = next[k - r0]++;
-					position[e] = static_cast<int>(p);
+					position[e] = static_cast<int>(slot);
 					value[e] = (values[p] == nullptr) ? 1.0 : static_cast<double>(values[p][cursor[p]]);
 				}
 			}
 		}
-		for (size_t i = 0; i < r1 - r0; ++i) {
-			const size_t k = r0 + i;
-			const double w = static_cast<double>(hKWeight[k]);
-			if (w == 0.0) {
-				continue;
+		// task t adds the pairs whose later column is in its range: each entry has one owner
+		auto accumulate = [&](size_t task, int) {
+			const int lo = static_cast<int>(rangeStart[task]);
+			const int hi = static_cast<int>(rangeStart[task + 1]);
+			if (lo >= hi) {
+				return;
 			}
-			const double pk = readP(offsExpXBeta[k]);
-			const double c = w * pk * (1.0 - pk);
-			if (c == 0.0) {
-				continue;
-			}
-			for (int a = rowStart[i]; a < rowStart[i + 1]; ++a) {
-				const double ca = c * value[a];
-				double* column = H.data() + position[a];
-				for (int b = rowStart[i]; b <= a; ++b) {
-					column[position[b] * n] += ca * value[b];
+			for (size_t i = 0; i < r1 - r0; ++i) {
+				const size_t k = r0 + i;
+				const double w = static_cast<double>(hKWeight[k]);
+				if (w == 0.0) {
+					continue;
 				}
+				const double pk = readP(offsExpXBeta[k]);
+				const double c = w * pk * (1.0 - pk);
+				if (c == 0.0) {
+					continue;
+				}
+				const int first = static_cast<int>(std::lower_bound(position.begin() + rowStart[i],
+					position.begin() + rowStart[i + 1], lo) - position.begin());
+				for (int a = first; a < rowStart[i + 1] && position[a] < hi; ++a) {
+					const double ca = c * value[a];
+					double* column = acc + static_cast<size_t>(position[a]) * n;
+					for (int b = rowStart[i]; b <= a; ++b) {
+						column[position[b]] += ca * value[b];
+					}
+				}
+			}
+		};
+		if (lrPool) {
+			lrPool->run(tasks, accumulate);
+		} else {
+			for (size_t task = 0; task < tasks; ++task) {
+				accumulate(task, 0);
 			}
 		}
 	}
-	for (size_t j = 0; j < n; ++j) {
-		for (size_t i = j + 1; i < n; ++i) {
-			H[j + i * n] = H[i + j * n];
+	// the upper triangle, in accumulation order, back to the order of F
+	std::vector<int>().swap(position);
+	std::vector<double>().swap(value);
+	H.resize(n * n); // every entry is written below
+	std::vector<size_t> slotOf(n);
+	for (size_t slot = 0; slot < n; ++slot) {
+		slotOf[order[slot]] = slot;
+	}
+	for (size_t b = 0; b < n; ++b) {
+		for (size_t a = 0; a < n; ++a) {
+			const size_t sa = slotOf[a], sb = slotOf[b];
+			H[a + b * n] = (sa <= sb) ? permuted[sa + sb * n] : permuted[sb + sa * n];
 		}
 	}
 	return true;

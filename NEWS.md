@@ -117,6 +117,10 @@ Changes:
    settled. A single Laplace fit of a real FeatureExtraction design (83k rows, 7,443 covariates) took 12.7 s instead
    of 23.0 s, and its 3-fold cross-validation 10.3 s instead of 14.7 s, at the same optimum. A face holding a column
    and a rescaled copy of it is now treated as singular. `fit$convergence$faceRounds` counts the face rounds
+21. The logistic Hessian block that Newton and prox-Newton fits factor is built densest columns first, with contiguous
+   writes, and on the fit's threads (`createControl(threads = )`); cross-validation gives each fold the threads beyond
+   the folds it runs in parallel. Results are the same bit for bit for any number of threads. A single Laplace fit of
+   a real FeatureExtraction design took 8.3 s instead of 11.0 s on one thread and 4.7 s instead of 9.7 s on four
 
 Cyclops v3.8.0
 ==============
