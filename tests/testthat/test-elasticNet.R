@@ -157,9 +157,13 @@ test_that("The elastic net log density is normalized", {
     y <- rbinom(500, 1, plogis(0.5 * x))
     data <- createCyclopsData(y ~ x, modelType = "lr")
     values <- c(-0.7, 0, 0.3, 1.2)
+    # The identity below holds to 1e-8 only between converged refits: under the default "gradient" criterion the
+    # profile's refits stopped up to 1.6e-7 short, by an amount that depended on their warm starts (and so on the
+    # state left by earlier fits in the session), which made this test fail now and then in a full-suite run
+    control <- createControl(convergenceType = "kkt", tolerance = 1E-10)
     for (setting in list(c(0.5, 0.9), c(8E-5, 0.9), c(0.05, 0))) {
         fit <- fitCyclopsModel(data, createPrior("elasticnet", setting[1], laplaceFraction = setting[2]),
-                               warnings = FALSE)
+                               control = control, warnings = FALSE)
         withPenalty <- getCyclopsProfileLogLikelihood(fit, "x", x = values, includePenalty = TRUE)$value
         withoutPenalty <- getCyclopsProfileLogLikelihood(fit, "x", x = values, includePenalty = FALSE)$value
         lambda <- sqrt(2 / setting[1])
