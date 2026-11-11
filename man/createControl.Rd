@@ -225,6 +225,10 @@ them. \code{NULL} (default) means \code{TRUE} for logistic regression with
 prior) as one coefficient. A normal prior's coefficients are reported as the equal
 split of the group's total (the unique maximum), and a Laplace or no prior's with
 the total on the group's first column; \code{fit$aliasedColumns} names the groups.
+In logistic, Poisson and least-squares models, columns with a prior are compared on
+the rows with positive weight: columns that differ only on rows of weight 0 (such as a
+cross-validation fold's held-out rows) are duplicates for that fit, and their total is
+reported as an equal split whatever the prior.
 \code{NULL} (default) means \code{TRUE} with \code{algorithm = "auto"} or
 \code{"newton"} and \code{FALSE} otherwise}
 

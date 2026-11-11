@@ -95,3 +95,68 @@ test_that("getCovariateIds() leaves out the offset and returns integer64", {
     expect_s3_class(ids, "integer64")
     expect_equal(as.character(ids), as.character(1:5))
 })
+
+test_that("a fold merges columns equal on its training rows, whatever their order", {
+    # Two columns equal except on one row: in the fold that holds that row out they are duplicates for the fit. Merged
+    # there (and split evenly), the held-out prediction of that row, and so the cross-validation score, does not depend
+    # on which of the two columns comes first; unmerged, a Laplace fold fit put the mass on either
+    set.seed(123)
+    n <- 400
+    x <- rbinom(n, 1, 0.4)
+    z <- matrix(rbinom(n * 5, 1, 0.3), n, 5)
+    y <- rbinom(n, 1, plogis(-1 + 1.5 * x + drop(z %*% rep(0.3, 5))))
+    twin <- x
+    twin[which(x == 1 & y == 1)[1]] <- 0
+    make <- function(xId, twinId) {
+        cov <- rbind(data.frame(rowId = which(x == 1), covariateId = xId, covariateValue = 1),
+                     data.frame(rowId = which(twin == 1), covariateId = twinId, covariateValue = 1),
+                     data.frame(rowId = row(z)[z == 1], covariateId = 10 + col(z)[z == 1], covariateValue = 1))
+        cov <- cov[order(cov$rowId, cov$covariateId), ]
+        convertToCyclopsData(data.frame(rowId = 1:n, y = y), cov, modelType = "lr", addIntercept = TRUE, quiet = TRUE)
+    }
+    cv <- function(data) getCrossValidationInfo(fitCyclopsModel(data, prior = createPrior("laplace", useCrossValidation = TRUE),
+        control = createControl(cvType = "grid", lowerLimit = 0.1, upperLimit = 10, gridSteps = 3, fold = 5, seed = 1,
+                                noiseLevel = "silent"), warnings = FALSE))
+    a <- cv(make(1, 2))
+    b <- cv(make(2, 1))
+    expect_equal(b$point, a$point)
+    expect_equal(b$ordinate, a$ordinate, tolerance = 1e-8)
+
+    # The same for weights given to a fit: the row of weight 0 does not enter it, so the two columns are one group,
+    # reported as an equal split
+    w <- as.numeric(x == twin)
+    fit <- fitCyclopsModel(make(1, 2), prior = createPrior("laplace", variance = 1), weights = w,
+                           control = createControl(noiseLevel = "silent"), warnings = FALSE)
+    expect_equal(fit$aliasedColumns, list(c("1", "2")))
+    expect_equal(unname(coef(fit)["1"]), unname(coef(fit)["2"]))
+    expect_true(coef(fit)["1"] != 0)
+})
+
+test_that("columns equal on the rows of positive weight stay apart where rows of weight 0 still count", {
+    # Conditional logistic regression: a row of weight 0 stays in its stratum's denominator, so a = (1, 0) and
+    # b = (1, 1) are not interchangeable there although they agree on the row of weight 1
+    outcomes <- data.frame(rowId = 1:4, stratumId = c(1, 1, 2, 2), y = c(1, 0, 1, 0))
+    covariates <- data.frame(rowId = c(1, 3, 1, 2, 3), covariateId = c(1, 1, 2, 2, 2), covariateValue = 1)
+    covariates$stratumId <- outcomes$stratumId[covariates$rowId]
+    covariates <- covariates[order(covariates$stratumId, covariates$rowId, covariates$covariateId), ]
+    data <- convertToCyclopsData(outcomes, covariates, modelType = "clr", quiet = TRUE)
+    fit <- function(merge) fitCyclopsModel(data, prior = createPrior("normal", variance = 1), weights = c(1, 0, 1, 1),
+                                           control = createControl(mergeDuplicates = merge, noiseLevel = "silent"),
+                                           forceNewObject = TRUE, warnings = FALSE)
+    merged <- fit(TRUE)
+    expect_null(merged$aliasedColumns)
+    expect_equal(coef(merged), coef(fit(FALSE)))
+
+    # Columns without a prior: a group's total could diverge, with a limit set over all rows, where the columns differ
+    outcomes <- data.frame(rowId = 1:4, y = c(1, 1, 0, 0))
+    make <- function(aId, bId) {
+        cov <- data.frame(rowId = c(1, 2, 4, 1, 2), covariateId = c(aId, aId, aId, bId, bId), covariateValue = c(1, 1, 1e6, 1, 1))
+        convertToCyclopsData(outcomes, cov[order(cov$rowId, cov$covariateId), ], modelType = "lr", quiet = TRUE)
+    }
+    flat <- function(data) fitCyclopsModel(data, prior = createPrior("none"), weights = c(1, 1, 1, 0),
+                                           control = createControl(noiseLevel = "silent"), warnings = FALSE)
+    a <- flat(make(1, 2))
+    b <- flat(make(2, 1))
+    expect_null(a$aliasedColumns) # separated with a prior "none" on every coefficient: ILLCONDITIONED, by design
+    expect_equal(unname(coef(b, ignoreConvergence = TRUE)[c("2", "1")]), unname(coef(a, ignoreConvergence = TRUE)[c("1", "2")]))
+})

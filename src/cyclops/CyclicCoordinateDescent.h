@@ -550,7 +550,9 @@ protected:
 	std::vector<int> divergentCoefficients;
 	void findDivergentCoefficients();
 	std::vector<std::vector<int>> aliasGroups;
-	std::vector<uint64_t> columnHashes; // per column, cached: the data do not change
+	bool aliasOnRowsInUse = false;      // the alias groups were found on the rows with positive weight only (some are 0)
+	// per set of rows in use (empty: all rows), the column hashes: the data do not change
+	std::vector<std::pair<std::vector<char>, std::vector<uint64_t>>> maskedColumnHashes;
 	void findAliasGroups();
 	double divergentLimit(int j) const;
 	std::vector<signed char> separationCache; // per column: -1, 0, +1, or 2 not yet computed (cleared with the weights)

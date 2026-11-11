@@ -856,6 +856,9 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 				}
 			}
 			jointPrior = bsccs::make_shared<priors::AliasedJointPrior>(unmergedPrior, groupSize);
+			if (aliasOnRowsInUse && !heldOutRowsUnused) {
+				xBetaKnown = false; // the members differ on the rows of weight 0, which are kept up to date
+			}
 		}
 	}
 
@@ -903,12 +906,18 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	}
 
 	// Write the merged groups back: groups with a quadratic part (Normal, elastic net) split equally (the unique MAP),
-	// Laplace and flat groups keep all mass on the representative
+	// Laplace and flat groups keep all mass on the representative. Groups found on the rows with positive weight split
+	// equally whatever the prior: their columns differ on the rows of weight 0 (a fold's held-out rows), whose
+	// predictions would otherwise depend on which column comes first; the fit's objective is the same for every split
 	if (!aliasGroups.empty()) {
 		jointPrior = unmergedPrior;
+		if (aliasOnRowsInUse && !heldOutRowsUnused) {
+			xBetaKnown = false;
+		}
 		for (const auto& group : aliasGroups) {
 			double precision = 0.0, lambda = 0.0;
-			const bool split = jointPrior->getNewtonPenalty(group[0], &precision, &lambda) && precision > 0.0;
+			const bool split = (jointPrior->getNewtonPenalty(group[0], &precision, &lambda) && precision > 0.0) ||
+				aliasOnRowsInUse;
 			const double total = hBeta[group[0]];
 			for (size_t m = 0; m < group.size(); ++m) {
 				if (m > 0) {
@@ -973,19 +982,53 @@ double CyclicCoordinateDescent::divergentLimit(int j) const {
 
 void CyclicCoordinateDescent::findAliasGroups() {
 
-	// Hash each column's (format, rows, values) once, but only columns that share their format, number of entries and
-	// first and last rows with another (a duplicate must; all O(1) to read); equal hashes are compared entry by entry
-	auto hashColumns = [&](const auto& X) {
-		columnHashes.assign(J, 0);
+	// A fit with weights (a cross-validation fold, or weights given by the user) of a model whose rows enter the
+	// likelihood independently uses only the rows with positive weight: columns equal on those rows are duplicates for
+	// it, though they differ on the rows of weight 0 (useCrossValidation means that weights are set). Not in stratified
+	// and survival models, whose rows of weight 0 can still enter a stratum's or risk set's denominator. Other fits
+	// compare whole columns, hashed once (the data do not change)
+	std::vector<char> inUse;
+	size_t rowsInUse = static_cast<size_t>(K);
+	aliasOnRowsInUse = false;
+	const ModelType model = hXI.getModelType();
+	const bool independentRows = model == ModelType::LOGISTIC || model == ModelType::POISSON || model == ModelType::NORMAL;
+	if (useCrossValidation && independentRows && hWeights.size() >= static_cast<size_t>(K)) {
+		inUse.assign(K, 0);
+		rowsInUse = 0;
+		for (int k = 0; k < K; ++k) {
+			inUse[k] = hWeights[k] > 0.0;
+			rowsInUse += inUse[k] ? 1 : 0;
+		}
+		aliasOnRowsInUse = rowsInUse < static_cast<size_t>(K);
+		if (!aliasOnRowsInUse) inUse.clear(); // all rows: the same key as a fit without weights
+	}
+	const bool masked = aliasOnRowsInUse;
+	auto used = [&](int k) { return !masked || inUse[k]; };
+
+	// Hash each column's (format, rows, values) on the rows in use, but only columns that share their format, number of
+	// entries and first and last rows with another (a duplicate must); equal hashes are compared entry by entry
+	auto hashColumns = [&](const auto& X, std::vector<uint64_t>& hashes) {
+		hashes.assign(J, 0);
 		typedef std::tuple<int, size_t, int, int> Shape;
 		auto shape = [&](int j) {
 			const FormatType format = X.getFormatType(j);
 			if (format == DENSE || format == INTERCEPT) {
-				return std::make_tuple(static_cast<int>(format), static_cast<size_t>(K), -1, -1);
+				return std::make_tuple(static_cast<int>(format), rowsInUse, -1, -1);
 			}
 			const size_t count = X.getNumberOfEntries(j);
 			const int* rows = X.getCompressedColumnVector(j);
-			return std::make_tuple(static_cast<int>(format), count, count ? rows[0] : -1, count ? rows[count - 1] : -1);
+			if (!masked) {
+				return std::make_tuple(static_cast<int>(format), count, count ? rows[0] : -1, count ? rows[count - 1] : -1);
+			}
+			size_t n = 0;
+			int first = -1, last = -1;
+			for (size_t e = 0; e < count; ++e) {
+				if (inUse[rows[e]]) {
+					if (n++ == 0) first = rows[e];
+					last = rows[e];
+				}
+			}
+			return std::make_tuple(static_cast<int>(format), n, first, last);
 		};
 		std::vector<std::pair<Shape, int>> shapes(J); // sorted, not a map: no allocation per column
 		for (int j = 0; j < J; ++j) {
@@ -993,14 +1036,14 @@ void CyclicCoordinateDescent::findAliasGroups() {
 		}
 		std::sort(shapes.begin(), shapes.end());
 		std::vector<char> shared(J, 0);
-		for (int a = 0; a + 1 < J; ++a) {
-			if (std::get<0>(shapes[a]) == std::get<0>(shapes[a + 1])) {
+		for (int a = 0; a + 1 < J; ++a) { // a column without entries on the rows in use is no one's duplicate
+			if (std::get<0>(shapes[a]) == std::get<0>(shapes[a + 1]) && std::get<1>(shapes[a].first) > 0) {
 				shared[shapes[a].second] = shared[shapes[a + 1].second] = 1;
 			}
 		}
 		for (int j = 0; j < J; ++j) {
 			if (!shared[j]) {
-				columnHashes[j] = static_cast<uint64_t>(j) + 1; // unique: no duplicate possible
+				hashes[j] = static_cast<uint64_t>(j) + 1; // unique: no duplicate possible
 				continue;
 			}
 			// raw arrays, not the generic iterator: the rows of sparse and indicator columns, the values of dense and
@@ -1012,26 +1055,29 @@ void CyclicCoordinateDescent::findAliasGroups() {
 				const int* rows = X.getCompressedColumnVector(j);
 				const size_t count = X.getNumberOfEntries(j);
 				for (size_t e = 0; e < count; ++e) {
-					mix(static_cast<uint64_t>(rows[e]));
+					if (used(rows[e])) mix(static_cast<uint64_t>(rows[e]));
 				}
 			}
 			if (format == SPARSE || format == DENSE) {
 				const auto* values = X.getDataVector(j);
 				const size_t count = (format == DENSE) ? static_cast<size_t>(K) : X.getNumberOfEntries(j);
+				const int* valueRows = (format == SPARSE) ? X.getCompressedColumnVector(j) : nullptr;
 				for (size_t e = 0; e < count; ++e) {
+					if (!used(valueRows ? valueRows[e] : static_cast<int>(e))) continue;
 					const double value = static_cast<double>(values[e]);
 					uint64_t bits;
 					std::memcpy(&bits, &value, sizeof(bits));
 					mix(bits);
 				}
 			}
-			columnHashes[j] = h | (1ULL << 63); // the top bit marks a hashed column, apart from the unique tags above
+			hashes[j] = h | (1ULL << 63); // the top bit marks a hashed column, apart from the unique tags above
 		}
 	};
 	auto same = [&](const auto& X, int a, int b) {
 		using Real = typename std::decay<decltype(*X.getDataVector(a))>::type;
 		GenericIterator<Real> i(X, a), k(X, b);
-		for (; i && k; ++i, ++k) {
+		auto skip = [&](GenericIterator<Real>& it) { while (it && !used(it.index())) ++it; };
+		for (skip(i), skip(k); i && k; ++i, ++k, skip(i), skip(k)) {
 			if (i.index() != k.index() || i.value() != k.value()) {
 				return false;
 			}
@@ -1043,16 +1089,28 @@ void CyclicCoordinateDescent::findAliasGroups() {
 		return jointPrior->getNewtonPenalty(a, &pa, &la) && jointPrior->getNewtonPenalty(b, &pb, &lb) &&
 			pa == pb && la == lb;
 	};
+	// Groups found on the rows with positive weight hold penalized columns only: a flat group's total can diverge
+	// (separation), and its limit is set over all rows (divergentLimit), where the members differ
+	auto penalized = [&](int j) {
+		double p = 0.0, l = 0.0;
+		return jointPrior->getNewtonPenalty(j, &p, &l) && (p > 0.0 || l > 0.0);
+	};
 	auto group = [&](const auto& X) {
-		if (columnHashes.size() != static_cast<size_t>(J)) {
-			hashColumns(X);
+		// hashed once per set of rows in use (the folds of a cross-validation repeat at every variance; all rows have
+		// an empty inUse)
+		auto hit = std::find_if(maskedColumnHashes.begin(), maskedColumnHashes.end(),
+		                        [&](const std::pair<std::vector<char>, std::vector<uint64_t>>& e) { return e.first == inUse; });
+		if (hit == maskedColumnHashes.end()) {
+			if (maskedColumnHashes.size() >= 64) maskedColumnHashes.clear();
+			maskedColumnHashes.emplace_back(inUse, std::vector<uint64_t>());
+			hit = maskedColumnHashes.end() - 1;
+			hashColumns(X, hit->second);
 		}
+		const std::vector<uint64_t>& hashes = hit->second;
 		std::vector<std::pair<uint64_t, int>> candidates; // hashed (shared-shape) free columns, sorted by hash
 		for (int j = 0; j < J; ++j) {
-			const FormatType format = hXI.getColumnType(j); // dense columns have no row indices
-			if (!fixBeta[j] && (columnHashes[j] >> 63) &&
-					(format == DENSE || format == INTERCEPT || hXI.getNumberOfEntries(j) > 0)) {
-				candidates.emplace_back(columnHashes[j], j);
+			if (!fixBeta[j] && (hashes[j] >> 63) && (!masked || penalized(j))) {
+				candidates.emplace_back(hashes[j], j);
 			}
 		}
 		std::sort(candidates.begin(), candidates.end());
@@ -1069,7 +1127,7 @@ void CyclicCoordinateDescent::findAliasGroups() {
 				std::vector<int> members{columns[a]};
 				for (size_t b = a + 1; b < columns.size(); ++b) {
 					if (!used[b] && X.getFormatType(columns[a]) == X.getFormatType(columns[b]) &&
-							same(X, columns[a], columns[b]) && samePrior(columns[a], columns[b])) {
+							samePrior(columns[a], columns[b]) && same(X, columns[a], columns[b])) { // the cheap test first
 						members.push_back(columns[b]);
 						used[b] = true;
 					}

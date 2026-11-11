@@ -98,6 +98,12 @@ Changes:
    with 13,334 rows and 18,933 covariates it had not finished after 25 minutes, and now certifies in 58 s.
    After a fallback to coordinate descent, `algorithm = "newton"` waits before its next Newton steps, as
    `"auto"` does. Fits with a normal prior on every coefficient do not change otherwise
+18. `mergeDuplicates` (on by default under `algorithm = "auto"` and `"newton"`) compares columns with a prior on
+   the rows with positive weight in logistic, Poisson and least-squares models, so columns that differ only on a
+   cross-validation fold's held-out rows (or on rows given weight 0) are merged for that fit. In the folds of a real logistic design with 7,443 FeatureExtraction
+   covariates, such pairs made every singular face of the Laplace fold fits: at variance 1 one fold took 1,218 s,
+   and 164 s without them. Their total is reported as an equal split whatever the prior, so a fold's held-out
+   predictions, and the cross-validation score, no longer depend on the order of the columns
 
 Cyclops v3.8.0
 ==============
