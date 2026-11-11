@@ -104,6 +104,14 @@ Changes:
    covariates, such pairs made every singular face of the Laplace fold fits: at variance 1 one fold took 1,218 s,
    and 164 s without them. Their total is reported as an equal split whatever the prior, so a fold's held-out
    predictions, and the cross-validation score, no longer depend on the order of the columns
+19. Newton-CG builds a preconditioner once a fit's conjugate-gradient solves are expensive enough to repay it: a
+   randomized Nystrom approximation of the likelihood Hessian (64 columns and the unpenalized coefficients) plus the
+   prior and the likelihood curvature it misses, after Frangella, Tropp & Udell (2023), dropped again if its first solve
+   costs more. Fits whose solves stay cheap are unchanged (`fit$convergence$preconditioner` says which ran). On a
+   simulated design with 13,334 rows, an unpenalized intercept and normal variances spread over six orders of magnitude,
+   `algorithm = "auto"` took 2.7 s instead of 30 s; ridge fits of real FeatureExtraction designs took 0.5-1.05 times as
+   long. Certification solves now stop once the certificate holds under a preconditioner too (they ran to a tight
+   residual)
 
 Cyclops v3.8.0
 ==============

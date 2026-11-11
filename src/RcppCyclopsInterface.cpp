@@ -846,6 +846,7 @@ static void appendNewtonReports(Rcpp::List& list, bsccs::RcppCcdInterface& rcppI
 			_["hessians"] = report.hessians, _["fallbacks"] = report.fallbacks, _["costRatio"] = report.costRatio,
 			_["droppedDirections"] = report.droppedDirections, _["ineligible"] = report.ineligible);
 		convergence.push_back(report.solver, "solver"); // List::create takes at most 20 elements
+		convergence.push_back(report.preconditioner, "preconditioner");
 		convergence.push_back(report.hessianVectorProducts, "hessianVectorProducts");
 		convergence.push_back(report.certificationProducts, "certificationProducts");
 		convergence.push_back(report.rankDeficientFaceRounds, "rankDeficientFaceRounds");

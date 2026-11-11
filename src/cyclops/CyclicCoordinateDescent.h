@@ -272,6 +272,7 @@ public:
 		int newtonStart = -1;           // cycle at which Newton took over
 		int droppedDirections = 0;      // aliased directions left out of the last Newton solve
 		std::string solver;             // "dense" or "cg" (Newton-CG) once Newton is considered
+		std::string preconditioner = "none"; // Newton-CG's last: "none", "woodbury" or "nystrom"
 		int hessianVectorProducts = 0;
 		int certificationProducts = 0;  // Hv spent in certification solves
 		int rankDeficientFaceRounds = 0; // prox-Newton face rounds on a singular face

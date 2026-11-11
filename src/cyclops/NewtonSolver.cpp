@@ -11,6 +11,7 @@
 #include <limits>
 #include <cstdlib>
 #include <sstream>
+#include <random>
 #include <string>
 
 #include "CyclicCoordinateDescent.h"
@@ -20,10 +21,37 @@
 
 namespace bsccs {
 
+namespace {
+
+// Newton-CG's preconditioner without Woodbury, after Frangella, Tropp & Udell (2023):
+// P = E + V S V', V S V' a randomized Nystrom approximation of the likelihood Hessian whose test matrix holds the
+// unpenalized coordinates and nystromRank random sign columns, and E = Lambda + the part of the likelihood diagonal
+// that V S V' misses (at least 1e-10 max S): the curvature outside V, coordinate by coordinate. (FTU's scalar tail,
+// the sketch's last eigenvalue for every coordinate, also puts curvature on directions where the likelihood has none;
+// E = Lambda alone leaves out that curvature, which dominates when the prior is spread.) Applied as P^-1 = E^-1/2
+// [(I - Z Z') + Z diag(1/(1+Sigma)) Z'] E^-1/2, Z Sigma^1/2 the singular value decomposition of E^-1/2 V S^1/2: no
+// cancellation between large terms, and Sigma <= max S / min E <= 1e10. Any fixed positive definite preconditioner
+// serves CG, so it is built once per fit
+struct NystromPreconditioner {
+	Eigen::MatrixXd Z;
+	Eigen::VectorXd invOnePlusSigma;
+	Eigen::VectorXd invRootE;
+	bool built = false;
+
+	Eigen::VectorXd apply(const Eigen::VectorXd& v) const {
+		const Eigen::VectorXd y = v.cwiseProduct(invRootE);
+		const Eigen::VectorXd a = Z.transpose() * y;
+		return ((y - Z * a) + Z * a.cwiseProduct(invOnePlusSigma)).cwiseProduct(invRootE);
+	}
+};
+
+} // namespace
+
 struct CyclicCoordinateDescent::NewtonContext {
 	std::vector<int> F;             // free coordinates (normal, Laplace, elastic net or no priors)
 	std::vector<double> precision;  // quadratic precision: 1 / sigma_j^2, or the elastic net's lambda2 (0 otherwise)
 	std::vector<double> lambda;     // L1 rate: Laplace, or the elastic net's lambda1 (0 otherwise)
+	std::vector<int> unpenalized;   // positions in F with precision 0, ascending (F and precision are fixed for the fit)
 	bool anyLaplace = false;        // some L1 rate: prox-Newton
 	bool allNormal = true;
 	bool allStrong = true;          // every precision positive (normal, elastic net with alpha < 1): R certifies
@@ -38,9 +66,16 @@ struct CyclicCoordinateDescent::NewtonContext {
 	bool woodburyAllowed = false;
 	bool woodburyBuilt = false;
 	bool woodburyStale = false;
+	bool woodburyOffered = false;   // the engine gave Woodbury parts (counting-process Cox): no Nystrom preconditioner
 	Eigen::LLT<Eigen::MatrixXd> woodburyM;
 	Eigen::MatrixXd woodburyW;      // M^-1 B'
 	Eigen::LLT<Eigen::MatrixXd> woodburyCapacitance; // I - B M^-1 B'
+	NystromPreconditioner nystrom;  // without Woodbury, once the fit's Hessian-vector products reach its cost
+	bool nystromTried = false;
+	int lastPlainSolve = -1;        // Hv of the last forcing solve without a preconditioner
+	double lastPlainPerDigit = -1.0; // the same per digit of residual reduction
+	bool nystromJudged = false;     // its first forcing solve compared with lastPlainPerDigit
+	double entries = 0.0;           // entries of X_F (a dense or intercept column counts K)
 	int stopType = GAP;             // explicit types under algorithm = "newton" map onto Newton iterations
 	double tolerance = 0.0;
 	double lastObjective = NAN;
@@ -77,6 +112,101 @@ const double newtonMemoryBudget = 256.0 * 1024 * 1024; // bytes
 // A Schur bound needs one Hessian-vector product per unpenalized coordinate; above this many there is none
 const int schurMaxUnpenalized = 32;
 
+// The Woodbury preconditioner's rank, and the bytes of what it keeps over n free coordinates: M and its Cholesky
+// factor, and the woodburyRank columns of B' and of W = M^-1 B'
+const int woodburyRank = 32;
+
+double woodburyBytes(double n) {
+	return 16.0 * n * n + 8.0 * 2.0 * woodburyRank * n;
+}
+
+// Random sign columns of the Nystrom preconditioner's test matrix: 64 beat 256 on the real ridge and SAR fits, where the
+// build (one Hessian-vector product per column) costs more than the larger rank saves
+const int nystromRank = 64;
+
+// The Nystrom preconditioner's costs in Hessian-vector products (deterministic estimates, to be calibrated by the
+// auto cost model): building it, one product per test column plus about 12 n m^2 flops of dense factorizations, which
+// run about 10 times faster per flop than a product (about 4 flops per entry, bound by memory); and applying it in one
+// CG iteration, two passes over n x m doubles against a product's two passes over the entries (index and value)
+double nystromPrice(size_t n, int unpenalized, double entries) {
+	const double m = std::min<double>(static_cast<double>(n), unpenalized + nystromRank);
+	return m + 12.0 * n * m * m / std::max(40.0 * entries, 1.0);
+}
+
+double nystromApplyCost(size_t n, int columns, double entries) {
+	return static_cast<double>(n) * columns / std::max(1.5 * entries, 1.0);
+}
+
+// The Nystrom preconditioner at the current point, given the likelihood diagonal h. False (CG then runs without one)
+// when its matrices would exceed `available` bytes or the construction fails
+bool buildNystrom(AbstractModelSpecifics& engine, const std::vector<int>& F, const std::vector<double>& precision,
+                  const std::vector<int>& unpenalized, const std::vector<double>& h, double available,
+                  NystromPreconditioner& P, int* products) {
+	const size_t n = F.size();
+	const int m = std::min<int>(static_cast<int>(n), static_cast<int>(unpenalized.size()) + nystromRank);
+	// live at once: the test matrix and its QR, the products, B, V, W, both singular value decompositions' work and
+	// factors, and the result
+	const double bytes = 8.0 * (10.0 * static_cast<double>(n) * m + 4.0 * static_cast<double>(m) * m);
+	if (bytes > available) {
+		return false;
+	}
+	Eigen::MatrixXd omega = Eigen::MatrixXd::Zero(n, m);
+	for (size_t c = 0; c < unpenalized.size(); ++c) {
+		omega(unpenalized[c], c) = 1.0;
+	}
+	std::mt19937 generator(20261111); // random signs from the engine's own bits: the same on every platform and thread count
+	for (int c = static_cast<int>(unpenalized.size()); c < m; ++c) {
+		for (size_t i = 0; i < n; ++i) omega(i, c) = (generator() & 1u) ? 1.0 : -1.0;
+	}
+	{
+		const Eigen::HouseholderQR<Eigen::MatrixXd> qr(omega);
+		omega = qr.householderQ() * Eigen::MatrixXd::Identity(n, m);
+	}
+	Eigen::MatrixXd Y(n, m);
+	std::vector<double> e(n), out;
+	for (int c = 0; c < m; ++c) {
+		for (size_t i = 0; i < n; ++i) e[i] = omega(i, c);
+		if (!engine.hessianVector(F, e, out)) return false;
+		++*products;
+		for (size_t i = 0; i < n; ++i) Y(i, c) = out[i];
+	}
+	if (!Y.allFinite()) return false;
+	const double shift = std::sqrt(static_cast<double>(n)) * std::numeric_limits<double>::epsilon() * Y.norm();
+	if (!std::isfinite(shift)) return false;
+	Y += shift * omega;
+	const Eigen::MatrixXd M = omega.transpose() * Y;
+	const Eigen::LLT<Eigen::MatrixXd> C(0.5 * (M + M.transpose()));
+	if (C.info() != Eigen::Success) return false; // (LLT does not detect NaN: B is checked below)
+	const Eigen::MatrixXd B = C.matrixL().solve(Y.transpose()).transpose();
+	if (!B.allFinite()) return false;
+	const Eigen::BDCSVD<Eigen::MatrixXd> svd(B, Eigen::ComputeThinU);
+	if (svd.info() != Eigen::Success) return false; // on non-finite input it leaves its results unwritten
+	const Eigen::VectorXd S = svd.singularValues().array().square() - shift; // sorted, largest first
+	if (!(S(0) > 0.0) || !std::isfinite(S(0))) return false;
+	const double floor = 1e-10 * S(0); // the relative threshold of SymmetricSolve: Sigma <= 1e10 below
+	if (!(floor >= std::numeric_limits<double>::min())) return false; // not subnormal
+	int k = 0; // directions above the floor (at least the first)
+	while (k < S.size() && S(k) > floor) ++k;
+	const Eigen::MatrixXd V = svd.matrixU().leftCols(k);
+	Eigen::VectorXd E(n);
+	for (size_t i = 0; i < n; ++i) {
+		if (!std::isfinite(h[i])) return false; // e.g. 0/0 on a stratum without events
+		double captured = 0.0;
+		for (int c = 0; c < k; ++c) captured += V(i, c) * V(i, c) * S(c);
+		E(i) = precision[i] + std::max(h[i] - captured, floor); // h_ii >= (V S V')_ii up to the shift and rounding
+	}
+	if (!E.allFinite()) return false; // an infinite E would make P^-1 singular
+	P.invRootE = E.cwiseSqrt().cwiseInverse();
+	const Eigen::MatrixXd W = P.invRootE.asDiagonal() * V * S.head(k).cwiseSqrt().asDiagonal();
+	if (!W.allFinite()) return false;
+	const Eigen::BDCSVD<Eigen::MatrixXd> w(W, Eigen::ComputeThinU);
+	if (w.info() != Eigen::Success) return false;
+	P.Z = w.matrixU();
+	P.invOnePlusSigma = (1.0 + w.singularValues().array().square()).inverse().matrix();
+	P.built = P.Z.allFinite() && P.invOnePlusSigma.allFinite() && P.invRootE.allFinite();
+	return P.built;
+}
+
 // A lower bound P <= H for Newton-CG certificates when some free coordinates are unpenalized (Newton plan 3.2).
 // With U the unpenalized positions in F, N the penalized ones, and the likelihood Hessian over F split as
 // [[A, B'], [B, C]] (A over U), P = [[A, B'], [B, B A^-1 B' + Lambda_N]]: H - P = [[0, 0], [0, C - B A^-1 B']], the
@@ -88,8 +218,9 @@ const int schurMaxUnpenalized = 32;
 // grown by the conditioning of A), so A is used only when cond(A) <= 1e10, the threshold of SymmetricSolve, and each
 // such quantity is raised by slack = (64 + 4 |U| cond(A)) eps times its size.
 struct SchurBound {
-	std::vector<int> U;            // positions in F with precision 0
-	std::vector<char> isU;
+	explicit SchurBound(const std::vector<int>& U) : U(U) {}
+
+	const std::vector<int>& U;     // positions in F with precision 0, ascending (NewtonContext::unpenalized)
 	Eigen::MatrixXd Bt;            // |U| x n: column i is row i of H_likelihood [e_U]
 	Eigen::LLT<Eigen::MatrixXd> A;
 	double slack = 0.0;
@@ -102,8 +233,11 @@ struct SchurBound {
 		for (Eigen::Index c = 0; c < u; ++c) rU(c) = r(U[c]);
 		const Eigen::VectorXd y = A.solve(rU);
 		double sum = A.matrixL().solve(rU).squaredNorm(); // r_U'A^-1 r_U
-		for (Eigen::Index i = 0; i < n; ++i) {
-			if (isU[i]) continue;
+		for (Eigen::Index i = 0, c = 0; i < n; ++i) {
+			if (c < u && U[c] == i) { // in U
+				++c;
+				continue;
+			}
 			const double t = r(i) - Bt.col(i).dot(y);
 			sum += t * t / e[i];
 		}
@@ -111,20 +245,13 @@ struct SchurBound {
 	}
 };
 
-// The Schur bound at the current point, over the positions of F with precision 0. False, and no certificate, when there
-// are none or more than schurMaxUnpenalized, when the bound and nu_P (schurNu) would need more than `available` bytes,
-// or when the likelihood block A of the unpenalized coordinates is not positive definite with cond(A) <= 1e10
+// The Schur bound at the current point, over the positions bound.U of F with precision 0. False, and no certificate, when
+// there are none or more than schurMaxUnpenalized, when the bound and nu_P (schurNu) would need more than `available`
+// bytes, or when the likelihood block A of the unpenalized coordinates is not positive definite with cond(A) <= 1e10
 // (collinear unpenalized columns)
-bool buildSchurBound(AbstractModelSpecifics& engine, const std::vector<int>& F, const std::vector<double>& precision,
-                     int K, double available, SchurBound& bound, int* products) {
+bool buildSchurBound(AbstractModelSpecifics& engine, const std::vector<int>& F, int K, double available,
+                     SchurBound& bound, int* products) {
 	const size_t n = F.size();
-	bound.isU.assign(n, 0);
-	for (size_t i = 0; i < n; ++i) {
-		if (precision[i] == 0.0) {
-			bound.U.push_back(static_cast<int>(i));
-			bound.isU[i] = 1;
-		}
-	}
 	const Eigen::Index u = static_cast<Eigen::Index>(bound.U.size());
 	// live together in schurNu: Bt (|U| x n, counted twice), the U columns of every row (|U| x K) and three vectors of K
 	const double bytes = 8.0 * (2.0 * u * static_cast<double>(n) + (u + 3.0) * K);
@@ -171,8 +298,11 @@ double schurNu(const ModelData<double>& data, const std::vector<int>& F, const s
 	}
 	Eigen::MatrixXd Q = bound.A.solve(Eigen::MatrixXd::Identity(u, u));
 	std::vector<double> square(K, 0.0), cross(K, 0.0), size(K, 0.0); // sum_N x_i^2 / lambda_i, x_i g_i'x_U / lambda_i, |.|
-	for (size_t i = 0; i < n; ++i) {
-		if (bound.isU[i]) continue;
+	for (size_t i = 0, c = 0; i < n; ++i) {
+		if (c < bound.U.size() && bound.U[c] == static_cast<int>(i)) { // in U
+			++c;
+			continue;
+		}
 		const Eigen::VectorXd g = bound.A.solve(Eigen::VectorXd(bound.Bt.col(i))), gAbs = g.cwiseAbs();
 		Q.noalias() += g * g.transpose() / precision[i];
 		for (GenericIterator<double> it(data.getX(), F[i]); it; ++it) {
@@ -376,12 +506,13 @@ bool CyclicCoordinateDescent::newtonDirectionDense(NewtonContext& context, Eigen
 }
 
 
-// Newton-CG direction (2.5, 3.2): (preconditioned) conjugate gradients on H x = s with an inexact-Newton forcing
-// term, at most 250 Hv. Certificates use a bound P <= H: for any x with residual r = s - H x,
+// Newton-CG direction (2.5, 3.2): conjugate gradients on H x = s, preconditioned by Woodbury (Cox counting) or by
+// the Nystrom preconditioner once a fit's solves have cost what it does, with an inexact-Newton forcing term, at most
+// 250 Hv. Certificates use a bound P <= H: for any x with residual r = s - H x,
 // 2 s'x - x'Hx <= Lambda^2 <= 2 s'x - x'Hx + r'P^-1 r, and nu <= nu_P. P = Lambda and nu_P = nuNormal on all-Normal
 // fits; with unpenalized (None) coordinates, the Schur bound (SchurBound, schurNu). When the estimate s'x / 2 is within
 // tau_eff, a certification solve continues until the bracket certifies, gsc(2 nu_P, sqrt(upper)) <= tau_eff (checked on
-// the recurrence residual without a preconditioner, then confirmed with an explicit one); until a relative residual of
+// the recurrence residual, then confirmed with an explicit one); until a relative residual of
 // 1e-10; or at most 1,000 Hv. After a bracket or a tight solve, Lambda^2 / 2 <= tau_eff stops uncertified when the
 // explicit certificate fails.
 // Without a bound (more than 32 unpenalized coordinates, their likelihood block ill-conditioned, or over the memory budget)
@@ -414,9 +545,9 @@ bool CyclicCoordinateDescent::newtonDirectionCG(NewtonContext& context, Eigen::V
 	if (context.woodburyAllowed && (!context.woodburyBuilt || context.woodburyStale)) {
 		context.woodburyBuilt = false;
 		context.woodburyStale = false;
-		const int rank = 32;
 		std::vector<double> S2, B;
-		if (modelSpecifics.woodburyParts(context.F, rank, S2, B)) {
+		if (modelSpecifics.woodburyParts(context.F, woodburyRank, S2, B)) {
+			context.woodburyOffered = true;
 			const int k = static_cast<int>(B.size() / n);
 			Eigen::MatrixXd M = Eigen::Map<Eigen::MatrixXd>(S2.data(), n, n);
 			for (size_t i = 0; i < n; ++i) {
@@ -433,6 +564,29 @@ bool CyclicCoordinateDescent::newtonDirectionCG(NewtonContext& context, Eigen::V
 		}
 	}
 
+	// When the engine offers no Woodbury parts (all but counting-process Cox, or one too large for them), the Nystrom
+	// preconditioner once this fit's Hessian-vector products reach what it costs and the last forcing solve cost at least
+	// half of it (rent, then buy; a solve can save at most what it costs, so cheaper solves would not repay the build in
+	// the few Newton iterations left): a fit whose solves stay cheap never pays for it. It is dropped after the direction
+	// whose forcing solve cost more per digit of residual reduction than the last solve without it (not within the
+	// direction: its certification solve continues the same CG run), or at once with a CG restart when it stops being
+	// positive definite in floating point (below)
+	if (!context.woodburyOffered && !context.nystromTried && context.lastPlainSolve >= 0) {
+		const double price = nystromPrice(n, static_cast<int>(context.unpenalized.size()), context.entries);
+		if (convergenceReport.hessianVectorProducts >= price && context.lastPlainSolve >= 0.5 * price) {
+			context.nystromTried = true;
+			// the engines that keep a row-wise copy of X_F (all but logistic regression) hold it alongside
+			const double rowwise = hXI.getModelType() == ModelType::LOGISTIC ? 0.0 : 12.0 * context.entries;
+			std::vector<double> h;
+			if (modelSpecifics.hessianDiagonal(context.F, h)) {
+				buildNystrom(modelSpecifics, context.F, context.precision, context.unpenalized, h, newtonMemoryBudget - rowwise,
+				             context.nystrom, &convergenceReport.hessianVectorProducts);
+			}
+		}
+	}
+	const bool preconditioned = context.woodburyBuilt || context.nystrom.built;
+	convergenceReport.preconditioner = context.woodburyBuilt ? "woodbury" : (context.nystrom.built ? "nystrom" : "none");
+
 	std::vector<double> in(n), out;
 	auto product = [&](const Eigen::VectorXd& v, Eigen::VectorXd& Hv) {
 		for (size_t i = 0; i < n; ++i) in[i] = v(i);
@@ -448,12 +602,30 @@ bool CyclicCoordinateDescent::newtonDirectionCG(NewtonContext& context, Eigen::V
 		if (context.woodburyBuilt) { // P^-1 v = M^-1 v + W (I - B W)^-1 W'v
 			return context.woodburyM.solve(v) + context.woodburyW * context.woodburyCapacitance.solve(context.woodburyW.transpose() * v);
 		}
+		if (context.nystrom.built) {
+			return context.nystrom.apply(v);
+		}
 		return context.jacobi ? Eigen::VectorXd(v.cwiseQuotient(diagonal)) : v;
 	};
-	z = precondition(r);
+	// z = P^-1 r and rz = r'z; a Nystrom preconditioner that is not positive definite in floating point at r is
+	// dropped, and both are computed again without it. True when it was dropped
+	auto preconditionResidual = [&](double& rz) {
+		z = precondition(r);
+		rz = r.dot(z);
+		if (!context.nystrom.built || !(r.squaredNorm() > 0.0) || (rz > 0.0 && std::isfinite(rz))) return false;
+		context.nystrom = NystromPreconditioner();
+		convergenceReport.preconditioner = "none";
+		z = precondition(r);
+		rz = r.dot(z);
+		return true;
+	};
+	double rz = 0.0;
+	preconditionResidual(rz);
 	p = z;
-	double rz = r.dot(z);
 	const double sNorm = s.norm();
+	// After a restart from x != 0, r'x = 0 no longer holds: 2 s'x - x'Hx = s'x + x'r in recurrence terms
+	bool restarted = false;
+	auto decrement = [&]() { return restarted ? s.dot(x) + x.dot(r) : s.dot(x); };
 	// CG from x until done() or the budget (or no positive curvature along p); false on a product failure
 	auto iterate = [&](const std::function<bool()>& done, int budget) {
 		if (done()) return true;
@@ -466,9 +638,13 @@ bool CyclicCoordinateDescent::newtonDirectionCG(NewtonContext& context, Eigen::V
 			const double alpha = rz / curvature;
 			x += alpha * p;
 			r -= alpha * Hp;
-			z = precondition(r);
-			const double next = r.dot(z);
-			p = z + (next / rz) * p;
+			double next = 0.0;
+			if (preconditionResidual(next)) { // restart CG from x without it
+				restarted = true;
+				p = z;
+			} else {
+				p = z + (next / rz) * p;
+			}
 			rz = next;
 			if (done()) break;
 		}
@@ -481,26 +657,40 @@ bool CyclicCoordinateDescent::newtonDirectionCG(NewtonContext& context, Eigen::V
 	if (!iterate([&]() { return r.norm() <= forcing * sNorm; }, 250)) {
 		return false;
 	}
-	context.woodburyStale = context.woodburyBuilt && convergenceReport.hessianVectorProducts - startProducts > 25;
-	double lambda2 = s.dot(x);
+	const int solveProducts = convergenceReport.hessianVectorProducts - startProducts;
+	context.woodburyStale = context.woodburyBuilt && solveProducts > 25;
+	// cost per digit of residual reduction: the forcing tolerance tightens from one Newton iteration to the next
+	const double digits = sNorm > 0.0 ? std::max(std::log10(sNorm / std::max(r.norm(), 1e-300 * sNorm)), 0.1) : 0.1;
+	bool dropNystrom = false;
+	if (!preconditioned) {
+		context.lastPlainSolve = solveProducts;
+		context.lastPlainPerDigit = solveProducts / digits;
+	} else if (context.nystrom.built && !context.nystromJudged) {
+		context.nystromJudged = true;
+		const double cost = solveProducts * (1.0 + nystromApplyCost(n, static_cast<int>(context.nystrom.Z.cols()), context.entries));
+		dropNystrom = cost / digits > context.lastPlainPerDigit; // at the end
+	}
+	double lambda2 = decrement();
+	bool steepest = false;
 	if (x.squaredNorm() == 0.0 && sNorm > 0.0) { // no positive curvature at all: a steepest-descent step
 		x = s / std::max(diagonal.maxCoeff(), 1.0);
 		lambda2 = s.dot(x);
+		steepest = true; // x no longer matches the CG residual: no certification from it
 	}
 
 	*stop = false;
 	*certified = false;
-	if (context.stopType == GAP && 0.5 * lambda2 <= context.tauEff) {
+	if (context.stopType == GAP && !steepest && 0.5 * lambda2 <= context.tauEff) {
 		const int before = convergenceReport.hessianVectorProducts;
 		// The certificate's P and nu_P: Lambda and nuNormal on all-Normal fits, else the Schur bound when there is one
-		SchurBound bound;
+		SchurBound bound(context.unpenalized);
 		double nu = context.allNormal ? context.nuNormal : NAN;
 		if (!context.allNormal) {
 			const auto* data = dynamic_cast<const ModelData<double>*>(&hXI);
-			// what a built Woodbury factor keeps (M, its factor and W) is not available to the bound
-			const double retained = context.woodburyBuilt ? 16.0 * n * static_cast<double>(n) + 8.0 * 2.0 * 32.0 * n : 0.0;
-			if (data != nullptr && buildSchurBound(modelSpecifics, context.F, context.precision, K,
-			                                       newtonMemoryBudget - retained, bound,
+			// what a built preconditioner keeps is not available to the bound
+			const double retained = (context.woodburyBuilt ? woodburyBytes(static_cast<double>(n)) : 0.0) +
+				(context.nystrom.built ? 8.0 * n * (context.nystrom.Z.cols() + 2.0) : 0.0);
+			if (data != nullptr && buildSchurBound(modelSpecifics, context.F, K, newtonMemoryBudget - retained, bound,
 			                                       &convergenceReport.hessianVectorProducts)) {
 				auto positive = [this](int k) {
 					return !useCrossValidation || static_cast<size_t>(k) >= hWeights.size() || hWeights[k] > 0.0;
@@ -519,20 +709,18 @@ bool CyclicCoordinateDescent::newtonDirectionCG(NewtonContext& context, Eigen::V
 			}
 			return low + bound.quadratic(residual, context.precision);
 		};
-		// Preconditioned, a tight solve is cheap (40-80 Hv) and makes the final step exact; unpreconditioned, the
-		// solve stops once the bracket certifies (a tight one took up to 911 Hv)
-		const bool early = canCertify && !context.woodburyBuilt;
+		// The solve stops once the bracket certifies, preconditioned or not
 		bool hit = false, tight = false;
 		auto done = [&]() {
-			hit = early && newton::gsc(2.0 * nu, std::sqrt(std::max(upper(s.dot(x), r), 0.0))) <= context.tauEff;
+			hit = canCertify && newton::gsc(2.0 * nu, std::sqrt(std::max(upper(decrement(), r), 0.0))) <= context.tauEff;
 			tight = r.norm() <= 1e-10 * sNorm;
 			return hit || tight;
 		};
-		if (!iterate(done, context.woodburyBuilt ? 250 : 1000)) {
+		if (!iterate(done, 1000)) {
 			return false;
 		}
 		convergenceReport.certificationProducts += convergenceReport.hessianVectorProducts - before;
-		lambda2 = s.dot(x);
+		lambda2 = decrement();
 		if (hit || tight) {
 			Eigen::VectorXd Hx;
 			if (!product(x, Hx)) return false; // explicit, never the recurrence residual
@@ -547,6 +735,10 @@ bool CyclicCoordinateDescent::newtonDirectionCG(NewtonContext& context, Eigen::V
 		}
 	} else if (context.stopType == KKT) {
 		*stop = s.cwiseQuotient(diagonal.cwiseSqrt()).cwiseAbs().maxCoeff() < context.tolerance;
+	}
+	if (dropNystrom) { // it did not pay: the next directions run without it
+		context.nystrom = NystromPreconditioner();
+		convergenceReport.preconditioner = "none";
 	}
 	convergenceReport.lambda2Half = 0.5 * lambda2;
 	d = -x;
@@ -978,6 +1170,9 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 			continue;
 		}
 		if (jointPrior->getNewtonPenalty(j, &precision, &lambda)) {
+			if (precision == 0.0) {
+				context.unpenalized.push_back(static_cast<int>(context.F.size()));
+			}
 			context.F.push_back(j);
 			context.precision.push_back(precision);
 			context.lambda.push_back(lambda);
@@ -1112,13 +1307,13 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 	}
 	const double width = static_cast<double>(context.F.size());
 	const double bytes = 24.0 * width * width + 12.0 * entries;
+	context.entries = entries;
 	const double budget = newtonMemoryBudget;
 
 	// Dense or Newton-CG (2.5): CG when the dense factorization would exceed the memory budget, or when its
 	// operation count is lower; CYCLOPS_NEWTON_SOLVER = "dense" or "cg" forces one (tests, gates)
-	// Woodbury preconditioning when its factor fits: M and its Cholesky factor, and the k = 32 columns of W
-	const double woodburyBytes = 16.0 * width * width + 8.0 * 2.0 * 32.0 * width + 12.0 * entries;
-	context.woodburyAllowed = woodburyBytes <= budget;
+	// Woodbury preconditioning when what it keeps fits beside the row-wise copy of X_F
+	context.woodburyAllowed = woodburyBytes(width) + 12.0 * entries <= budget;
 	if (const char* woodbury = std::getenv("CYCLOPS_NEWTON_WOODBURY")) {
 		context.woodburyAllowed = context.woodburyAllowed && std::atoi(woodbury) != 0;
 	}
