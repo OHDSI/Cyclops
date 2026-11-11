@@ -81,6 +81,24 @@ test_that("The super fitter changes logistic regression and Cox models, and crea
                       cvWarmStart = TRUE, activeSetEvery = 0, adaptiveIntercept = TRUE))
     expect_false(Cyclops:::.resolveControl(createControl(), "lr", 999)$cvNullModelBound)
 
+    # Under "auto" (the default) and "newton" the final fit uses the "gap" criterion, and super's "kkt" fold settings,
+    # which go with its "kkt" fit, do not apply: the fold fits follow the final fit (they ran coordinate descent to
+    # kkt 3e-3). Its search settings still apply; a given cvConvergenceType still wins
+    foldNames <- c("algorithm", "convergenceType", "cvConvergenceType", "cvTolerance", "cvMaxIterations",
+                   "cvSearchDirection", "cvRefine", "cvNullModelBound", "cvWarmStart", "activeSetEvery",
+                   "adaptiveIntercept")
+    gapFolds <- list(convergenceType = "gap", cvConvergenceType = "gap", cvTolerance = 1E-5, cvMaxIterations = 5000,
+                     cvSearchDirection = "down", cvRefine = TRUE, cvNullModelBound = TRUE, cvWarmStart = TRUE,
+                     activeSetEvery = 0, adaptiveIntercept = FALSE)
+    expect_equal(Cyclops:::.resolveControl(createControl(fitter = "super"), "lr", 5000)[foldNames],
+                 c(list(algorithm = "auto"), gapFolds))
+    expect_equal(resolve("lr", 5000, algorithm = "newton")[foldNames], c(list(algorithm = "newton"), gapFolds))
+    expect_equal(resolve("lr", 5000, algorithm = "auto", convergenceType = "gap")[foldNames],
+                 c(list(algorithm = "auto"), gapFolds))
+    given <- resolve("lr", 5000, algorithm = "auto", cvConvergenceType = "kkt")
+    expect_equal(given[c("algorithm", "convergenceType", "cvConvergenceType", "cvTolerance")],
+                 list(algorithm = "auto", convergenceType = "gap", cvConvergenceType = "kkt", cvTolerance = 3E-3))
+
     # Least squares: "kkt", active sets, adaptive intercept steps and a search up from the null model under both
     # fitters; super adds looser fold fits; legacy keeps the earlier settings
     lsNames <- c("convergenceType", "tolerance", "cvConvergenceType", "cvTolerance", "cvSearchDirection", "cvRefine",

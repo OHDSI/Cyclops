@@ -134,6 +134,13 @@ Changes:
    gives each covariate one column per type; it merged two types and added empty columns, so the fit failed.
    A character `type`, or numeric codes other than 1 and 2, crashed R; `type` is now taken as a factor.
    Fits with two types do not change
+19. `fitter = "super"` with `algorithm = "auto"` (the default) or `"newton"` fits its cross-validation folds as
+   the final fit, with the `"gap"` criterion (fold tolerance 1e-5). They ran coordinate descent to a `"kkt"`
+   tolerance of 3e-3, its setting for `algorithm = "ccd"`; on a real logistic design with 13,420 covariates 18
+   of 30 fold fits reached the iteration limit, the variance search stopped early and chose a variance six times
+   smaller, and the held-out AUC fell from 0.887 to 0.876. With this release's Newton changes the folds are also
+   faster on real FeatureExtraction designs (3-fold super cross-validation 1.1-2.3x faster, the same variances).
+   Under `algorithm = "ccd"` and with a given `cvConvergenceType` nothing changes
 
 Cyclops v3.8.0
 ==============
