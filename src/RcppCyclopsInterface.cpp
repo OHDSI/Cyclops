@@ -850,6 +850,7 @@ static void appendNewtonReports(Rcpp::List& list, bsccs::RcppCcdInterface& rcppI
 		convergence.push_back(report.hessianVectorProducts, "hessianVectorProducts");
 		convergence.push_back(report.certificationProducts, "certificationProducts");
 		convergence.push_back(report.rankDeficientFaceRounds, "rankDeficientFaceRounds");
+		convergence.push_back(report.faceRounds, "faceRounds");
 		convergence.push_back(report.eigenFaceRounds, "eigenFaceRounds");
 		list["convergence"] = convergence;
 	}

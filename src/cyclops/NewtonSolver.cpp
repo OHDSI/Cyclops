@@ -819,6 +819,7 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 	}
 	++convergenceReport.hessians;
 	Eigen::MatrixXd H = Eigen::Map<Eigen::MatrixXd>(block.data(), w, w);
+	std::vector<double>().swap(block); // the face factor takes its place within the memory budget
 	Eigen::VectorXd gw(w), bw(w), lw(w);
 	double maxLambda = 1.0;
 	for (size_t a = 0; a < w; ++a) {
@@ -852,11 +853,16 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 		}
 	}
 
-	// inner cyclic CD on the model to 0.01 max r (at most 1,000 sweeps)
+	// Inner cyclic CD on the model, a seed for the face solve below: it stops at 0.01 max r, once its support and
+	// signs have held for 5 sweeps with moves below 0.1 max r (the face solve then finishes the model exactly; it ran
+	// 400 sweeps past a settled support; signs alone can hold while mass still moves between collinear columns), or
+	// after 1,000 sweeps
 	Eigen::VectorXd z = bw;
 	Eigen::VectorXd q = Eigen::VectorXd::Zero(w); // H (z - b)
+	int settled = 0;
 	for (int sweep = 0; sweep < 1000; ++sweep) {
 		double largest = 0.0;
+		bool supportChanged = false;
 		for (size_t a = 0; a < w; ++a) {
 			const double h = H(a, a);
 			if (!(h > 0.0)) continue;
@@ -870,91 +876,120 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 			}
 			const double delta = target - z(a);
 			if (delta != 0.0) {
+				supportChanged = supportChanged || (z(a) > 0.0) != (target > 0.0) || (z(a) < 0.0) != (target < 0.0);
 				z(a) = target;
 				q += delta * H.col(a);
 				largest = std::max(largest, std::abs(delta) * std::sqrt(h));
 			}
 		}
 		if (largest <= std::max(0.01 * maxR, 1e-12)) break;
+		settled = supportChanged ? 0 : settled + 1;
+		if (settled >= 5 && largest <= 0.1 * maxR) break; // a settled support whose values have nearly settled too
 	}
 
-	// exact signed active-set face solve, from the inner support and signs
+	// Exact signed active-set face solve, from the inner support and signs. The Cholesky factor of the face matrix is
+	// kept across rounds (newton::FaceFactor): an entering coordinate costs a triangular solve and a leaving one a
+	// rank-one update, O(m^2) each, not a new O(m^3) factorization. A round without the factor (the first, or a face it
+	// cannot hold) uses SymmetricSolve, which handles singular faces. Every violator enters at once
 	bool exact = false;
 	{
 		Eigen::VectorXd zf = z;
 		std::vector<int> sign(w, 0);
 		std::vector<char> inFace(w, 0);
+		std::vector<int> S;
 		for (size_t a = 0; a < w; ++a) {
 			if (lw(a) == 0.0 || zf(a) != 0.0) {
 				inFace[a] = 1;
 				sign[a] = (lw(a) == 0.0) ? 0 : (zf(a) > 0.0 ? 1 : -1);
 			}
 		}
+		newton::FaceFactor factor(static_cast<Eigen::Index>(w));
+		bool factored = false; // the first round's SymmetricSolve seats the factor when the face is conditioned
+		Eigen::VectorXd gm = gw + H * (zf - bw);
+		Eigen::VectorXd dz = Eigen::VectorXd::Zero(w);
 		double lastResidual = std::numeric_limits<double>::infinity();
-		for (int iteration = 0; iteration < 200; ++iteration) {
-			std::vector<int> S;
+		// Rounds on the kept factor cost O(m^2), and a solve can need a few per coordinate of W (all violators enter at
+		// once, then leave as they block); a round without it refactorizes, O(m^3), and keeps the budget of 200
+		const int maxRounds = 3 * std::max(200, static_cast<int>(w));
+		int fallbackRounds = 0;
+		for (int iteration = 0; iteration < maxRounds; ++iteration) {
+			if (!factored && ++fallbackRounds > 200) break;
+			++convergenceReport.faceRounds;
+			S.clear();
 			for (size_t a = 0; a < w; ++a) if (inFace[a]) S.push_back(static_cast<int>(a));
-			const Eigen::VectorXd gm = gw + H * (zf - bw);
 			const int m = static_cast<int>(S.size());
-			Eigen::MatrixXd HS(m, m);
-			Eigen::VectorXd rS(m);
-			for (int a = 0; a < m; ++a) {
-				rS(a) = -(gm(S[a]) + lw(S[a]) * sign[S[a]]);
-				for (int b = 0; b < m; ++b) HS(a, b) = H(S[a], S[b]);
-			}
-			const newton::SymmetricSolve solve(HS, rS);
-			if (solve.method == newton::SolveMethod::RANK_DEFICIENT) ++convergenceReport.rankDeficientFaceRounds;
-			if (solve.method == newton::SolveMethod::EIGEN) ++convergenceReport.eigenFaceRounds;
-			Eigen::VectorXd rN = Eigen::VectorXd::Zero(m);
-			if (solve.dropped > 0) {
-				rN = solve.nullBasis * (solve.nullBasis.transpose() * rS);
-			}
-			if (m > 0 && rN.norm() > std::max(1e-8 * rS.norm(), kktTol)) {
-				// the face is unbounded below along +rN: follow it to the first sign boundary
-				int blocking = -1;
-				double step = std::numeric_limits<double>::infinity();
+			dz.setZero();
+			bool ray = false; // dz is a null direction of a singular face, not a Newton step
+			if (factored) {
+				const std::vector<int>& members = factor.members();
+				Eigen::VectorXd rF(m);
+				for (int k = 0; k < m; ++k) rF(k) = -(gm(members[k]) + lw(members[k]) * sign[members[k]]);
+				const Eigen::VectorXd xF = factor.solve(rF);
+				for (int k = 0; k < m; ++k) dz(members[k]) = xF(k);
+			} else {
+				Eigen::MatrixXd HS(m, m);
+				Eigen::VectorXd rS(m);
 				for (int a = 0; a < m; ++a) {
-					const int c = S[a];
-					if (sign[c] != 0 && ((rN(a) > 0.0) != (sign[c] > 0)) && rN(a) != 0.0) {
-						const double t = -zf(c) / rN(a);
-						if (t < step) { step = t; blocking = a; }
-					}
+					rS(a) = -(gm(S[a]) + lw(S[a]) * sign[S[a]]);
+					for (int b = 0; b < m; ++b) HS(a, b) = H(S[a], S[b]);
 				}
-				if (blocking < 0) break; // unbounded: not exact
-				for (int a = 0; a < m; ++a) zf(S[a]) += step * rN(a);
-				zf(S[blocking]) = 0.0;
-				sign[S[blocking]] = 0;
-				inFace[S[blocking]] = 0;
-				continue;
+				const newton::SymmetricSolve solve(HS, rS);
+				if (solve.method == newton::SolveMethod::RANK_DEFICIENT) ++convergenceReport.rankDeficientFaceRounds;
+				if (solve.method == newton::SolveMethod::EIGEN) ++convergenceReport.eigenFaceRounds;
+				if (solve.method == newton::SolveMethod::CHOLESKY) {
+					factor.seat(solve.cholesky, S); // the face is conditioned: later rounds update its factor
+					factored = true;
+				}
+				Eigen::VectorXd rN = Eigen::VectorXd::Zero(m);
+				if (solve.dropped > 0) {
+					rN = solve.nullBasis * (solve.nullBasis.transpose() * rS);
+				}
+				// the face is unbounded below along +rN: follow it to the first sign boundary (there is no full step)
+				ray = m > 0 && rN.norm() > std::max(1e-8 * rS.norm(), kktTol);
+				for (int a = 0; a < m; ++a) dz(S[a]) = ray ? rN(a) : solve.x(a);
 			}
-			Eigen::VectorXd zNew(m);
-			for (int a = 0; a < m; ++a) zNew(a) = zf(S[a]) + solve.x(a);
-			int blocking = -1;
-			double fraction = std::numeric_limits<double>::infinity();
+			// stop at the first sign boundary and drop every coordinate that reaches it at that step (several violators that
+			// entered together can all be blocked at once, at step 0)
+			double step = std::numeric_limits<double>::infinity();
+			std::vector<double> stepTo(w, std::numeric_limits<double>::infinity());
 			for (int a = 0; a < m; ++a) {
 				const int c = S[a];
-				if (sign[c] != 0 && (zNew(a) > 0.0 ? 1 : (zNew(a) < 0.0 ? -1 : 0)) != sign[c]) {
-					const double t = zf(c) / (zf(c) - zNew(a));
-					if (t < fraction) { fraction = t; blocking = a; }
+				if (sign[c] == 0 || dz(c) == 0.0) continue;
+				const double zNew = zf(c) + dz(c);
+				// a coordinate blocks when the step moves it to or past 0 (one at 0 that does not move stays feasible), or
+				// when the ray points to 0
+				if (ray ? (dz(c) > 0.0) != (sign[c] > 0) : (zNew > 0.0 ? 1 : (zNew < 0.0 ? -1 : 0)) != sign[c]) {
+					stepTo[c] = ray ? -zf(c) / dz(c) : zf(c) / (zf(c) - zNew);
+					step = std::min(step, stepTo[c]);
 				}
 			}
-			if (blocking >= 0) { // stop at the first sign boundary and drop it
-				for (int a = 0; a < m; ++a) zf(S[a]) += fraction * solve.x(a);
-				zf(S[blocking]) = 0.0;
-				sign[S[blocking]] = 0;
-				inFace[S[blocking]] = 0;
+			if (ray && !std::isfinite(step)) break; // unbounded: not exact
+			if (std::isfinite(step)) {
+				for (int a = 0; a < m; ++a) zf(S[a]) += step * dz(S[a]);
+				for (int a = 0; a < m; ++a) {
+					const int c = S[a];
+					const bool crossed = zf(c) * sign[c] < 0.0; // moved past 0 by rounding (one at 0 stays: it may have just entered)
+					if (stepTo[c] <= step || crossed) {
+						zf(c) = 0.0;
+						sign[c] = 0;
+						inFace[c] = 0;
+					}
+				}
+				// the factor holds the face: its columns that left go, from the last down (earlier ones keep their index)
+				for (size_t k = factor.members().size(); factored && k-- > 0;) {
+					if (!inFace[factor.members()[k]]) factored = factor.remove(k);
+				}
+				gm = gw + H * (zf - bw);
 				continue;
 			}
-			for (int a = 0; a < m; ++a) zf(S[a]) = zNew(a);
-			const Eigen::VectorXd gmNew = gw + H * (zf - bw);
+			for (int a = 0; a < m; ++a) zf(S[a]) += dz(S[a]);
+			gm = gw + H * (zf - bw);
 			double residual = 0.0;
-			int violator = -1;
-			double violation = 0.0;
+			std::vector<int> violators;
 			for (size_t a = 0; a < w; ++a) {
-				residual = std::max(residual, std::abs(subgradient(zf, gmNew, static_cast<int>(a))));
-				if (!inFace[a] && lw(a) > 0.0 && std::abs(gmNew(a)) - lw(a) > std::max(kktTol, violation)) {
-					violation = std::abs(gmNew(a)) - lw(a);
-					violator = static_cast<int>(a);
+				residual = std::max(residual, std::abs(subgradient(zf, gm, static_cast<int>(a))));
+				if (!inFace[a] && lw(a) > 0.0 && std::abs(gm(a)) - lw(a) > kktTol) {
+					violators.push_back(static_cast<int>(a));
 				}
 			}
 			if (residual <= kktTol) {
@@ -962,9 +997,14 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 				z = zf;
 				break;
 			}
-			if (violator >= 0) { // the worst violator enters with the sign that decreases the model
-				inFace[violator] = 1;
-				sign[violator] = gmNew(violator) > 0.0 ? -1 : 1;
+			if (!violators.empty()) { // they enter with the signs that decrease the model
+				for (int a : violators) {
+					inFace[a] = 1;
+					sign[a] = gm(a) > 0.0 ? -1 : 1;
+					if (factored && !factor.add(H, a)) {
+						factored = false; // the rest of this face solve by SymmetricSolve
+					}
+				}
 				continue;
 			}
 			if (residual >= 0.5 * lastResidual) break; // refinement stalled

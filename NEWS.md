@@ -112,6 +112,11 @@ Changes:
    `algorithm = "auto"` took 2.7 s instead of 30 s; ridge fits of real FeatureExtraction designs took 0.5-1.05 times as
    long. Certification solves now stop once the certificate holds under a preconditioner too (they ran to a tight
    residual)
+20. Prox-Newton (Laplace and elastic-net priors) keeps the Cholesky factor of its face matrix across the rounds of a face
+   solve, updating it as coordinates enter and leave, and stops its inner coordinate descent once the support has
+   settled. A single Laplace fit of a real FeatureExtraction design (83k rows, 7,443 covariates) took 12.7 s instead
+   of 23.0 s, and its 3-fold cross-validation 10.3 s instead of 14.7 s, at the same optimum. A face holding a column
+   and a rescaled copy of it is now treated as singular. `fit$convergence$faceRounds` counts the face rounds
 
 Cyclops v3.8.0
 ==============
