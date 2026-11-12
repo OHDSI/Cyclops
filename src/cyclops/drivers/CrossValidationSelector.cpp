@@ -65,6 +65,82 @@ void CrossValidationSelector::reseed() {
 	}
 }
 
+void CrossValidationSelector::setFixedFolds(const std::vector<int>& foldOfRow) {
+	if (foldOfRow.size() != K) {
+		std::ostringstream stream;
+		stream << "Need a cross-validation fold for each of the " << K << " rows";
+		error->throwError(stream);
+	}
+	// Fold of each exchangeable unit: a row, or the stratum or subject that ids gives. A row without a fold (-1: weight
+	// 0) takes its unit's, or fold 0 in a unit of such rows only
+	std::vector<int> foldOfUnit(N, -1);
+	for (size_t k = 0; k < K; ++k) {
+		const int f = foldOfRow[k];
+		if (f == -1) {
+			continue;
+		}
+		if (f < 0 || f >= fold) {
+			std::ostringstream stream;
+			stream << "Cross-validation fold " << f << " of row " << k << " is outside 0 to " << (fold - 1);
+			error->throwError(stream);
+		}
+		const size_t unit = (type == SelectorType::BY_PID) ? ids[k] : k;
+		if (foldOfUnit[unit] == -1) {
+			foldOfUnit[unit] = f;
+		} else if (foldOfUnit[unit] != f) {
+			std::ostringstream stream;
+			stream << "The rows of one stratum or subject must be in the same cross-validation fold";
+			error->throwError(stream);
+		}
+	}
+	// Units in fold order, so that fold f holds out permutation[intervalStart[f], intervalStart[f + 1]); a fold must hold
+	// out a unit with a fold given
+	std::vector<int> given(fold, 0), count(fold, 0);
+	for (size_t unit = 0; unit < N; ++unit) {
+		if (foldOfUnit[unit] != -1) {
+			++given[foldOfUnit[unit]];
+		} else { // rows of weight 0 only (ids are 0, ..., N - 1: see AbstractSelector)
+			foldOfUnit[unit] = 0;
+		}
+		++count[foldOfUnit[unit]];
+	}
+	intervalStart.assign(1, 0);
+	for (int f = 0; f < fold; ++f) {
+		if (given[f] == 0) {
+			std::ostringstream stream;
+			stream << "Cross-validation fold " << f << " holds out no rows";
+			error->throwError(stream);
+		}
+		intervalStart.push_back(intervalStart.back() + count[f]);
+	}
+	fixedPermutation.resize(N);
+	std::vector<int> next(intervalStart.begin(), intervalStart.end() - 1);
+	for (size_t unit = 0; unit < N; ++unit) {
+		fixedPermutation[next[foldOfUnit[unit]]++] = static_cast<int>(unit);
+	}
+
+	std::ostringstream stream;
+	stream << "Using the given " << fold << " cross-validation folds of sizes";
+	for (int f = 0; f < fold; ++f) {
+		stream << " " << given[f];
+	}
+	logger->writeLine(stream);
+}
+
+bool CrossValidationSelector::getFoldOfRow(std::vector<int>& foldOfRow) const {
+	std::vector<int> foldOfUnit(N, -1);
+	for (int f = 0; f < fold; ++f) {
+		for (int i = intervalStart[f]; i < intervalStart[f + 1]; ++i) {
+			foldOfUnit[permutation[i]] = f;
+		}
+	}
+	foldOfRow.resize(K);
+	for (size_t k = 0; k < K; ++k) {
+		foldOfRow[k] = foldOfUnit[(type == SelectorType::BY_PID) ? ids[k] : k];
+	}
+	return true;
+}
+
 CrossValidationSelector::~CrossValidationSelector() {
 	// Do nothing
 }
@@ -136,6 +212,11 @@ void CrossValidationSelector::getComplement(std::vector<double>& weights) {
 }
 
 void CrossValidationSelector::permute() {
+
+	if (!fixedPermutation.empty()) { // the given folds, in every repetition
+		permutation = fixedPermutation;
+		return;
+	}
 
 	// Do random shuffle
 	if (!deterministic) {

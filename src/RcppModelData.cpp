@@ -503,6 +503,21 @@ int cyclopsGetNumberOfSubjects(Environment object) {
     return subjects.empty() ? 0 : *std::max_element(subjects.begin(), subjects.end()) + 1;
 }
 
+// Row ids in data order, as loaded with the outcomes (rowId); NULL when the data have none
+// [[Rcpp::export(".cyclopsGetRowLabels")]]
+SEXP cyclopsGetRowLabels(Environment object) {
+    XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);
+    if (!data->getHasRowLabels()) {
+        return R_NilValue;
+    }
+    const size_t rows = data->getNumberOfRows();
+    CharacterVector labels(rows);
+    for (size_t i = 0; i < rows; ++i) {
+        labels[i] = data->getRowLabel(i);
+    }
+    return labels;
+}
+
 // [[Rcpp::export(".cyclopsFinalizeData")]]
 void cyclopsFinalizeData(
         Environment x,

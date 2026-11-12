@@ -45,6 +45,9 @@ public:
 	
 	virtual AbstractSelector* clone() const = 0; // pure virtual
 
+	// Fold in which each row is held out under the current assignment; false if the selector has no folds
+	virtual bool getFoldOfRow(std::vector<int>& foldOfRow) const { return false; }
+
 protected:
 	const std::vector<int> ids;
 	SelectorType type;

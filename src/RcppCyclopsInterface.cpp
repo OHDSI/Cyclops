@@ -806,6 +806,12 @@ void cyclopsSetCvControl(SEXP inRcppCcdInterface, const List& options) {
 	if (options.containsElementNamed("nullModelBound")) {
 		cv.nullModelBound = as<bool>(options["nullModelBound"]);
 	}
+	if (options.containsElementNamed("keepPredictions")) {
+		cv.keepPredictions = as<bool>(options["keepPredictions"]);
+	}
+	if (options.containsElementNamed("foldOfRow")) { // fold (0, 1, ...) of each row in data order; empty: random folds
+		cv.foldOfRow = as<std::vector<int>>(options["foldOfRow"]);
+	}
 }
 
 // Separation (D5) and the "gap" / "auto" / "newton" report of the last fit (Newton plan 2.7, 2.10)
@@ -878,6 +884,14 @@ List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface) {
 		);
 	RcppCcdInterface::appendRList(list, interface->getResult());
 	appendNewtonReports(list, *interface);
+
+	// Out-of-fold predictions in data order, with the fold (0, 1, ...) that held each row out
+	const auto& predictions = interface->getCcd().getCrossValidationPredictions();
+	if (!predictions.empty()) {
+		list["cvPredictions"] = List::create(
+			Rcpp::Named("prediction") = predictions,
+			Rcpp::Named("fold") = interface->getCcd().getCrossValidationPredictionFolds());
+	}
 	return list;
 }
 

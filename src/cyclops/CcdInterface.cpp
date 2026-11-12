@@ -1163,6 +1163,21 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, AbstractMo
 
 	//    std::make_unique_ptr<AbstractSelector>(ptr2);
 
+	const auto& foldOfRow = arguments.crossValidation.foldOfRow;
+	if (!foldOfRow.empty()) { // the user's folds instead of random ones
+		if (arguments.crossValidation.fold == -1) {
+			std::ostringstream stream;
+			stream << "Given cross-validation folds need fold > 0";
+			error->throwError(stream);
+		}
+		static_cast<CrossValidationSelector*>(selector.get())->setFixedFolds(foldOfRow);
+	}
+	if (arguments.crossValidation.keepPredictions && arguments.useHierarchy) {
+		std::ostringstream stream;
+		stream << "Out-of-fold predictions are not available for hierarchical priors";
+		error->throwError(stream);
+	}
+
 	AbstractCrossValidationDriver* driver;
 	if (arguments.crossValidation.useAutoSearchCV) {
 		if (arguments.useHierarchy) {
@@ -1179,6 +1194,7 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, AbstractMo
 	}
 
 	ccd->setThreads(1); // folds run in parallel instead; fitModel() restores the threads
+	ccd->setCrossValidationPredictions({}, {});
 	driver->drive(*ccd, *selector, arguments);
 
 	gettimeofday(&time2, NULL);

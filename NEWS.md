@@ -150,6 +150,12 @@ Changes:
    over 269 such fits of simulated formula data the median fit took 2.6 times fewer iterations (never more).
    Asking for an intercept to be stored densely (`makeCovariatesDense`, or `make_dense()` in Python) leaves it
    as it is; on data from `convertToCyclopsData()` it crashed R
+27. `fitCyclopsModel(cvFolds = )` cross-validates on given folds (a data frame of `rowId` and `fold`, or a vector in
+   data order for formula data) instead of random ones, and `returnCvPredictions = TRUE` returns in
+   `fit$cvPredictions` the out-of-fold prediction of each row, from a refit of its fold at the selected variance (for
+   `"lr"`, `"pr"` and `"ls"`, on the scale of `predict()`; `NA` for rows with weight 0). The number of folds comes
+   from `cvFolds` (a different `fold` given to `createControl()` is an error), and both need `cvRepetitions = 1`.
+   PatientLevelPrediction refits each fold itself for these predictions
 
 Cyclops v3.8.0
 ==============

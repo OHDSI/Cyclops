@@ -34,9 +34,25 @@
 #' @param fixedCoefficients Vector of booleans indicating if coefficient should be fix
 #' @param warnings Logical, report regularization warnings
 #' @param computeDevice String: Name of compute device to employ; defaults to \code{"native"} C++ on CPU
+#' @param cvFolds Cross-validation folds to use instead of random ones when the prior uses cross-validation:
+#'                a data frame with columns \code{rowId} and \code{fold}, for data built with row ids
+#'                (\code{\link{convertToCyclopsData}}); for data from \code{\link{createCyclopsData}}, a vector with
+#'                the fold of each row, in the order of the data. Every row with positive weight needs a fold; rows
+#'                with weight 0 may have none. Folds may have any labels; their number is the number of folds (a
+#'                different \code{fold} given to \code{\link{createControl}} is an error), and \code{control$seed} no
+#'                longer matters for them. The rows of one stratum (\code{selectorType = "byPid"}) or subject
+#'                (\code{"bySubject"}) must share a fold. Needs \code{cvRepetitions = 1}.
+#' @param returnCvPredictions Logical: refit each fold at the selected variance, to the convergence criterion and
+#'                tolerance of the final fit, and return in \code{fit$cvPredictions} the prediction of each row
+#'                from the fit without its fold, on the scale of \code{predict()}. For \code{modelType} \code{"lr"},
+#'                \code{"pr"} and \code{"ls"}. Needs \code{cvRepetitions = 1}.
 #'
 #' @return
-#' A list that contains a Cyclops model fit object pointer and an operation duration
+#' A list that contains a Cyclops model fit object pointer and an operation duration. With
+#' \code{returnCvPredictions = TRUE}, also \code{cvPredictions}: a data frame with the \code{rowId},
+#' \code{fold} and out-of-fold \code{prediction} (on the scale of \code{predict()}) of each data row, in data
+#' order; \code{NA} for rows with weight 0 and where the refit of a fold failed. The variance was chosen on the
+#' same folds, so measures of performance from these predictions are optimistic.
 #'
 #' @references
 #' Suchard MA, Simpson SE, Zorych I, Ryan P, Madigan D.
@@ -72,7 +88,13 @@ fitCyclopsModel <- function(cyclopsData,
                             startingCoefficients = NULL,
                             fixedCoefficients = NULL,
                             warnings = TRUE,
-							computeDevice = "native") {
+							computeDevice = "native",
+                            cvFolds = NULL,
+                            returnCvPredictions = FALSE) {
+
+    if ((!is.null(cvFolds) || returnCvPredictions) && (!is.null(control$setHook) || !is.null(prior$fitHook))) {
+        stop("cvFolds and returnCvPredictions are not available with this prior or control")
+    }
 
     # Delegate to control$setHook if exists
     if (!is.null(control$setHook)) {
@@ -225,6 +247,32 @@ fitCyclopsModel <- function(cyclopsData,
         control$cvRepetitions <- .getNumberOfRepetitions(getNumberOfRows(cyclopsData))
     }
 
+    folds <- NULL
+    if (!is.null(cvFolds) || returnCvPredictions) {
+        if (!prior$useCrossValidation) {
+            stop("cvFolds and returnCvPredictions need a prior with useCrossValidation = TRUE")
+        }
+        if (control$cvRepetitions != 1) {
+            stop("cvFolds and returnCvPredictions need cvRepetitions = 1")
+        }
+        if (control$fold == -1) {
+            stop("cvFolds and returnCvPredictions need fold > 0")
+        }
+    }
+    if (returnCvPredictions && !(cyclopsData$modelType %in% c("lr", "pr", "ls"))) {
+        stop("returnCvPredictions is available for modelType \"lr\", \"pr\" and \"ls\"")
+    }
+    if (!is.null(cvFolds)) {
+        folds <- .foldOfRow(cyclopsData, cvFolds)
+        if (isTRUE(control$foldGiven) && control$fold != length(folds$labels)) {
+            stop("control$fold is ", control$fold, " but cvFolds has ", length(folds$labels), " folds")
+        }
+        control$fold <- length(folds$labels)
+    }
+    control$cvKeepPredictions <- returnCvPredictions
+    # rows without a fold (-1) must have weight 0 (checked below); they take the fold of their stratum or subject
+    control$cvFoldOfRow <- if (is.null(folds)) integer(0) else ifelse(is.na(folds$index), -1L, folds$index - 1L)
+
     control <- .setControl(cyclopsData$cyclopsInterfacePtr, control, cyclopsData)
     threads <- control$threads
 
@@ -306,6 +354,10 @@ fitCyclopsModel <- function(cyclopsData,
         # this fit is unweighted: release the weights an earlier fit on this interface set
         .cyclopsSetWeights(cyclopsData$cyclopsInterfacePtr, NULL)
     }
+    rowWeights <- if (is.null(weights)) rep(1, getNumberOfRows(cyclopsData)) else weights # data order
+    if (!is.null(folds) && any(is.na(folds$index) & rowWeights > 0)) {
+        stop(sum(is.na(folds$index) & rowWeights > 0), " data rows with positive weight have no fold in cvFolds")
+    }
 
     # censorWeight check for the Fine-Gray model
     if (cyclopsData$modelType == "fgr" & is.null(cyclopsData$censorWeights)) {
@@ -341,6 +393,14 @@ fitCyclopsModel <- function(cyclopsData,
         if (warnings && !is.null(fit$cv_failed_folds) && fit$cv_failed_folds > 0) {
             warning(fit$cv_failed_folds, " cross-validation fold fits failed and were left out of the mean ",
                     "predictive log-likelihood at their variance")
+        }
+        if (!is.null(fit$cvPredictions)) {
+            fit$cvPredictions <- .cvPredictionTable(cyclopsData, fit$cvPredictions, folds, rowWeights)
+            failed <- is.na(fit$cvPredictions$prediction) & rowWeights > 0 # rows of weight 0 have none
+            if (warnings && any(failed)) {
+                warning("The refits of ", length(unique(fit$cvPredictions$fold[failed])),
+                        " folds at the selected variance failed; their out-of-fold predictions are NA")
+            }
         }
     } else {
         fit <- .cyclopsFitModel(cyclopsData$cyclopsInterfacePtr)
@@ -398,6 +458,7 @@ fitCyclopsModel <- function(cyclopsData,
                                    computeDevice = computeDevice)
             fit$cross_validation <- cvFit$cross_validation
             fit$cv_failed_folds <- cvFit$cv_failed_folds
+            fit$cvPredictions <- cvFit$cvPredictions
             fit$cvRepetitions <- control$cvRepetitions
             return(fit)
         }
@@ -951,6 +1012,7 @@ createControl <- function(maxIterations = NULL,
                    convergenceType = convergenceType,
                    autoSearch = (cvType == "auto"),
                    fold = fold,
+                   foldGiven = !missing(fold), # cvFolds sets the number of folds: a different given one is an error
                    lowerLimit = lowerLimit,
                    upperLimit = upperLimit,
                    gridSteps = gridSteps,
@@ -1280,7 +1342,81 @@ getCrossValidationInfo <- function(object) {
          tolerance = valueOr(control$cvTolerance, -1),
          maxIterations = as.integer(valueOr(control$cvMaxIterations, -1)),
          minIterations = as.integer(control$cvMinIterations),
-         warmStart = control$cvWarmStart)
+         warmStart = control$cvWarmStart,
+         keepPredictions = isTRUE(control$cvKeepPredictions),
+         foldOfRow = valueOr(control$cvFoldOfRow, integer(0))) # empty: random folds
+}
+
+# Fold (1, ..., k) of each row in data order from fitCyclopsModel(cvFolds = ), and the fold labels
+.foldOfRow <- function(cyclopsData, cvFolds) {
+    n <- getNumberOfRows(cyclopsData)
+    rowIds <- .cyclopsGetRowLabels(cyclopsData)
+    rowIdOfRow <- NULL
+    if (is.data.frame(cvFolds)) {
+        if (!all(c("rowId", "fold") %in% colnames(cvFolds))) {
+            stop("cvFolds needs columns rowId and fold")
+        }
+        if (is.null(rowIds)) {
+            stop("These data have no row ids; give cvFolds as a vector with the fold of each row in data order")
+        }
+        rowId <- if (is.factor(cvFolds$rowId)) as.character(cvFolds$rowId) else cvFolds$rowId # not the factor codes
+        keys <- as.character(bit64::as.integer64(rowId))
+        if (anyDuplicated(keys)) {
+            stop("cvFolds has duplicate rowIds")
+        }
+        index <- match(rowIds, keys) # NA: a row without a fold (allowed with weight 0)
+        unknown <- sum(!(keys %in% rowIds))
+        if (unknown > 0) {
+            stop(unknown, " rowIds in cvFolds are not in the data")
+        }
+        fold <- cvFolds$fold[index]
+        rowIdOfRow <- .rowIdsLike(rowIds, rowId)
+    } else {
+        if (!is.null(rowIds)) {
+            stop("Give cvFolds as a data frame with columns rowId and fold: these data have row ids")
+        }
+        if (length(cvFolds) != n) {
+            stop("cvFolds needs a fold for each of the ", n, " data rows")
+        }
+        fold <- cvFolds
+        if (!is.null(cyclopsData$sortOrder)) {
+            fold <- fold[cyclopsData$sortOrder]
+        }
+    }
+    labels <- sort(unique(fold[!is.na(fold)]))
+    if (length(labels) < 2) {
+        stop("cvFolds needs at least two folds")
+    }
+    list(index = match(fold, labels), labels = labels, rowId = rowIdOfRow)
+}
+
+# Row ids (exact strings in Cyclops) in the type of `template` (that of cvFolds$rowId); numeric without one, or
+# integer64 where an id needs more than 53 bits
+.rowIdsLike <- function(labels, template = NULL) {
+    if (is.null(template)) {
+        wide <- bit64::as.integer64(labels)
+        return(if (all(abs(as.numeric(wide)) < 2^53)) as.numeric(labels) else wide)
+    }
+    if (bit64::is.integer64(template)) return(bit64::as.integer64(labels))
+    if (is.character(template)) return(labels)
+    as.numeric(labels)
+}
+
+# fit$cvPredictions from the C++ result (data order, folds 1, ..., k)
+.cvPredictionTable <- function(cyclopsData, cvPredictions, folds, rowWeights) {
+    if (!is.null(folds) && !is.null(folds$rowId)) {
+        rowId <- folds$rowId
+    } else {
+        rowId <- .cyclopsGetRowLabels(cyclopsData)
+        rowId <- if (is.null(rowId)) cyclopsData$rowNames else .rowIdsLike(rowId)
+    }
+    fold <- cvPredictions$fold + 1L # C++ counts folds from 0
+    if (!is.null(folds)) {
+        fold <- folds$labels[folds$index] # NA for a row without a fold
+    }
+    prediction <- cvPredictions$prediction
+    prediction[rowWeights == 0] <- NA # rows with weight 0 are in no fold's held-out rows
+    data.frame(rowId = rowId, fold = fold, prediction = prediction)
 }
 
 # Mode-finding options of a resolved control

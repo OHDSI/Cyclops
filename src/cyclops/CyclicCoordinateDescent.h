@@ -192,6 +192,15 @@ public:
 
 	void setCrossValidationFailedFolds(int count) { crossValidationFailedFolds = count; }
 
+	// Out-of-fold prediction of each row at the selected hyperparameter (NaN where its fold fit failed) and the
+	// fold that held it out; empty unless the last cross-validation kept them
+	void setCrossValidationPredictions(std::vector<double> predictions, std::vector<int> folds) {
+		crossValidationPredictions = std::move(predictions);
+		crossValidationPredictionFolds = std::move(folds);
+	}
+	const std::vector<double>& getCrossValidationPredictions() const { return crossValidationPredictions; }
+	const std::vector<int>& getCrossValidationPredictionFolds() const { return crossValidationPredictionFolds; }
+
 	// string getBootStrapInfo() const;
 	//
 	// void setBootStrapInfo(string info);
@@ -714,6 +723,8 @@ protected:
 
 	string crossValidationInfo;
 	int crossValidationFailedFolds = 0; // fold fits left out of their mean predictive log-likelihood
+	std::vector<double> crossValidationPredictions;
+	std::vector<int> crossValidationPredictionFolds;
 	string bootStrapInfo;
 	std::vector<double> bootStrapInfoVector;
 
