@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "cyclops/api/CyclopsApi.h"
+#include "cyclops/FitterPresets.h"
 
 namespace py = pybind11;
 using namespace cyclops::api;
@@ -75,7 +76,9 @@ PYBIND11_MODULE(_cyclops, m) {
         .value("LANGE", ConvergenceKind::Lange)
         .value("MITTAL", ConvergenceKind::Mittal)
         .value("ONE_STEP", ConvergenceKind::OneStep)
-        .value("ZHANG_OLES", ConvergenceKind::ZhangOles);
+        .value("ZHANG_OLES", ConvergenceKind::ZhangOles)
+        .value("KKT", ConvergenceKind::Kkt)
+        .value("GAP", ConvergenceKind::Gap);
 
     py::enum_<SelectorKind>(m, "SelectorKind")
         .value("AUTO", SelectorKind::Auto)
@@ -84,7 +87,9 @@ PYBIND11_MODULE(_cyclops, m) {
 
     py::enum_<AlgorithmKind>(m, "AlgorithmKind")
         .value("CCD", AlgorithmKind::Ccd)
-        .value("MM", AlgorithmKind::Mm);
+        .value("MM", AlgorithmKind::Mm)
+        .value("AUTO", AlgorithmKind::Auto)
+        .value("NEWTON", AlgorithmKind::Newton);
 
     py::enum_<NormalizationKind>(m, "NormalizationKind")
         .value("STANDARD_DEVIATION", NormalizationKind::StandardDeviation)
@@ -131,7 +136,23 @@ PYBIND11_MODULE(_cyclops, m) {
         .def_readwrite("max_bound_count", &FitOptions::max_bound_count)
         .def_readwrite("use_kkt_swindle", &FitOptions::use_kkt_swindle)
         .def_readwrite("swindle_multiplier", &FitOptions::swindle_multiplier)
+        .def_readwrite("fitter", &FitOptions::fitter)
         .def_readwrite("do_it_all", &FitOptions::do_it_all)
+        .def_readwrite("active_set_every", &FitOptions::active_set_every)
+        .def_readwrite("active_set_threshold", &FitOptions::active_set_threshold)
+        .def_readwrite("adaptive_intercept", &FitOptions::adaptive_intercept)
+        .def_readwrite("merge_duplicates", &FitOptions::merge_duplicates)
+        .def_readwrite("fallback_convergence", &FitOptions::fallback_convergence)
+        .def_readwrite("fallback_tolerance", &FitOptions::fallback_tolerance)
+        .def_readwrite("fallback_max_iterations", &FitOptions::fallback_max_iterations)
+        .def_readwrite("cv_search_direction", &FitOptions::cv_search_direction)
+        .def_readwrite("cv_convergence", &FitOptions::cv_convergence)
+        .def_readwrite("cv_tolerance", &FitOptions::cv_tolerance)
+        .def_readwrite("cv_max_iterations", &FitOptions::cv_max_iterations)
+        .def_readwrite("cv_min_iterations", &FitOptions::cv_min_iterations)
+        .def_readwrite("cv_warm_start", &FitOptions::cv_warm_start)
+        .def_readwrite("cv_refine", &FitOptions::cv_refine)
+        .def_readwrite("cv_null_model_bound", &FitOptions::cv_null_model_bound)
         .def_readwrite("auto_search", &FitOptions::auto_search)
         .def_readwrite("fold", &FitOptions::fold)
         .def_readwrite("cv_repetitions", &FitOptions::cv_repetitions)
@@ -163,6 +184,14 @@ PYBIND11_MODULE(_cyclops, m) {
         .def_readonly("cross_validation_info", &FitResult::cross_validation_info)
         .def_readonly("covariate_count", &FitResult::covariate_count)
         .def_readonly("fit_seconds", &FitResult::fit_seconds)
+        .def_property_readonly("convergence", [](const FitResult& self) {
+            py::dict d;
+            for (const auto& [k, v] : self.convergence) d[py::str(k)] = v;
+            for (const auto& [k, v] : self.convergence_text) d[py::str(k)] = v;
+            return d;
+        })
+        .def_readonly("aliased_groups", &FitResult::aliased_groups)
+        .def_readonly("divergent_coefficients", &FitResult::divergent_coefficients)
         .def_property_readonly("converged", &FitResult::converged);
 
     py::class_<ProfileInterval>(m, "ProfileInterval")
@@ -302,6 +331,71 @@ PYBIND11_MODULE(_cyclops, m) {
     // -- free functions -----------------------------------------------------
 
     m.def("version", &version);
+    // The fitter's presets for the settings a control leaves unset (FitterPresets.cpp, shared with R's
+    // createControl()): None is unset. Returns the resolved settings (None where fold fits follow the fit), the
+    // warnings to issue and an error message (empty when the settings are consistent)
+    m.def("resolve_control",
+          [](const std::string& fitter, std::optional<std::string> model_type, std::optional<int> n_covariates,
+             bool reset_coefficients, std::optional<std::string> algorithm, std::optional<std::string> convergence,
+             std::optional<double> tolerance, std::optional<int> max_iterations,
+             std::optional<std::string> cv_convergence, std::optional<double> cv_tolerance,
+             std::optional<int> cv_max_iterations, std::optional<int> cv_min_iterations,
+             std::optional<std::string> cv_search_direction, std::optional<bool> cv_refine,
+             std::optional<bool> cv_null_model_bound, std::optional<bool> cv_warm_start,
+             std::optional<int> active_set_every, std::optional<double> active_set_threshold,
+             std::optional<bool> adaptive_intercept) {
+              bsccs::ControlRequest q;
+              q.fitter = fitter;
+              q.modelType = model_type;
+              q.nCovariates = n_covariates;
+              q.resetCoefficients = reset_coefficients;
+              q.algorithm = algorithm;
+              q.convergenceType = convergence;
+              q.tolerance = tolerance;
+              q.maxIterations = max_iterations;
+              q.cvConvergenceType = cv_convergence;
+              q.cvTolerance = cv_tolerance;
+              q.cvMaxIterations = cv_max_iterations;
+              q.cvMinIterations = cv_min_iterations;
+              q.cvSearchDirection = cv_search_direction;
+              q.cvRefine = cv_refine;
+              q.cvNullModelBound = cv_null_model_bound;
+              q.cvWarmStart = cv_warm_start;
+              q.activeSetEvery = active_set_every;
+              q.activeSetThreshold = active_set_threshold;
+              q.adaptiveIntercept = adaptive_intercept;
+              const bsccs::ResolvedControl r = bsccs::resolveControl(q);
+              py::dict d;
+              d["algorithm"] = r.algorithm;
+              d["convergence"] = r.convergenceType;
+              d["tolerance"] = r.tolerance;
+              d["max_iterations"] = r.maxIterations;
+              d["cv_convergence"] = r.cvConvergenceType;
+              d["cv_tolerance"] = r.cvTolerance;
+              d["cv_max_iterations"] = r.cvMaxIterations;
+              d["cv_min_iterations"] = r.cvMinIterations;
+              d["cv_search_direction"] = r.cvSearchDirection;
+              d["cv_refine"] = r.cvRefine;
+              d["cv_null_model_bound"] = r.cvNullModelBound;
+              d["cv_warm_start"] = r.cvWarmStart;
+              d["active_set_every"] = r.activeSetEvery;
+              d["active_set_threshold"] = r.activeSetThreshold;
+              d["adaptive_intercept"] = r.adaptiveIntercept;
+              d["fallback_convergence"] = r.fallbackConvergenceType;
+              d["fallback_tolerance"] = r.fallbackTolerance;
+              d["fallback_max_iterations"] = r.fallbackMaxIterations;
+              d["warnings"] = r.warnings;
+              d["error"] = r.error;
+              return d;
+          },
+          py::arg("fitter"), py::arg("model_type"), py::arg("n_covariates"), py::arg("reset_coefficients"),
+          py::arg("algorithm") = py::none(), py::arg("convergence") = py::none(), py::arg("tolerance") = py::none(),
+          py::arg("max_iterations") = py::none(), py::arg("cv_convergence") = py::none(),
+          py::arg("cv_tolerance") = py::none(), py::arg("cv_max_iterations") = py::none(),
+          py::arg("cv_min_iterations") = py::none(), py::arg("cv_search_direction") = py::none(),
+          py::arg("cv_refine") = py::none(), py::arg("cv_null_model_bound") = py::none(),
+          py::arg("cv_warm_start") = py::none(), py::arg("active_set_every") = py::none(),
+          py::arg("active_set_threshold") = py::none(), py::arg("adaptive_intercept") = py::none());
     m.def("list_gpu_devices", &list_gpu_devices);
     m.def("removes_intercept", &removes_intercept, py::arg("kind"));
     m.def("requires_strata", &requires_strata, py::arg("kind"));

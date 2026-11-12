@@ -59,6 +59,8 @@ CONVERGENCE_KINDS: Mapping[str, "_cyclops.ConvergenceKind"] = {
     "zhangoles": _cyclops.ConvergenceKind.ZHANG_OLES,
     # R spells this one "zhang"; accept both.
     "zhang": _cyclops.ConvergenceKind.ZHANG_OLES,
+    "kkt": _cyclops.ConvergenceKind.KKT,
+    "gap": _cyclops.ConvergenceKind.GAP,
 }
 
 SELECTOR_KINDS: Mapping[str, "_cyclops.SelectorKind"] = {
@@ -71,6 +73,8 @@ SELECTOR_KINDS: Mapping[str, "_cyclops.SelectorKind"] = {
 ALGORITHM_KINDS: Mapping[str, "_cyclops.AlgorithmKind"] = {
     "ccd": _cyclops.AlgorithmKind.CCD,
     "mm": _cyclops.AlgorithmKind.MM,
+    "auto": _cyclops.AlgorithmKind.AUTO,
+    "newton": _cyclops.AlgorithmKind.NEWTON,
 }
 
 NORMALIZATION_KINDS: Mapping[str, "_cyclops.NormalizationKind"] = {

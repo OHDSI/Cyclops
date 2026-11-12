@@ -13,6 +13,7 @@
 
 #include "Rcpp.h"
 #include "RcppCyclopsInterface.h"
+#include "FitterPresets.h"
 #include "RcppModelData.h"
 //#include "engine/ModelSpecifics.h"
 #include "priors/JointPrior.h"
@@ -1685,3 +1686,61 @@ RcppCcdInterface::~RcppCcdInterface() {
 
 } // namespace
 
+
+// The fitter's presets for the settings a control leaves unset (FitterPresets): R's .resolveControl() calls this.
+// NULL is unset (R makes an NA algorithm NULL). Errors come back as text, for R to stop() without a call
+// [[Rcpp::export(".cyclopsResolveControl")]]
+List cyclopsResolveControl(List control, SEXP modelType, SEXP nCovariates) {
+    using namespace bsccs;
+    auto set = [&control](auto& setting, const char* name) { // NULL or empty leaves the optional unset
+        SEXP value = control.containsElementNamed(name) ? static_cast<SEXP>(control[name]) : R_NilValue;
+        if (Rf_length(value) > 0) setting = as<typename std::decay_t<decltype(setting)>::value_type>(value);
+    };
+    ControlRequest q;
+    std::optional<std::string> fitter;
+    std::optional<bool> resetCoefficients;
+    set(fitter, "fitter");
+    set(resetCoefficients, "resetCoefficients");
+    if (fitter) q.fitter = *fitter;
+    q.resetCoefficients = resetCoefficients.value_or(false);
+    if (!Rf_isNull(modelType)) q.modelType = as<std::string>(modelType);
+    if (!Rf_isNull(nCovariates)) q.nCovariates = as<int>(nCovariates);
+    set(q.algorithm, "algorithm");
+    set(q.convergenceType, "convergenceType");
+    set(q.tolerance, "tolerance");
+    set(q.maxIterations, "maxIterations");
+    set(q.cvConvergenceType, "cvConvergenceType");
+    set(q.cvTolerance, "cvTolerance");
+    set(q.cvMaxIterations, "cvMaxIterations");
+    set(q.cvMinIterations, "cvMinIterations");
+    set(q.cvSearchDirection, "cvSearchDirection");
+    set(q.cvRefine, "cvRefine");
+    set(q.cvNullModelBound, "cvNullModelBound");
+    set(q.cvWarmStart, "cvWarmStart");
+    set(q.activeSetEvery, "activeSetEvery");
+    set(q.activeSetThreshold, "activeSetThreshold");
+    set(q.adaptiveIntercept, "adaptiveIntercept");
+    const ResolvedControl r = resolveControl(q);
+    auto orNull = [](const auto& value) -> SEXP { return value ? wrap(*value) : R_NilValue; };
+    return List::create(
+        Named("error") = r.error,
+        Named("warnings") = wrap(r.warnings),
+        Named("algorithm") = r.algorithm,
+        Named("convergenceType") = r.convergenceType,
+        Named("tolerance") = r.tolerance,
+        Named("maxIterations") = r.maxIterations,
+        Named("cvConvergenceType") = orNull(r.cvConvergenceType),
+        Named("cvTolerance") = orNull(r.cvTolerance),
+        Named("cvMaxIterations") = orNull(r.cvMaxIterations),
+        Named("cvMinIterations") = r.cvMinIterations,
+        Named("cvSearchDirection") = r.cvSearchDirection,
+        Named("cvRefine") = r.cvRefine,
+        Named("cvNullModelBound") = r.cvNullModelBound,
+        Named("cvWarmStart") = r.cvWarmStart,
+        Named("activeSetEvery") = r.activeSetEvery,
+        Named("activeSetThreshold") = r.activeSetThreshold,
+        Named("adaptiveIntercept") = r.adaptiveIntercept,
+        Named("fallbackConvergenceType") = r.fallbackConvergenceType,
+        Named("fallbackTolerance") = orNull(r.fallbackTolerance),
+        Named("fallbackMaxIterations") = orNull(r.fallbackMaxIterations));
+}

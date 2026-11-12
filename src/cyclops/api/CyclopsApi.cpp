@@ -92,6 +92,8 @@ int toConvergenceType(ConvergenceKind kind) {
         case ConvergenceKind::Mittal:    return bsccs::MITTAL;
         case ConvergenceKind::OneStep:   return bsccs::ONE_STEP;
         case ConvergenceKind::ZhangOles: return bsccs::ZHANG_OLES;
+        case ConvergenceKind::Kkt:       return bsccs::KKT;
+        case ConvergenceKind::Gap:       return bsccs::GAP;
     }
     throw CyclopsError("Unknown convergence kind");
 }
@@ -683,6 +685,7 @@ void Model::Impl::checkJeffreysIsApplicable() const {
 void Model::Impl::applyOptions() {
     auto& arguments = interface->getArguments();
 
+    arguments.fitter = options.fitter;
     arguments.modeFinding.maxIterations = options.max_iterations;
     arguments.modeFinding.tolerance = options.tolerance;
     arguments.modeFinding.convergenceType = toConvergenceType(options.convergence);
@@ -691,8 +694,20 @@ void Model::Impl::applyOptions() {
     arguments.modeFinding.initialBound = options.initial_bound;
     arguments.modeFinding.maxBoundCount = options.max_bound_count;
     arguments.modeFinding.doItAll = options.do_it_all;
-    arguments.modeFinding.algorithmType = (options.algorithm == AlgorithmKind::Mm)
-        ? bsccs::AlgorithmType::MM : bsccs::AlgorithmType::CCD;
+    switch (options.algorithm) {
+        case AlgorithmKind::Mm:     arguments.modeFinding.algorithmType = bsccs::AlgorithmType::MM; break;
+        case AlgorithmKind::Auto:   arguments.modeFinding.algorithmType = bsccs::AlgorithmType::AUTO; break;
+        case AlgorithmKind::Newton: arguments.modeFinding.algorithmType = bsccs::AlgorithmType::NEWTON; break;
+        default:                    arguments.modeFinding.algorithmType = bsccs::AlgorithmType::CCD; break;
+    }
+    arguments.modeFinding.activeSetEvery = options.active_set_every;
+    arguments.modeFinding.activeSetThreshold = options.active_set_threshold;
+    arguments.modeFinding.adaptiveIntercept = options.adaptive_intercept;
+    arguments.modeFinding.mergeDuplicates = options.merge_duplicates;
+    arguments.modeFinding.fallbackConvergenceType = options.fallback_convergence
+        ? toConvergenceType(*options.fallback_convergence) : -1;
+    arguments.modeFinding.fallbackTolerance = options.fallback_tolerance;
+    arguments.modeFinding.fallbackMaxIterations = options.fallback_max_iterations;
 
     arguments.crossValidation.useAutoSearchCV = options.auto_search;
     arguments.crossValidation.fold = options.fold;
@@ -702,9 +717,15 @@ void Model::Impl::applyOptions() {
     arguments.crossValidation.gridSteps = options.grid_steps;
     arguments.crossValidation.startingVariance = options.starting_variance;
     arguments.crossValidation.syncCV = options.sync_cv;
-    // createControl()'s cvWarmStart default under fitter = "default": each fold
-    // fit starts from that fold's solution at the nearest variance already tried.
-    arguments.crossValidation.warmStart = !options.reset_coefficients;
+    arguments.crossValidation.warmStart = options.cv_warm_start;
+    arguments.crossValidation.searchDirection = options.cv_search_direction;
+    arguments.crossValidation.foldConvergenceType = options.cv_convergence
+        ? toConvergenceType(*options.cv_convergence) : -1;
+    arguments.crossValidation.foldTolerance = options.cv_tolerance;
+    arguments.crossValidation.foldMaxIterations = options.cv_max_iterations;
+    arguments.crossValidation.foldMinIterations = options.cv_min_iterations;
+    arguments.crossValidation.refineSearch = options.cv_refine;
+    arguments.crossValidation.nullModelBound = options.cv_null_model_bound;
 
     // "auto" selector resolution, copied from fitCyclopsModel(): row-wise for
     // the unstratified likelihoods, otherwise whichever partition has more
@@ -790,6 +811,32 @@ FitResult Model::Impl::collectResult(double fitSeconds) {
     }
 
     result.fit_seconds = fitSeconds;
+
+    // as RcppCyclopsInterface exports it to R
+    const auto& report = optimizer.getConvergenceReport();
+    if (report.present) {
+        result.convergence = {
+            {"gapEstimate", report.gapEstimate}, {"certified", report.certified ? 1.0 : 0.0},
+            {"tauEff", report.tauEff}, {"R", report.R}, {"gsc", report.gsc},
+            {"lambda2Half", report.lambda2Half}, {"costRatio", report.costRatio},
+            {"cycles", double(report.cycles)}, {"newtonIterations", double(report.newtonIterations)},
+            {"hessians", double(report.hessians)}, {"fallbacks", double(report.fallbacks)},
+            {"newtonStart", double(report.newtonStart)},
+            {"droppedDirections", double(report.droppedDirections)},
+            {"hessianVectorProducts", double(report.hessianVectorProducts)},
+            {"certificationProducts", double(report.certificationProducts)},
+            {"rankDeficientFaceRounds", double(report.rankDeficientFaceRounds)},
+            {"eigenFaceRounds", double(report.eigenFaceRounds)},
+            {"faceRounds", double(report.faceRounds)},
+            {"dualChecks", double(report.dualChecks)}};
+        result.convergence_text = {{"algorithm", report.algorithm},
+                                   {"certificate", report.certificate},
+                                   {"solver", report.solver},
+                                   {"preconditioner", report.preconditioner},
+                                   {"ineligible", report.ineligible}};
+    }
+    result.aliased_groups = static_cast<int>(optimizer.getAliasedColumns().size());
+    result.divergent_coefficients = static_cast<int>(optimizer.getDivergentCoefficients().size());
     return result;
 }
 

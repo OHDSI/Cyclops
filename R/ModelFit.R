@@ -1208,127 +1208,20 @@ getCrossValidationInfo <- function(object) {
          point = values[-1])
 }
 
-# Settings that createControl() leaves to the fitter. fitter = "super" changes logistic regression: the "kkt"
-# convergence criterion, cross-validation fold fits by "kkt" at a looser tolerance, a search that steps down first
-# and refines its result, per-fold warm starts, active-set cycling for models with many covariates and adaptive
-# intercept steps. Least squares uses "kkt", active-set cycling, adaptive intercept steps and a search that steps
-# up from the null model and refines its result under "default" too, as the earlier criterion could stop far from
-# the optimum and the earlier start and first step depended on the units of y; "super" adds fold fits to a looser
-# tolerance, which changes the selected variance slightly. A setting given to createControl() wins.
-.fitterSettings <- function(control, modelType = NULL, nCovariates = NULL) {
-    fitter <- .fitter(control)
-    activeSetEvery <- if (!is.null(nCovariates) && nCovariates >= .activeSetMinCovariates) 10 else 0
-    if (identical(fitter, "super") && identical(modelType, "lr")) {
-        list(convergenceType = "kkt", cvConvergenceType = "kkt", cvMinIterations = 5,
-             cvSearchDirection = "down", cvRefine = TRUE, cvNullModelBound = TRUE, cvWarmStart = TRUE,
-             activeSetEvery = activeSetEvery, activeSetThreshold = 0.01, adaptiveIntercept = TRUE)
-    } else if (identical(fitter, "super") && identical(modelType, "ls")) {
-        list(convergenceType = "kkt", cvConvergenceType = "kkt", cvTolerance = 0.1, cvMinIterations = 5,
-             cvSearchDirection = "up", cvRefine = TRUE, cvNullModelBound = TRUE, cvWarmStart = TRUE,
-             activeSetEvery = activeSetEvery, activeSetThreshold = 0.01, adaptiveIntercept = TRUE)
-    } else if (identical(fitter, "default") && identical(modelType, "ls")) {
-        list(convergenceType = "kkt", cvConvergenceType = NULL, cvMinIterations = 5,
-             cvSearchDirection = "up", cvRefine = TRUE, cvNullModelBound = TRUE,
-             cvWarmStart = !isTRUE(control$resetCoefficients),
-             activeSetEvery = activeSetEvery, activeSetThreshold = 0.01, adaptiveIntercept = TRUE)
-    } else { # warm starts make fold fits without resetCoefficients independent of threads
-        warmStart <- !isTRUE(control$resetCoefficients) && !identical(fitter, "legacy")
-        list(convergenceType = "gradient", cvConvergenceType = NULL, cvMinIterations = 5,
-             cvSearchDirection = "auto", cvRefine = FALSE, cvNullModelBound = FALSE, cvWarmStart = warmStart,
-             activeSetEvery = 0, activeSetThreshold = 0.01, adaptiveIntercept = FALSE)
-    }
-}
-
-# Active-set cycling pays off only with many covariates (it lost with a support of about 100)
-.activeSetMinCovariates <- 1000
-
+# The settings a control leaves to its fitter, model and algorithm: FitterPresets.cpp, shared with the Python
+# package (it was .fitterSettings(), .resolveAlgorithm() and this function in R; the rules are documented there). A
+# setting given to createControl() keeps its value, except algorithm and tolerance, which the rules can change.
 .resolveControl <- function(control, modelType = NULL, nCovariates = NULL) {
-    control <- .resolveAlgorithm(control, modelType, nCovariates)
-    settings <- .fitterSettings(control, modelType, nCovariates)
-    if (identical(.fitter(control), "super") && identical(modelType, "lr") &&
-        !is.null(control$tolerance) && is.null(control$convergenceType)) {
-        warning("tolerance is ignored without convergenceType under fitter = \"super\": ",
-                "its \"kkt\" criterion measures the tolerance in standard-error units", call. = FALSE)
-        control["tolerance"] <- list(NULL)
+    if (isTRUE(is.na(control$algorithm))) control$algorithm <- NULL # NA is unset
+    r <- .cyclopsResolveControl(control, modelType, if (is.null(nCovariates)) NULL else as.integer(nCovariates))
+    for (message in r$warnings) {
+        warning(message, call. = FALSE)
     }
-    # A fitter's fold criterion and tolerance are relative to its own criterion (super: "kkt" folds looser than its
-    # "kkt" fit, for coordinate descent). When the fit uses another criterion (the "gap" of "auto" or "newton", or a
-    # given one), they do not apply and the fold fits follow the fit; a given cvConvergenceType always applies
-    foldSettings <- c("cvConvergenceType", "cvTolerance")
-    ownCriterion <- is.null(control$convergenceType) || identical(control$convergenceType, settings$convergenceType)
-    filled <- character(0)
-    for (name in names(settings)) {
-        if (!ownCriterion && name %in% foldSettings) {
-            next
-        }
-        if (is.null(control[[name]])) {
-            control[name] <- list(settings[[name]])
-            filled <- c(filled, name)
-        }
+    if (nzchar(r$error)) {
+        stop(r$error, call. = FALSE)
     }
-    kkt <- control$convergenceType == "kkt" # in standard-error units; an honest rule needs more cycles
-    gap <- control$convergenceType == "gap" # in log-posterior units (Newton plan 3.3, D3)
-    if (is.null(control$tolerance)) {
-        control$tolerance <- if (gap) 1E-6 else if (kkt) 1E-4 else 1E-6 # gap: certified bounds are conservative
-    }
-    if (is.null(control$maxIterations)) {
-        control$maxIterations <- if (kkt || gap) 5000 else 1000
-    }
-    if (gap && is.null(control$cvConvergenceType)) { # fold fits stop at a looser gap
-        control$cvConvergenceType <- "gap"
-    }
-    if (!is.null(control$cvConvergenceType)) { # fold fits with their own rule get its defaults; kkt folds stop earlier
-        cvKkt <- control$cvConvergenceType == "kkt"
-        cvGap <- control$cvConvergenceType == "gap"
-        if (is.null(control$cvTolerance)) {
-            control$cvTolerance <- if (cvGap) 1E-5 else if (cvKkt) 3E-3 else 1E-6
-        }
-        if (is.null(control$cvMaxIterations)) {
-            control$cvMaxIterations <- if (cvKkt || cvGap) 5000 else 1000
-        }
-    }
-    if (control$convergenceType != "kkt" && !identical(control$cvConvergenceType, "kkt")) {
-        # the fitter's settings that need "kkt" lapse; given ones are an error
-        if ("activeSetEvery" %in% filled) control$activeSetEvery <- 0
-        if ("adaptiveIntercept" %in% filled) control$adaptiveIntercept <- FALSE
-        if (control$activeSetEvery != 0) {
-            stop("activeSetEvery needs convergenceType = \"kkt\" or cvConvergenceType = \"kkt\"", call. = FALSE)
-        }
-        if (control$adaptiveIntercept) {
-            stop("adaptiveIntercept needs convergenceType = \"kkt\" or cvConvergenceType = \"kkt\"", call. = FALSE)
-        }
-    }
-    control
-}
-
-# algorithm and the "gap" criterion (Newton plan 2.10). NULL means the fitter's choice: "auto" for Cox models under
-# fitter = "super", else "ccd". An explicit criterion other than "gap" under "auto" runs "ccd", bitwise as before.
-# "auto" or "newton" without a criterion means "gap"; for "auto", the criterion the fitter would have used on CCD
-# is kept as the fallback for a fit that cannot take Newton steps (a tolerance given without a criterion applies
-# only there).
-# Models with second-order kernels (Newton plan 2.2): the default algorithm is "auto" for them
-.secondOrderModels <- c("cox", "cox_counting", "cpr", "sccs", "clr", "lr")
-
-.resolveAlgorithm <- function(control, modelType = NULL, nCovariates = NULL) {
-    if (is.null(control$algorithm) || is.na(control$algorithm)) { # D1: auto wherever there are second-order kernels
-        control$algorithm <- if (!identical(.fitter(control), "legacy") && isTRUE(modelType %in% .secondOrderModels))
-            "auto" else "ccd"
-    }
-    explicitType <- !is.null(control$convergenceType)
-    if (control$algorithm == "auto" && explicitType && control$convergenceType != "gap") {
-        control$algorithm <- "ccd"
-    }
-    control$fallbackConvergenceType <- ""
-    if (control$algorithm %in% c("auto", "newton") && !explicitType) {
-        if (control$algorithm == "auto") {
-            ccd <- .resolveControl(modifyList(control, list(algorithm = "ccd")), modelType, nCovariates)
-            control$fallbackConvergenceType <- ccd$convergenceType
-            control$fallbackTolerance <- ccd$tolerance
-            control$fallbackMaxIterations <- ccd$maxIterations
-        }
-        control$convergenceType <- "gap"
-        control["tolerance"] <- list(NULL)
-    }
+    r[c("warnings", "error")] <- NULL
+    control[names(r)] <- r
     control
 }
 
@@ -1440,10 +1333,6 @@ getCrossValidationInfo <- function(object) {
 
         if (is.null(control$seed)) {
             control$seed <- as.integer(Sys.time())
-        }
-
-        if (is.null(control$algorithm) || is.na(control$algorithm)) { # Provide backwards compatibility
-            control$algorithm <- "ccd"
         }
 
         .cyclopsSetControl(cyclopsInterfacePtr, control$maxIterations, control$tolerance,

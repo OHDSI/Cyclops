@@ -44,6 +44,8 @@ class ConvergenceKind(enum.Enum):
     MITTAL = ...
     ONE_STEP = ...
     ZHANG_OLES = ...
+    KKT = ...
+    GAP = ...
 
 class SelectorKind(enum.Enum):
     AUTO = ...
@@ -53,6 +55,8 @@ class SelectorKind(enum.Enum):
 class AlgorithmKind(enum.Enum):
     CCD = ...
     MM = ...
+    AUTO = ...
+    NEWTON = ...
 
 class NormalizationKind(enum.Enum):
     STANDARD_DEVIATION = ...
@@ -86,6 +90,7 @@ class PriorOptions:
     def __init__(self) -> None: ...
 
 class FitOptions:
+    fitter: str
     max_iterations: int
     tolerance: float
     convergence: ConvergenceKind
@@ -95,6 +100,13 @@ class FitOptions:
     use_kkt_swindle: bool
     swindle_multiplier: int
     do_it_all: bool
+    active_set_every: int
+    active_set_threshold: float
+    adaptive_intercept: bool
+    merge_duplicates: bool
+    fallback_convergence: ConvergenceKind | None
+    fallback_tolerance: float
+    fallback_max_iterations: int
     auto_search: bool
     fold: int
     cv_repetitions: int
@@ -105,6 +117,14 @@ class FitOptions:
     selector: SelectorKind
     min_cv_data: int
     sync_cv: bool
+    cv_search_direction: int
+    cv_convergence: ConvergenceKind | None
+    cv_tolerance: float
+    cv_max_iterations: int
+    cv_min_iterations: int
+    cv_warm_start: bool
+    cv_refine: bool
+    cv_null_model_bound: bool
     noise: NoiseLevel
     threads: int
     seed: int
@@ -135,6 +155,12 @@ class FitResult:
     def covariate_count(self) -> int: ...
     @property
     def fit_seconds(self) -> float: ...
+    @property
+    def convergence(self) -> dict[str, float | str]: ...
+    @property
+    def aliased_groups(self) -> int: ...
+    @property
+    def divergent_coefficients(self) -> int: ...
     @property
     def converged(self) -> bool: ...
 
@@ -270,6 +296,27 @@ class Model:
     def take_log(self) -> list[str]: ...
 
 def version() -> str: ...
+def resolve_control(
+    fitter: str,
+    model_type: str | None,
+    n_covariates: int | None,
+    reset_coefficients: bool,
+    algorithm: str | None = ...,
+    convergence: str | None = ...,
+    tolerance: float | None = ...,
+    max_iterations: int | None = ...,
+    cv_convergence: str | None = ...,
+    cv_tolerance: float | None = ...,
+    cv_max_iterations: int | None = ...,
+    cv_min_iterations: int | None = ...,
+    cv_search_direction: str | None = ...,
+    cv_refine: bool | None = ...,
+    cv_null_model_bound: bool | None = ...,
+    cv_warm_start: bool | None = ...,
+    active_set_every: int | None = ...,
+    active_set_threshold: float | None = ...,
+    adaptive_intercept: bool | None = ...,
+) -> dict[str, object]: ...
 def list_gpu_devices() -> list[str]: ...
 def removes_intercept(kind: ModelKind) -> bool: ...
 def requires_strata(kind: ModelKind) -> bool: ...

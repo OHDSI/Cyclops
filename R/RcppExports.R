@@ -169,6 +169,10 @@
     .Call(`_Cyclops_cyclopsGetLogLikelihoodHessianDiagonal`, inRcppCcdInterface, sexpCovariates)
 }
 
+.cyclopsResolveControl <- function(control, modelType, nCovariates) {
+    .Call(`_Cyclops_cyclopsResolveControl`, control, modelType, nCovariates)
+}
+
 #' @title List available GPU devices
 #'
 #' @description

@@ -6,6 +6,7 @@ OBJECTS.cyclops = \
     cyclops/CcdInterface.o \
     cyclops/CompressedDataMatrix.o \
     cyclops/CyclicCoordinateDescent.o \
+    cyclops/FitterPresets.o \
     cyclops/ModelData.o \
     cyclops/NewtonSolver.o \
     cyclops/Timer.o
