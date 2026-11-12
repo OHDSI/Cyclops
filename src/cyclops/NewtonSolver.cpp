@@ -79,6 +79,7 @@ struct CyclicCoordinateDescent::NewtonContext {
 	int stopType = GAP;             // explicit types under algorithm = "newton" map onto Newton iterations
 	double tolerance = 0.0;
 	double lastObjective = NAN;
+	int lastRankDeficientFaceRounds = 0; // in the previous prox-Newton iteration's face solve
 	// L1 logistic regression, no quadratic precision, every free column in F, at most one of them unpenalized (an
 	// intercept, checked by the engine), "gap" criterion: a stop on the gap estimate needs the duality gap within
 	// tau_eff (dualGap)
@@ -909,10 +910,10 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 		}
 	}
 
-	// Inner cyclic CD on the model, a seed for the face solve below: it stops at 0.01 max r, once its support and
-	// signs have held for 5 sweeps with moves below 0.1 max r (the face solve then finishes the model exactly; it ran
-	// 400 sweeps past a settled support; signs alone can hold while mass still moves between collinear columns), or
-	// after 1,000 sweeps
+	// Inner cyclic CD on the model, a seed for the face solve below: it stops at 0.01 max r or after 1,000 sweeps, and
+	// early once its support and signs have held for 5 sweeps with moves below 0.1 max r (signs alone can hold while mass
+	// still moves between collinear columns). The early stop counts on the face solve finishing in cheap rounds on the
+	// kept factor, so it is off after a face solve that needed rank-deficient rounds (each an O(m^3) factorization)
 	Eigen::VectorXd z = bw;
 	Eigen::VectorXd q = Eigen::VectorXd::Zero(w); // H (z - b)
 	int settled = 0;
@@ -940,7 +941,9 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 		}
 		if (largest <= std::max(0.01 * maxR, 1e-12)) break;
 		settled = supportChanged ? 0 : settled + 1;
-		if (settled >= 5 && largest <= 0.1 * maxR) break; // a settled support whose values have nearly settled too
+		if (context.lastRankDeficientFaceRounds == 0 && settled >= 5 && largest <= 0.1 * maxR) {
+			break; // a settled support whose values have nearly settled too
+		}
 	}
 
 	// Exact signed active-set face solve, from the inner support and signs. The Cholesky factor of the face matrix is
@@ -948,6 +951,7 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 	// rank-one update, O(m^2) each, not a new O(m^3) factorization. A round without the factor (the first, or a face it
 	// cannot hold) uses SymmetricSolve, which handles singular faces. Every violator enters at once
 	bool exact = false;
+	const int rankDeficientBefore = convergenceReport.rankDeficientFaceRounds;
 	{
 		Eigen::VectorXd zf = z;
 		std::vector<int> sign(w, 0);
@@ -1071,6 +1075,7 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 		}
 	}
 
+	context.lastRankDeficientFaceRounds = convergenceReport.rankDeficientFaceRounds - rankDeficientBefore;
 	const double decrease = -model(z);
 	convergenceReport.lambda2Half = decrease;
 	bool stop = false;
