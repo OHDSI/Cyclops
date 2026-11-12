@@ -370,7 +370,7 @@ int ModelData<RealType>::loadX(
             while (rowIdItr != rowIdEnd) {
                 if (rowIdItr != std::begin(rowId) && *rowIdItr == *(rowIdItr - 1)) {
                     std::ostringstream stream;
-                    stream << "Repeated row-column entry at";
+                    stream << "Repeated row-column entry at ";
                     stream << *rowIdItr << " - " << covariateId;
                     throw std::range_error(stream.str());
                 }

@@ -275,8 +275,6 @@ struct ModelData::Impl {
     /// covariate as these ids; Python passes positions, which add_covariates_csc() translates.
     std::vector<std::int64_t> rowIds;
 
-    /// Number of columns present before any offset/intercept manipulation, used
-    /// to validate coefficient-length arguments.
     void requireOutcome() const {
         if (data->getNumberOfRows() == 0) {
             throw CyclopsError("set_outcome() must be called before adding covariates");

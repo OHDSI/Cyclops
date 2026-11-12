@@ -236,8 +236,8 @@ public:
     /// @param y            outcome, length = number of rows
     /// @param time         survival/exposure time; empty when unused
     /// @param stratum_id   stratum per row, ascending and grouped; empty ⇒ unstratified
-    /// @param row_id       external row identifiers; empty ⇒ row indices are 0..n-1
-    ///                     and `add_*` calls address rows positionally
+    /// @param row_id       external row identifiers (the row labels; strata are read only with them), distinct;
+    ///                     empty ⇒ 0..n-1. `add_*` calls always address rows by position
     void set_outcome(const std::vector<double>& y,
                      const std::vector<double>& time = {},
                      const std::vector<std::int64_t>& stratum_id = {},

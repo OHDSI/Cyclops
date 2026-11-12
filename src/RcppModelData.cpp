@@ -538,15 +538,7 @@ void cyclopsFinalizeData(
         if (data->getHasInterceptCovariate()) {
             Rcpp::stop("OHDSI data object already has an intercept");
         }
-        // TODO add intercept as INTERCEPT_TYPE if magicFlag ==  true
         data->addIntercept();
-       //  data->insert(0, DENSE); // add to front, TODO fix if offset
-       //  data->setHasInterceptCovariate(true);
-       // // CompressedDataColumn& intercept = data->getColumn(0);
-       //  const size_t numRows = data->getNumberOfRows();
-       //  for (size_t i = 0; i < numRows; ++i) {
-       //      data->getColumn(0).add_data(i, static_cast<real>(1.0));
-       //  }
     }
 
     if (!Rf_isNull(sexpOffsetCovariate)) {
