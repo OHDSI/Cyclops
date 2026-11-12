@@ -680,6 +680,8 @@ private:
 	bool lrReady() const;
 	bool lrFullGradient(const std::vector<int>& F, std::vector<double>& g);
 	bool lrHessianBlock(const std::vector<int>& F, std::vector<double>& H);
+	bool dualObjective(const std::vector<int>& F, const std::vector<double>& lambda, const std::vector<double>& beta,
+	                   int intercept, double* dual) override;
 	// threads of the logistic Hessian block (setThreads(); cross-validation folds get the threads beyond their number);
 	// see lrHessianBlock()
 	std::unique_ptr<WorkerPool> lrPool;

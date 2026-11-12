@@ -280,6 +280,8 @@ public:
 		int certificationProducts = 0;  // Hv spent in certification solves
 		int rankDeficientFaceRounds = 0; // prox-Newton face rounds on a singular face
 		int faceRounds = 0;             // prox-Newton face rounds (each a solve on the current face)
+		double dualGap = NAN;           // the last duality gap computed (L1 logistic regression)
+		int dualChecks = 0;             // how many were computed
 		int eigenFaceRounds = 0;         // prox-Newton face rounds solved by an eigendecomposition
 		std::string ineligible;         // why a requested Newton path ran as CCD
 	};
@@ -576,6 +578,8 @@ protected:
 	bool newtonDirectionCG(NewtonContext& context, Eigen::VectorXd& s, Eigen::VectorXd& d, bool* stop,
 	                       bool* certified);
 	bool certifyGap(NewtonContext& context, double* gscValue, double* lambda2Half, Eigen::VectorXd* step = nullptr);
+	bool dualGap(NewtonContext& context, double* gap);
+	int dualStop(NewtonContext& context);
 	bool finishingStep(NewtonContext& context, const Eigen::VectorXd& d);
 	struct ProfileReference;
 	struct ProfileFactor;

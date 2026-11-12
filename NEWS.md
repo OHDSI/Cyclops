@@ -121,6 +121,13 @@ Changes:
    writes, and on the fit's threads (`createControl(threads = )`); cross-validation gives each fold the threads beyond
    the folds it runs in parallel. Results are the same bit for bit for any number of threads. A single Laplace fit of
    a real FeatureExtraction design took 8.3 s instead of 11.0 s on one thread and 4.7 s instead of 9.7 s on four
+22. L1 logistic regression (Laplace priors, at most the intercept unpenalized; fixed coefficients allowed) with the
+   `"gap"` criterion is certified by its duality gap: `fit$convergence$certificate` is `"dual"` and `gapEstimate` the
+   gap, a bound on the distance to the optimum. Such fits stopped on an estimate before, uncertified, and the
+   estimate could read low: a real Laplace fit stopped with its objective 1.4e-6 from the optimum (1e-6 requested)
+   where the estimate read 2.3e-9; it now takes two more Newton steps. The gap costs about one gradient and is
+   computed only where the estimate would stop. A tolerance below what the gap can certify in floating point (about
+   1e-14 relative) stops on the estimate as before
 
 Cyclops v3.8.0
 ==============

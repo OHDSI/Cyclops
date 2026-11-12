@@ -78,6 +78,133 @@ bool ModelSpecifics<BaseModel,RealType>::lrFullGradient(const std::vector<int>& 
 	return true;
 }
 
+// The duality-gap certificate of L1 logistic regression. With eta = o + X_F beta_F (o the fixed part: fixed
+// coefficients, offsets), the problem min_beta_F sum_k w_k (log(1 + e^eta_k) - y_k eta_k) + sum_j lambda_j |beta_j| has
+// the dual  max_theta  -sum_k w_k h(y_k - theta_k / w_k) - theta' o,  h(u) = u log u + (1 - u) log(1 - u),
+// subject to |X_j' theta| <= lambda_j for the penalized columns of F and sum_k theta_k = 0 when an intercept is free
+// (by Fenchel-Young, f(beta) >= that objective - beta_0 sum_k theta_k for any beta). A point from the current state:
+// theta = s w (y - q), q = sigma(eta + c) + r / sum(w): c refits the free intercept alone and the residual r of that
+// refit is shifted out, so sum_k theta_k = 0 whatever the refit reached (without a free intercept c = r = 0); s =
+// min(1, lambda_j / |X_j' theta|) over the penalized columns, so y_k - theta_k / w_k stays in [0, 1]; and theta' o =
+// theta' eta - sum_{j in F} beta_j X_j' theta. Any feasible theta bounds f*, so a poor refit only loosens the bound.
+// False (no certificate) unless every row with weight has y in {0, 1}, both occur there when the intercept is free, the
+// free intercept is one on every row (weighted or not), the shifted q stays in [0, 1], and every value is finite
+template <class BaseModel, typename RealType>
+bool ModelSpecifics<BaseModel,RealType>::dualObjective(const std::vector<int>& F, const std::vector<double>& lambda,
+                                                        const std::vector<double>& beta, int intercept, double* dual) {
+	if (!logisticSecondOrder) {
+		return false;
+	}
+	flushIntercept();
+	if (!lrReady() || lambda.size() != F.size() || beta.size() != F.size() || hXBeta.size() < K) {
+		return false;
+	}
+	double weightSum = 0.0, positive = 0.0;
+	for (size_t k = 0; k < K; ++k) {
+		const double w = static_cast<double>(hKWeight[k]);
+		if (w == 0.0) continue;
+		const double y = static_cast<double>(hY[k]);
+		if (!(w > 0.0) || (y != 0.0 && y != 1.0) || !std::isfinite(static_cast<double>(hXBeta[k]))) {
+			return false;
+		}
+		weightSum += w;
+		positive += w * y;
+	}
+	if (intercept >= 0) {
+		if (!(positive > 0.0 && positive < weightSum)) {
+			return false; // no finite intercept refit
+		}
+		size_t entries = 0;
+		for (GenericIterator<RealType> it(hX, F[intercept]); it; ++it) {
+			if (static_cast<double>(it.value()) != 1.0) return false;
+			++entries;
+		}
+		if (entries != K) {
+			return false;
+		}
+	}
+	auto sigma = [](double t) { // stable logistic function
+		if (t >= 0.0) return 1.0 / (1.0 + std::exp(-t));
+		const double e = std::exp(t);
+		return e / (1.0 + e);
+	};
+	// sum_k w_k (y_k - sigma(eta_k + c)), compensated (Neumaier), and its derivative
+	auto residual = [&](double c, double* curvature) {
+		double sum = 0.0, compensation = 0.0, slope = 0.0;
+		for (size_t k = 0; k < K; ++k) {
+			const double w = static_cast<double>(hKWeight[k]);
+			if (w == 0.0) continue;
+			const double q = sigma(static_cast<double>(hXBeta[k]) + c);
+			grouped::addCompensated(sum, compensation, w * (static_cast<double>(hY[k]) - q));
+			slope += w * q * (1.0 - q);
+		}
+		if (curvature) *curvature = slope;
+		return sum + compensation;
+	};
+	double c = 0.0;
+	if (intercept >= 0) { // the residual decreases in c: bracket its root, then Newton kept inside the bracket
+		double lo = 0.0, hi = 0.0;
+		const double r0 = residual(0.0, nullptr);
+		if (r0 > 0.0) {
+			double step = 1.0;
+			for (hi = 1.0; residual(hi, nullptr) > 0.0 && step < 1e3; step *= 2.0) { lo = hi; hi += step; }
+		} else if (r0 < 0.0) {
+			double step = 1.0;
+			for (lo = -1.0; residual(lo, nullptr) < 0.0 && step < 1e3; step *= 2.0) { hi = lo; lo -= step; }
+		}
+		c = 0.5 * (lo + hi);
+		for (int iteration = 0; iteration < 200 && r0 != 0.0; ++iteration) {
+			double curvature = 0.0;
+			const double r = residual(c, &curvature);
+			if (r == 0.0) break;
+			if (r > 0.0) lo = c; else hi = c;
+			double next = (curvature > 0.0) ? c + r / curvature : 0.5 * (lo + hi);
+			if (!(next > lo && next < hi)) next = 0.5 * (lo + hi);
+			if (next == c || hi - lo <= 4.0 * std::numeric_limits<double>::epsilon() * std::max(1.0, std::abs(c))) {
+				c = next;
+				break;
+			}
+			c = next;
+		}
+	}
+	const double shift = (intercept >= 0) ? residual(c, nullptr) / weightSum : 0.0;
+	if (!std::isfinite(shift)) {
+		return false;
+	}
+	std::vector<double> a(K, 0.0), q(K, 0.0);
+	double thetaEta = 0.0;
+	for (size_t k = 0; k < K; ++k) {
+		const double w = static_cast<double>(hKWeight[k]);
+		if (w == 0.0) continue;
+		q[k] = sigma(static_cast<double>(hXBeta[k]) + c) + shift;
+		if (!(q[k] >= 0.0 && q[k] <= 1.0)) return false;
+		a[k] = w * (static_cast<double>(hY[k]) - q[k]);
+		thetaEta += a[k] * static_cast<double>(hXBeta[k]);
+	}
+	double s = 1.0;
+	double thetaO = thetaEta; // theta' o with theta = s a, scaled below
+	for (size_t i = 0; i < F.size(); ++i) {
+		const double dot = lrColumnDot(F[i], a, false);
+		if (!std::isfinite(dot)) return false;
+		if (lambda[i] > 0.0 && std::abs(dot) > 0.0) s = std::min(s, lambda[i] / std::abs(dot));
+		thetaO -= beta[i] * dot;
+	}
+	thetaO *= s;
+	double value = 0.0, compensation = 0.0; // compensated (Neumaier)
+	for (size_t k = 0; k < K; ++k) {
+		const double w = static_cast<double>(hKWeight[k]);
+		if (w == 0.0) continue;
+		const double y = static_cast<double>(hY[k]);
+		const double u = y - s * (y - q[k]);
+		if (!(u >= 0.0 && u <= 1.0)) return false;
+		grouped::addCompensated(value, compensation,
+			-w * ((u > 0.0 ? u * std::log(u) : 0.0) + (u < 1.0 ? (1.0 - u) * std::log(1.0 - u) : 0.0)));
+	}
+	value += compensation - thetaO;
+	*dual = value;
+	return std::isfinite(value);
+}
+
 template <class BaseModel, typename RealType>
 void ModelSpecifics<BaseModel,RealType>::setThreads(int threads) {
 	if (!logisticSecondOrder || threads <= 1) {

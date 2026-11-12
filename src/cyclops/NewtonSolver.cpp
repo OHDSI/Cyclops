@@ -79,7 +79,56 @@ struct CyclicCoordinateDescent::NewtonContext {
 	int stopType = GAP;             // explicit types under algorithm = "newton" map onto Newton iterations
 	double tolerance = 0.0;
 	double lastObjective = NAN;
+	// L1 logistic regression, no quadratic precision, every free column in F, at most one of them unpenalized (an
+	// intercept, checked by the engine), "gap" criterion: a stop on the gap estimate needs the duality gap within
+	// tau_eff (dualGap)
+	bool dualEligible = false;
+	int dualIntercept = -1;         // position in F of the free unpenalized column, -1 without one
+	bool dualCertified = false;
+	double dualFloor = 0.0;         // the rounding level of the last duality gap
+	int weightedRows = 0;           // rows with positive weight (all K without weights)
 };
+
+// At a stop on the gap estimate of an eligible fit: 1 when the duality gap certifies it (<= tau_eff), 0 when the fit
+// continues, -1 when it stops uncertified as without the certificate: no dual point (the engine's conditions), or a
+// gap within the rounding level of its computation (dualFloor), which a smaller tau_eff cannot certify (at the optimum
+// rounding leaves an active |X_j' theta| a little above lambda_j: about 40 eps |f| on a simulated design)
+int CyclicCoordinateDescent::dualStop(NewtonContext& context) {
+	double gap = NAN;
+	if (!dualGap(context, &gap)) {
+		convergenceReport.dualGap = NAN;
+		return -1;
+	}
+	if (gap <= context.tauEff) {
+		context.dualCertified = true;
+		return 1;
+	}
+	return (gap <= context.dualFloor) ? -1 : 0;
+}
+
+// Primal minus dual objective at the current coefficients, a certified bound on f - f* (L1 logistic regression; see
+// ModelSpecifics::dualObjective)
+bool CyclicCoordinateDescent::dualGap(NewtonContext& context, double* gap) {
+	double dual = NAN;
+	std::vector<double> beta(context.F.size());
+	for (size_t i = 0; i < context.F.size(); ++i) beta[i] = hBeta[context.F[i]];
+	++convergenceReport.dualChecks;
+	if (!modelSpecifics.dualObjective(context.F, context.lambda, beta, context.dualIntercept, &dual)) {
+		return false;
+	}
+	double penalty = 0.0;
+	for (size_t i = 0; i < context.F.size(); ++i) {
+		penalty += context.lambda[i] * std::abs(beta[i]);
+	}
+	const double primal = -getLogLikelihood() + penalty;
+	// with an allowance for the rounding of the two sums, 64 eps (|primal| + |dual|) (the dual's sum is compensated);
+	// a gap within (64 + sqrt(n)) eps (|primal| + |dual|) is at the floor a smaller tau_eff cannot reach (n rows)
+	const double scale = std::numeric_limits<double>::epsilon() * (std::abs(primal) + std::abs(dual));
+	*gap = primal - dual + 64.0 * scale;
+	context.dualFloor = (64.0 + std::sqrt(static_cast<double>(std::max(context.weightedRows, 1)))) * scale;
+	convergenceReport.dualGap = *gap;
+	return std::isfinite(*gap);
+}
 
 namespace {
 
@@ -809,9 +858,16 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 	if (!proxFitsDense(Wcol)) { // CCD when dense prox-Newton over W exceeds the memory budget
 		return NewtonOutcome::FAILED;
 	}
+	// a stop on the estimate, at the point returned: certified by the duality gap where it applies (otherwise, with
+	// no step taken, `noStep`, as without the stop)
+	auto stopHere = [&](NewtonOutcome noStep) {
+		if (!context.dualEligible) return NewtonOutcome::UNCERTIFIED;
+		const int verdict = dualStop(context);
+		return (verdict > 0) ? NewtonOutcome::CERTIFIED : ((verdict < 0) ? NewtonOutcome::UNCERTIFIED : noStep);
+	};
 	if (w == 0) {
 		convergenceReport.lambda2Half = 0.0;
-		return NewtonOutcome::UNCERTIFIED;
+		return stopHere(NewtonOutcome::FAILED);
 	}
 	std::vector<double> block;
 	if (!modelSpecifics.hessianBlock(Wcol, block)) {
@@ -1029,7 +1085,7 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 	// vanishes and the model's ray along them is unbounded, which the eta region alone cannot see
 	Eigen::VectorXd d = z - bw;
 	if (d.cwiseAbs().maxCoeff() == 0.0) {
-		return stop ? NewtonOutcome::UNCERTIFIED : NewtonOutcome::FAILED;
+		return stop ? stopHere(NewtonOutcome::FAILED) : NewtonOutcome::FAILED;
 	}
 	double scale = 1.0;
 	for (size_t a = 0; a < w; ++a) {
@@ -1068,8 +1124,8 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 	}
 	if (!accepted) {
 		context.eta *= 0.5;
-		if (stop) return NewtonOutcome::UNCERTIFIED;
-		return (++context.rejections >= 2) ? NewtonOutcome::FAILED : NewtonOutcome::REJECTED;
+		const NewtonOutcome noStep = (++context.rejections >= 2) ? NewtonOutcome::FAILED : NewtonOutcome::REJECTED;
+		return stop ? stopHere(noStep) : noStep;
 	}
 	context.rejections = 0;
 	if (t == 1.0) context.eta *= 2.0; else if (t < tStart) context.eta *= 0.5;
@@ -1086,7 +1142,7 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 	xBetaKnown = true;
 	sufficientStatisticsKnown = true;
 	convergenceReport.algorithm = "newton";
-	return stop ? NewtonOutcome::UNCERTIFIED : NewtonOutcome::ACCEPTED;
+	return stop ? stopHere(NewtonOutcome::ACCEPTED) : NewtonOutcome::ACCEPTED;
 }
 
 CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::newtonIteration(NewtonContext& context) {
@@ -1222,7 +1278,8 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		}
 	}
 	double weight = 1.0; // tau_eff = tau times the mean positive weight (3.3, D3)
-	if (useCrossValidation && !hWeights.empty()) {
+	context.weightedRows = K;
+	if (!hWeights.empty()) {
 		double sum = 0.0;
 		int count = 0;
 		for (double w : hWeights) {
@@ -1231,9 +1288,24 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 				++count;
 			}
 		}
-		weight = (count > 0) ? sum / count : 1.0;
+		context.weightedRows = count;
+		if (useCrossValidation && count > 0) weight = sum / count;
 	}
 	context.tauEff = tau * weight;
+	if (convergenceType == GAP && context.anyLaplace && hXI.getModelType() == ModelType::LOGISTIC) {
+		int free = 0;
+		for (int j = 0; j < J; ++j) free += fixBeta[j] ? 0 : 1;
+		bool eligible = free == static_cast<int>(context.F.size()); // no free column outside F (other priors)
+		int unpenalized = 0;
+		for (size_t i = 0; i < context.F.size() && eligible; ++i) {
+			eligible = context.precision[i] == 0.0;
+			if (context.lambda[i] == 0.0) {
+				++unpenalized;
+				context.dualIntercept = static_cast<int>(i);
+			}
+		}
+		context.dualEligible = eligible && unpenalized <= 1;
+	}
 
 	convergenceReport.present = true;
 	convergenceReport.algorithm = "ccd";
@@ -1393,12 +1465,36 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		convergenceReport.certified = certificate != "none";
 		convergenceReport.gapEstimate = estimate;
 	};
+	// A stop on the CCD path's estimate (gHat <= tau_eff) without a curvature certificate: the duality gap decides
+	// where it applies, checked again 1, 2, 4, ... cycles after one that neither certified nor stopped. True when the
+	// fit stops
+	int nextDualCheck = 0;
+	int dualBackoff = 1;
+	auto stopOnEstimate = [&]() {
+		if (!context.dualEligible) {
+			finish(SUCCESS, "none", gHat);
+			return true;
+		}
+		if (cycles < nextDualCheck) {
+			return false;
+		}
+		const int verdict = dualStop(context);
+		if (verdict == 0) { // CCD continues; checks back off
+			nextDualCheck = cycles + dualBackoff;
+			dualBackoff *= 2;
+			return false;
+		}
+		finish(SUCCESS, (verdict > 0) ? "dual" : "none", convergenceReport.dualGap);
+		return true;
+	};
 
 	while (true) {
 		logger->yield();
 		if (iteration >= maxIterations) {
-			finish(MAX_ITERATIONS, "none", context.allNormal ? R :
-				(std::isfinite(convergenceReport.lambda2Half) ? convergenceReport.lambda2Half : gHat));
+			double gap = NAN;
+			const bool dual = context.dualEligible && dualGap(context, &gap); // at the coefficients returned
+			finish(MAX_ITERATIONS, "none", context.allNormal ? R : (dual ? gap :
+				(std::isfinite(convergenceReport.lambda2Half) ? convergenceReport.lambda2Half : gHat)));
 			break;
 		}
 
@@ -1408,7 +1504,9 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 			++convergenceReport.newtonIterations;
 			const NewtonOutcome outcome = context.anyLaplace ? proxNewtonIteration(context) : newtonIteration(context);
 			if (outcome == NewtonOutcome::CERTIFIED) {
-				if (context.anyLaplace) {
+				if (context.dualCertified) {
+					finish(SUCCESS, "dual", convergenceReport.dualGap);
+				} else if (context.anyLaplace) {
 					finish(SUCCESS, "R", convergenceReport.R);
 				} else {
 					finish(SUCCESS, "gsc", convergenceReport.gsc);
@@ -1416,7 +1514,7 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 				break;
 			}
 			if (outcome == NewtonOutcome::UNCERTIFIED) {
-				finish(SUCCESS, "none", convergenceReport.lambda2Half);
+				finish(SUCCESS, "none", context.dualEligible ? convergenceReport.dualGap : convergenceReport.lambda2Half);
 				break;
 			}
 			if (outcome == NewtonOutcome::FAILED || phaseIterations >= 50) { // 2.4 step 5: back to CCD
@@ -1515,9 +1613,8 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		// A curvature certificate on the CCD path: once the estimate is within 100 tau_eff and finishing on CCD
 		// costs more than one H (or it is already below tau_eff), with 2^k cycles between failed attempts
 		if (convergenceType == GAP && context.conjugateGradient && !context.allNormal && cycles >= stopFrom &&
-				gHat <= context.tauEff && !stepsLimited) { // no curvature certificate within the memory budget: stop on the estimate
-			finish(SUCCESS, "none", gHat);
-			break;
+				gHat <= context.tauEff && !stepsLimited) { // no curvature certificate within the memory budget
+			if (stopOnEstimate()) break;
 		}
 		if (convergenceType == GAP && !context.conjugateGradient && cycles >= stopFrom && cycles >= certifyAfter &&
 				!stepsLimited) {
@@ -1529,22 +1626,19 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 				double value = NAN, lambda2Half = NAN;
 				Eigen::VectorXd step;
 				if (context.anyLaplace && !proxFitsDense(workingSet())) {
-					// no prox-Newton over so large a working set: stop on the estimate, as without a curvature
-					// certificate under Newton-CG
-					if (gHat <= context.tauEff) {
-						finish(SUCCESS, "none", gHat);
-						break;
-					}
+					// no prox-Newton over so large a working set: no curvature certificate, as under Newton-CG
+					if (gHat <= context.tauEff && stopOnEstimate()) break;
 				} else if (context.anyLaplace) { // one prox-Newton iteration: its L1 decrease stops the fit, or its step helps
 					++iteration;
 					++convergenceReport.newtonIterations;
 					const NewtonOutcome outcome = proxNewtonIteration(context);
 					if (outcome == NewtonOutcome::CERTIFIED) {
-						finish(SUCCESS, "R", convergenceReport.R);
+						finish(SUCCESS, context.dualCertified ? "dual" : "R",
+							context.dualCertified ? convergenceReport.dualGap : convergenceReport.R);
 						break;
 					}
 					if (outcome == NewtonOutcome::UNCERTIFIED) {
-						finish(SUCCESS, "none", convergenceReport.lambda2Half);
+						finish(SUCCESS, "none", context.dualEligible ? convergenceReport.dualGap : convergenceReport.lambda2Half);
 						break;
 					}
 				} else if (certifyGap(context, &value, &lambda2Half, &step)) {
