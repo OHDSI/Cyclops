@@ -156,6 +156,8 @@ Changes:
    `"lr"`, `"pr"` and `"ls"`, on the scale of `predict()`; `NA` for rows with weight 0). The number of folds comes
    from `cvFolds` (a different `fold` given to `createControl()` is an error), and both need `cvRepetitions = 1`.
    PatientLevelPrediction refits each fold itself for these predictions
+28. `convertToCyclopsData()` with no covariates (an intercept-only design) loads and fits; it crashed R (also in
+   Cyclops 3.7.1)
 
 Cyclops v3.8.0
 ==============

@@ -735,6 +735,9 @@ loadNewSqlCyclopsDataMultipleX <- function(object,
     if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
 
     if (length(covariateId) != length(rowId)) stop("Vector length mismatch")
+    if (length(covariateId) == 0) { # no covariates (an intercept-only design): nothing to load
+        return(invisible(NULL))
+    }
 
     if (is.null(covariateValue)) {
         if (forceSparse) stop("Must provide covariate values when forcing sparse")

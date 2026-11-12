@@ -192,6 +192,10 @@ int ModelData<RealType>::loadMultipleX(
 		const bool append,
 		const bool forceSparse) {
 
+	if (covariateIds.empty()) { // no covariates (an intercept-only design): nothing to load; read below as the first id
+		return getNumberOfColumns();
+	}
+
 	auto columnIdItr = std::begin(covariateIds);
 	const auto columnIdEnd = std::end(covariateIds);
 	auto rowIdItr = std::begin(rowIds);
