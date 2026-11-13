@@ -108,8 +108,8 @@ public:
 
 	virtual ~ModelSpecifics();
 
-	void setThreads(int threads) override; // the logistic Hessian block's threads (LogisticSecondOrder.hpp)
-	void setSecondOrderThreads(int threads) override { ModelSpecifics::setThreads(threads); }
+	void setThreads(int threads); // the logistic Hessian block's threads (LogisticSecondOrder.hpp)
+	void setSecondOrderThreads(int threads) { ModelSpecifics::setThreads(threads); }
 
 	void computeGradientAndHessian(int index, double *ogradient,
 			double *ohessian,  bool useWeights);
@@ -681,7 +681,7 @@ private:
 	bool lrFullGradient(const std::vector<int>& F, std::vector<double>& g);
 	bool lrHessianBlock(const std::vector<int>& F, std::vector<double>& H);
 	bool dualObjective(const std::vector<int>& F, const std::vector<double>& lambda, const std::vector<double>& beta,
-	                   int intercept, double* dual) override;
+	                   int intercept, double* dual);
 	// threads of the logistic Hessian block (setThreads(); cross-validation folds get the threads beyond their number);
 	// see lrHessianBlock()
 	std::unique_ptr<WorkerPool> lrPool;
