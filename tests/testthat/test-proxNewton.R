@@ -135,3 +135,91 @@ test_that("a singular face follows its null direction to the sign boundary, howe
     expect_equal(unname(coef(fit)), c(0, 0))
     expect_lte(fit$convergence$newtonIterations, 5)
 })
+
+test_that("a face holding a column and a scaled copy of it is treated as singular", {
+    # Column 2 is 1e4 times column 1 (not merged: only identical columns are): plain Cholesky of the face succeeds, with
+    # a last pivot of rounding size that min/max pivot ratio alone accepts
+    x1 <- c(1, 2, -1, -2)
+    covariates <- data.frame(rowId = rep(1:4, 2), covariateId = rep(1:2, each = 4), covariateValue = c(x1, 1e4 * x1))
+    data <- convertToCyclopsData(data.frame(rowId = 1:4, y = c(0, 1, 0, 1)), covariates, modelType = "lr",
+                                 addIntercept = FALSE, quiet = TRUE)
+    fit <- fitCyclopsModel(data, prior = createPrior("laplace", variance = 2e18), startingCoefficients = c(1e8, -1e4),
+                           forceNewObject = TRUE, warnings = FALSE,
+                           control = createControl(algorithm = "newton", tolerance = 1e-9, maxIterations = 200,
+                                                   mergeDuplicates = FALSE, noiseLevel = "silent"))
+    expect_equal(fit$return_flag, "SUCCESS")
+    expect_equal(unname(coef(fit)), c(0, 0))
+    expect_gt(fit$convergence$rankDeficientFaceRounds, 0)
+    expect_lte(fit$convergence$newtonIterations, 5)
+})
+
+test_that("prox-Newton reaches the optimum when a column is the sum of others", {
+    # 30 disjoint indicators and their class, the union, as a column: faces holding all of them are singular, the
+    # inner descent's signs settle while mass still moves to the class, and many violators enter at once
+    set.seed(21)
+    n <- 3000
+    member <- sample(0:30, n, replace = TRUE) # 0: no member of the class
+    rows <- lapply(1:30, function(j) which(member == j))
+    other <- matrix(rbinom(n * 20, 1, 0.2), n, 20)
+    y <- rbinom(n, 1, plogis(-1.5 + 0.8 * (member > 0) + drop(other[, 1:3] %*% c(0.5, -0.4, 0.3))))
+    covariates <- rbind(
+        data.frame(rowId = unlist(rows), covariateId = rep(1:30, lengths(rows)), covariateValue = 1),
+        data.frame(rowId = which(member > 0), covariateId = 100, covariateValue = 1),
+        data.frame(rowId = row(other)[other == 1], covariateId = 200 + col(other)[other == 1], covariateValue = 1))
+    covariates <- covariates[order(covariates$rowId, covariates$covariateId), ]
+    data <- convertToCyclopsData(data.frame(rowId = 1:n, y = y), covariates, modelType = "lr", addIntercept = TRUE,
+                                 quiet = TRUE)
+    fit <- function(control) fitCyclopsModel(data, prior = createPrior("laplace", variance = 1, exclude = 0),
+                                             control = control, forceNewObject = TRUE, warnings = FALSE)
+    newton <- fit(createControl(algorithm = "newton", noiseLevel = "silent"))
+    ccd <- fit(createControl(algorithm = "ccd", convergenceType = "kkt", tolerance = 1e-8, maxIterations = 100000,
+                             noiseLevel = "silent"))
+    expect_equal(newton$return_flag, "SUCCESS")
+    expect_gt(newton$convergence$faceRounds, 0)
+    expect_equal(newton$log_likelihood + newton$log_prior, ccd$log_likelihood + ccd$log_prior, tolerance = 1e-6)
+})
+
+test_that("Newton fits and cross-validation are the same bit for bit on 1 and 4 threads", {
+    # The logistic Hessian block splits its columns into ranges, one owner per entry, each a sum over rows in increasing
+    # order: its result does not depend on the threads. 600 columns (a third with values other than 1) and a weak
+    # penalty give blocks of several ranges; 8 threads over 3 folds give each fold's block 2
+    skip_on_cran() # threads
+    set.seed(31)
+    n <- 4000
+    p <- 600
+    X <- matrix(rbinom(n * p, 1, runif(p, 0.01, 0.4)[col(matrix(0, n, p))]), n, p)
+    X[, 1:200] <- X[, 1:200] * runif(n * 200, 0.5, 2)
+    y <- rbinom(n, 1, plogis(-1 + drop(X[, 1:20] %*% rnorm(20, 0, 0.5))))
+    nz <- which(X != 0, arr.ind = TRUE)
+    covariates <- data.frame(rowId = nz[, 1], covariateId = nz[, 2], covariateValue = X[nz])
+    covariates <- covariates[order(covariates$rowId, covariates$covariateId), ]
+    data <- convertToCyclopsData(data.frame(rowId = 1:n, y = y), covariates, modelType = "lr", addIntercept = TRUE,
+                                 quiet = TRUE)
+    fit <- function(data, prior, threads, cv = FALSE) {
+        control <- if (cv) createControl(algorithm = "newton", threads = threads, cvType = "auto", fold = 3, seed = 1,
+                                         noiseLevel = "silent") else
+            createControl(algorithm = "newton", threads = threads, noiseLevel = "silent")
+        fitCyclopsModel(data, prior = prior, control = control, forceNewObject = TRUE, warnings = FALSE)
+    }
+    for (prior in list(createPrior("laplace", variance = 5, exclude = 0),
+                       createPrior("normal", variance = 0.5, exclude = 0))) {
+        one <- fit(data, prior, 1)
+        four <- fit(data, prior, 4)
+        expect_identical(coef(one), coef(four))
+        expect_identical(one$log_likelihood, four$log_likelihood)
+    }
+    prior <- createPrior("laplace", useCrossValidation = TRUE, exclude = 0)
+    one <- fit(data, prior, 1, cv = TRUE)
+    eight <- fit(data, prior, 8, cv = TRUE)
+    expect_identical(one$variance, eight$variance)
+    expect_identical(coef(one), coef(eight))
+
+    # dense continuous columns (the formula interface stores them densely)
+    Z <- as.data.frame(matrix(rnorm(2000 * 100), 2000, 100))
+    Z$y <- rbinom(2000, 1, plogis(drop(as.matrix(Z[, 1:5]) %*% rep(0.3, 5))))
+    dense <- createCyclopsData(as.formula(paste("y ~", paste(names(Z)[1:100], collapse = " + "))), data = Z,
+                               modelType = "lr")
+    one <- fit(dense, createPrior("normal", variance = 0.5, exclude = 1), 1)
+    four <- fit(dense, createPrior("normal", variance = 0.5, exclude = 1), 4)
+    expect_identical(coef(one), coef(four))
+})

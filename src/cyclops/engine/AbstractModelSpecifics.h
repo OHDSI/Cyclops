@@ -161,6 +161,19 @@ public:
 
 	virtual void setThreads(int threads) {};
 
+	// The dual objective at a feasible dual point of L1 logistic regression, for the duality-gap certificate (see
+	// LogisticSecondOrder.hpp): F the free columns, lambda their L1 rates, beta their coefficients, intercept the
+	// position in F of the one free unpenalized column (-1: none). False when the engine has no such dual or the
+	// point cannot be formed
+	virtual bool dualObjective(const std::vector<int>& F, const std::vector<double>& lambda,
+	                           const std::vector<double>& beta, int intercept, double* dual) {
+		return false;
+	}
+
+	// threads for the second-order kernels alone (the logistic Hessian block), in cross-validation folds whose
+	// coordinate descent keeps one thread; engines without such a kernel ignore it
+	virtual void setSecondOrderThreads(int threads) {};
+
 	// Gradients and Hessians of several coordinates at the current state, for coordinates that do
 	// not change in between; returns false when the engine computes them one at a time
 	virtual bool computeGradientsAndHessians(const std::vector<int>& indices,

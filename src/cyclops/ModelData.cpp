@@ -192,6 +192,10 @@ int ModelData<RealType>::loadMultipleX(
 		const bool append,
 		const bool forceSparse) {
 
+	if (covariateIds.empty()) { // no covariates (an intercept-only design): nothing to load; read below as the first id
+		return getNumberOfColumns();
+	}
+
 	auto columnIdItr = std::begin(covariateIds);
 	const auto columnIdEnd = std::end(covariateIds);
 	auto rowIdItr = std::begin(rowIds);
@@ -241,10 +245,10 @@ int ModelData<RealType>::loadMultipleX(
 
 		// Grab whole column worth of data
 		const auto columnId = *columnIdItr;
-		auto lastRowId = *rowIdItr - 1;
+		const auto columnStart = rowIdItr;
 
 		while (columnIdItr != columnIdEnd && *columnIdItr == columnId) {
-		    if (*rowIdItr == lastRowId) {
+		    if (rowIdItr != columnStart && *rowIdItr == *(rowIdItr - 1)) {
 		        std::ostringstream stream;
 		        stream << "Repeated row-column entry at ";
 		        stream << *rowIdItr << " - " << *columnIdItr;
@@ -268,8 +272,6 @@ int ModelData<RealType>::loadMultipleX(
 		        column.getColumnsVector().push_back(mappedRow);
 		    }
 
-		    lastRowId = *rowIdItr;
-
 			++columnIdItr;
 			++rowIdItr;
 		}
@@ -289,7 +291,8 @@ int ModelData<RealType>::loadX(
 		const std::vector<double>& covariateValue,
 		const bool reload,
 		const bool append,
-		const bool forceSparse) {
+		const bool forceSparse,
+		const bool checkExisting) {
 
     const bool hasCovariateValues = covariateValue.size() > 0;
     const bool useRowMap = rowIdMap.size() > 0;
@@ -307,8 +310,8 @@ int ModelData<RealType>::loadX(
 //         return rowIdMap[id];
 //     };
 
-    // Determine if covariate already exists
-    int index = getColumnIndexByName(covariateId);
+    // Determine if covariate already exists (a linear search over the columns, which batch loaders do once instead)
+    int index = checkExisting ? getColumnIndexByName(covariateId) : -1;
     if (index >= 0) {
         // already exists
         if (!reload) {
@@ -364,12 +367,10 @@ int ModelData<RealType>::loadX(
             auto covariateValueItr = std::begin(covariateValue);
             const auto rowIdEnd = std::end(rowId);
 
-            auto lastRowId = *rowIdItr - 1;
-
             while (rowIdItr != rowIdEnd) {
-                if (*rowIdItr == lastRowId) {
+                if (rowIdItr != std::begin(rowId) && *rowIdItr == *(rowIdItr - 1)) {
                     std::ostringstream stream;
-                    stream << "Repeated row-column entry at";
+                    stream << "Repeated row-column entry at ";
                     stream << *rowIdItr << " - " << covariateId;
                     throw std::range_error(stream.str());
                 }
@@ -390,7 +391,6 @@ int ModelData<RealType>::loadX(
                 } else {
                     column.getColumnsVector().push_back(mappedRow);
                 }
-                lastRowId = *rowIdItr;
                 ++rowIdItr;
             }
         }
@@ -790,13 +790,26 @@ IntVector ModelData<RealType>::getPidVectorSTL() const {
 
 template <typename RealType>
 void ModelData<RealType>::addIntercept() {
-    // TODO Use INTERCEPT
-    X.insert(0, DENSE); // add to front, TODO fix if offset
+    // The column loadX() makes for an intercept: INTERCEPT storage (1 in every row, no stored values) at column 0.
+    // Code that finds the intercept by its storage, such as the adaptive intercept, needs it; a DENSE column of ones
+    // fits the same but is not recognised. Callers add it before an offset covariate, which must stay in column 0.
+    X.insert(0, INTERCEPT);
     setHasInterceptCovariate(true);
-    const size_t numRows = getNumberOfRows();
-    for (size_t i = 0; i < numRows; ++i) {
-        X.getColumn(0).add_data(i, static_cast<RealType>(1));
+}
+
+// The intercept of data loaded with its columns, such as R's formula data: the column after any offset, a dense column
+// of ones. It gets the storage addIntercept() gives an intercept (see there). A column that is not all ones (formula
+// data with several outcome types has one intercept column per type) stays dense and is still the intercept
+template <typename RealType>
+void ModelData<RealType>::setInterceptCovariate() {
+    const size_t index = hasOffsetCovariate ? 1 : 0;
+    if (index >= getNumberOfColumns()) {
+        std::ostringstream stream;
+        stream << "No intercept column";
+        error->throwError(stream);
     }
+    X.getColumn(index).convertColumnToIntercept(getNumberOfRows());
+    setHasInterceptCovariate(true);
 }
 
 template <typename RealType>
@@ -827,6 +840,13 @@ void ModelData<RealType>::setOffsetCovariate(const IdType covariate) {
         index = getNumberOfCovariates() - 1;
     } else {
         index = getColumnIndexByName(covariate);
+    }
+    if (hasInterceptCovariate && index == (hasOffsetCovariate ? 1 : 0)) {
+        // Code finds the intercept after any offset: the column behind it would be taken for the intercept (and an
+        // intercept column has no values to log-transform)
+        std::ostringstream stream;
+        stream << "The intercept cannot be the offset covariate";
+        error->throwError(stream);
     }
     X.moveToFront(index);
     X.getColumn(0).add_label(-1); // TODO Generic label for offset?

@@ -125,6 +125,9 @@ public:
 	// Threads within one fit (the engine may evaluate gradients of several coordinates together)
 	void setThreads(int threads);
 
+	// threads for the second-order kernels only (the logistic Hessian block); coordinate descent keeps its own
+	void setSecondOrderThreads(int n) { modelSpecifics.setSecondOrderThreads(std::max(n, 1)); }
+
 	// Setters
 	void setPrior(priors::JointPriorPtr newPrior);
 
@@ -188,6 +191,15 @@ public:
 	int getCrossValidationFailedFolds() const { return crossValidationFailedFolds; }
 
 	void setCrossValidationFailedFolds(int count) { crossValidationFailedFolds = count; }
+
+	// Out-of-fold prediction of each row at the selected hyperparameter (NaN where its fold fit failed) and the
+	// fold that held it out; empty unless the last cross-validation kept them
+	void setCrossValidationPredictions(std::vector<double> predictions, std::vector<int> folds) {
+		crossValidationPredictions = std::move(predictions);
+		crossValidationPredictionFolds = std::move(folds);
+	}
+	const std::vector<double>& getCrossValidationPredictions() const { return crossValidationPredictions; }
+	const std::vector<int>& getCrossValidationPredictionFolds() const { return crossValidationPredictionFolds; }
 
 	// string getBootStrapInfo() const;
 	//
@@ -272,9 +284,13 @@ public:
 		int newtonStart = -1;           // cycle at which Newton took over
 		int droppedDirections = 0;      // aliased directions left out of the last Newton solve
 		std::string solver;             // "dense" or "cg" (Newton-CG) once Newton is considered
+		std::string preconditioner = "none"; // Newton-CG's last: "none", "woodbury" or "nystrom"
 		int hessianVectorProducts = 0;
 		int certificationProducts = 0;  // Hv spent in certification solves
 		int rankDeficientFaceRounds = 0; // prox-Newton face rounds on a singular face
+		int faceRounds = 0;             // prox-Newton face rounds (each a solve on the current face)
+		double dualGap = NAN;           // the last duality gap computed (L1 logistic regression)
+		int dualChecks = 0;             // how many were computed
 		int eigenFaceRounds = 0;         // prox-Newton face rounds solved by an eigendecomposition
 		std::string ineligible;         // why a requested Newton path ran as CCD
 	};
@@ -550,7 +566,9 @@ protected:
 	std::vector<int> divergentCoefficients;
 	void findDivergentCoefficients();
 	std::vector<std::vector<int>> aliasGroups;
-	std::vector<uint64_t> columnHashes; // per column, cached: the data do not change
+	bool aliasOnRowsInUse = false;      // the alias groups were found on the rows with positive weight only (some are 0)
+	// per set of rows in use (empty: all rows), the column hashes: the data do not change
+	std::vector<std::pair<std::vector<char>, std::vector<uint64_t>>> maskedColumnHashes;
 	void findAliasGroups();
 	double divergentLimit(int j) const;
 	std::vector<signed char> separationCache; // per column: -1, 0, +1, or 2 not yet computed (cleared with the weights)
@@ -569,6 +587,8 @@ protected:
 	bool newtonDirectionCG(NewtonContext& context, Eigen::VectorXd& s, Eigen::VectorXd& d, bool* stop,
 	                       bool* certified);
 	bool certifyGap(NewtonContext& context, double* gscValue, double* lambda2Half, Eigen::VectorXd* step = nullptr);
+	bool dualGap(NewtonContext& context, double* gap);
+	int dualStop(NewtonContext& context);
 	bool finishingStep(NewtonContext& context, const Eigen::VectorXd& d);
 	struct ProfileReference;
 	struct ProfileFactor;
@@ -703,6 +723,8 @@ protected:
 
 	string crossValidationInfo;
 	int crossValidationFailedFolds = 0; // fold fits left out of their mean predictive log-likelihood
+	std::vector<double> crossValidationPredictions;
+	std::vector<int> crossValidationPredictionFolds;
 	string bootStrapInfo;
 	std::vector<double> bootStrapInfoVector;
 

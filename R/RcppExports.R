@@ -169,6 +169,10 @@
     .Call(`_Cyclops_cyclopsGetLogLikelihoodHessianDiagonal`, inRcppCcdInterface, sexpCovariates)
 }
 
+.cyclopsResolveControl <- function(control, modelType, nCovariates) {
+    .Call(`_Cyclops_cyclopsResolveControl`, control, modelType, nCovariates)
+}
+
 #' @title List available GPU devices
 #'
 #' @description
@@ -354,6 +358,10 @@ getStartTimeVector <- function(object) {
 
 .cyclopsGetNumberOfSubjects <- function(object) {
     .Call(`_Cyclops_cyclopsGetNumberOfSubjects`, object)
+}
+
+.cyclopsGetRowLabels <- function(object) {
+    .Call(`_Cyclops_cyclopsGetRowLabels`, object)
 }
 
 .cyclopsFinalizeData <- function(x, addIntercept, sexpOffsetCovariate, offsetAlreadyOnLogScale, sortCovariates, sexpCovariatesDense, magicFlag = FALSE) {

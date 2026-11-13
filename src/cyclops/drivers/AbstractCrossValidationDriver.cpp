@@ -5,6 +5,7 @@
  *      Author: msuchard
  */
 
+#include <memory>
 #include <numeric>
 #include <algorithm>
 #include <limits>
@@ -135,6 +136,7 @@ void AbstractCrossValidationDriver::drive(
     if (nThreads < 1) {
         nThreads = 1;
     }
+	const int allThreads = nThreads; // before the clamp: see the second-order threads below
 
 	// More threads than folds to compute would only hold unused copies of the model
 	if (nThreads > allArguments.crossValidation.foldToCompute) {
@@ -162,8 +164,16 @@ void AbstractCrossValidationDriver::drive(
 	ccdPool.push_back(&ccd);
 	selectorPool.push_back(&selector); // folds read the fold assignments of doCrossValidationStep()
 
+	// The copies are owned here and the fit's second-order threads reset when cross-validation ends, also when a fold
+	// throws (a copy's Hessian threads would otherwise stay alive)
+	std::vector<std::unique_ptr<CyclicCoordinateDescent>> copies;
+	struct SecondOrderReset {
+		CyclicCoordinateDescent& ccd;
+		~SecondOrderReset() { ccd.setSecondOrderThreads(1); } // fitModel() restores the threads for the final fit
+	} secondOrderReset{ccd};
 	for (int i = 1; i < nThreads; ++i) {
-		ccdPool.push_back(ccd.clone(allArguments.computeDevice));
+		copies.emplace_back(ccd.clone(allArguments.computeDevice));
+		ccdPool.push_back(copies.back().get());
 	}
 
 	// Check of poor allocation
@@ -187,6 +197,12 @@ void AbstractCrossValidationDriver::drive(
     }
 	// End of multi-thread set-up
 
+	// Threads beyond the folds in parallel go to each fold's logistic Hessian block, whose result does not depend on
+	// its threads (coordinate descent in a fold keeps one)
+	for (auto element : ccdPool) {
+		element->setSecondOrderThreads(allThreads / nThreads);
+	}
+
 	failedFolds = 0;
 
 	// With warm starts, each fold starts from its own solution at the nearest hyperparameter tried
@@ -195,12 +211,15 @@ void AbstractCrossValidationDriver::drive(
 	// Delegate to auto or grid loop
     maxPoint = doCrossValidationLoop(ccd, selector, allArguments, nThreads, ccdPool, selectorPool);
 
+	if (allArguments.crossValidation.keepPredictions) { // before the fold solutions that start the refits go
+		computeFoldPredictions(ccd, selector, allArguments, nThreads, ccdPool, selectorPool);
+		ccd.setCrossValidationPredictions(std::move(foldPredictions), std::move(foldOfRow));
+	}
+
 	std::vector<std::vector<FoldSolution>>().swap(foldSolutions);
 
 	// Clean up
-	for (int i = 1; i < nThreads; ++i) {
-		delete ccdPool[i];
-	}
+	copies.clear();
 	ccd.setHeldOutRowsUnused(false); // later fits keep every row up to date
 
 	// Report results
@@ -227,6 +246,53 @@ void AbstractCrossValidationDriver::drive(
 
 	ccd.setCrossValidationInfo(report.str());
 	ccd.setCrossValidationFailedFolds(failedFolds);
+}
+
+void AbstractCrossValidationDriver::computeFoldPredictions(
+		CyclicCoordinateDescent& ccd,
+		AbstractSelector& selector,
+		const CCDArguments& arguments,
+		int nThreads,
+		std::vector<CyclicCoordinateDescent*>& ccdPool,
+		std::vector<AbstractSelector*>& selectorPool) {
+
+	if (ccd.GPU() && arguments.crossValidation.syncCV) {
+		std::ostringstream stream;
+		stream << "Out-of-fold predictions need syncCV = FALSE";
+		error->throwError(stream);
+	}
+
+	// The predictions should not depend on how loosely the search stopped its fold fits
+	CCDArguments refitArguments = arguments;
+	auto& cv = refitArguments.crossValidation;
+	cv.foldConvergenceType = -1;
+	cv.foldTolerance = -1.0;
+	cv.foldMaxIterations = -1;
+	cv.foldToCompute = cv.fold; // the first repetition
+
+	for (size_t i = 0; i < maxPoint.point.size(); ++i) {
+		ccd.setHyperprior(i, maxPoint.point[i]);
+	}
+
+	// The fold assignment of the first repetition, as doCrossValidationStep() makes it
+	selector.reseed();
+	selector.permute();
+	if (!selector.getFoldOfRow(foldOfRow)) {
+		std::ostringstream stream;
+		stream << "Out-of-fold predictions need folds (fold > 0)";
+		error->throwError(stream);
+	}
+	foldPredictions.assign(foldOfRow.size(), std::numeric_limits<double>::quiet_NaN());
+
+	std::ostringstream stream;
+	stream << "Refitting each fold at the selected hyperparameter for out-of-fold predictions";
+	logger->writeLine(stream);
+
+	const int searchFailedFolds = failedFolds;
+	std::vector<double> predLogLikelihood;
+	doCrossValidationStep(ccd, selector, refitArguments, -1, std::min(nThreads, cv.fold),
+	                      ccdPool, selectorPool, predLogLikelihood);
+	failedFolds = searchFailedFolds; // a failed refit leaves NaN predictions instead
 }
 
 double AbstractCrossValidationDriver::doCrossValidationStep(
@@ -360,10 +426,14 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 		auto& foldSolutions = this->foldSolutions;
 		const bool warmStart = arguments.warmStart && !ccd.GPU();
 
+		const bool keepPredictions = !foldPredictions.empty(); // only the refits of computeFoldPredictions()
+		auto& predictions = this->foldPredictions; // tasks write the rows of their own fold only
+		const auto& predictionFold = this->foldOfRow;
+
 		auto oneTask =
 				[step, coldStart, &ccdPool, &repetitionSelectors, foldsPerRepetition,
 				 &arguments, &foldModeFinding, &predLogLikelihood,
-				 &foldSolutions, warmStart,
+				 &foldSolutions, warmStart, keepPredictions, &predictions, &predictionFold,
 				 &weightsExclude, &logger, usePartitions, &repetitionPartitions //, &lock
 				 //    ,&ccd, &selector
 				 ](int task, size_t uniqueId) {
@@ -478,6 +548,16 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 				}
 
 				double logLikelihood = ccdTask->getNewPredictiveLogLikelihood(&weights[0]);
+
+				if (keepPredictions) { // getNewPredictiveLogLikelihood() recomputed xBeta of every row
+					std::vector<double> estimates(ccdTask->getPredictionSize());
+					ccdTask->getPredictiveEstimates(estimates.data(), nullptr);
+					for (size_t k = 0; k < estimates.size(); ++k) {
+						if (predictionFold[k] == fold) {
+							predictions[k] = estimates[k];
+						}
+					}
+				}
 
 				// Store value
 				stream << logLikelihood;

@@ -9,6 +9,7 @@ likelihoods, per-covariate priors).
 from __future__ import annotations
 
 import time as _time
+import warnings as _warnings
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
@@ -105,19 +106,27 @@ class Prior:
 class Control:
     """Mode-finding and cross-validation controls.
 
-    Defaults match R's ``createControl()``, so the two packages take the same
-    iterate path on the same data.
+    Settings left at ``None`` take the presets of ``fitter`` ("default",
+    "super" or "legacy") for the model being fitted, from the same code as R's
+    ``createControl()``, so the two packages take the same iterate path on the
+    same data: logistic regression, for example, runs ``algorithm="auto"`` with
+    the certified ``"gap"`` criterion under the default fitter.
     """
 
-    max_iterations: int = 1000
-    tolerance: float = 1e-6
-    convergence: str = "gradient"
-    algorithm: str = "ccd"
+    max_iterations: int | None = None
+    tolerance: float | None = None
+    convergence: str | None = None   #: "gradient", "lange", ..., "kkt" or "gap"
+    algorithm: str | None = None     #: "ccd", "mm", "auto" or "newton"
+    fitter: str = "default"  #: "default" or "super" (R's "legacy" is R only)
     initial_bound: float = 2.0
     max_bound_count: int = 5
     use_kkt_swindle: bool = False
     swindle_multiplier: int = 10
     do_it_all: bool = True
+    active_set_every: int | None = None
+    active_set_threshold: float | None = None
+    adaptive_intercept: bool | None = None
+    merge_duplicates: bool | None = None  #: None: on under "auto" and "newton"
 
     # Cross-validation
     cv_search: str = "auto"     #: "auto" (Brent) or "grid"
@@ -129,6 +138,15 @@ class Control:
     starting_variance: float = -1.0
     selector: str = "auto"
     min_cv_data: int = 100
+    #: fold fits' criterion; None: the fitter's, or as the final fit
+    cv_convergence: str | None = None
+    cv_tolerance: float | None = None
+    cv_max_iterations: int | None = None
+    cv_min_iterations: int | None = None
+    cv_search_direction: str | None = None  #: "auto", "up" or "down"
+    cv_refine: bool | None = None
+    cv_null_model_bound: bool | None = None
+    cv_warm_start: bool | None = None
 
     # Runtime
     noise: str = "silent"
@@ -137,28 +155,90 @@ class Control:
     reset_coefficients: bool = False
     retry_on_poor_blr_step: bool = True
 
-    def _to_options(self) -> "_cyclops.FitOptions":
+    def _resolve(self, model_type: str | None, n_covariates: int | None) -> dict:
+        """The fitter's presets for the settings left at None (FitterPresets)."""
+        # any spelling or a native enum -> the resolver's name
+        def canonical(table, value, what):
+            if value is None:
+                return None
+            kind = resolve(table, value, what)
+            return next(key for key, k in table.items() if k == kind)
+
+        direction = self.cv_search_direction
+        r = _cyclops.resolve_control(
+            self.fitter, model_type, n_covariates, bool(self.reset_coefficients),
+            algorithm=canonical(ALGORITHM_KINDS, self.algorithm, "algorithm"),
+            convergence=canonical(CONVERGENCE_KINDS, self.convergence, "convergence"),
+            tolerance=self.tolerance, max_iterations=self.max_iterations,
+            cv_convergence=canonical(
+                CONVERGENCE_KINDS, self.cv_convergence, "convergence"
+            ),
+            cv_tolerance=self.cv_tolerance,
+            cv_max_iterations=self.cv_max_iterations,
+            cv_min_iterations=self.cv_min_iterations,
+            cv_search_direction=None if direction is None else str(direction).lower(),
+            cv_refine=self.cv_refine,
+            cv_null_model_bound=self.cv_null_model_bound,
+            cv_warm_start=self.cv_warm_start,
+            active_set_every=self.active_set_every,
+            active_set_threshold=self.active_set_threshold,
+            adaptive_intercept=self.adaptive_intercept,
+        )
+        for message in r["warnings"]:
+            _warnings.warn(message, stacklevel=4)
+        if r["error"]:
+            raise ValueError(r["error"])
+        return r
+
+    def _to_options(
+        self, model_type: str | None = None, n_covariates: int | None = None
+    ) -> "_cyclops.FitOptions":
         if self.cv_search not in ("auto", "grid"):
             raise ValueError(
                 f"cv_search must be 'auto' or 'grid', got {self.cv_search!r}"
+            )
+        if self.fitter == "legacy":
+            raise ValueError(
+                "fitter='legacy' (Cyclops 3.7 kernels, to reproduce earlier R "
+                "analyses) is available in R only"
+            )
+        if self.fitter not in ("default", "super"):
+            raise ValueError(
+                f"fitter must be 'default' or 'super', got {self.fitter!r}"
             )
         if self.threads != -1 and self.threads < 1:
             raise ValueError("threads must be -1 or >= 1")
         if self.starting_variance != -1 and self.starting_variance <= 0:
             raise ValueError("starting_variance must be -1 or positive")
+        r = self._resolve(model_type, n_covariates)
 
         options = _cyclops.FitOptions()
-        options.max_iterations = int(self.max_iterations)
-        options.tolerance = float(self.tolerance)
+        options.fitter = self.fitter
+        for name in ("max_iterations", "tolerance", "active_set_every",
+                     "active_set_threshold", "adaptive_intercept", "cv_min_iterations",
+                     "cv_refine", "cv_null_model_bound", "cv_warm_start"):
+            setattr(options, name, r[name])  # typed by the resolver
         options.convergence = resolve(
-            CONVERGENCE_KINDS, self.convergence, "convergence"
+            CONVERGENCE_KINDS, r["convergence"], "convergence"
         )
-        options.algorithm = resolve(ALGORITHM_KINDS, self.algorithm, "algorithm")
+        options.algorithm = resolve(ALGORITHM_KINDS, r["algorithm"], "algorithm")
         options.initial_bound = float(self.initial_bound)
         options.max_bound_count = int(self.max_bound_count)
         options.use_kkt_swindle = bool(self.use_kkt_swindle)
         options.swindle_multiplier = int(self.swindle_multiplier)
         options.do_it_all = bool(self.do_it_all)
+        options.merge_duplicates = (
+            bool(self.merge_duplicates) if self.merge_duplicates is not None
+            else r["algorithm"] in ("auto", "newton")
+        )
+        options.fallback_convergence = (
+            resolve(CONVERGENCE_KINDS, r["fallback_convergence"], "convergence")
+            if r["fallback_convergence"] else None
+        )
+        if r["fallback_tolerance"] is not None:
+            options.fallback_tolerance = r["fallback_tolerance"]
+        if r["fallback_max_iterations"] is not None:
+            options.fallback_max_iterations = r["fallback_max_iterations"]
 
         options.auto_search = self.cv_search == "auto"
         options.fold = int(self.fold)
@@ -169,6 +249,21 @@ class Control:
         options.starting_variance = float(self.starting_variance)
         options.selector = resolve(SELECTOR_KINDS, self.selector, "selector")
         options.min_cv_data = int(self.min_cv_data)
+        directions = {"auto": 0, "up": 1, "down": -1}
+        if r["cv_search_direction"] not in directions:
+            raise ValueError(
+                "cv_search_direction must be 'auto', 'up' or 'down', "
+                f"got {r['cv_search_direction']!r}"
+            )
+        options.cv_search_direction = directions[r["cv_search_direction"]]
+        options.cv_convergence = (
+            resolve(CONVERGENCE_KINDS, r["cv_convergence"], "convergence")
+            if r["cv_convergence"] is not None else None
+        )
+        options.cv_tolerance = -1.0 if r["cv_tolerance"] is None else r["cv_tolerance"]
+        options.cv_max_iterations = (
+            -1 if r["cv_max_iterations"] is None else r["cv_max_iterations"]
+        )
 
         options.noise = resolve(NOISE_LEVELS, self.noise, "noise level")
         options.threads = int(self.threads)
@@ -200,6 +295,12 @@ class FitResult:
     cross_validation_info: str = ""
     covariate_count: int = 0
     fit_seconds: float = 0.0
+    #: what the fit did, as R's ``fit$convergence``: algorithm, certificate
+    #: ("gsc", "R", "dual" or "none"), gapEstimate, newtonIterations, ...
+    convergence: dict = field(default_factory=dict)
+    aliased_groups: int = 0          #: groups of duplicate columns merged in the fit
+    #: unpenalized coefficients with a monotone likelihood
+    divergent_coefficients: int = 0
 
     @property
     def converged(self) -> bool:
@@ -219,6 +320,9 @@ class FitResult:
             cross_validation_info=native.cross_validation_info,
             covariate_count=native.covariate_count,
             fit_seconds=native.fit_seconds,
+            convergence=dict(native.convergence),
+            aliased_groups=native.aliased_groups,
+            divergent_coefficients=native.divergent_coefficients,
         )
 
     def __repr__(self) -> str:
@@ -252,7 +356,9 @@ class CyclopsModel:
         self._prior = prior or Prior()
         self._control = control or Control()
         self._handle.set_prior(self._prior._to_options())
-        self._handle.set_options(self._control._to_options())
+        self._handle.set_options(
+            self._control._to_options(data.model_type, data.n_covariates)
+        )
 
     # -- configuration ------------------------------------------------------
 
@@ -275,7 +381,9 @@ class CyclopsModel:
 
     def set_control(self, control: Control) -> "CyclopsModel":
         self._control = control
-        self._handle.set_options(control._to_options())
+        self._handle.set_options(
+            control._to_options(self._data.model_type, self._data.n_covariates)
+        )
         return self
 
     def set_weights(self, weights) -> "CyclopsModel":

@@ -78,6 +78,142 @@ bool ModelSpecifics<BaseModel,RealType>::lrFullGradient(const std::vector<int>& 
 	return true;
 }
 
+// The duality-gap certificate of L1 logistic regression. With eta = o + X_F beta_F (o the fixed part: fixed
+// coefficients, offsets), the problem min_beta_F sum_k w_k (log(1 + e^eta_k) - y_k eta_k) + sum_j lambda_j |beta_j| has
+// the dual  max_theta  -sum_k w_k h(y_k - theta_k / w_k) - theta' o,  h(u) = u log u + (1 - u) log(1 - u),
+// subject to |X_j' theta| <= lambda_j for the penalized columns of F and sum_k theta_k = 0 when an intercept is free
+// (by Fenchel-Young, f(beta) >= that objective - beta_0 sum_k theta_k for any beta). A point from the current state:
+// theta = s w (y - q), q = sigma(eta + c) + r / sum(w): c refits the free intercept alone and the residual r of that
+// refit is shifted out, so sum_k theta_k = 0 whatever the refit reached (without a free intercept c = r = 0); s =
+// min(1, lambda_j / |X_j' theta|) over the penalized columns, so y_k - theta_k / w_k stays in [0, 1]; and theta' o =
+// theta' eta - sum_{j in F} beta_j X_j' theta. Any feasible theta bounds f*, so a poor refit only loosens the bound.
+// False (no certificate) unless every row with weight has y in {0, 1}, both occur there when the intercept is free, the
+// free intercept is one on every row (weighted or not), the shifted q stays in [0, 1], and every value is finite
+template <class BaseModel, typename RealType>
+bool ModelSpecifics<BaseModel,RealType>::dualObjective(const std::vector<int>& F, const std::vector<double>& lambda,
+                                                        const std::vector<double>& beta, int intercept, double* dual) {
+	if (!logisticSecondOrder) {
+		return false;
+	}
+	flushIntercept();
+	if (!lrReady() || lambda.size() != F.size() || beta.size() != F.size() || hXBeta.size() < K) {
+		return false;
+	}
+	double weightSum = 0.0, positive = 0.0;
+	for (size_t k = 0; k < K; ++k) {
+		const double w = static_cast<double>(hKWeight[k]);
+		if (w == 0.0) continue;
+		const double y = static_cast<double>(hY[k]);
+		if (!(w > 0.0) || (y != 0.0 && y != 1.0) || !std::isfinite(static_cast<double>(hXBeta[k]))) {
+			return false;
+		}
+		weightSum += w;
+		positive += w * y;
+	}
+	if (intercept >= 0) {
+		if (!(positive > 0.0 && positive < weightSum)) {
+			return false; // no finite intercept refit
+		}
+		size_t entries = 0;
+		for (GenericIterator<RealType> it(hX, F[intercept]); it; ++it) {
+			if (static_cast<double>(it.value()) != 1.0) return false;
+			++entries;
+		}
+		if (entries != K) {
+			return false;
+		}
+	}
+	auto sigma = [](double t) { // stable logistic function
+		if (t >= 0.0) return 1.0 / (1.0 + std::exp(-t));
+		const double e = std::exp(t);
+		return e / (1.0 + e);
+	};
+	// sum_k w_k (y_k - sigma(eta_k + c)), compensated (Neumaier), and its derivative
+	auto residual = [&](double c, double* curvature) {
+		double sum = 0.0, compensation = 0.0, slope = 0.0;
+		for (size_t k = 0; k < K; ++k) {
+			const double w = static_cast<double>(hKWeight[k]);
+			if (w == 0.0) continue;
+			const double q = sigma(static_cast<double>(hXBeta[k]) + c);
+			grouped::addCompensated(sum, compensation, w * (static_cast<double>(hY[k]) - q));
+			slope += w * q * (1.0 - q);
+		}
+		if (curvature) *curvature = slope;
+		return sum + compensation;
+	};
+	double c = 0.0;
+	if (intercept >= 0) { // the residual decreases in c: bracket its root, then Newton kept inside the bracket
+		double lo = 0.0, hi = 0.0;
+		const double r0 = residual(0.0, nullptr);
+		if (r0 > 0.0) {
+			double step = 1.0;
+			for (hi = 1.0; residual(hi, nullptr) > 0.0 && step < 1e3; step *= 2.0) { lo = hi; hi += step; }
+		} else if (r0 < 0.0) {
+			double step = 1.0;
+			for (lo = -1.0; residual(lo, nullptr) < 0.0 && step < 1e3; step *= 2.0) { hi = lo; lo -= step; }
+		}
+		c = 0.5 * (lo + hi);
+		for (int iteration = 0; iteration < 200 && r0 != 0.0; ++iteration) {
+			double curvature = 0.0;
+			const double r = residual(c, &curvature);
+			if (r == 0.0) break;
+			if (r > 0.0) lo = c; else hi = c;
+			double next = (curvature > 0.0) ? c + r / curvature : 0.5 * (lo + hi);
+			if (!(next > lo && next < hi)) next = 0.5 * (lo + hi);
+			if (next == c || hi - lo <= 4.0 * std::numeric_limits<double>::epsilon() * std::max(1.0, std::abs(c))) {
+				c = next;
+				break;
+			}
+			c = next;
+		}
+	}
+	const double shift = (intercept >= 0) ? residual(c, nullptr) / weightSum : 0.0;
+	if (!std::isfinite(shift)) {
+		return false;
+	}
+	std::vector<double> a(K, 0.0), q(K, 0.0);
+	double thetaEta = 0.0;
+	for (size_t k = 0; k < K; ++k) {
+		const double w = static_cast<double>(hKWeight[k]);
+		if (w == 0.0) continue;
+		q[k] = sigma(static_cast<double>(hXBeta[k]) + c) + shift;
+		if (!(q[k] >= 0.0 && q[k] <= 1.0)) return false;
+		a[k] = w * (static_cast<double>(hY[k]) - q[k]);
+		thetaEta += a[k] * static_cast<double>(hXBeta[k]);
+	}
+	double s = 1.0;
+	double thetaO = thetaEta; // theta' o with theta = s a, scaled below
+	for (size_t i = 0; i < F.size(); ++i) {
+		const double dot = lrColumnDot(F[i], a, false);
+		if (!std::isfinite(dot)) return false;
+		if (lambda[i] > 0.0 && std::abs(dot) > 0.0) s = std::min(s, lambda[i] / std::abs(dot));
+		thetaO -= beta[i] * dot;
+	}
+	thetaO *= s;
+	double value = 0.0, compensation = 0.0; // compensated (Neumaier)
+	for (size_t k = 0; k < K; ++k) {
+		const double w = static_cast<double>(hKWeight[k]);
+		if (w == 0.0) continue;
+		const double y = static_cast<double>(hY[k]);
+		const double u = y - s * (y - q[k]);
+		if (!(u >= 0.0 && u <= 1.0)) return false;
+		grouped::addCompensated(value, compensation,
+			-w * ((u > 0.0 ? u * std::log(u) : 0.0) + (u < 1.0 ? (1.0 - u) * std::log(1.0 - u) : 0.0)));
+	}
+	value += compensation - thetaO;
+	*dual = value;
+	return std::isfinite(value);
+}
+
+template <class BaseModel, typename RealType>
+void ModelSpecifics<BaseModel,RealType>::setThreads(int threads) {
+	if (!logisticSecondOrder || threads <= 1) {
+		lrPool.reset();
+	} else if (!lrPool || lrPool->size() != threads) {
+		lrPool.reset(new WorkerPool(threads));
+	}
+}
+
 template <class BaseModel, typename RealType>
 bool ModelSpecifics<BaseModel,RealType>::lrHessianBlock(const std::vector<int>& F, std::vector<double>& H) {
 	flushIntercept();
@@ -85,14 +221,14 @@ bool ModelSpecifics<BaseModel,RealType>::lrHessianBlock(const std::vector<int>& 
 		return false;
 	}
 	const size_t n = F.size();
-	H.assign(n * n, 0.0);
 	if (n == 0) {
+		H.clear();
 		return true;
 	}
 
 	// H = X_F' diag(w p (1 - p)) X_F from each row's outer product. The rows of F's columns are transposed a chunk of
 	// rows at a time into a small buffer (columns keep a cursor into their ascending rows), so no row-wise copy of X_F
-	// is held: memory is H plus the buffer
+	// is held: memory is the (permuted) block plus the buffer, then the block and H
 	std::vector<const int*> rows(n);
 	std::vector<const RealType*> values(n);
 	std::vector<size_t> count(n), cursor(n, 0);
@@ -105,11 +241,50 @@ bool ModelSpecifics<BaseModel,RealType>::lrHessianBlock(const std::vector<int>& 
 		count[p] = dense ? K : hX.getNumberOfEntries(F[p]);
 		entries += static_cast<double>(count[p]);
 	}
+	// The accumulation order of the columns: by entries, most first, so the pairs of the densest columns (most of the
+	// work) fall in a block that stays in cache; each row then adds its pairs into whole columns of the upper
+	// triangle, contiguous in memory (the order of F put each pair n doubles apart). Every entry is a sum over rows in
+	// increasing order, whatever the order of the columns or the threads, so the block is the same bit for bit
+	std::vector<size_t> order(n);
+	std::iota(order.begin(), order.end(), 0);
+	std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) { return count[a] > count[b]; });
+	std::vector<double> permuted(n * n, 0.0);
+	double* acc = permuted.data();
+
 	const size_t chunk = std::max<size_t>(1024, std::min<size_t>(K, static_cast<size_t>(
 		static_cast<double>(1 << 21) / std::max(entries / static_cast<double>(K), 1e-9)))); // about 2M entries
 	std::vector<int> rowStart(chunk + 1);
 	std::vector<int> position;
 	std::vector<double> value;
+	// Contiguous ranges of columns (in accumulation order), about equal in work, one task each: a column's pairs are
+	// those with the earlier columns of its rows, about its entries times the entries of the denser columns in a row.
+	// A task adds the pairs whose later column is in its range; in each row those are a run of the sorted positions.
+	// On one thread the ranges are cache tiles, worth it only for a large block (every range passes over the rows):
+	// one per 128 columns, at most 16 (measured best on real FeatureExtraction designs); with threads, 8 per thread,
+	// at least 32 columns each
+	const size_t tasks = lrPool ?
+		std::max<size_t>(1, std::min<size_t>(8 * static_cast<size_t>(lrPool->size()), n / 32)) :
+		std::max<size_t>(1, std::min<size_t>(16, n / 128));
+	std::vector<size_t> rangeStart(tasks + 1, n); // the starts the loop below does not set stay n: empty ranges
+	{
+		std::vector<double> work(n);
+		double before = 0.0, total = 0.0;
+		for (size_t slot = 0; slot < n; ++slot) {
+			const double c = static_cast<double>(count[order[slot]]);
+			work[slot] = c * (before + 1.0);
+			before += c / static_cast<double>(K);
+			total += work[slot];
+		}
+		double run = 0.0;
+		size_t task = 0;
+		rangeStart[0] = 0;
+		for (size_t slot = 0; slot < n && task + 1 < tasks; ++slot) {
+			run += work[slot];
+			while (task + 1 < tasks && run >= total * static_cast<double>(task + 1) / static_cast<double>(tasks)) {
+				rangeStart[++task] = slot + 1;
+			}
+		}
+	}
 	for (size_t r0 = 0; r0 < K; r0 += chunk) {
 		const size_t r1 = std::min(K, r0 + chunk);
 		std::fill(rowStart.begin(), rowStart.end(), 0);
@@ -130,45 +305,72 @@ bool ModelSpecifics<BaseModel,RealType>::lrHessianBlock(const std::vector<int>& 
 		position.resize(rowStart[r1 - r0]);
 		value.resize(rowStart[r1 - r0]);
 		std::vector<int> next(rowStart.begin(), rowStart.begin() + (r1 - r0));
-		for (size_t p = 0; p < n; ++p) { // fill column by column: positions ascend within each row
+		for (size_t slot = 0; slot < n; ++slot) { // fill in accumulation order: positions ascend within each row
+			const size_t p = order[slot];
 			if (rows[p] == nullptr) {
 				for (size_t k = r0; k < r1; ++k) {
 					const int e = next[k - r0]++;
-					position[e] = static_cast<int>(p);
+					position[e] = static_cast<int>(slot);
 					value[e] = (values[p] == nullptr) ? 1.0 : static_cast<double>(values[p][k]);
 				}
 			} else {
 				for (; cursor[p] < count[p] && static_cast<size_t>(rows[p][cursor[p]]) < r1; ++cursor[p]) {
 					const size_t k = rows[p][cursor[p]];
 					const int e = next[k - r0]++;
-					position[e] = static_cast<int>(p);
+					position[e] = static_cast<int>(slot);
 					value[e] = (values[p] == nullptr) ? 1.0 : static_cast<double>(values[p][cursor[p]]);
 				}
 			}
 		}
-		for (size_t i = 0; i < r1 - r0; ++i) {
-			const size_t k = r0 + i;
-			const double w = static_cast<double>(hKWeight[k]);
-			if (w == 0.0) {
-				continue;
+		// task t adds the pairs whose later column is in its range: each entry has one owner
+		auto accumulate = [&](size_t task, int) {
+			const int lo = static_cast<int>(rangeStart[task]);
+			const int hi = static_cast<int>(rangeStart[task + 1]);
+			if (lo >= hi) {
+				return;
 			}
-			const double pk = readP(offsExpXBeta[k]);
-			const double c = w * pk * (1.0 - pk);
-			if (c == 0.0) {
-				continue;
-			}
-			for (int a = rowStart[i]; a < rowStart[i + 1]; ++a) {
-				const double ca = c * value[a];
-				double* column = H.data() + position[a];
-				for (int b = rowStart[i]; b <= a; ++b) {
-					column[position[b] * n] += ca * value[b];
+			for (size_t i = 0; i < r1 - r0; ++i) {
+				const size_t k = r0 + i;
+				const double w = static_cast<double>(hKWeight[k]);
+				if (w == 0.0) {
+					continue;
 				}
+				const double pk = readP(offsExpXBeta[k]);
+				const double c = w * pk * (1.0 - pk);
+				if (c == 0.0) {
+					continue;
+				}
+				const int first = static_cast<int>(std::lower_bound(position.begin() + rowStart[i],
+					position.begin() + rowStart[i + 1], lo) - position.begin());
+				for (int a = first; a < rowStart[i + 1] && position[a] < hi; ++a) {
+					const double ca = c * value[a];
+					double* column = acc + static_cast<size_t>(position[a]) * n;
+					for (int b = rowStart[i]; b <= a; ++b) {
+						column[position[b]] += ca * value[b];
+					}
+				}
+			}
+		};
+		if (lrPool) {
+			lrPool->run(tasks, accumulate);
+		} else {
+			for (size_t task = 0; task < tasks; ++task) {
+				accumulate(task, 0);
 			}
 		}
 	}
-	for (size_t j = 0; j < n; ++j) {
-		for (size_t i = j + 1; i < n; ++i) {
-			H[j + i * n] = H[i + j * n];
+	// the upper triangle, in accumulation order, back to the order of F
+	std::vector<int>().swap(position);
+	std::vector<double>().swap(value);
+	H.resize(n * n); // every entry is written below
+	std::vector<size_t> slotOf(n);
+	for (size_t slot = 0; slot < n; ++slot) {
+		slotOf[order[slot]] = slot;
+	}
+	for (size_t b = 0; b < n; ++b) {
+		for (size_t a = 0; a < n; ++a) {
+			const size_t sa = slotOf[a], sb = slotOf[b];
+			H[a + b * n] = (sa <= sb) ? permuted[sa + sb * n] : permuted[sb + sa * n];
 		}
 	}
 	return true;

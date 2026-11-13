@@ -133,12 +133,12 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsSetWeights
-void cyclopsSetWeights(SEXP inRcppCcdInterface, NumericVector& weights);
+void cyclopsSetWeights(SEXP inRcppCcdInterface, Rcpp::Nullable<NumericVector> weights);
 RcppExport SEXP _Cyclops_cyclopsSetWeights(SEXP inRcppCcdInterfaceSEXP, SEXP weightsSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
-    Rcpp::traits::input_parameter< NumericVector& >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Nullable<NumericVector> >::type weights(weightsSEXP);
     cyclopsSetWeights(inRcppCcdInterface, weights);
     return R_NilValue;
 END_RCPP
@@ -534,6 +534,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsResolveControl
+List cyclopsResolveControl(List control, SEXP modelType, SEXP nCovariates);
+RcppExport SEXP _Cyclops_cyclopsResolveControl(SEXP controlSEXP, SEXP modelTypeSEXP, SEXP nCovariatesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type control(controlSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type modelType(modelTypeSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type nCovariates(nCovariatesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsResolveControl(control, modelType, nCovariates));
+    return rcpp_result_gen;
+END_RCPP
+}
 // listGPUDevices
 Rcpp::CharacterVector listGPUDevices();
 RcppExport SEXP _Cyclops_listGPUDevices() {
@@ -890,6 +903,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsGetRowLabels
+SEXP cyclopsGetRowLabels(Environment object);
+RcppExport SEXP _Cyclops_cyclopsGetRowLabels(SEXP objectSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type object(objectSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetRowLabels(object));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsFinalizeData
 void cyclopsFinalizeData(Environment x, bool addIntercept, SEXP sexpOffsetCovariate, bool offsetAlreadyOnLogScale, bool sortCovariates, SEXP sexpCovariatesDense, bool magicFlag);
 RcppExport SEXP _Cyclops_cyclopsFinalizeData(SEXP xSEXP, SEXP addInterceptSEXP, SEXP sexpOffsetCovariateSEXP, SEXP offsetAlreadyOnLogScaleSEXP, SEXP sortCovariatesSEXP, SEXP sexpCovariatesDenseSEXP, SEXP magicFlagSEXP) {
@@ -1098,6 +1122,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsLogModel", (DL_FUNC) &_Cyclops_cyclopsLogModel, 1},
     {"_Cyclops_cyclopsInitializeModel", (DL_FUNC) &_Cyclops_cyclopsInitializeModel, 5},
     {"_Cyclops_cyclopsGetLogLikelihoodHessianDiagonal", (DL_FUNC) &_Cyclops_cyclopsGetLogLikelihoodHessianDiagonal, 2},
+    {"_Cyclops_cyclopsResolveControl", (DL_FUNC) &_Cyclops_cyclopsResolveControl, 3},
     {"_Cyclops_listGPUDevices", (DL_FUNC) &_Cyclops_listGPUDevices, 0},
     {"_Cyclops_getDefaultGPUDevice", (DL_FUNC) &_Cyclops_getDefaultGPUDevice, 0},
     {"_Cyclops_isSorted", (DL_FUNC) &_Cyclops_isSorted, 3},
@@ -1129,6 +1154,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetStartTimeVector", (DL_FUNC) &_Cyclops_cyclopsGetStartTimeVector, 1},
     {"_Cyclops_cyclopsGetStratumVector", (DL_FUNC) &_Cyclops_cyclopsGetStratumVector, 1},
     {"_Cyclops_cyclopsGetNumberOfSubjects", (DL_FUNC) &_Cyclops_cyclopsGetNumberOfSubjects, 1},
+    {"_Cyclops_cyclopsGetRowLabels", (DL_FUNC) &_Cyclops_cyclopsGetRowLabels, 1},
     {"_Cyclops_cyclopsFinalizeData", (DL_FUNC) &_Cyclops_cyclopsFinalizeData, 7},
     {"_Cyclops_cyclopsLoadDataY", (DL_FUNC) &_Cyclops_cyclopsLoadDataY, 5},
     {"_Cyclops_cyclopsLoadDataStartTime", (DL_FUNC) &_Cyclops_cyclopsLoadDataStartTime, 2},

@@ -144,10 +144,12 @@ except that \code{"legacy"} keeps the earlier cross-validation score of
 \code{"lr"} models (held-out cases only). \code{"cox_counting"} models need another
 fitter. \code{"super"} runs the code of \code{"default"} and changes how \code{"lr"}
 models are fit through the defaults of \code{convergenceType} and the
-arguments below: the \code{"kkt"} convergence criterion, cross-validation fold
-fits to a looser \code{"kkt"} tolerance that start from each fold's previous
-solution, an auto-search that steps down first and refines its result,
-active-set cycling for 1000 or more covariates, and adaptive intercept steps.
+arguments below: cross-validation fold fits that start from each fold's previous
+solution, an auto-search that steps down first and refines its result, and, for
+coordinate descent (\code{algorithm = "ccd"}), the \code{"kkt"} convergence
+criterion with fold fits to a looser \code{"kkt"} tolerance, active-set cycling for
+1000 or more covariates, and adaptive intercept steps. Under \code{"auto"} and
+\code{"newton"} its fold fits use the \code{"gap"} criterion of the final fit.
 Least squares (\code{"ls"}) models use the \code{"kkt"} criterion, active-set
 cycling, adaptive intercept steps and an auto-search that steps up from the
 null-model variance and refines its result under \code{"default"} as well (the
@@ -157,16 +159,19 @@ stop far from the optimum); \code{"super"} adds cross-validation fold fits to a
 
 \item{cvConvergenceType}{String: convergence criterion of the cross-validation fold fits only.
 \code{NULL} (default) means that of the final fit, or \code{"kkt"} for logistic
-regression and least squares with \code{fitter = "super"}}
+regression and least squares with \code{fitter = "super"} when the final fit uses
+its \code{"kkt"} criterion. Under \code{algorithm = "auto"}, fold fits with a criterion
+other than \code{"gap"} run \code{"ccd"}, as a final fit would}
 
 \item{cvTolerance}{Numeric: tolerance of the cross-validation fold fits only. \code{NULL} (default)
-means 0.1 for least squares with \code{fitter = "super"}, 3e-3 with
-\code{cvConvergenceType = "kkt"}, 1e-6 with another \code{cvConvergenceType}, and
-\code{tolerance} without one}
+means 0.1 for least squares with \code{fitter = "super"} (with its \code{"kkt"}
+criterion), 3e-3 with \code{cvConvergenceType = "kkt"}, 1e-5 with \code{"gap"}, 1e-6
+with another \code{cvConvergenceType}, and \code{tolerance} without one}
 
 \item{cvMaxIterations}{Integer: maximum iterations of the cross-validation fold fits only.
-\code{NULL} (default) means 5000 with \code{cvConvergenceType = "kkt"}, 1000 with
-another \code{cvConvergenceType}, and \code{maxIterations} without one}
+\code{NULL} (default) means 5000 with \code{cvConvergenceType = "kkt"} or
+\code{"gap"}, 1000 with another \code{cvConvergenceType}, and \code{maxIterations}
+without one}
 
 \item{cvMinIterations}{Integer: minimum iterations of a cross-validation fold fit when
 \code{cvConvergenceType}, \code{cvTolerance} or \code{cvMaxIterations} applies;
@@ -225,6 +230,10 @@ them. \code{NULL} (default) means \code{TRUE} for logistic regression with
 prior) as one coefficient. A normal prior's coefficients are reported as the equal
 split of the group's total (the unique maximum), and a Laplace or no prior's with
 the total on the group's first column; \code{fit$aliasedColumns} names the groups.
+In logistic, Poisson and least-squares models, columns with a prior are compared on
+the rows with positive weight: columns that differ only on rows of weight 0 (such as a
+cross-validation fold's held-out rows) are duplicates for that fit, and their total is
+reported as an equal split whatever the prior.
 \code{NULL} (default) means \code{TRUE} with \code{algorithm = "auto"} or
 \code{"newton"} and \code{FALSE} otherwise}
 

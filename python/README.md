@@ -71,6 +71,28 @@ model = CyclopsModel(data, control=Control(max_iterations=2000, threads=4))
 result = model.fit()
 ```
 
+## Fitters, algorithms and certificates
+
+`Control` settings left at `None` (the default for the algorithm, convergence
+criterion, tolerance, iteration limits and the fold-fit settings) take the
+presets of `Control(fitter=...)` (`"default"` or `"super"`; R's `"legacy"`, which
+reproduces Cyclops 3.7, is R only) for the model being fitted. The presets come from the same C++ code as R's
+`createControl()`, so a fit from Python and one from R with the same settings
+take the same path. Under the default fitter, logistic regression and the
+conditional and survival models run `algorithm="auto"` (coordinate descent that
+switches to Newton steps when they are cheaper) with the `"gap"` criterion, a
+certified bound on the distance to the optimum; other models run coordinate
+descent on the `"gradient"` criterion. Settings you give win:
+
+```python
+Control(algorithm="ccd", convergence="gradient", tolerance=1e-6)  # Cyclops 3.x behaviour
+Control(fitter="super")                                           # R's fitter = "super"
+```
+
+`result.convergence` reports what the fit did, as R's `fit$convergence`: the
+`algorithm` that ran, the `certificate` (`"gsc"`, `"R"`, `"dual"` or `"none"`)
+and the `gapEstimate` it certifies, `newtonIterations`, and so on.
+
 ## Models
 
 `model_type` is the first positional argument to `CyclopsData.from_arrays` /

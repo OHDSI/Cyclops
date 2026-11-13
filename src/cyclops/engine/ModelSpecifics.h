@@ -37,6 +37,8 @@
 //#include <boost/iterator/counting_iterator.hpp>
 
 #include "AbstractModelSpecifics.h"
+#include "WorkerPool.h"
+#include <memory>
 #include "Iterators.h"
 #include "ParallelLoops.h"
 
@@ -105,6 +107,9 @@ public:
 	ModelSpecifics(const ModelData<RealType>& input);
 
 	virtual ~ModelSpecifics();
+
+	void setThreads(int threads); // the logistic Hessian block's threads (LogisticSecondOrder.hpp)
+	void setSecondOrderThreads(int threads) { ModelSpecifics::setThreads(threads); }
 
 	void computeGradientAndHessian(int index, double *ogradient,
 			double *ohessian,  bool useWeights);
@@ -675,6 +680,11 @@ private:
 	bool lrReady() const;
 	bool lrFullGradient(const std::vector<int>& F, std::vector<double>& g);
 	bool lrHessianBlock(const std::vector<int>& F, std::vector<double>& H);
+	bool dualObjective(const std::vector<int>& F, const std::vector<double>& lambda, const std::vector<double>& beta,
+	                   int intercept, double* dual);
+	// threads of the logistic Hessian block (setThreads(); cross-validation folds get the threads beyond their number);
+	// see lrHessianBlock()
+	std::unique_ptr<WorkerPool> lrPool;
 	bool lrHessianVector(const std::vector<int>& F, const std::vector<double>& v, std::vector<double>& Hv);
 	bool lrHessianDiagonal(const std::vector<int>& F, std::vector<double>& h);
 	bool lrSetDirection(const std::vector<int>& F, const std::vector<double>& d);

@@ -89,6 +89,75 @@ Changes:
    `createControl(algorithm = "ccd")` reproduces earlier results exactly. Fits under `fitter = "legacy"`,
    other models, and the refits of priors with a `fitHook` (BrokenAdaptiveRidge,
    IterativeHardThresholding, `createNonSeparablePrior()`) keep coordinate descent
+17. Newton-CG (used by `algorithm = "auto"` and `"newton"` when a dense Hessian is too large or costs more)
+   certifies its `"gap"` stop when up to 32 coefficients have no prior, such as an unpenalized intercept,
+   through a lower bound on the Hessian from the Schur complement of their block. Before, only fits with a
+   normal prior on every coefficient could certify by Newton-CG, and with an unpenalized intercept and normal
+   priors of very different variances the certification could not stop: on such a simulated logistic design
+   with 3,000 rows `algorithm = "newton"` reached its iteration limit after 24 s, and now certifies in 0.1 s;
+   with 13,334 rows and 18,933 covariates it had not finished after 25 minutes, and now certifies in 58 s.
+   After a fallback to coordinate descent, `algorithm = "newton"` waits before its next Newton steps, as
+   `"auto"` does. Fits with a normal prior on every coefficient do not change otherwise
+18. `mergeDuplicates` (on by default under `algorithm = "auto"` and `"newton"`) compares columns with a prior on
+   the rows with positive weight in logistic, Poisson and least-squares models, so columns that differ only on a
+   cross-validation fold's held-out rows (or on rows given weight 0) are merged for that fit. In the folds of a real logistic design with 7,443 FeatureExtraction
+   covariates, such pairs made every singular face of the Laplace fold fits: at variance 1 one fold took 1,218 s,
+   and 164 s without them. Their total is reported as an equal split whatever the prior, so a fold's held-out
+   predictions, and the cross-validation score, no longer depend on the order of the columns
+19. Newton-CG builds a preconditioner once a fit's conjugate-gradient solves are expensive enough to repay it: a
+   randomized Nystrom approximation of the likelihood Hessian (64 columns and the unpenalized coefficients) plus the
+   prior and the likelihood curvature it misses, after Frangella, Tropp & Udell (2023), dropped again if its first solve
+   costs more. Fits whose solves stay cheap are unchanged (`fit$convergence$preconditioner` says which ran). On a
+   simulated design with 13,334 rows, an unpenalized intercept and normal variances spread over six orders of magnitude,
+   `algorithm = "auto"` took 2.7 s instead of 30 s; ridge fits of real FeatureExtraction designs took 0.5-1.05 times as
+   long. Certification solves now stop once the certificate holds under a preconditioner too (they ran to a tight
+   residual)
+20. Prox-Newton (Laplace and elastic-net priors) keeps the Cholesky factor of its face matrix across the rounds of a face
+   solve, updating it as coordinates enter and leave, and stops its inner coordinate descent once the support has
+   settled. A single Laplace fit of a real FeatureExtraction design (83k rows, 7,443 covariates) took 12.7 s instead
+   of 23.0 s, and its 3-fold cross-validation 10.3 s instead of 14.7 s, at the same optimum. A face holding a column
+   and a rescaled copy of it is now treated as singular. `fit$convergence$faceRounds` counts the face rounds
+21. The logistic Hessian block that Newton and prox-Newton fits factor is built densest columns first, with contiguous
+   writes, and on the fit's threads (`createControl(threads = )`); cross-validation gives each fold the threads beyond
+   the folds it runs in parallel. Results are the same bit for bit for any number of threads. A single Laplace fit of
+   a real FeatureExtraction design took 8.3 s instead of 11.0 s on one thread and 4.7 s instead of 9.7 s on four
+22. L1 logistic regression (Laplace priors, at most the intercept unpenalized; fixed coefficients allowed) with the
+   `"gap"` criterion is certified by its duality gap: `fit$convergence$certificate` is `"dual"` and `gapEstimate` the
+   gap, a bound on the distance to the optimum. Such fits stopped on an estimate before, uncertified, and the
+   estimate could read low: a real Laplace fit stopped with its objective 1.4e-6 from the optimum (1e-6 requested)
+   where the estimate read 2.3e-9; it now takes two more Newton steps. The gap costs about one gradient and is
+   computed only where the estimate would stop. A tolerance below what the gap can certify in floating point (about
+   1e-14 relative) stops on the estimate as before
+23. a fit without `weights` on a data object that an earlier fit had weighted is unweighted; it reused the
+   earlier weights (also in 3.7.1), so it repeated the weighted fit
+24. `createCyclopsData()` with outcome types (`type`, or `Multitype()` in the formula) of three or more levels
+   gives each covariate one column per type; it merged two types and added empty columns, so the fit failed.
+   A character `type`, or numeric codes other than 1 and 2, crashed R; `type` is now taken as a factor.
+   Fits with two types do not change
+25. `fitter = "super"` with `algorithm = "auto"` (the default) or `"newton"` fits its cross-validation folds as
+   the final fit, with the `"gap"` criterion (fold tolerance 1e-5). They ran coordinate descent to a `"kkt"`
+   tolerance of 3e-3, its setting for `algorithm = "ccd"`; on a real logistic design with 13,420 covariates 18
+   of 30 fold fits reached the iteration limit, the variance search stopped early and chose a variance six times
+   smaller, and the held-out AUC fell from 0.887 to 0.876. With this release's Newton changes the folds are also
+   faster on real FeatureExtraction designs (3-fold super cross-validation 1.1-2.3x faster, the same variances).
+   Under `algorithm = "ccd"` and with a given `cvConvergenceType` nothing changes
+26. `createCyclopsData()` (a formula with an intercept), `finalizeSqlCyclopsData(addIntercept = TRUE)` and
+   `add_intercept()` in the Python package store the intercept as an intercept column, as
+   `convertToCyclopsData()` does, instead of a dense column of ones. The optimum is the same, but adaptive
+   intercept steps now apply to such data too (logistic regression under `fitter = "super"` with
+   `algorithm = "ccd"`, its cross-validation folds included, and least squares under `"default"` and
+   `"super"`): a simulated sparse logistic design with 400 covariates took 21 iterations instead of 39, and
+   over 269 such fits of simulated formula data the median fit took 2.6 times fewer iterations (never more).
+   Asking for an intercept to be stored densely (`makeCovariatesDense`, or `make_dense()` in Python) leaves it
+   as it is; on data from `convertToCyclopsData()` it crashed R
+27. `fitCyclopsModel(cvFolds = )` cross-validates on given folds (a data frame of `rowId` and `fold`, or a vector in
+   data order for formula data) instead of random ones, and `returnCvPredictions = TRUE` returns in
+   `fit$cvPredictions` the out-of-fold prediction of each row, from a refit of its fold at the selected variance (for
+   `"lr"`, `"pr"` and `"ls"`, on the scale of `predict()`; `NA` for rows with weight 0). The number of folds comes
+   from `cvFolds` (a different `fold` given to `createControl()` is an error), and both need `cvRepetitions = 1`.
+   PatientLevelPrediction refits each fold itself for these predictions
+28. `convertToCyclopsData()` with no covariates (an intercept-only design) loads and fits; it crashed R (also in
+   Cyclops 3.7.1)
 
 Cyclops v3.8.0
 ==============

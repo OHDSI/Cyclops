@@ -438,7 +438,11 @@ std::vector<double> cyclopsNormalizeCovariates(Environment x, const std::string&
 void cyclopsSetHasIntercept(Environment x, bool hasIntercept) {
     using namespace bsccs;
     XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
-    data->setHasInterceptCovariate(hasIntercept);
+    if (hasIntercept) {
+        data->setInterceptCovariate(); // stored as convertToCyclopsData() stores an intercept, not as dense ones
+    } else {
+        data->setHasInterceptCovariate(false);
+    }
 }
 
 // [[Rcpp::export(".cyclopsGetHasIntercept")]]
@@ -499,6 +503,21 @@ int cyclopsGetNumberOfSubjects(Environment object) {
     return subjects.empty() ? 0 : *std::max_element(subjects.begin(), subjects.end()) + 1;
 }
 
+// Row ids in data order, as loaded with the outcomes (rowId); NULL when the data have none
+// [[Rcpp::export(".cyclopsGetRowLabels")]]
+SEXP cyclopsGetRowLabels(Environment object) {
+    XPtr<bsccs::AbstractModelData> data = parseEnvironmentForPtr(object);
+    if (!data->getHasRowLabels()) {
+        return R_NilValue;
+    }
+    const size_t rows = data->getNumberOfRows();
+    CharacterVector labels(rows);
+    for (size_t i = 0; i < rows; ++i) {
+        labels[i] = data->getRowLabel(i);
+    }
+    return labels;
+}
+
 // [[Rcpp::export(".cyclopsFinalizeData")]]
 void cyclopsFinalizeData(
         Environment x,
@@ -519,15 +538,7 @@ void cyclopsFinalizeData(
         if (data->getHasInterceptCovariate()) {
             Rcpp::stop("OHDSI data object already has an intercept");
         }
-        // TODO add intercept as INTERCEPT_TYPE if magicFlag ==  true
         data->addIntercept();
-       //  data->insert(0, DENSE); // add to front, TODO fix if offset
-       //  data->setHasInterceptCovariate(true);
-       // // CompressedDataColumn& intercept = data->getColumn(0);
-       //  const size_t numRows = data->getNumberOfRows();
-       //  for (size_t i = 0; i < numRows; ++i) {
-       //      data->getColumn(0).add_data(i, static_cast<real>(1.0));
-       //  }
     }
 
     if (!Rf_isNull(sexpOffsetCovariate)) {

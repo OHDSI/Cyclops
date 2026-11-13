@@ -242,9 +242,9 @@ def fit_in_r(
     use_cross_validation: bool = False,
     exclude=None,
     weights=None,
-    max_iterations: int = 1000,
-    tolerance: float = 1e-6,
-    convergence: str = "gradient",
+    max_iterations: int | None = None,
+    tolerance: float | None = None,
+    convergence: str | None = None,
     seed: int = 123,
     fold: int = 10,
     cv_repetitions: int = 1,
@@ -291,9 +291,6 @@ def fit_in_r(
             "use_cross_validation": bool(use_cross_validation),
             "exclude": [] if exclude is None else [int(i) for i in exclude],
             "weights": [] if weights is None else [float(w) for w in weights],
-            "max_iterations": int(max_iterations),
-            "tolerance": float(tolerance),
-            "convergence": convergence,
             "seed": int(seed),
             "fold": int(fold),
             "cv_repetitions": int(cv_repetitions),
@@ -303,6 +300,14 @@ def fit_in_r(
             "want_predictions": bool(want_predictions),
             "want_standard_errors": bool(want_standard_errors),
         }
+        # unset settings stay unset: R's createControl() then takes the fitter's
+        # presets, as Python's Control does
+        if max_iterations is not None:
+            spec["max_iterations"] = int(max_iterations)
+        if tolerance is not None:
+            spec["tolerance"] = float(tolerance)
+        if convergence is not None:
+            spec["convergence"] = convergence
         spec_path = directory / "spec.json"
         spec_path.write_text(json.dumps(spec))
 

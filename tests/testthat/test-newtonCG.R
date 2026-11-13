@@ -46,13 +46,89 @@ test_that("Newton-CG and threaded H give the same fit for any number of threads"
     }
 })
 
-test_that("Newton-CG without a normal prior on every coefficient stops without a certificate", {
-    problem <- cgProblem(3, p = 30)
+test_that("Newton-CG certifies unpenalized coefficients through the Schur bound, up to 32 of them", {
+    # With 32 coefficients and no prior the bound is H itself; it stopped without a certificate before
+    problem <- cgProblem(3, p = 32)
+    fit <- withSolver("cg", cgFit(problem, prior = createPrior("none"), algorithm = "newton"))
+    expect_equal(fit$return_flag, "SUCCESS")
+    expect_true(fit$convergence$certified)
+    gold <- coxph(problem$formula, data = problem$frame, ties = "breslow")
+    expect_equal(unname(coef(fit)), unname(coef(gold)), tolerance = 1e-5)
+
+    # Unpenalized and normal coefficients together, with the Woodbury preconditioner of counting-process Cox models
+    mixed <- withSolver("cg", cgFit(problem, prior = createPrior(c(rep("none", 3), rep("normal", 29)),
+                                                                 variance = c(rep(0, 3), rep(0.5, 29))),
+                                    algorithm = "newton"))
+    dense <- withSolver("dense", cgFit(problem, prior = createPrior(c(rep("none", 3), rep("normal", 29)),
+                                                                    variance = c(rep(0, 3), rep(0.5, 29))),
+                                       algorithm = "newton"))
+    expect_true(mixed$convergence$certified)
+    expect_equal(coef(mixed), coef(dense), tolerance = 1e-6)
+
+    # Above 32 unpenalized coefficients there is no bound, and a converged solve stops without a certificate
+    problem <- cgProblem(3, p = 33)
     fit <- withSolver("cg", cgFit(problem, prior = createPrior("none"), algorithm = "newton"))
     expect_equal(fit$return_flag, "SUCCESS")
     expect_false(fit$convergence$certified)
     gold <- coxph(problem$formula, data = problem$frame, ties = "breslow")
     expect_equal(unname(coef(fit)), unname(coef(gold)), tolerance = 1e-5)
+})
+
+test_that("Newton-CG certifies an unpenalized intercept with widely spread normal variances", {
+    # The shape of the SignalAdaptiveStudy fits: without a bound for the unpenalized intercept the certification
+    # solves could not stop, and Newton-CG ended uncertified (up to 79 times slower than coordinate descent there)
+    set.seed(7)
+    K <- 3000
+    p <- 200
+    X <- matrix(rbinom(K * p, 1, 0.05), K, p)
+    outcomes <- data.frame(rowId = 1:K, y = rbinom(K, 1, plogis(-2 + drop(X[, 1:10] %*% rep(0.5, 10)))))
+    entries <- which(X != 0, arr.ind = TRUE)
+    covariates <- data.frame(rowId = entries[, 1], covariateId = entries[, 2], covariateValue = 1)
+    covariates <- covariates[order(covariates$rowId, covariates$covariateId), ]
+    variance <- 10^runif(p, -4, 2)
+    variance[1:2] <- 0 # two unpenalized covariates besides the intercept
+    prior <- createPrior(c("none", rep("none", 2), rep("normal", p - 2)), variance = c(0, variance))
+    spread <- prior
+    fit <- function(solver, prior = spread) withSolver(solver, fitCyclopsModel(
+        convertToCyclopsData(outcomes, covariates, modelType = "lr", addIntercept = TRUE, quiet = TRUE), prior = prior,
+        control = createControl(algorithm = "newton", convergenceType = "gap", tolerance = 1e-8, noiseLevel = "silent"),
+        warnings = FALSE))
+    cg <- fit("cg")
+    dense <- fit("dense")
+    expect_equal(cg$convergence$solver, "cg")
+    expect_true(cg$convergence$certified)
+    expect_true(dense$convergence$certified)
+    expect_equal(coef(cg), coef(dense), tolerance = 1e-6)
+
+    # Its solves stay cheap, so it never pays for a preconditioner, and neither does an equal ridge
+    expect_equal(cg$convergence$preconditioner, "none")
+    ridge <- fit("cg", prior = createPrior("normal", variance = 1))
+    expect_equal(ridge$convergence$preconditioner, "none")
+    expect_true(ridge$convergence$certified)
+})
+
+test_that("Newton-CG builds the Nystrom preconditioner when its solves are expensive", {
+    # 2,000 sparse covariates with normal variances spread over six orders of magnitude: without a preconditioner the
+    # fit took 1,737 Hessian-vector products, with it 237. Randomized, with a fixed seed: the fit does not depend on the
+    # number of threads
+    set.seed(7)
+    K <- 5000
+    p <- 2000
+    X <- as(Matrix::rsparsematrix(K, p, 0.01, rand.x = function(n) rep(1, n)), "TsparseMatrix")
+    covariates <- data.frame(rowId = X@i + 1, covariateId = X@j + 1, covariateValue = 1)
+    covariates <- covariates[order(covariates$rowId, covariates$covariateId), ]
+    outcomes <- data.frame(rowId = 1:K, y = rbinom(K, 1, plogis(-2 + as.vector(X[, 1:10] %*% rep(0.5, 10)))))
+    data <- convertToCyclopsData(outcomes, covariates, modelType = "lr", addIntercept = TRUE, quiet = TRUE)
+    prior <- createPrior(c("none", rep("normal", p)), variance = c(0, 10^runif(p, -4, 2)))
+    fit <- function(solver, threads = 1) withSolver(solver, fitCyclopsModel(data, prior = prior,
+        control = createControl(algorithm = "newton", convergenceType = "gap", tolerance = 1e-8, threads = threads,
+                                noiseLevel = "silent"), forceNewObject = TRUE, warnings = FALSE))
+    cg <- fit("cg")
+    expect_equal(cg$convergence$preconditioner, "nystrom")
+    expect_true(cg$convergence$certified)
+    expect_lt(cg$convergence$hessianVectorProducts, 1000)
+    expect_identical(coef(fit("cg", threads = 4)), coef(cg))
+    expect_equal(coef(cg), coef(fit("dense")), tolerance = 1e-6)
 })
 
 test_that("Hessian kernels with G |F|^2 above 2^31", {

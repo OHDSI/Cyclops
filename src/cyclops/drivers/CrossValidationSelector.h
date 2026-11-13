@@ -38,10 +38,17 @@ public:
 
 	AbstractSelector* clone() const;
 
+	// Folds given by the user (0, 1, ..., inFold - 1 for each row in data order) instead of random ones; the rows
+	// of one exchangeable unit (stratum or subject) must share a fold, and every fold must hold out a unit
+	void setFixedFolds(const std::vector<int>& foldOfRow);
+
+	bool getFoldOfRow(std::vector<int>& foldOfRow) const;
+
 private:
 	int fold;
 	std::vector<int> permutation;
 	std::vector<int> intervalStart;
+	std::vector<int> fixedPermutation; // units ordered by their given fold; empty for random folds
 	std::vector<double>* weightsExclude;
 	std::vector<double>* weightsOriginal;
 };

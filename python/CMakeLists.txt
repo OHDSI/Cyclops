@@ -84,6 +84,8 @@ set(CYCLOPS_CORE_SOURCES
     cyclops/priors/CovariatePrior.cpp
     cyclops/engine/AbstractModelSpecifics.cpp
 
+    cyclops/FitterPresets.cpp
+
     # The language-neutral facade the bindings call.
     cyclops/api/CyclopsApi.cpp
 

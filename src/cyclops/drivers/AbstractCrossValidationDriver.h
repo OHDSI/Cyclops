@@ -78,6 +78,16 @@ protected:
 
 	void restoreWeights(CyclicCoordinateDescent& ccd, const CCDArguments& arguments);
 
+	// Refits every fold of the first repetition at maxPoint under the final fit's stopping rule, each from its own
+	// solution at the nearest hyperparameter tried, and keeps the prediction of each row from the fit without it
+	void computeFoldPredictions(
+			CyclicCoordinateDescent& ccd,
+			AbstractSelector& selector,
+			const CCDArguments& arguments,
+			int nThreads,
+			std::vector<CyclicCoordinateDescent*>& ccdPool,
+			std::vector<AbstractSelector*>& selectorPool);
+
 	MaxPoint maxPoint;
 	std::vector<double>* weightsExclude;
 	std::vector<double> savedWeights; // before cross-validation; empty when unweighted
@@ -87,6 +97,8 @@ protected:
 	    std::vector<std::pair<int, double>> beta; // non-zero coefficients
 	};
 	std::vector<std::vector<FoldSolution>> foldSolutions; // of each fold, at the hyperparameters tried
+	std::vector<double> foldPredictions;  // of each row, from the fit of the fold that holds it out; empty in the search
+	std::vector<int> foldOfRow;           // fold that holds out each row
 };
 
 } // namespace

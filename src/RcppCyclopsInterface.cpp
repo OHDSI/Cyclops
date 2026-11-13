@@ -13,6 +13,7 @@
 
 #include "Rcpp.h"
 #include "RcppCyclopsInterface.h"
+#include "FitterPresets.h"
 #include "RcppModelData.h"
 //#include "engine/ModelSpecifics.h"
 #include "priors/JointPrior.h"
@@ -167,11 +168,16 @@ bool cyclopsGetIsRegularized(SEXP inRcppCcdInterface, const int index) {
 
 // [[Rcpp::export(".cyclopsSetWeights")]]
 void cyclopsSetWeights(SEXP inRcppCcdInterface,
-    NumericVector& weights) {
+    Rcpp::Nullable<NumericVector> weights) { // NULL: no weights (every row counts once)
     using namespace bsccs;
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
-    interface->getCcd().setWeights(&weights[0]);
+    if (weights.isNull()) {
+        interface->getCcd().setWeights(NULL);
+    } else {
+        NumericVector values(weights);
+        interface->getCcd().setWeights(&values[0]);
+    }
 }
 
 // [[Rcpp::export(".cyclopsGetWeights")]]
@@ -801,6 +807,12 @@ void cyclopsSetCvControl(SEXP inRcppCcdInterface, const List& options) {
 	if (options.containsElementNamed("nullModelBound")) {
 		cv.nullModelBound = as<bool>(options["nullModelBound"]);
 	}
+	if (options.containsElementNamed("keepPredictions")) {
+		cv.keepPredictions = as<bool>(options["keepPredictions"]);
+	}
+	if (options.containsElementNamed("foldOfRow")) { // fold (0, 1, ...) of each row in data order; empty: random folds
+		cv.foldOfRow = as<std::vector<int>>(options["foldOfRow"]);
+	}
 }
 
 // Separation (D5) and the "gap" / "auto" / "newton" report of the last fit (Newton plan 2.7, 2.10)
@@ -846,9 +858,12 @@ static void appendNewtonReports(Rcpp::List& list, bsccs::RcppCcdInterface& rcppI
 			_["hessians"] = report.hessians, _["fallbacks"] = report.fallbacks, _["costRatio"] = report.costRatio,
 			_["droppedDirections"] = report.droppedDirections, _["ineligible"] = report.ineligible);
 		convergence.push_back(report.solver, "solver"); // List::create takes at most 20 elements
+		convergence.push_back(report.preconditioner, "preconditioner");
 		convergence.push_back(report.hessianVectorProducts, "hessianVectorProducts");
 		convergence.push_back(report.certificationProducts, "certificationProducts");
 		convergence.push_back(report.rankDeficientFaceRounds, "rankDeficientFaceRounds");
+		convergence.push_back(report.faceRounds, "faceRounds");
+		convergence.push_back(report.dualChecks, "dualChecks");
 		convergence.push_back(report.eigenFaceRounds, "eigenFaceRounds");
 		list["convergence"] = convergence;
 	}
@@ -870,6 +885,14 @@ List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface) {
 		);
 	RcppCcdInterface::appendRList(list, interface->getResult());
 	appendNewtonReports(list, *interface);
+
+	// Out-of-fold predictions in data order, with the fold (0, 1, ...) that held each row out
+	const auto& predictions = interface->getCcd().getCrossValidationPredictions();
+	if (!predictions.empty()) {
+		list["cvPredictions"] = List::create(
+			Rcpp::Named("prediction") = predictions,
+			Rcpp::Named("fold") = interface->getCcd().getCrossValidationPredictionFolds());
+	}
 	return list;
 }
 
@@ -1663,3 +1686,61 @@ RcppCcdInterface::~RcppCcdInterface() {
 
 } // namespace
 
+
+// The fitter's presets for the settings a control leaves unset (FitterPresets): R's .resolveControl() calls this.
+// NULL is unset (R makes an NA algorithm NULL). Errors come back as text, for R to stop() without a call
+// [[Rcpp::export(".cyclopsResolveControl")]]
+List cyclopsResolveControl(List control, SEXP modelType, SEXP nCovariates) {
+    using namespace bsccs;
+    auto set = [&control](auto& setting, const char* name) { // NULL or empty leaves the optional unset
+        SEXP value = control.containsElementNamed(name) ? static_cast<SEXP>(control[name]) : R_NilValue;
+        if (Rf_length(value) > 0) setting = as<typename std::decay_t<decltype(setting)>::value_type>(value);
+    };
+    ControlRequest q;
+    std::optional<std::string> fitter;
+    std::optional<bool> resetCoefficients;
+    set(fitter, "fitter");
+    set(resetCoefficients, "resetCoefficients");
+    if (fitter) q.fitter = *fitter;
+    q.resetCoefficients = resetCoefficients.value_or(false);
+    if (!Rf_isNull(modelType)) q.modelType = as<std::string>(modelType);
+    if (!Rf_isNull(nCovariates)) q.nCovariates = as<int>(nCovariates);
+    set(q.algorithm, "algorithm");
+    set(q.convergenceType, "convergenceType");
+    set(q.tolerance, "tolerance");
+    set(q.maxIterations, "maxIterations");
+    set(q.cvConvergenceType, "cvConvergenceType");
+    set(q.cvTolerance, "cvTolerance");
+    set(q.cvMaxIterations, "cvMaxIterations");
+    set(q.cvMinIterations, "cvMinIterations");
+    set(q.cvSearchDirection, "cvSearchDirection");
+    set(q.cvRefine, "cvRefine");
+    set(q.cvNullModelBound, "cvNullModelBound");
+    set(q.cvWarmStart, "cvWarmStart");
+    set(q.activeSetEvery, "activeSetEvery");
+    set(q.activeSetThreshold, "activeSetThreshold");
+    set(q.adaptiveIntercept, "adaptiveIntercept");
+    const ResolvedControl r = resolveControl(q);
+    auto orNull = [](const auto& value) -> SEXP { return value ? wrap(*value) : R_NilValue; };
+    return List::create(
+        Named("error") = r.error,
+        Named("warnings") = wrap(r.warnings),
+        Named("algorithm") = r.algorithm,
+        Named("convergenceType") = r.convergenceType,
+        Named("tolerance") = r.tolerance,
+        Named("maxIterations") = r.maxIterations,
+        Named("cvConvergenceType") = orNull(r.cvConvergenceType),
+        Named("cvTolerance") = orNull(r.cvTolerance),
+        Named("cvMaxIterations") = orNull(r.cvMaxIterations),
+        Named("cvMinIterations") = r.cvMinIterations,
+        Named("cvSearchDirection") = r.cvSearchDirection,
+        Named("cvRefine") = r.cvRefine,
+        Named("cvNullModelBound") = r.cvNullModelBound,
+        Named("cvWarmStart") = r.cvWarmStart,
+        Named("activeSetEvery") = r.activeSetEvery,
+        Named("activeSetThreshold") = r.activeSetThreshold,
+        Named("adaptiveIntercept") = r.adaptiveIntercept,
+        Named("fallbackConvergenceType") = r.fallbackConvergenceType,
+        Named("fallbackTolerance") = orNull(r.fallbackTolerance),
+        Named("fallbackMaxIterations") = orNull(r.fallbackMaxIterations));
+}

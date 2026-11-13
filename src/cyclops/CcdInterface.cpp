@@ -224,6 +224,19 @@ double CcdInterface::predictModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	return calculateSeconds(time1, time2);
 }
 
+// The profile drivers run their points (or bounds) in parallel on the profile's threads; each refit's logistic Hessian
+// block keeps one thread meanwhile (the fit's threads would add to the profile's), and gets the fit's threads back at
+// the end, also when a refit throws
+struct SecondOrderThreadsForPoints {
+	CyclicCoordinateDescent* ccd;
+	int fitThreads;
+	SecondOrderThreadsForPoints(CyclicCoordinateDescent* ccd, int threads) :
+			ccd(ccd), fitThreads(threads == -1 ? static_cast<int>(bsccs::thread::hardware_concurrency()) : threads) {
+		ccd->setSecondOrderThreads(1);
+	}
+	~SecondOrderThreadsForPoints() { ccd->setSecondOrderThreads(fitThreads); }
+};
+
 struct OptimizationProfile {
 
 	CyclicCoordinateDescent& ccd;
@@ -390,6 +403,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	// Parallelize across columns and lower/upper bound
 	int nThreads = (inThreads == -1) ?
 	    bsccs::thread::hardware_concurrency() : inThreads;
+	const SecondOrderThreadsForPoints secondOrderThreads(ccd, arguments.threads);
 
 	std::ostringstream stream2;
 	stream2 << "Using " << nThreads << " thread(s)";
@@ -738,6 +752,7 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
     // Parallelize across grid values
     int nThreads = (inThreads == -1) ?
     bsccs::thread::hardware_concurrency() : inThreads;
+    const SecondOrderThreadsForPoints secondOrderThreads(ccd, arguments.threads);
 
     ccd->getLogLikelihood(); // TODO Remove
 
@@ -1148,6 +1163,21 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, AbstractMo
 
 	//    std::make_unique_ptr<AbstractSelector>(ptr2);
 
+	const auto& foldOfRow = arguments.crossValidation.foldOfRow;
+	if (!foldOfRow.empty()) { // the user's folds instead of random ones
+		if (arguments.crossValidation.fold == -1) {
+			std::ostringstream stream;
+			stream << "Given cross-validation folds need fold > 0";
+			error->throwError(stream);
+		}
+		static_cast<CrossValidationSelector*>(selector.get())->setFixedFolds(foldOfRow);
+	}
+	if (arguments.crossValidation.keepPredictions && arguments.useHierarchy) {
+		std::ostringstream stream;
+		stream << "Out-of-fold predictions are not available for hierarchical priors";
+		error->throwError(stream);
+	}
+
 	AbstractCrossValidationDriver* driver;
 	if (arguments.crossValidation.useAutoSearchCV) {
 		if (arguments.useHierarchy) {
@@ -1164,6 +1194,7 @@ double CcdInterface::runCrossValidation(CyclicCoordinateDescent *ccd, AbstractMo
 	}
 
 	ccd->setThreads(1); // folds run in parallel instead; fitModel() restores the threads
+	ccd->setCrossValidationPredictions({}, {});
 	driver->drive(*ccd, *selector, arguments);
 
 	gettimeofday(&time2, NULL);

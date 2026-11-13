@@ -17,6 +17,8 @@
 #define CYCLOPS_API_CYCLOPSAPI_H_
 
 #include <cstddef>
+#include <map>
+#include <optional>
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
@@ -47,11 +49,11 @@ enum class ModelKind {
 
 enum class PriorKind { None, Laplace, Normal, BarUpdate, Jeffreys };
 
-enum class ConvergenceKind { Gradient, Lange, Mittal, OneStep, ZhangOles };
+enum class ConvergenceKind { Gradient, Lange, Mittal, OneStep, ZhangOles, Kkt, Gap };
 
 enum class SelectorKind { Auto, ByPid, ByRow };
 
-enum class AlgorithmKind { Ccd, Mm };
+enum class AlgorithmKind { Ccd, Mm, Auto, Newton };
 
 enum class NormalizationKind { StandardDeviation, Max, Median, Q95 };
 
@@ -104,11 +106,12 @@ struct PriorOptions {
     std::vector<double> variances;
 };
 
-/// Mode-finding, cross-validation and runtime controls.
-///
-/// Defaults are deliberately identical to R's `createControl()` so that a fit
-/// issued from Python and one issued from R follow the same iterate path.
+/// Mode-finding, cross-validation and runtime controls, resolved: the Python
+/// package fills them from the fitter's presets (FitterPresets, which R's
+/// createControl() uses too), so both packages take the same iterate path.
 struct FitOptions {
+    std::string fitter = "default";      ///< "default", "super" or "legacy" (legacy profiles as Cyclops 3.7)
+
     // -- mode finding --
     int max_iterations = 1000;
     double tolerance = 1e-6;
@@ -119,6 +122,13 @@ struct FitOptions {
     bool use_kkt_swindle = false;
     int swindle_multiplier = 10;
     bool do_it_all = true;
+    int active_set_every = 0;            ///< 0 => every cycle visits all coordinates
+    double active_set_threshold = 0.01;
+    bool adaptive_intercept = false;
+    bool merge_duplicates = false;
+    std::optional<ConvergenceKind> fallback_convergence;  ///< "auto" + "gap": criterion of a CCD fallback
+    double fallback_tolerance = 1e-6;
+    int fallback_max_iterations = 1000;
 
     // -- cross-validation --
     bool auto_search = true;   ///< false ⇒ fixed grid search
@@ -131,6 +141,14 @@ struct FitOptions {
     SelectorKind selector = SelectorKind::Auto;
     int min_cv_data = 100;
     bool sync_cv = false;
+    int cv_search_direction = 0;         ///< 0 => BBR rule, 1 => up, -1 => down
+    std::optional<ConvergenceKind> cv_convergence;  ///< unset => as the final fit
+    double cv_tolerance = -1.0;          ///< <= 0 => as the final fit
+    int cv_max_iterations = -1;          ///< <= 0 => as the final fit
+    int cv_min_iterations = 5;
+    bool cv_warm_start = true;           ///< each fold fit starts from its solution at the nearest variance tried
+    bool cv_refine = false;
+    bool cv_null_model_bound = false;
 
     // -- runtime --
     NoiseLevel noise = NoiseLevel::Silent;
@@ -161,6 +179,13 @@ struct FitResult {
     std::string cross_validation_info;
     int covariate_count = 0;
     double fit_seconds = 0.0;
+
+    /// What the fit did, as R's fit$convergence (empty for fits without it): the
+    /// numeric fields, and the text ones (algorithm, certificate, solver, ...)
+    std::map<std::string, double> convergence;
+    std::map<std::string, std::string> convergence_text;
+    int aliased_groups = 0;          ///< groups of duplicate columns merged in the fit
+    int divergent_coefficients = 0;  ///< unpenalized coefficients with a monotone likelihood
 
     bool converged() const { return return_flag == "SUCCESS"; }
 };
@@ -211,8 +236,8 @@ public:
     /// @param y            outcome, length = number of rows
     /// @param time         survival/exposure time; empty when unused
     /// @param stratum_id   stratum per row, ascending and grouped; empty ⇒ unstratified
-    /// @param row_id       external row identifiers; empty ⇒ row indices are 0..n-1
-    ///                     and `add_*` calls address rows positionally
+    /// @param row_id       external row identifiers (the row labels; strata are read only with them), distinct;
+    ///                     empty ⇒ 0..n-1. `add_*` calls always address rows by position
     void set_outcome(const std::vector<double>& y,
                      const std::vector<double>& time = {},
                      const std::vector<std::int64_t>& stratum_id = {},

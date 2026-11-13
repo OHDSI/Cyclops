@@ -20,6 +20,8 @@
 // #include <sys/time.h>
 // #endif
 
+#include <vector>
+
 #include "Types.h"
 #include "io/ProgressLogger.h"
 
@@ -52,6 +54,8 @@ struct CrossValidationArguments {
     bool warmStart;             // each fold starts from its own solution at the nearest hyperparameter tried
     bool refineSearch;          // auto-search: refine the result by local quadratic fits around the best point
     bool nullModelBound;        // auto-search: never below the variance at which every Laplace coefficient is 0
+    std::vector<int> foldOfRow; // fold (0, 1, ...) of each row in data order; empty: random folds from the seed
+    bool keepPredictions;       // out-of-fold predictions at the selected hyperparameter
 
     CrossValidationArguments() :
         doCrossValidation(false),
@@ -73,7 +77,8 @@ struct CrossValidationArguments {
 		foldMinIterations(5),
 		warmStart(false),
 		refineSearch(false),
-		nullModelBound(false)
+		nullModelBound(false),
+		keepPredictions(false)
         { }
 };
 

@@ -34,9 +34,25 @@
 #' @param fixedCoefficients Vector of booleans indicating if coefficient should be fix
 #' @param warnings Logical, report regularization warnings
 #' @param computeDevice String: Name of compute device to employ; defaults to \code{"native"} C++ on CPU
+#' @param cvFolds Cross-validation folds to use instead of random ones when the prior uses cross-validation:
+#'                a data frame with columns \code{rowId} and \code{fold}, for data built with row ids
+#'                (\code{\link{convertToCyclopsData}}); for data from \code{\link{createCyclopsData}}, a vector with
+#'                the fold of each row, in the order of the data. Every row with positive weight needs a fold; rows
+#'                with weight 0 may have none. Folds may have any labels; their number is the number of folds (a
+#'                different \code{fold} given to \code{\link{createControl}} is an error), and \code{control$seed} no
+#'                longer matters for them. The rows of one stratum (\code{selectorType = "byPid"}) or subject
+#'                (\code{"bySubject"}) must share a fold. Needs \code{cvRepetitions = 1}.
+#' @param returnCvPredictions Logical: refit each fold at the selected variance, to the convergence criterion and
+#'                tolerance of the final fit, and return in \code{fit$cvPredictions} the prediction of each row
+#'                from the fit without its fold, on the scale of \code{predict()}. For \code{modelType} \code{"lr"},
+#'                \code{"pr"} and \code{"ls"}. Needs \code{cvRepetitions = 1}.
 #'
 #' @return
-#' A list that contains a Cyclops model fit object pointer and an operation duration
+#' A list that contains a Cyclops model fit object pointer and an operation duration. With
+#' \code{returnCvPredictions = TRUE}, also \code{cvPredictions}: a data frame with the \code{rowId},
+#' \code{fold} and out-of-fold \code{prediction} (on the scale of \code{predict()}) of each data row, in data
+#' order; \code{NA} for rows with weight 0 and where the refit of a fold failed. The variance was chosen on the
+#' same folds, so measures of performance from these predictions are optimistic.
 #'
 #' @references
 #' Suchard MA, Simpson SE, Zorych I, Ryan P, Madigan D.
@@ -72,7 +88,13 @@ fitCyclopsModel <- function(cyclopsData,
                             startingCoefficients = NULL,
                             fixedCoefficients = NULL,
                             warnings = TRUE,
-							computeDevice = "native") {
+							computeDevice = "native",
+                            cvFolds = NULL,
+                            returnCvPredictions = FALSE) {
+
+    if ((!is.null(cvFolds) || returnCvPredictions) && (!is.null(control$setHook) || !is.null(prior$fitHook))) {
+        stop("cvFolds and returnCvPredictions are not available with this prior or control")
+    }
 
     # Delegate to control$setHook if exists
     if (!is.null(control$setHook)) {
@@ -225,6 +247,32 @@ fitCyclopsModel <- function(cyclopsData,
         control$cvRepetitions <- .getNumberOfRepetitions(getNumberOfRows(cyclopsData))
     }
 
+    folds <- NULL
+    if (!is.null(cvFolds) || returnCvPredictions) {
+        if (!prior$useCrossValidation) {
+            stop("cvFolds and returnCvPredictions need a prior with useCrossValidation = TRUE")
+        }
+        if (control$cvRepetitions != 1) {
+            stop("cvFolds and returnCvPredictions need cvRepetitions = 1")
+        }
+        if (control$fold == -1) {
+            stop("cvFolds and returnCvPredictions need fold > 0")
+        }
+    }
+    if (returnCvPredictions && !(cyclopsData$modelType %in% c("lr", "pr", "ls"))) {
+        stop("returnCvPredictions is available for modelType \"lr\", \"pr\" and \"ls\"")
+    }
+    if (!is.null(cvFolds)) {
+        folds <- .foldOfRow(cyclopsData, cvFolds)
+        if (isTRUE(control$foldGiven) && control$fold != length(folds$labels)) {
+            stop("control$fold is ", control$fold, " but cvFolds has ", length(folds$labels), " folds")
+        }
+        control$fold <- length(folds$labels)
+    }
+    control$cvKeepPredictions <- returnCvPredictions
+    # rows without a fold (-1) must have weight 0 (checked below); they take the fold of their stratum or subject
+    control$cvFoldOfRow <- if (is.null(folds)) integer(0) else ifelse(is.na(folds$index), -1L, folds$index - 1L)
+
     control <- .setControl(cyclopsData$cyclopsInterfacePtr, control, cyclopsData)
     threads <- control$threads
 
@@ -302,6 +350,13 @@ fitCyclopsModel <- function(cyclopsData,
         }
 
         .cyclopsSetWeights(cyclopsData$cyclopsInterfacePtr, weights)
+    } else if (length(.cyclopsGetWeights(cyclopsData$cyclopsInterfacePtr)) > 0) {
+        # this fit is unweighted: release the weights an earlier fit on this interface set
+        .cyclopsSetWeights(cyclopsData$cyclopsInterfacePtr, NULL)
+    }
+    rowWeights <- if (is.null(weights)) rep(1, getNumberOfRows(cyclopsData)) else weights # data order
+    if (!is.null(folds) && any(is.na(folds$index) & rowWeights > 0)) {
+        stop(sum(is.na(folds$index) & rowWeights > 0), " data rows with positive weight have no fold in cvFolds")
     }
 
     # censorWeight check for the Fine-Gray model
@@ -338,6 +393,14 @@ fitCyclopsModel <- function(cyclopsData,
         if (warnings && !is.null(fit$cv_failed_folds) && fit$cv_failed_folds > 0) {
             warning(fit$cv_failed_folds, " cross-validation fold fits failed and were left out of the mean ",
                     "predictive log-likelihood at their variance")
+        }
+        if (!is.null(fit$cvPredictions)) {
+            fit$cvPredictions <- .cvPredictionTable(cyclopsData, fit$cvPredictions, folds, rowWeights)
+            failed <- is.na(fit$cvPredictions$prediction) & rowWeights > 0 # rows of weight 0 have none
+            if (warnings && any(failed)) {
+                warning("The refits of ", length(unique(fit$cvPredictions$fold[failed])),
+                        " folds at the selected variance failed; their out-of-fold predictions are NA")
+            }
         }
     } else {
         fit <- .cyclopsFitModel(cyclopsData$cyclopsInterfacePtr)
@@ -395,6 +458,7 @@ fitCyclopsModel <- function(cyclopsData,
                                    computeDevice = computeDevice)
             fit$cross_validation <- cvFit$cross_validation
             fit$cv_failed_folds <- cvFit$cv_failed_folds
+            fit$cvPredictions <- cvFit$cvPredictions
             fit$cvRepetitions <- control$cvRepetitions
             return(fit)
         }
@@ -782,10 +846,12 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              \code{"lr"} models (held-out cases only). \code{"cox_counting"} models need another
 #'                              fitter. \code{"super"} runs the code of \code{"default"} and changes how \code{"lr"}
 #'                              models are fit through the defaults of \code{convergenceType} and the
-#'                              arguments below: the \code{"kkt"} convergence criterion, cross-validation fold
-#'                              fits to a looser \code{"kkt"} tolerance that start from each fold's previous
-#'                              solution, an auto-search that steps down first and refines its result,
-#'                              active-set cycling for 1000 or more covariates, and adaptive intercept steps.
+#'                              arguments below: cross-validation fold fits that start from each fold's previous
+#'                              solution, an auto-search that steps down first and refines its result, and, for
+#'                              coordinate descent (\code{algorithm = "ccd"}), the \code{"kkt"} convergence
+#'                              criterion with fold fits to a looser \code{"kkt"} tolerance, active-set cycling for
+#'                              1000 or more covariates, and adaptive intercept steps. Under \code{"auto"} and
+#'                              \code{"newton"} its fold fits use the \code{"gap"} criterion of the final fit.
 #'                              Least squares (\code{"ls"}) models use the \code{"kkt"} criterion, active-set
 #'                              cycling, adaptive intercept steps and an auto-search that steps up from the
 #'                              null-model variance and refines its result under \code{"default"} as well (the
@@ -794,14 +860,17 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              \code{"kkt"} tolerance of 0.1
 #' @param cvConvergenceType     String: convergence criterion of the cross-validation fold fits only.
 #'                              \code{NULL} (default) means that of the final fit, or \code{"kkt"} for logistic
-#'                              regression and least squares with \code{fitter = "super"}
+#'                              regression and least squares with \code{fitter = "super"} when the final fit uses
+#'                              its \code{"kkt"} criterion. Under \code{algorithm = "auto"}, fold fits with a criterion
+#'                              other than \code{"gap"} run \code{"ccd"}, as a final fit would
 #' @param cvTolerance           Numeric: tolerance of the cross-validation fold fits only. \code{NULL} (default)
-#'                              means 0.1 for least squares with \code{fitter = "super"}, 3e-3 with
-#'                              \code{cvConvergenceType = "kkt"}, 1e-6 with another \code{cvConvergenceType}, and
-#'                              \code{tolerance} without one
+#'                              means 0.1 for least squares with \code{fitter = "super"} (with its \code{"kkt"}
+#'                              criterion), 3e-3 with \code{cvConvergenceType = "kkt"}, 1e-5 with \code{"gap"}, 1e-6
+#'                              with another \code{cvConvergenceType}, and \code{tolerance} without one
 #' @param cvMaxIterations       Integer: maximum iterations of the cross-validation fold fits only.
-#'                              \code{NULL} (default) means 5000 with \code{cvConvergenceType = "kkt"}, 1000 with
-#'                              another \code{cvConvergenceType}, and \code{maxIterations} without one
+#'                              \code{NULL} (default) means 5000 with \code{cvConvergenceType = "kkt"} or
+#'                              \code{"gap"}, 1000 with another \code{cvConvergenceType}, and \code{maxIterations}
+#'                              without one
 #' @param cvMinIterations       Integer: minimum iterations of a cross-validation fold fit when
 #'                              \code{cvConvergenceType}, \code{cvTolerance} or \code{cvMaxIterations} applies;
 #'                              \code{NULL} (default) means 5
@@ -851,6 +920,10 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              prior) as one coefficient. A normal prior's coefficients are reported as the equal
 #'                              split of the group's total (the unique maximum), and a Laplace or no prior's with
 #'                              the total on the group's first column; \code{fit$aliasedColumns} names the groups.
+#'                              In logistic, Poisson and least-squares models, columns with a prior are compared on
+#'                              the rows with positive weight: columns that differ only on rows of weight 0 (such as a
+#'                              cross-validation fold's held-out rows) are duplicates for that fit, and their total is
+#'                              reported as an equal split whatever the prior.
 #'                              \code{NULL} (default) means \code{TRUE} with \code{algorithm = "auto"} or
 #'                              \code{"newton"} and \code{FALSE} otherwise
 #' @param doItAll               Currently unused
@@ -939,6 +1012,7 @@ createControl <- function(maxIterations = NULL,
                    convergenceType = convergenceType,
                    autoSearch = (cvType == "auto"),
                    fold = fold,
+                   foldGiven = !missing(fold), # cvFolds sets the number of folds: a different given one is an error
                    lowerLimit = lowerLimit,
                    upperLimit = upperLimit,
                    gridSteps = gridSteps,
@@ -1134,119 +1208,20 @@ getCrossValidationInfo <- function(object) {
          point = values[-1])
 }
 
-# Settings that createControl() leaves to the fitter. fitter = "super" changes logistic regression: the "kkt"
-# convergence criterion, cross-validation fold fits by "kkt" at a looser tolerance, a search that steps down first
-# and refines its result, per-fold warm starts, active-set cycling for models with many covariates and adaptive
-# intercept steps. Least squares uses "kkt", active-set cycling, adaptive intercept steps and a search that steps
-# up from the null model and refines its result under "default" too, as the earlier criterion could stop far from
-# the optimum and the earlier start and first step depended on the units of y; "super" adds fold fits to a looser
-# tolerance, which changes the selected variance slightly. A setting given to createControl() wins.
-.fitterSettings <- function(control, modelType = NULL, nCovariates = NULL) {
-    fitter <- .fitter(control)
-    activeSetEvery <- if (!is.null(nCovariates) && nCovariates >= .activeSetMinCovariates) 10 else 0
-    if (identical(fitter, "super") && identical(modelType, "lr")) {
-        list(convergenceType = "kkt", cvConvergenceType = "kkt", cvMinIterations = 5,
-             cvSearchDirection = "down", cvRefine = TRUE, cvNullModelBound = TRUE, cvWarmStart = TRUE,
-             activeSetEvery = activeSetEvery, activeSetThreshold = 0.01, adaptiveIntercept = TRUE)
-    } else if (identical(fitter, "super") && identical(modelType, "ls")) {
-        list(convergenceType = "kkt", cvConvergenceType = "kkt", cvTolerance = 0.1, cvMinIterations = 5,
-             cvSearchDirection = "up", cvRefine = TRUE, cvNullModelBound = TRUE, cvWarmStart = TRUE,
-             activeSetEvery = activeSetEvery, activeSetThreshold = 0.01, adaptiveIntercept = TRUE)
-    } else if (identical(fitter, "default") && identical(modelType, "ls")) {
-        list(convergenceType = "kkt", cvConvergenceType = NULL, cvMinIterations = 5,
-             cvSearchDirection = "up", cvRefine = TRUE, cvNullModelBound = TRUE,
-             cvWarmStart = !isTRUE(control$resetCoefficients),
-             activeSetEvery = activeSetEvery, activeSetThreshold = 0.01, adaptiveIntercept = TRUE)
-    } else { # warm starts make fold fits without resetCoefficients independent of threads
-        warmStart <- !isTRUE(control$resetCoefficients) && !identical(fitter, "legacy")
-        list(convergenceType = "gradient", cvConvergenceType = NULL, cvMinIterations = 5,
-             cvSearchDirection = "auto", cvRefine = FALSE, cvNullModelBound = FALSE, cvWarmStart = warmStart,
-             activeSetEvery = 0, activeSetThreshold = 0.01, adaptiveIntercept = FALSE)
-    }
-}
-
-# Active-set cycling pays off only with many covariates (it lost with a support of about 100)
-.activeSetMinCovariates <- 1000
-
+# The settings a control leaves to its fitter, model and algorithm: FitterPresets.cpp, shared with the Python
+# package (it was .fitterSettings(), .resolveAlgorithm() and this function in R; the rules are documented there). A
+# setting given to createControl() keeps its value, except algorithm and tolerance, which the rules can change.
 .resolveControl <- function(control, modelType = NULL, nCovariates = NULL) {
-    control <- .resolveAlgorithm(control, modelType, nCovariates)
-    settings <- .fitterSettings(control, modelType, nCovariates)
-    if (identical(.fitter(control), "super") && identical(modelType, "lr") &&
-        !is.null(control$tolerance) && is.null(control$convergenceType)) {
-        warning("tolerance is ignored without convergenceType under fitter = \"super\": ",
-                "its \"kkt\" criterion measures the tolerance in standard-error units", call. = FALSE)
-        control["tolerance"] <- list(NULL)
+    if (isTRUE(is.na(control$algorithm))) control$algorithm <- NULL # NA is unset
+    r <- .cyclopsResolveControl(control, modelType, if (is.null(nCovariates)) NULL else as.integer(nCovariates))
+    for (message in r$warnings) {
+        warning(message, call. = FALSE)
     }
-    filled <- character(0)
-    for (name in names(settings)) {
-        if (is.null(control[[name]])) {
-            control[name] <- list(settings[[name]])
-            filled <- c(filled, name)
-        }
+    if (nzchar(r$error)) {
+        stop(r$error, call. = FALSE)
     }
-    kkt <- control$convergenceType == "kkt" # in standard-error units; an honest rule needs more cycles
-    gap <- control$convergenceType == "gap" # in log-posterior units (Newton plan 3.3, D3)
-    if (is.null(control$tolerance)) {
-        control$tolerance <- if (gap) 1E-6 else if (kkt) 1E-4 else 1E-6 # gap: certified bounds are conservative
-    }
-    if (is.null(control$maxIterations)) {
-        control$maxIterations <- if (kkt || gap) 5000 else 1000
-    }
-    if (gap && is.null(control$cvConvergenceType)) { # fold fits stop at a looser gap
-        control$cvConvergenceType <- "gap"
-    }
-    if (!is.null(control$cvConvergenceType)) { # fold fits with their own rule get its defaults; kkt folds stop earlier
-        cvKkt <- control$cvConvergenceType == "kkt"
-        cvGap <- control$cvConvergenceType == "gap"
-        if (is.null(control$cvTolerance)) {
-            control$cvTolerance <- if (cvGap) 1E-5 else if (cvKkt) 3E-3 else 1E-6
-        }
-        if (is.null(control$cvMaxIterations)) {
-            control$cvMaxIterations <- if (cvKkt || cvGap) 5000 else 1000
-        }
-    }
-    if (control$convergenceType != "kkt" && !identical(control$cvConvergenceType, "kkt")) {
-        # the fitter's settings that need "kkt" lapse; given ones are an error
-        if ("activeSetEvery" %in% filled) control$activeSetEvery <- 0
-        if ("adaptiveIntercept" %in% filled) control$adaptiveIntercept <- FALSE
-        if (control$activeSetEvery != 0) {
-            stop("activeSetEvery needs convergenceType = \"kkt\" or cvConvergenceType = \"kkt\"", call. = FALSE)
-        }
-        if (control$adaptiveIntercept) {
-            stop("adaptiveIntercept needs convergenceType = \"kkt\" or cvConvergenceType = \"kkt\"", call. = FALSE)
-        }
-    }
-    control
-}
-
-# algorithm and the "gap" criterion (Newton plan 2.10). NULL means the fitter's choice: "auto" for Cox models under
-# fitter = "super", else "ccd". An explicit criterion other than "gap" under "auto" runs "ccd", bitwise as before.
-# "auto" or "newton" without a criterion means "gap"; for "auto", the criterion the fitter would have used on CCD
-# is kept as the fallback for a fit that cannot take Newton steps (a tolerance given without a criterion applies
-# only there).
-# Models with second-order kernels (Newton plan 2.2): the default algorithm is "auto" for them
-.secondOrderModels <- c("cox", "cox_counting", "cpr", "sccs", "clr", "lr")
-
-.resolveAlgorithm <- function(control, modelType = NULL, nCovariates = NULL) {
-    if (is.null(control$algorithm) || is.na(control$algorithm)) { # D1: auto wherever there are second-order kernels
-        control$algorithm <- if (!identical(.fitter(control), "legacy") && isTRUE(modelType %in% .secondOrderModels))
-            "auto" else "ccd"
-    }
-    explicitType <- !is.null(control$convergenceType)
-    if (control$algorithm == "auto" && explicitType && control$convergenceType != "gap") {
-        control$algorithm <- "ccd"
-    }
-    control$fallbackConvergenceType <- ""
-    if (control$algorithm %in% c("auto", "newton") && !explicitType) {
-        if (control$algorithm == "auto") {
-            ccd <- .resolveControl(modifyList(control, list(algorithm = "ccd")), modelType, nCovariates)
-            control$fallbackConvergenceType <- ccd$convergenceType
-            control$fallbackTolerance <- ccd$tolerance
-            control$fallbackMaxIterations <- ccd$maxIterations
-        }
-        control$convergenceType <- "gap"
-        control["tolerance"] <- list(NULL)
-    }
+    r[c("warnings", "error")] <- NULL
+    control[names(r)] <- r
     control
 }
 
@@ -1260,7 +1235,81 @@ getCrossValidationInfo <- function(object) {
          tolerance = valueOr(control$cvTolerance, -1),
          maxIterations = as.integer(valueOr(control$cvMaxIterations, -1)),
          minIterations = as.integer(control$cvMinIterations),
-         warmStart = control$cvWarmStart)
+         warmStart = control$cvWarmStart,
+         keepPredictions = isTRUE(control$cvKeepPredictions),
+         foldOfRow = valueOr(control$cvFoldOfRow, integer(0))) # empty: random folds
+}
+
+# Fold (1, ..., k) of each row in data order from fitCyclopsModel(cvFolds = ), and the fold labels
+.foldOfRow <- function(cyclopsData, cvFolds) {
+    n <- getNumberOfRows(cyclopsData)
+    rowIds <- .cyclopsGetRowLabels(cyclopsData)
+    rowIdOfRow <- NULL
+    if (is.data.frame(cvFolds)) {
+        if (!all(c("rowId", "fold") %in% colnames(cvFolds))) {
+            stop("cvFolds needs columns rowId and fold")
+        }
+        if (is.null(rowIds)) {
+            stop("These data have no row ids; give cvFolds as a vector with the fold of each row in data order")
+        }
+        rowId <- if (is.factor(cvFolds$rowId)) as.character(cvFolds$rowId) else cvFolds$rowId # not the factor codes
+        keys <- as.character(bit64::as.integer64(rowId))
+        if (anyDuplicated(keys)) {
+            stop("cvFolds has duplicate rowIds")
+        }
+        index <- match(rowIds, keys) # NA: a row without a fold (allowed with weight 0)
+        unknown <- sum(!(keys %in% rowIds))
+        if (unknown > 0) {
+            stop(unknown, " rowIds in cvFolds are not in the data")
+        }
+        fold <- cvFolds$fold[index]
+        rowIdOfRow <- .rowIdsLike(rowIds, rowId)
+    } else {
+        if (!is.null(rowIds)) {
+            stop("Give cvFolds as a data frame with columns rowId and fold: these data have row ids")
+        }
+        if (length(cvFolds) != n) {
+            stop("cvFolds needs a fold for each of the ", n, " data rows")
+        }
+        fold <- cvFolds
+        if (!is.null(cyclopsData$sortOrder)) {
+            fold <- fold[cyclopsData$sortOrder]
+        }
+    }
+    labels <- sort(unique(fold[!is.na(fold)]))
+    if (length(labels) < 2) {
+        stop("cvFolds needs at least two folds")
+    }
+    list(index = match(fold, labels), labels = labels, rowId = rowIdOfRow)
+}
+
+# Row ids (exact strings in Cyclops) in the type of `template` (that of cvFolds$rowId); numeric without one, or
+# integer64 where an id needs more than 53 bits
+.rowIdsLike <- function(labels, template = NULL) {
+    if (is.null(template)) {
+        wide <- bit64::as.integer64(labels)
+        return(if (all(abs(as.numeric(wide)) < 2^53)) as.numeric(labels) else wide)
+    }
+    if (bit64::is.integer64(template)) return(bit64::as.integer64(labels))
+    if (is.character(template)) return(labels)
+    as.numeric(labels)
+}
+
+# fit$cvPredictions from the C++ result (data order, folds 1, ..., k)
+.cvPredictionTable <- function(cyclopsData, cvPredictions, folds, rowWeights) {
+    if (!is.null(folds) && !is.null(folds$rowId)) {
+        rowId <- folds$rowId
+    } else {
+        rowId <- .cyclopsGetRowLabels(cyclopsData)
+        rowId <- if (is.null(rowId)) cyclopsData$rowNames else .rowIdsLike(rowId)
+    }
+    fold <- cvPredictions$fold + 1L # C++ counts folds from 0
+    if (!is.null(folds)) {
+        fold <- folds$labels[folds$index] # NA for a row without a fold
+    }
+    prediction <- cvPredictions$prediction
+    prediction[rowWeights == 0] <- NA # rows with weight 0 are in no fold's held-out rows
+    data.frame(rowId = rowId, fold = fold, prediction = prediction)
 }
 
 # Mode-finding options of a resolved control
@@ -1284,10 +1333,6 @@ getCrossValidationInfo <- function(object) {
 
         if (is.null(control$seed)) {
             control$seed <- as.integer(Sys.time())
-        }
-
-        if (is.null(control$algorithm) || is.na(control$algorithm)) { # Provide backwards compatibility
-            control$algorithm <- "ccd"
         }
 
         .cyclopsSetControl(cyclopsInterfacePtr, control$maxIterations, control$tolerance,
