@@ -438,15 +438,19 @@ def test_separable_data_reports_same_flag():
         X, y, "lr", add_intercept=True, control=Control(max_iterations=100)
     )
     reference = fit_in_r(X, y, "lr", add_intercept=True, max_iterations=100)
-    # under the presets ("auto", "gap") the separation is detected and the fit stops: the flags agree
+    # under the presets ("auto", "gap") the separation is detected and the fit
+    # stops: the flags agree
     assert result.return_flag == reference.return_flag
 
-    # on the "gradient" criterion (coordinate descent) the fit runs to its limit, on both sides
+    # on the "gradient" criterion (coordinate descent) the fit runs to its limit,
+    # on both sides
     _, _, result = fit(
         X, y, "lr", add_intercept=True,
         control=Control(max_iterations=100, convergence="gradient"),
     )
-    reference = fit_in_r(X, y, "lr", add_intercept=True, max_iterations=100, convergence="gradient")
+    reference = fit_in_r(
+        X, y, "lr", add_intercept=True, max_iterations=100, convergence="gradient"
+    )
     assert result.return_flag == reference.return_flag
     assert not result.converged
     np.testing.assert_allclose(

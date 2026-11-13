@@ -552,31 +552,49 @@ def test_large_seed_is_folded_into_the_portable_range(small):
 
 
 def test_control_presets_match_r_create_control():
-    """Settings left at None take the fitter's presets (FitterPresets, shared with R's createControl())."""
+    """Settings left at None take the fitter's presets (FitterPresets, shared
+    with R's createControl())."""
     from cyclops import _cyclops
 
+    def get(r, *names):
+        return tuple(r[name] for name in names)
+
     r = _cyclops.resolve_control("default", "lr", 10, False)
-    assert (r["algorithm"], r["convergence"], r["tolerance"], r["max_iterations"]) == ("auto", "gap", 1e-6, 5000)
-    assert (r["cv_convergence"], r["cv_tolerance"], r["fallback_convergence"]) == ("gap", 1e-5, "gradient")
+    assert get(r, "algorithm", "convergence", "tolerance", "max_iterations") == (
+        "auto", "gap", 1e-6, 5000
+    )
+    assert get(r, "cv_convergence", "cv_tolerance", "fallback_convergence") == (
+        "gap", 1e-5, "gradient"
+    )
     r = _cyclops.resolve_control("super", "lr", 5000, False, algorithm="ccd")
-    assert (r["convergence"], r["cv_convergence"], r["cv_tolerance"]) == ("kkt", "kkt", 3e-3)
-    assert (r["active_set_every"], r["adaptive_intercept"], r["cv_search_direction"]) == (10, True, "down")
+    assert get(r, "convergence", "cv_convergence", "cv_tolerance") == (
+        "kkt", "kkt", 3e-3
+    )
+    assert get(r, "active_set_every", "adaptive_intercept", "cv_search_direction") == (
+        10, True, "down"
+    )
     r = _cyclops.resolve_control("default", "pr", 10, False)
-    assert (r["algorithm"], r["convergence"]) == ("ccd", "gradient")
-    r = _cyclops.resolve_control("default", "lr", 10, False, algorithm="ccd", active_set_every=10)
+    assert get(r, "algorithm", "convergence") == ("ccd", "gradient")
+    r = _cyclops.resolve_control(
+        "default", "lr", 10, False, algorithm="ccd", active_set_every=10
+    )
     assert "activeSetEvery needs" in r["error"]
-    r = _cyclops.resolve_control("super", "lr", 10, False, algorithm="ccd", tolerance=1e-3)
+    r = _cyclops.resolve_control(
+        "super", "lr", 10, False, algorithm="ccd", tolerance=1e-3
+    )
     assert r["warnings"] and "tolerance is ignored" in r["warnings"][0]
 
 
 def test_control_reports_convergence():
     """A fit under the presets reports what it did, as R's fit$convergence."""
     import numpy as np
+
     from cyclops import CyclopsData, CyclopsModel, Prior
 
     rng = np.random.default_rng(3)
     X = rng.binomial(1, 0.3, size=(500, 8)).astype(float)
-    y = rng.binomial(1, 1 / (1 + np.exp(-(X[:, 0] - X[:, 1] - 0.5))), size=500).astype(float)
+    eta = X[:, 0] - X[:, 1] - 0.5
+    y = rng.binomial(1, 1 / (1 + np.exp(-eta)), size=500).astype(float)
     data = CyclopsData.from_arrays(X, y, "lr", add_intercept=True)
     data.finalize() if hasattr(data, "finalize") and not data.is_finalized else None
     fit = CyclopsModel(data, prior=Prior("laplace", variance=0.5, exclude=[0])).fit()
@@ -586,8 +604,10 @@ def test_control_reports_convergence():
 
 
 def test_control_option_spellings_and_fitters():
-    """Option names in any spelling (or native enums) resolve alike; the legacy fitter is R only."""
+    """Option names in any spelling (or native enums) resolve alike; the legacy
+    fitter is R only."""
     import pytest
+
     from cyclops import Control, _cyclops
 
     for algorithm in ("auto", "AUTO", " Auto ", _cyclops.AlgorithmKind.AUTO):
@@ -595,6 +615,7 @@ def test_control_option_spellings_and_fitters():
         assert options.algorithm == _cyclops.AlgorithmKind.AUTO
         assert options.convergence == _cyclops.ConvergenceKind.GAP
         assert options.fallback_convergence == _cyclops.ConvergenceKind.GRADIENT
-    assert Control(convergence="KKT")._to_options("lr", 10).convergence == _cyclops.ConvergenceKind.KKT
+    options = Control(convergence="KKT")._to_options("lr", 10)
+    assert options.convergence == _cyclops.ConvergenceKind.KKT
     with pytest.raises(ValueError, match="R only"):
         Control(fitter="legacy")._to_options("lr", 10)

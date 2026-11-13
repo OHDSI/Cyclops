@@ -138,7 +138,8 @@ class Control:
     starting_variance: float = -1.0
     selector: str = "auto"
     min_cv_data: int = 100
-    cv_convergence: str | None = None      #: fold fits' criterion; None: the fitter's, or as the final fit
+    #: fold fits' criterion; None: the fitter's, or as the final fit
+    cv_convergence: str | None = None
     cv_tolerance: float | None = None
     cv_max_iterations: int | None = None
     cv_min_iterations: int | None = None
@@ -156,7 +157,8 @@ class Control:
 
     def _resolve(self, model_type: str | None, n_covariates: int | None) -> dict:
         """The fitter's presets for the settings left at None (FitterPresets)."""
-        def canonical(table, value, what):  # any spelling or a native enum -> the resolver's name
+        # any spelling or a native enum -> the resolver's name
+        def canonical(table, value, what):
             if value is None:
                 return None
             kind = resolve(table, value, what)
@@ -168,13 +170,18 @@ class Control:
             algorithm=canonical(ALGORITHM_KINDS, self.algorithm, "algorithm"),
             convergence=canonical(CONVERGENCE_KINDS, self.convergence, "convergence"),
             tolerance=self.tolerance, max_iterations=self.max_iterations,
-            cv_convergence=canonical(CONVERGENCE_KINDS, self.cv_convergence, "convergence"),
+            cv_convergence=canonical(
+                CONVERGENCE_KINDS, self.cv_convergence, "convergence"
+            ),
             cv_tolerance=self.cv_tolerance,
-            cv_max_iterations=self.cv_max_iterations, cv_min_iterations=self.cv_min_iterations,
+            cv_max_iterations=self.cv_max_iterations,
+            cv_min_iterations=self.cv_min_iterations,
             cv_search_direction=None if direction is None else str(direction).lower(),
             cv_refine=self.cv_refine,
-            cv_null_model_bound=self.cv_null_model_bound, cv_warm_start=self.cv_warm_start,
-            active_set_every=self.active_set_every, active_set_threshold=self.active_set_threshold,
+            cv_null_model_bound=self.cv_null_model_bound,
+            cv_warm_start=self.cv_warm_start,
+            active_set_every=self.active_set_every,
+            active_set_threshold=self.active_set_threshold,
             adaptive_intercept=self.adaptive_intercept,
         )
         for message in r["warnings"]:
@@ -192,11 +199,13 @@ class Control:
             )
         if self.fitter == "legacy":
             raise ValueError(
-                "fitter='legacy' (Cyclops 3.7 kernels, to reproduce earlier R analyses) "
-                "is available in R only"
+                "fitter='legacy' (Cyclops 3.7 kernels, to reproduce earlier R "
+                "analyses) is available in R only"
             )
         if self.fitter not in ("default", "super"):
-            raise ValueError(f"fitter must be 'default' or 'super', got {self.fitter!r}")
+            raise ValueError(
+                f"fitter must be 'default' or 'super', got {self.fitter!r}"
+            )
         if self.threads != -1 and self.threads < 1:
             raise ValueError("threads must be -1 or >= 1")
         if self.starting_variance != -1 and self.starting_variance <= 0:
@@ -209,7 +218,9 @@ class Control:
                      "active_set_threshold", "adaptive_intercept", "cv_min_iterations",
                      "cv_refine", "cv_null_model_bound", "cv_warm_start"):
             setattr(options, name, r[name])  # typed by the resolver
-        options.convergence = resolve(CONVERGENCE_KINDS, r["convergence"], "convergence")
+        options.convergence = resolve(
+            CONVERGENCE_KINDS, r["convergence"], "convergence"
+        )
         options.algorithm = resolve(ALGORITHM_KINDS, r["algorithm"], "algorithm")
         options.initial_bound = float(self.initial_bound)
         options.max_bound_count = int(self.max_bound_count)
@@ -241,7 +252,8 @@ class Control:
         directions = {"auto": 0, "up": 1, "down": -1}
         if r["cv_search_direction"] not in directions:
             raise ValueError(
-                f"cv_search_direction must be 'auto', 'up' or 'down', got {r['cv_search_direction']!r}"
+                "cv_search_direction must be 'auto', 'up' or 'down', "
+                f"got {r['cv_search_direction']!r}"
             )
         options.cv_search_direction = directions[r["cv_search_direction"]]
         options.cv_convergence = (
@@ -287,7 +299,8 @@ class FitResult:
     #: ("gsc", "R", "dual" or "none"), gapEstimate, newtonIterations, ...
     convergence: dict = field(default_factory=dict)
     aliased_groups: int = 0          #: groups of duplicate columns merged in the fit
-    divergent_coefficients: int = 0  #: unpenalized coefficients with a monotone likelihood
+    #: unpenalized coefficients with a monotone likelihood
+    divergent_coefficients: int = 0
 
     @property
     def converged(self) -> bool:

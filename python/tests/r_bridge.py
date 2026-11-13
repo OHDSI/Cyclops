@@ -300,7 +300,8 @@ def fit_in_r(
             "want_predictions": bool(want_predictions),
             "want_standard_errors": bool(want_standard_errors),
         }
-        # unset settings stay unset: R's createControl() then takes the fitter's presets, as Python's Control does
+        # unset settings stay unset: R's createControl() then takes the fitter's
+        # presets, as Python's Control does
         if max_iterations is not None:
             spec["max_iterations"] = int(max_iterations)
         if tolerance is not None:

@@ -30,8 +30,9 @@ def test_intercept_is_prepended_with_id_zero(small):
     assert data.n_covariates == small.n_features + 1
     assert data.covariate_ids[0] == INTERCEPT_ID
     assert data.intercept_label == INTERCEPT_ID
-    # stored as R's convertToCyclopsData() stores it (not as a dense column of ones), so the fitters that look
-    # for an intercept column, such as the adaptive intercept, find it
+    # stored as R's convertToCyclopsData() stores it (not as a dense column of
+    # ones), so the fitters that look for an intercept column, such as the
+    # adaptive intercept, find it
     assert data.covariate_formats[0] == "intercept"
 
 
@@ -202,7 +203,8 @@ def test_duplicate_covariate_ids_raise(small):
 
 
 def test_sparse_batch_with_a_bad_id_is_rejected_whole(small):
-    """Ids are checked before any column is loaded, so a rejected batch leaves the data unchanged."""
+    """Ids are checked before any column is loaded, so a rejected batch leaves the
+    data unchanged."""
     X = sp.csc_matrix((small.X[:, :3] > 0).astype(np.float64))
     data = CyclopsData.create("lr")
     data.set_outcome(small.y)
@@ -217,7 +219,8 @@ def test_sparse_batch_with_a_bad_id_is_rejected_whole(small):
 
 
 def test_malformed_sparse_batch_is_rejected_whole(small):
-    """A decreasing indptr or a repeated row within a column is found before anything is loaded."""
+    """A decreasing indptr or a repeated row within a column is found before
+    anything is loaded."""
     n = small.n_samples
     data = CyclopsData.create("lr")
     data.set_outcome(small.y)
@@ -225,8 +228,14 @@ def test_malformed_sparse_batch_is_rejected_whole(small):
     rows = np.array([0, 1, 2], dtype=np.int64)
     ones = np.ones(3)
     with pytest.raises(CyclopsError, match="non-decreasing"):
-        data._handle.add_covariates_csc(np.array([0, 2, 1, 3], dtype=np.int64), rows, ones, np.array([2, 3, 4]), False)
-    repeated = sp.csc_matrix((ones, np.array([0, 1, 1]), np.array([0, 1, 3])), shape=(n, 2))  # row 1 twice in column 2
+        data._handle.add_covariates_csc(
+            np.array([0, 2, 1, 3], dtype=np.int64), rows, ones,
+            np.array([2, 3, 4]), False,
+        )
+    # row 1 twice in column 2
+    repeated = sp.csc_matrix(
+        (ones, np.array([0, 1, 1]), np.array([0, 1, 3])), shape=(n, 2)
+    )
     with pytest.raises(CyclopsError, match="Repeated row-column entry"):
         data.add_covariates(repeated, covariate_ids=[2, 3])
     np.testing.assert_array_equal(data.covariate_ids, [1])
@@ -235,7 +244,9 @@ def test_malformed_sparse_batch_is_rejected_whole(small):
 def _load_seconds(n_rows, y, p):
     rng = np.random.default_rng(3)
     rows = rng.integers(0, n_rows, size=2 * p)
-    X = sp.csc_matrix((np.ones(2 * p), (rows, np.repeat(np.arange(p), 2))), shape=(n_rows, p))
+    X = sp.csc_matrix(
+        (np.ones(2 * p), (rows, np.repeat(np.arange(p), 2))), shape=(n_rows, p)
+    )
     X.data[:] = 1.0  # duplicates were summed by the conversion
     ids = np.arange(1000, 1000 + p, dtype=np.int64)
     data = CyclopsData.create("lr")
@@ -248,28 +259,35 @@ def _load_seconds(n_rows, y, p):
 
 
 def test_wide_sparse_batch_loads_in_linear_time(small):
-    """FeatureExtraction-sized batches keep their ids, and loading time grows linearly with the columns.
+    """FeatureExtraction-sized batches keep their ids, and loading time grows
+    linearly with the columns.
 
-    Checking each new id against every existing column made loading quadratic: 1.6 s for 50,000 columns
-    and 40 s for 200,000, against 0.04 s and 0.11 s now (one laptop core). Four times the columns should
-    take about four times as long; quadratic loading takes 16 times (26 measured). The ratio does not
+    Checking each new id against every existing column made loading quadratic:
+    1.6 s for 50,000 columns and 40 s for 200,000, against 0.04 s and 0.11 s now
+    (one laptop core). Four times the columns should take about four times as
+    long; quadratic loading takes 16 times (26 measured). The ratio does not
     depend on the speed of the machine.
     """
     _load_seconds(small.n_samples, small.y, 1_000)  # warm up
     small_batch = _load_seconds(small.n_samples, small.y, 50_000)
     large_batch = _load_seconds(small.n_samples, small.y, 200_000)
     ratio = large_batch / max(small_batch, 1e-3)
-    assert ratio < 10.0, f"4x the columns took {ratio:.1f}x as long ({small_batch:.2f} s, {large_batch:.2f} s)"
+    assert ratio < 10.0, (
+        f"4x the columns took {ratio:.1f}x as long "
+        f"({small_batch:.2f} s, {large_batch:.2f} s)"
+    )
 
 
 def test_row_ids_label_rows_without_moving_covariates():
-    """Sparse covariates are read by position whatever the row ids (they were read as ids: a permutation of
-    0..n-1 silently moved them to other rows, and other ids failed)."""
+    """Sparse covariates are read by position whatever the row ids (they were read
+    as ids: a permutation of 0..n-1 silently moved them to other rows, and other ids
+    failed)."""
     rng = np.random.default_rng(2)
     n, p = 300, 6
     X = sp.random(n, p, density=0.3, format="csc", random_state=rng)
     X.data[:] = 1.0
-    y = (rng.random(n) < 1 / (1 + np.exp(-(X @ np.linspace(-1, 1, p) - 0.5)))).astype(float)
+    eta = X @ np.linspace(-1, 1, p) - 0.5
+    y = (rng.random(n) < 1 / (1 + np.exp(-eta))).astype(float)
 
     def coefficients(row_ids):
         data = CyclopsData.create("lr")
@@ -282,7 +300,8 @@ def test_row_ids_label_rows_without_moving_covariates():
     plain = coefficients(None)
     np.testing.assert_array_equal(coefficients(np.arange(n)[::-1].copy()), plain)
     np.testing.assert_array_equal(coefficients(np.arange(1001, 1001 + n)), plain)
-    lowest = np.iinfo(np.int64).min  # a row id at the bottom of the range is an id like any other
+    # a row id at the bottom of the range is an id like any other
+    lowest = np.iinfo(np.int64).min
     np.testing.assert_array_equal(coefficients(np.arange(lowest, lowest + n)), plain)
 
 
