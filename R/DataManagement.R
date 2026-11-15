@@ -32,7 +32,8 @@
 #' Items to discuss:
 #' * Only use formula or (y,dx,...)
 #' * stratum() in formula
-#' * cluster() in formula: for Cox models, rows with the same cluster (subject) stay in one cross-validation fold
+#' * cluster() in formula: rows with the same cluster (subject) stay in one cross-validation fold and are
+#'   resampled together by \code{\link{runBootstrap}}
 #' * offset() in formula
 #' * when \code{"stratum"} (renamed from pid) are necessary
 #' * when \code{"time"} are necessary
@@ -168,9 +169,6 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
         strata <- NULL
 
         if (!is.null(special$cluster)) {
-            if (modelType != "cox" && modelType != "cox_counting") {
-                stop("cluster() is only supported for Cox models")
-            }
             subjectId <- mf.d[ , special$cluster]
             subjectId <- match(subjectId, unique(subjectId))
         }

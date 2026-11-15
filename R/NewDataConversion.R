@@ -58,7 +58,8 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'   \verb{startTime}    \tab(real) \tab (optional) For \code{"cox_counting"} models, the start of the \code{(startTime, time]} \cr
 #'                  \tab        \tab (or \code{(startTime, endTime]}) risk interval of each row; rows without it are at risk \cr
 #'                  \tab        \tab from time 0 \cr
-#'   \verb{subjectId}    \tab(integer) \tab (optional) For Cox models, rows with the same subject stay in one cross-validation fold \cr
+#'   \verb{subjectId}    \tab(integer) \tab (optional) For any model, rows with the same subject stay in one cross-validation fold \cr
+#'                  \tab        \tab and are resampled together by \code{\link{runBootstrap}} (\code{selectorType = "bySubject"}) \cr
 #'   \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
 #'   \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided.
 #' }
@@ -268,7 +269,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
         .loadCyclopsDataStartTime(dataPtr, outcomes$startTime)
     }
 
-    if ((modelType == "cox" | modelType == "cox_counting") && "subjectId" %in% colnames(outcomes)) {
+    if ("subjectId" %in% colnames(outcomes)) {
         .loadCyclopsDataSubjectId(dataPtr, bit64::as.integer64(outcomes$subjectId))
     }
 
@@ -465,7 +466,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         .loadCyclopsDataStartTime(dataPtr, outcomes$startTime)
     }
 
-    if ((modelType == "cox" | modelType == "cox_counting") && "subjectId" %in% colnames(outcomes)) {
+    if ("subjectId" %in% colnames(outcomes)) {
         .loadCyclopsDataSubjectId(dataPtr, bit64::as.integer64(outcomes$subjectId))
     }
 

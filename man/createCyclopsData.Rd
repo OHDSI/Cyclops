@@ -87,7 +87,8 @@ Items to discuss:
 \itemize{
 \item Only use formula or (y,dx,...)
 \item stratum() in formula
-\item cluster() in formula: for Cox models, rows with the same cluster (subject) stay in one cross-validation fold
+\item cluster() in formula: rows with the same cluster (subject) stay in one cross-validation fold and are
+resampled together by \code{\link{runBootstrap}}
 \item offset() in formula
 \item when \code{"stratum"} (renamed from pid) are necessary
 \item when \code{"time"} are necessary

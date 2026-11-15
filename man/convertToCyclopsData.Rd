@@ -83,7 +83,8 @@ These columns are expected in the outcome object:
 \verb{startTime}    \tab(real) \tab (optional) For \code{"cox_counting"} models, the start of the \code{(startTime, time]} \cr
 \tab        \tab (or \code{(startTime, endTime]}) risk interval of each row; rows without it are at risk \cr
 \tab        \tab from time 0 \cr
-\verb{subjectId}    \tab(integer) \tab (optional) For Cox models, rows with the same subject stay in one cross-validation fold \cr
+\verb{subjectId}    \tab(integer) \tab (optional) For any model, rows with the same subject stay in one cross-validation fold \cr
+\tab        \tab and are resampled together by \code{\link{runBootstrap}} (\code{selectorType = "bySubject"}) \cr
 \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
 \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided.
 }
