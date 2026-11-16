@@ -108,11 +108,12 @@ fitCyclopsModel <- function(cyclopsData,
     }
 
     # Delegate to prior$fitHook if exists; its loop of refits (BrokenAdaptiveRidge, IterativeHardThresholding,
-    # createNonSeparablePrior) keeps coordinate descent unless an algorithm is given (Newton plan D1). A hook that
+    # createNonSeparablePrior) keeps coordinate descent unless an algorithm is given (Newton plan D1), or unless the
+    # prior sets keepControl = TRUE: then the hook gets the control as given and chooses itself. A hook that
     # takes cvFolds and returnCvPredictions (by name or through ...) gets them and returns fit$cvPredictions itself;
     # for any other hook, out-of-fold predictions come from refitting it on each fold's training rows (below)
     if (!is.null(prior$fitHook)) {
-        if (is.null(control$algorithm)) {
+        if (is.null(control$algorithm) && !isTRUE(prior$keepControl)) {
             control$algorithm <- "ccd"
         }
         hookArguments <- names(formals(prior$fitHook))

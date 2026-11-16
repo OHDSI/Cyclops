@@ -174,7 +174,8 @@ Changes:
    prior with a `fitHook` (such as BrokenAdaptiveRidge's), each fold of `cvFolds` is fit on its training rows and
    predicts its held-out rows, next to the fit on all rows. A `fitHook` that takes arguments `cvFolds` and
    `returnCvPredictions` gets them and returns the predictions itself. So PatientLevelPrediction no longer needs
-   its own fold refits for any Cyclops model
+   its own fold refits for any Cyclops model. A prior with `keepControl = TRUE` gives its `fitHook` the control as
+   given; other hooks still get coordinate descent when no algorithm is set
 
 Cyclops v3.8.0
 ==============

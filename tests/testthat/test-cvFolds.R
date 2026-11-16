@@ -267,3 +267,23 @@ test_that("out-of-fold predictions at a fixed prior keep weights, fixed coeffici
     expect_equal(fit$cvPredictions$prediction, manual, tolerance = 1e-6)
     expect_equal(unname(coef(fit)[2]), 0.3)
 })
+
+test_that("a fitHook gets coordinate descent unless its prior keeps the control as given", {
+    d <- foldData()
+    seen <- NULL
+    hookPrior <- function(keepControl) {
+        prior <- createPrior("laplace", variance = 0.05)
+        prior$keepControl <- keepControl
+        prior$fitHook <- function(cyclopsData, prior, control, ...) {
+            seen <<- control$algorithm
+            list()
+        }
+        prior
+    }
+    fitCyclopsModel(d$data(), hookPrior(FALSE), createControl(noiseLevel = "silent"))
+    expect_equal(seen, "ccd")
+    fitCyclopsModel(d$data(), hookPrior(TRUE), createControl(noiseLevel = "silent"))
+    expect_null(seen)
+    fitCyclopsModel(d$data(), hookPrior(TRUE), createControl(algorithm = "ccd", noiseLevel = "silent"))
+    expect_equal(seen, "ccd")
+})
