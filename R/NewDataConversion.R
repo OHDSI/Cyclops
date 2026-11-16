@@ -261,6 +261,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
 
     dataPtr <- createSqlCyclopsData(modelType = modelType, floatingPoint = floatingPoint)
 
+    .checkOffsetColumn(outcomes, modelType)
     hasOffset <- modelType == "lr" && "offset" %in% colnames(outcomes) # loaded as the time, then made the offset
     loadNewSqlCyclopsDataY(object = dataPtr,
                            stratumId = if ("stratumId" %in% colnames(outcomes)) outcomes$stratumId else NULL,
@@ -462,6 +463,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         stop("Cox models require start times of 0; use modelType = \"cox_counting\" for start times", call. = FALSE)
     }
 
+    .checkOffsetColumn(outcomes, modelType)
     hasOffset <- modelType == "lr" && "offset" %in% colnames(outcomes) # loaded as the time, then made the offset
     loadNewSqlCyclopsDataY(object = dataPtr,
                            stratumId = if ("stratumId" %in% colnames(outcomes)) outcomes$stratumId else NULL,
@@ -536,4 +538,18 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     }
 
     return(dataPtr)
+}
+
+# The offset column of the outcomes: lr models only, and finite
+.checkOffsetColumn <- function(outcomes, modelType) {
+    if (!"offset" %in% colnames(outcomes)) {
+        return(invisible())
+    }
+    if (modelType != "lr") {
+        warning("The offset column of the outcomes is for lr models only; modelType = \"", modelType,
+                "\" ignores it", call. = FALSE)
+    } else if (any(!is.finite(outcomes$offset))) {
+        stop("The offset column of the outcomes must be finite (", sum(!is.finite(outcomes$offset)),
+             " rows are NA, NaN or infinite)", call. = FALSE)
+    }
 }

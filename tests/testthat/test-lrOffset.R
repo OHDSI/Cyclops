@@ -129,3 +129,46 @@ test_that("lr predictions on new data add the offset of newOutcomes", {
     withoutOffset <- predict(fit, data$outcomes[, c("rowId", "y")], data$covariates)
     expect_equal(unname(withoutOffset), plogis(linearPredictor), tolerance = 1E-10)
 })
+
+test_that("lr offset with normalized covariates matches the fitted values of glm(offset =)", {
+    data <- simulateOffsetData(1000, 9)
+    gold <- glm(data$y ~ data$x, family = binomial(), offset = data$offset, control = glm.control(epsilon = 1E-14))
+    fit <- fitCyclopsModel(convertToCyclopsData(data$outcomes, data$covariates, modelType = "lr", normalize = "stdev",
+                                                quiet = TRUE),
+                           prior = createPrior("none"), control = tightControl())
+    expect_equal(unname(predict(fit)), unname(fitted(gold)), tolerance = 1E-6)
+})
+
+test_that("lr offset predictions of a fit with only an intercept, from data frames and Andromeda tables", {
+    skip_if_not_installed("Andromeda")
+    data <- simulateOffsetData(500, 10)
+    fit <- fitCyclopsModel(convertToCyclopsData(data$outcomes, data$covariates, modelType = "lr", quiet = TRUE),
+                           prior = createPrior("laplace", variance = 1E-8, exclude = 0), control = tightControl())
+    expect_true(all(coef(fit)[-1] == 0)) # the zero-coefficient branches of predict()
+    expected <- plogis(coef(fit)[1] + data$offset)
+    newOutcomes <- data$outcomes[order(-data$outcomes$rowId), ]
+    fromDataFrames <- predict(fit, newOutcomes, data$covariates)
+    expect_equal(unname(fromDataFrames[as.character(data$outcomes$rowId)]), unname(expected), tolerance = 1E-10)
+    andromeda <- Andromeda::andromeda(outcomes = newOutcomes, covariates = data$covariates)
+    on.exit(Andromeda::close(andromeda))
+    expect_equal(predict(fit, andromeda$outcomes, andromeda$covariates), predict(fit), tolerance = 1E-10)
+    expect_equal(unname(predict(fit)), unname(expected), tolerance = 1E-10)
+})
+
+test_that("lr offset input checks", {
+    data <- simulateOffsetData(200, 11)
+    for (bad in c(NA, -Inf, Inf, NaN)) {
+        outcomes <- data$outcomes
+        outcomes$offset[3] <- bad
+        expect_error(convertToCyclopsData(outcomes, data$covariates, modelType = "lr", quiet = TRUE), "finite")
+    }
+    if (requireNamespace("Andromeda", quietly = TRUE)) {
+        andromeda <- Andromeda::andromeda(outcomes = outcomes, covariates = data$covariates)
+        on.exit(Andromeda::close(andromeda))
+        expect_error(convertToCyclopsData(andromeda$outcomes, andromeda$covariates, modelType = "lr", quiet = TRUE),
+                     "finite")
+    }
+    outcomes <- data$outcomes
+    outcomes$time <- 1
+    expect_warning(convertToCyclopsData(outcomes, data$covariates, modelType = "pr", quiet = TRUE), "lr models only")
+})

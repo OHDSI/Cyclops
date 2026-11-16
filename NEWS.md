@@ -167,7 +167,8 @@ Changes:
    predictor (log-odds scale), as `glm(offset = )`, held as a covariate with coefficient fixed at 1 (as the log time of
    `pr` models), so every algorithm, prior and cross-validation uses it. The data object comes back finalized. Before,
    an `lr` offset needed a covariate and `finalizeSqlCyclopsData(useOffsetCovariate = , offsetAlreadyOnLogScale = TRUE)`.
-   `predict()` on new data adds the `offset` column of `newOutcomes`, if any
+   `predict()` on new data adds the `offset` column of `newOutcomes`, if any. Offsets must be finite, and other model
+   types warn that they ignore an `offset` column
 
 Cyclops v3.8.0
 ==============
