@@ -44,11 +44,11 @@ public:
 protected:
     void doBootstrap(
             CyclicCoordinateDescent& ccd,
-            AbstractSelector& selector,
             const CCDArguments& allArguments,
             int nThreads,
             std::vector<CyclicCoordinateDescent*>& ccdPool,
-            std::vector<AbstractSelector*>& selectorPool);
+            std::vector<AbstractSelector*>& selectorPool,
+            const std::vector<double>& startingBeta);
 
 private:
     std::vector<double> flattenEstimates();

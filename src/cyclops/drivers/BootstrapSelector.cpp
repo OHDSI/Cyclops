@@ -22,7 +22,7 @@ BootstrapSelector::BootstrapSelector(
 	    loggers::ProgressLoggerPtr _logger,
 		loggers::ErrorHandlerPtr _error,
 		std::vector<real>* wtsExclude,
-		std::vector<double>* wtsOriginal) : AbstractSelector(inIds, inType, inSeed, _logger, _error) {
+		std::vector<double>* wtsOriginal) : AbstractSelector(inIds, inType, inSeed, _logger, _error), value(0) {
 
     std::ostringstream stream;
 	stream << "Performing bootstrap estimation with " << replicates

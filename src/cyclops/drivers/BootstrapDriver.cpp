@@ -11,6 +11,8 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cmath>
+#include <limits>
+#include <memory>
 #include <sstream>
 
 #include "BootstrapDriver.h"
@@ -72,6 +74,12 @@ void BootstrapDriver::drive(
     if (nThreads < 1) {
         nThreads = 1;
     }
+    const int allThreads = nThreads; // before the clamp: see the second-order threads below
+
+    // More threads than replicates would only hold unused copies of the model
+    if (nThreads > replicates) {
+        nThreads = std::max(1, replicates);
+    }
 
 	// Replicates overwrite the weights and coefficients of the fit; restored below
 	std::vector<double> savedWeights = ccd.getWeights();
@@ -90,9 +98,20 @@ void BootstrapDriver::drive(
     ccdPool.push_back(&ccd);
     selectorPool.push_back(&selector);
 
+    // The copies are owned here, so they go also when a replicate throws; the fit gets its second-order threads back
+    std::vector<std::unique_ptr<CyclicCoordinateDescent>> ccdCopies;
+    std::vector<std::unique_ptr<AbstractSelector>> selectorCopies;
+    struct SecondOrderReset {
+        CyclicCoordinateDescent& ccd;
+        int threads;
+        ~SecondOrderReset() { ccd.setSecondOrderThreads(threads); }
+    } secondOrderReset{ccd, allThreads};
+
     for (int i = 1; i < nThreads; ++i) {
-        ccdPool.push_back(ccd.clone(allArguments.computeDevice));
-        selectorPool.push_back(selector.clone());
+        ccdCopies.emplace_back(ccd.clone(allArguments.computeDevice));
+        selectorCopies.emplace_back(selector.clone());
+        ccdPool.push_back(ccdCopies.back().get());
+        selectorPool.push_back(selectorCopies.back().get());
     }
 
     // Check of poor allocation
@@ -111,19 +130,18 @@ void BootstrapDriver::drive(
 
     if (allocationError) {
         std::ostringstream errorStream;
-        errorStream << "Memory allocation error in multi-threaded cross validation driver";
+        errorStream << "Memory allocation error in multi-threaded bootstrap driver";
         error->throwError(errorStream);
         }
+
+    // Threads beyond the replicates in parallel go to each replicate's logistic Hessian block, whose result does not
+    // depend on its threads
+    for (auto element : ccdPool) {
+        element->setSecondOrderThreads(allThreads / nThreads);
+    }
     // End of multi-thread set-up
 
-    // Delegate to auto or grid loop
-    doBootstrap(ccd, selector, allArguments, nThreads, ccdPool, selectorPool);
-
-    // Clean up
-    for (int i = 1; i < nThreads; ++i) {
-        delete ccdPool[i];
-        delete selectorPool[i];
-    }
+    doBootstrap(ccd, allArguments, nThreads, ccdPool, selectorPool, savedBeta);
 
     ccd.setBootStrapInfo(flattenEstimates());
 
@@ -133,41 +151,33 @@ void BootstrapDriver::drive(
 
 void BootstrapDriver::doBootstrap(
         CyclicCoordinateDescent& ccd,
-        AbstractSelector& selector,
         const CCDArguments& allArguments,
         int nThreads,
         std::vector<CyclicCoordinateDescent*>& ccdPool,
-        std::vector<AbstractSelector*>& selectorPool) {
+        std::vector<AbstractSelector*>& selectorPool,
+        const std::vector<double>& startingBeta) {
 
     bool coldStart = allArguments.resetCoefficients;
 
-    // selector.permute() in series to keep same PRNG stream
     std::vector<std::vector<double>> weightsPool(nThreads);
+
+    // Replicates drawn so far by each selector: a selector skips the draws of the replicates other threads ran, so
+    // replicate r has the r-th draws of the serial stream whichever thread runs it
+    std::vector<int> drawn(nThreads, 0);
 
     // allocate results so cache-lines do not thrash each other
     std::vector<double> storage(J * replicates);
 
-    // one task
-    auto scheduler = TaskScheduler<IncrementableIterator<size_t>>(
-        IncrementableIterator<size_t>(0),
-        IncrementableIterator<size_t>(replicates),
-        nThreads);
+    // Every replicate starts from the coefficients of the fit (or cold), so its estimates do not depend on the
+    // replicates its thread ran before, nor on the number of threads
+    auto oneTask = [&](size_t task, size_t uniqueId) {
 
-    const auto starts = scheduler.getThreadStarts();
-
-    auto oneTask = [&](int task) {
-
-        const auto uniqueId = scheduler.getThreadIndex(task);
         auto ccdTask = ccdPool[uniqueId];
         auto selector = selectorPool[uniqueId];
 
-        // for loop to parallelize
-
-        if (task == starts[uniqueId]) {
-            selector->advance(task);
-        }
-
+        selector->advance(static_cast<int>(task) - drawn[uniqueId]); // tasks start in increasing order
         selector->permute();
+        drawn[uniqueId] = static_cast<int>(task) + 1;
 
         selector->getWeights(0, weightsPool[uniqueId]);
         ccdTask->setWeights(weightsPool[uniqueId].data());
@@ -178,6 +188,8 @@ void BootstrapDriver::doBootstrap(
 
         if (coldStart) {
             ccdTask->resetBeta();
+        } else {
+            ccdTask->setBeta(startingBeta);
         }
 
         ccdTask->update(allArguments.modeFinding);
@@ -190,37 +202,36 @@ void BootstrapDriver::doBootstrap(
 
         } else {
 
-            ccdTask->resetBeta(); // cold start for stability
-
             for (int j = 0; j < J; ++j) {
                 storage[task * J + j] = std::numeric_limits<double>::quiet_NaN();
             }
         }
     };
 
-    // Timer timer2;
-
-    // execute all tasks in parallel
+    // execute all tasks in parallel; the first error stops the others and is rethrown here
     if (nThreads > 1) {
         ccd.getProgressLogger().setConcurrent(true);
     }
 
-    scheduler.execute(oneTask);
+    try {
+        executeDynamic(replicates, nThreads, oneTask);
+    } catch (...) {
+        if (nThreads > 1) {
+            ccd.getProgressLogger().setConcurrent(false);
+            ccd.getProgressLogger().flush();
+        }
+        throw;
+    }
 
     if (nThreads > 1) {
         ccd.getProgressLogger().setConcurrent(false);
         ccd.getProgressLogger().flush();
     }
 
-    // std::cerr << "B: " << timer2() << "\n";
-
     // transpose results
     for (int i = 0; i < replicates; ++i) {
         for (int j = 0; j < J; ++j) {
-            estimates[j]->push_back(
-                    // storage[0][i * J + j]
-                    storage[i * J + j]
-            );
+            estimates[j]->push_back(storage[i * J + j]);
         }
     }
 }
