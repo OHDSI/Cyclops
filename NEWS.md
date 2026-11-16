@@ -158,6 +158,11 @@ Changes:
    PatientLevelPrediction refits each fold itself for these predictions
 28. `convertToCyclopsData()` with no covariates (an intercept-only design) loads and fits; it crashed R (also in
    Cyclops 3.7.1)
+29. subjects (`outcomes$subjectId` in `convertToCyclopsData()`, `cluster()` in a `createCyclopsData()` formula) work
+   for every model type, not only `cox` and `cox_counting`: the rows of a subject stay in one cross-validation fold
+   and are resampled together by `runBootstrap()` (`selectorType = "bySubject"`, which `"auto"` picks in place of
+   `"byRow"` when the data have subjects). `convertToCyclopsData()` ignored `subjectId` for other models, and
+   `cluster()` stopped. Fits of data with `subjectId`, such as `lr` designs with several rows per person, can change
 
 Cyclops v3.8.0
 ==============

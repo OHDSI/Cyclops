@@ -815,7 +815,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param selectorType  String: name of exchangeable sampling unit for cross-validation and bootstrap.
 #'                              Option \code{"byPid"} selects entire strata.
 #'                              Option \code{"byRow"} selects single rows.
-#'                              Option \code{"bySubject"} selects all rows of a subject (Cox models with
+#'                              Option \code{"bySubject"} selects all rows of a subject (models with
 #'                              subjects from \code{cluster()} or \code{outcomes$subjectId}).
 #'                              If set to \code{"auto"}, \code{"byRow"} will be used for all models except conditional models where
 #'                              the average number of rows per stratum is smaller than the number of strata;
@@ -1388,7 +1388,7 @@ getSEs <- function(object, covariates) {
 #'
 #' @details
 #' Bootstrap samples resample the units given by the fit's \code{selectorType} (see \code{\link{createControl}}),
-#' so Cox models with subjects resample whole subjects by default. Units whose rows all have weight zero
+#' so models with subjects resample whole subjects by default. Units whose rows all have weight zero
 #' are not resampled: each sample draws as many units as the fit uses.
 #'
 #' @param object          A fitted Cyclops model object
