@@ -40,7 +40,8 @@ fitCyclopsModel(
 
 \item{computeDevice}{String: Name of compute device to employ; defaults to \code{"native"} C++ on CPU}
 
-\item{cvFolds}{Cross-validation folds to use instead of random ones when the prior uses cross-validation:
+\item{cvFolds}{Cross-validation folds to use instead of random ones when the prior uses cross-validation, and
+the folds of \code{returnCvPredictions} without it:
 a data frame with columns \code{rowId} and \code{fold}, for data built with row ids
 (\code{\link{convertToCyclopsData}}); for data from \code{\link{createCyclopsData}}, a vector with
 the fold of each row, in the order of the data. Every row with positive weight needs a fold; rows
@@ -49,10 +50,13 @@ different \code{fold} given to \code{\link{createControl}} is an error), and \co
 longer matters for them. The rows of one stratum (\code{selectorType = "byPid"}) or subject
 (\code{"bySubject"}) must share a fold. Needs \code{cvRepetitions = 1}.}
 
-\item{returnCvPredictions}{Logical: refit each fold at the selected variance, to the convergence criterion and
-tolerance of the final fit, and return in \code{fit$cvPredictions} the prediction of each row
-from the fit without its fold, on the scale of \code{predict()}. For \code{modelType} \code{"lr"},
-\code{"pr"} and \code{"ls"}. Needs \code{cvRepetitions = 1}.}
+\item{returnCvPredictions}{Logical: return in \code{fit$cvPredictions} the prediction of each row from a fit
+without its fold, on the scale of \code{predict()}. With cross-validation, each fold is refit at
+the selected variance, to the convergence criterion and tolerance of the final fit (needs
+\code{cvRepetitions = 1}). Without it (a fixed prior, or a prior with a \code{fitHook}), each fold
+of \code{cvFolds} is fit with the same prior on its training rows; a \code{fitHook} that takes
+arguments \code{cvFolds} and \code{returnCvPredictions} gets them and returns the predictions
+itself. For \code{modelType} \code{"lr"}, \code{"pr"} and \code{"ls"}.}
 }
 \value{
 A list that contains a Cyclops model fit object pointer and an operation duration. With

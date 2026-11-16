@@ -170,6 +170,11 @@ Changes:
    numbers) no longer stops with "Weights are not yet implemented"; `vcov()` and `getSEs()` of such fits invert the
    weighted information, as `glm()` does with prior weights
 32. the internal Fisher information after `.cyclopsSetBeta()` was computed at the previous coefficients
+33. `fitCyclopsModel(returnCvPredictions = TRUE)` also works without a hyperparameter search: with a fixed prior or a
+   prior with a `fitHook` (such as BrokenAdaptiveRidge's), each fold of `cvFolds` is fit on its training rows and
+   predicts its held-out rows, next to the fit on all rows. A `fitHook` that takes arguments `cvFolds` and
+   `returnCvPredictions` gets them and returns the predictions itself. So PatientLevelPrediction no longer needs
+   its own fold refits for any Cyclops model
 
 Cyclops v3.8.0
 ==============

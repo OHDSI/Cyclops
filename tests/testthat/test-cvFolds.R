@@ -184,3 +184,86 @@ test_that("out-of-fold predictions are the same on 1 and 4 threads", {
     expect_equal(four$variance, one$variance)
     expect_equal(four$cvPredictions$prediction, one$cvPredictions$prediction, tolerance = 1e-10)
 })
+
+# A fitHook like BrokenAdaptiveRidge's: it fits through fitCyclopsModel() and does not take the folds
+plainHook <- function(variance) {
+    prior <- createPrior("laplace", variance = variance)
+    prior$fitHook <- function(cyclopsData, prior, control, weights, forceNewObject, returnEstimates,
+                              startingCoefficients, fixedCoefficients) {
+        prior$fitHook <- NULL
+        fitCyclopsModel(cyclopsData, prior, control, weights, forceNewObject, returnEstimates,
+                        startingCoefficients, fixedCoefficients, warnings = FALSE)
+    }
+    prior
+}
+
+test_that("a fixed prior gives out-of-fold predictions on given folds, and the fit on all rows", {
+    d <- foldData()
+    data <- d$data()
+    fixedControl <- createControl(tolerance = 1e-8, noiseLevel = "silent")
+    fit <- fitCyclopsModel(data, createPrior("laplace", variance = 0.05), fixedControl, cvFolds = d$folds,
+                           returnCvPredictions = TRUE, warnings = FALSE)
+    foldOfRow <- d$folds$fold[match(fit$cvPredictions$rowId, d$folds$rowId)]
+    expect_equal(fit$cvPredictions$fold, foldOfRow)
+    expect_equal(fit$cvPredictions$prediction, refitPredictions(d$data(), 0.05, foldOfRow), tolerance = 1e-6)
+    plain <- fitCyclopsModel(d$data(), createPrior("laplace", variance = 0.05), fixedControl, warnings = FALSE)
+    expect_equal(coef(fit), coef(plain), tolerance = 1e-6)
+    expect_equal(predict(fit), predict(plain), tolerance = 1e-6) # the data object holds the fit on all rows
+    expect_error(fitCyclopsModel(d$data(), createPrior("laplace", variance = 0.05), fixedControl,
+                                 returnCvPredictions = TRUE), "needs cvFolds")
+})
+
+test_that("a fitHook that does not take folds is refit on each fold's training rows", {
+    d <- foldData()
+    fixedControl <- createControl(tolerance = 1e-8, noiseLevel = "silent")
+    fit <- fitCyclopsModel(d$data(), plainHook(0.05), fixedControl, cvFolds = d$folds, returnCvPredictions = TRUE)
+    foldOfRow <- d$folds$fold[match(fit$cvPredictions$rowId, d$folds$rowId)]
+    expect_equal(fit$cvPredictions$prediction, refitPredictions(d$data(), 0.05, foldOfRow), tolerance = 1e-6)
+    expect_equal(coef(fit), coef(fitCyclopsModel(d$data(), createPrior("laplace", variance = 0.05), fixedControl,
+                                                 warnings = FALSE)), tolerance = 1e-6)
+    expect_error(fitCyclopsModel(d$data(), plainHook(0.05), fixedControl, cvFolds = d$folds), "does not take cvFolds")
+    expect_s3_class(fitCyclopsModel(d$data(), plainHook(0.05), fixedControl), "cyclopsFit") # unchanged without folds
+})
+
+test_that("a fitHook that takes folds gets them and returns its own predictions", {
+    d <- foldData()
+    prior <- createPrior("laplace", variance = 0.05)
+    received <- NULL
+    prior$fitHook <- function(cyclopsData, prior, control, weights, forceNewObject, returnEstimates,
+                              startingCoefficients, fixedCoefficients, cvFolds = NULL, returnCvPredictions = FALSE) {
+        received <<- list(cvFolds = cvFolds, returnCvPredictions = returnCvPredictions)
+        list(cvPredictions = "from the hook")
+    }
+    fit <- fitCyclopsModel(d$data(), prior, cvFolds = d$folds, returnCvPredictions = TRUE)
+    expect_equal(fit$cvPredictions, "from the hook")
+    expect_identical(received$cvFolds, d$folds)
+    expect_true(received$returnCvPredictions)
+})
+
+test_that("out-of-fold predictions at a fixed prior keep weights, fixed coefficients and formula data in order", {
+    set.seed(9)
+    n <- 600
+    df <- data.frame(x1 = rnorm(n), x2 = rnorm(n), x3 = rbinom(n, 1, 0.3))
+    df$y <- rpois(n, exp(0.2 + 0.3 * df$x1 - 0.2 * df$x3))
+    weights <- runif(n, 0.5, 1.5)
+    fold <- rep(1:3, length.out = n)
+    fixed <- c(FALSE, TRUE, FALSE, FALSE)
+    start <- c(0, 0.3, 0, 0)
+    fixedControl <- createControl(tolerance = 1e-8, noiseLevel = "silent")
+    data <- createCyclopsData(y ~ x1 + x2 + x3, data = df, modelType = "pr")
+    fit <- fitCyclopsModel(data, createPrior("normal", variance = 1, exclude = 1), fixedControl, weights = weights,
+                           fixedCoefficients = fixed, startingCoefficients = start, cvFolds = fold,
+                           returnCvPredictions = TRUE, warnings = FALSE)
+    order <- if (is.null(data$sortOrder)) seq_len(n) else data$sortOrder
+    manual <- rep(NA_real_, n) # data order
+    for (k in 1:3) {
+        g <- fitCyclopsModel(createCyclopsData(y ~ x1 + x2 + x3, data = df, modelType = "pr"),
+                             createPrior("normal", variance = 1, exclude = 1), fixedControl,
+                             weights = weights * (fold != k), fixedCoefficients = fixed, startingCoefficients = start,
+                             warnings = FALSE)
+        heldOut <- fold[order] == k
+        manual[heldOut] <- predict(g)[heldOut]
+    }
+    expect_equal(fit$cvPredictions$prediction, manual, tolerance = 1e-6)
+    expect_equal(unname(coef(fit)[2]), 0.3)
+})

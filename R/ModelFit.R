@@ -34,7 +34,8 @@
 #' @param fixedCoefficients Vector of booleans indicating if coefficient should be fix
 #' @param warnings Logical, report regularization warnings
 #' @param computeDevice String: Name of compute device to employ; defaults to \code{"native"} C++ on CPU
-#' @param cvFolds Cross-validation folds to use instead of random ones when the prior uses cross-validation:
+#' @param cvFolds Cross-validation folds to use instead of random ones when the prior uses cross-validation, and
+#'                the folds of \code{returnCvPredictions} without it:
 #'                a data frame with columns \code{rowId} and \code{fold}, for data built with row ids
 #'                (\code{\link{convertToCyclopsData}}); for data from \code{\link{createCyclopsData}}, a vector with
 #'                the fold of each row, in the order of the data. Every row with positive weight needs a fold; rows
@@ -42,10 +43,13 @@
 #'                different \code{fold} given to \code{\link{createControl}} is an error), and \code{control$seed} no
 #'                longer matters for them. The rows of one stratum (\code{selectorType = "byPid"}) or subject
 #'                (\code{"bySubject"}) must share a fold. Needs \code{cvRepetitions = 1}.
-#' @param returnCvPredictions Logical: refit each fold at the selected variance, to the convergence criterion and
-#'                tolerance of the final fit, and return in \code{fit$cvPredictions} the prediction of each row
-#'                from the fit without its fold, on the scale of \code{predict()}. For \code{modelType} \code{"lr"},
-#'                \code{"pr"} and \code{"ls"}. Needs \code{cvRepetitions = 1}.
+#' @param returnCvPredictions Logical: return in \code{fit$cvPredictions} the prediction of each row from a fit
+#'                without its fold, on the scale of \code{predict()}. With cross-validation, each fold is refit at
+#'                the selected variance, to the convergence criterion and tolerance of the final fit (needs
+#'                \code{cvRepetitions = 1}). Without it (a fixed prior, or a prior with a \code{fitHook}), each fold
+#'                of \code{cvFolds} is fit with the same prior on its training rows; a \code{fitHook} that takes
+#'                arguments \code{cvFolds} and \code{returnCvPredictions} gets them and returns the predictions
+#'                itself. For \code{modelType} \code{"lr"}, \code{"pr"} and \code{"ls"}.
 #'
 #' @return
 #' A list that contains a Cyclops model fit object pointer and an operation duration. With
@@ -92,8 +96,8 @@ fitCyclopsModel <- function(cyclopsData,
                             cvFolds = NULL,
                             returnCvPredictions = FALSE) {
 
-    if ((!is.null(cvFolds) || returnCvPredictions) && (!is.null(control$setHook) || !is.null(prior$fitHook))) {
-        stop("cvFolds and returnCvPredictions are not available with this prior or control")
+    if ((!is.null(cvFolds) || returnCvPredictions) && !is.null(control$setHook)) {
+        stop("cvFolds and returnCvPredictions are not available with control$setHook")
     }
 
     # Delegate to control$setHook if exists
@@ -104,14 +108,37 @@ fitCyclopsModel <- function(cyclopsData,
     }
 
     # Delegate to prior$fitHook if exists; its loop of refits (BrokenAdaptiveRidge, IterativeHardThresholding,
-    # createNonSeparablePrior) keeps coordinate descent unless an algorithm is given (Newton plan D1)
+    # createNonSeparablePrior) keeps coordinate descent unless an algorithm is given (Newton plan D1). A hook that
+    # takes cvFolds and returnCvPredictions (by name or through ...) gets them and returns fit$cvPredictions itself;
+    # for any other hook, out-of-fold predictions come from refitting it on each fold's training rows (below)
     if (!is.null(prior$fitHook)) {
         if (is.null(control$algorithm)) {
             control$algorithm <- "ccd"
         }
-        return(prior$fitHook(cyclopsData, prior, control,
-                             weights, forceNewObject, returnEstimates,
-                             startingCoefficients, fixedCoefficients))
+        hookArguments <- names(formals(prior$fitHook))
+        takesFolds <- "..." %in% hookArguments || all(c("cvFolds", "returnCvPredictions") %in% hookArguments)
+        if (takesFolds && (!is.null(cvFolds) || returnCvPredictions)) {
+            return(prior$fitHook(cyclopsData, prior, control,
+                                 weights, forceNewObject, returnEstimates,
+                                 startingCoefficients, fixedCoefficients,
+                                 cvFolds = cvFolds, returnCvPredictions = returnCvPredictions))
+        }
+        if (!returnCvPredictions) {
+            if (!is.null(cvFolds)) {
+                stop("This prior's fitHook does not take cvFolds; use returnCvPredictions = TRUE for ",
+                     "out-of-fold predictions on these folds")
+            }
+            return(prior$fitHook(cyclopsData, prior, control,
+                                 weights, forceNewObject, returnEstimates,
+                                 startingCoefficients, fixedCoefficients))
+        }
+    }
+
+    # Out-of-fold predictions without a hyperparameter search (a fixed prior, or a fitHook that does not take the
+    # folds): the same fit on each fold's training rows predicts its held-out rows
+    if (returnCvPredictions && (!is.null(prior$fitHook) || !prior$useCrossValidation)) {
+        return(.fitWithFoldPredictions(cyclopsData, prior, control, weights, forceNewObject, returnEstimates,
+                                       startingCoefficients, fixedCoefficients, warnings, computeDevice, cvFolds))
     }
 
     cl <- match.call()
@@ -250,7 +277,7 @@ fitCyclopsModel <- function(cyclopsData,
     folds <- NULL
     if (!is.null(cvFolds) || returnCvPredictions) {
         if (!prior$useCrossValidation) {
-            stop("cvFolds and returnCvPredictions need a prior with useCrossValidation = TRUE")
+            stop("cvFolds without returnCvPredictions needs a prior with useCrossValidation = TRUE")
         }
         if (control$cvRepetitions != 1) {
             stop("cvFolds and returnCvPredictions need cvRepetitions = 1")
@@ -1238,6 +1265,67 @@ getCrossValidationInfo <- function(object) {
          warmStart = control$cvWarmStart,
          keepPredictions = isTRUE(control$cvKeepPredictions),
          foldOfRow = valueOr(control$cvFoldOfRow, integer(0))) # empty: random folds
+}
+
+# fitCyclopsModel(returnCvPredictions = TRUE) without a hyperparameter search: the fit (with its prior or fitHook)
+# on each fold's training rows, which predicts the fold's held-out rows, then the fit on all rows, which is returned
+# with fit$cvPredictions. The fit on all rows comes last, so the data object holds its state. Rows are in data order
+# throughout; weights go to fitCyclopsModel() in the order it takes them
+.fitWithFoldPredictions <- function(cyclopsData, prior, control, weights, forceNewObject, returnEstimates,
+                                    startingCoefficients, fixedCoefficients, warnings, computeDevice, cvFolds) {
+    if (is.null(cvFolds)) {
+        stop("returnCvPredictions without a hyperparameter search needs cvFolds")
+    }
+    if (!(cyclopsData$modelType %in% c("lr", "pr", "ls"))) {
+        stop("returnCvPredictions is available for modelType \"lr\", \"pr\" and \"ls\"")
+    }
+    .checkData(cyclopsData)
+    folds <- .foldOfRow(cyclopsData, cvFolds)
+    n <- getNumberOfRows(cyclopsData)
+    order <- cyclopsData$sortOrder
+    rowWeights <- rep(1, n) # data order
+    if (!is.null(weights)) {
+        if (length(weights) != n) {
+            stop("Must provide a weight for each data row")
+        }
+        rowWeights <- if (is.null(order)) weights else weights[order]
+    } else if (!is.null(cyclopsData$weights)) {
+        rowWeights <- cyclopsData$weights
+    }
+    if (any(is.na(folds$index) & rowWeights > 0)) {
+        stop(sum(is.na(folds$index) & rowWeights > 0), " data rows with positive weight have no fold in cvFolds")
+    }
+    asGiven <- function(w) { # data order -> the order fitCyclopsModel() takes weights in
+        if (is.null(order)) w else replace(w, order, w)
+    }
+    fit <- function(w, quietly) {
+        withCallingHandlers(
+            fitCyclopsModel(cyclopsData, prior = prior, control = control, weights = w,
+                            forceNewObject = forceNewObject, returnEstimates = returnEstimates,
+                            startingCoefficients = startingCoefficients, fixedCoefficients = fixedCoefficients,
+                            warnings = warnings && !quietly, computeDevice = computeDevice),
+            warning = function(w) { # the data's own weights, replaced by the fold's on purpose
+                if (grepl("Using weights passed to fitCyclopsModel", conditionMessage(w))) invokeRestart("muffleWarning")
+            })
+    }
+    prediction <- rep(NA_real_, n)
+    failed <- 0
+    for (k in seq_along(folds$labels)) {
+        heldOut <- !is.na(folds$index) & folds$index == k
+        foldFit <- tryCatch(fit(asGiven(rowWeights * (!is.na(folds$index) & folds$index != k)), quietly = TRUE),
+                            error = function(e) NULL)
+        if (is.null(foldFit) || foldFit$return_flag != "SUCCESS") {
+            failed <- failed + 1
+            next
+        }
+        prediction[heldOut] <- as.numeric(predict(foldFit))[heldOut]
+    }
+    result <- fit(if (is.null(weights)) NULL else weights, quietly = FALSE)
+    result$cvPredictions <- .cvPredictionTable(cyclopsData, list(prediction = prediction), folds, rowWeights)
+    if (warnings && failed > 0) {
+        warning("The fits of ", failed, " folds failed; their out-of-fold predictions are NA")
+    }
+    result
 }
 
 # Fold (1, ..., k) of each row in data order from fitCyclopsModel(cvFolds = ), and the fold labels
