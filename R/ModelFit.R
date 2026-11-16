@@ -328,9 +328,7 @@ fitCyclopsModel <- function(cyclopsData,
         }
 
         offset <- ifelse(.cyclopsGetHasOffset(cyclopsData), 1, 0)
-        for (i in 1:length(fixedCoefficients)) {
-            .cyclopsSetFixedBeta(cyclopsData$cyclopsInterfacePtr, offset + i, fixedCoefficients[i] == TRUE)
-        }
+        .cyclopsSetFixedBetas(cyclopsData$cyclopsInterfacePtr, offset, fixedCoefficients %in% TRUE)
         assign("hasFixedCoefficients", any(fixedCoefficients), cyclopsData)
     }
 

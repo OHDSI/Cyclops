@@ -41,6 +41,10 @@
     invisible(.Call(`_Cyclops_cyclopsSetFixedBeta`, inRcppCcdInterface, beta, fixed))
 }
 
+.cyclopsSetFixedBetas <- function(inRcppCcdInterface, first, fixed) {
+    invisible(.Call(`_Cyclops_cyclopsSetFixedBetas`, inRcppCcdInterface, first, fixed))
+}
+
 .cyclopsGetFixedBeta <- function(inRcppCcdInterface, index) {
     .Call(`_Cyclops_cyclopsGetFixedBeta`, inRcppCcdInterface, index)
 }

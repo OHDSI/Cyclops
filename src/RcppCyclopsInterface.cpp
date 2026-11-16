@@ -159,6 +159,20 @@ void cyclopsSetFixedBeta(SEXP inRcppCcdInterface, int beta, bool fixed) {
     interface->getCcd().setFixedBeta(beta - 1, fixed);
 }
 
+// [[Rcpp::export(.cyclopsSetFixedBetas)]]
+void cyclopsSetFixedBetas(SEXP inRcppCcdInterface, int first, const std::vector<bool>& fixed) {
+    // fixed[i] for coefficient first + i (0-based): one call for all, not one per coefficient from R
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    auto& ccd = interface->getCcd();
+    if (first < 0 || first + static_cast<int>(fixed.size()) > ccd.getBetaSize()) {
+        Rcpp::stop("fixed coefficients out of range");
+    }
+    for (size_t i = 0; i < fixed.size(); ++i) {
+        ccd.setFixedBeta(first + static_cast<int>(i), fixed[i]);
+    }
+}
+
 // [[Rcpp::export(.cyclopsGetFixedBeta)]]
 bool cyclopsGetFixedBeta(SEXP inRcppCcdInterface, const int index){
 	using namespace bsccs;
