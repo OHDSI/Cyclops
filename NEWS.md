@@ -163,6 +163,14 @@ Changes:
    and are resampled together by `runBootstrap()` (`selectorType = "bySubject"`, which `"auto"` picks in place of
    `"byRow"` when the data have subjects). `convertToCyclopsData()` ignored `subjectId` for other models, and
    `cluster()` stopped. Fits of data with `subjectId`, such as `lr` designs with several rows per person, can change
+30. `updateWeights()` and `updateOutcomes()` replace the row weights or the outcomes of a Cyclops data object in
+   place, so that a model is refit (bootstrap frequency weights, other outcomes on the same design) without
+   rebuilding the data; a refit equals a fit of rebuilt data. Weights and outcomes are given by `rowId` or in data
+   order. A row of weight 0 is left out: the fit equals that of the data without the row (`lr`, `pr`, `ls`, `cox`,
+   `cox_counting`; in conditional models, weights of 0 must cover whole strata)
+31. `runBootstrap()` runs its replicates in parallel on `createControl(threads = )`. Each replicate starts from the
+   coefficients of the fit (it started from the previous replicate) and draws the same samples on any number of
+   threads, so results do not depend on the threads; a replicate whose fit fails is `NA`
 
 Cyclops v3.8.0
 ==============

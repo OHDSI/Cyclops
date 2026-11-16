@@ -1390,6 +1390,9 @@ getSEs <- function(object, covariates) {
 #' Bootstrap samples resample the units given by the fit's \code{selectorType} (see \code{\link{createControl}}),
 #' so models with subjects resample whole subjects by default. Units whose rows all have weight zero
 #' are not resampled: each sample draws as many units as the fit uses.
+#' Replicates run in parallel on the \code{threads} of the fit's \code{\link{createControl}}; each starts from the
+#' coefficients of the fit, so the samples do not depend on the number of threads. A replicate whose fit fails gives
+#' \code{NA} estimates (see \code{na.rm}).
 #'
 #' @param object          A fitted Cyclops model object
 #' @param replicates      Numeric: number of bootstrap samples
