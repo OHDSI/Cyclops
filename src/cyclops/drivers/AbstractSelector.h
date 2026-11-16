@@ -35,18 +35,22 @@ public:
 	virtual ~AbstractSelector();
 
 	virtual void permute() = 0; // pure virtual
-	
+
 	// TODO
 	virtual void reseed() { /* std::cerr << "RESEED" << std::endl;*/ } // Do nothing by default
 
 	virtual void getWeights(int batch, std::vector<double>& weights) = 0; // pure virtual
 
 	virtual void getComplement(std::vector<double>& weights) = 0; // pure virtual
-	
+
 	virtual AbstractSelector* clone() const = 0; // pure virtual
 
 	// Fold in which each row is held out under the current assignment; false if the selector has no folds
 	virtual bool getFoldOfRow(std::vector<int>& foldOfRow) const { return false; }
+
+	virtual void advance(int permutationCount) { } // Do nothing by default
+
+	virtual void report() { } // Do nothing by default
 
 protected:
 	const std::vector<int> ids;
@@ -56,10 +60,10 @@ protected:
 	size_t N;
 	bool deterministic;
 	std::mt19937 prng;
-	
-	
+
+
     loggers::ProgressLoggerPtr logger;
-	loggers::ErrorHandlerPtr error;	
+	loggers::ErrorHandlerPtr error;
 };
 
 } // namespace
