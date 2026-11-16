@@ -60,6 +60,8 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'                  \tab        \tab from time 0 \cr
 #'   \verb{subjectId}    \tab(integer) \tab (optional) For any model, rows with the same subject stay in one cross-validation fold \cr
 #'                  \tab        \tab and are resampled together by \code{\link{runBootstrap}} (\code{selectorType = "bySubject"}) \cr
+#'   \verb{offset} \tab(real) \tab (optional) For \code{"lr"} models, an offset added to the linear predictor (log-odds \cr
+#'                  \tab        \tab scale), as \code{offset} in \code{glm()}; the data object is then finalized \cr
 #'   \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
 #'   \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided.
 #' }
@@ -259,11 +261,12 @@ convertToCyclopsData.data.frame <- function(outcomes,
 
     dataPtr <- createSqlCyclopsData(modelType = modelType, floatingPoint = floatingPoint)
 
+    hasOffset <- modelType == "lr" && "offset" %in% colnames(outcomes) # loaded as the time, then made the offset
     loadNewSqlCyclopsDataY(object = dataPtr,
                            stratumId = if ("stratumId" %in% colnames(outcomes)) outcomes$stratumId else NULL,
                            rowId = outcomes$rowId,
                            y = outcomes$y,
-                           time = if ("time" %in% colnames(outcomes)) outcomes$time else NULL)
+                           time = if (hasOffset) outcomes$offset else if ("time" %in% colnames(outcomes)) outcomes$time else NULL)
 
     if (modelType == "cox_counting" && "startTime" %in% colnames(outcomes)) {
         .loadCyclopsDataStartTime(dataPtr, outcomes$startTime)
@@ -295,6 +298,9 @@ convertToCyclopsData.data.frame <- function(outcomes,
 
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
+
+    if (hasOffset) # a covariate with coefficient fixed at 1
+        finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1, offsetAlreadyOnLogScale = TRUE)
 
     if (!is.null(normalize)) {
         .normalizeCovariates(dataPtr, normalize)
@@ -456,11 +462,12 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         stop("Cox models require start times of 0; use modelType = \"cox_counting\" for start times", call. = FALSE)
     }
 
+    hasOffset <- modelType == "lr" && "offset" %in% colnames(outcomes) # loaded as the time, then made the offset
     loadNewSqlCyclopsDataY(object = dataPtr,
                            stratumId = if ("stratumId" %in% colnames(outcomes)) outcomes$stratumId else NULL,
                            rowId = outcomes$rowId,
                            y = outcomes$y,
-                           time = if ("time" %in% colnames(outcomes)) (select(outcomes, time) %>% pull()) else NULL)
+                           time = if (hasOffset) outcomes$offset else if ("time" %in% colnames(outcomes)) (select(outcomes, time) %>% pull()) else NULL)
 
     if (modelType == "cox_counting" && "startTime" %in% colnames(outcomes)) {
         .loadCyclopsDataStartTime(dataPtr, outcomes$startTime)
@@ -500,6 +507,9 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
 
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
+
+    if (hasOffset) # a covariate with coefficient fixed at 1
+        finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1, offsetAlreadyOnLogScale = TRUE)
 
     if (!is.null(normalize)) {
         .normalizeCovariates(dataPtr, normalize)

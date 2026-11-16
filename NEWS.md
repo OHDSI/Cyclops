@@ -163,6 +163,11 @@ Changes:
    and are resampled together by `runBootstrap()` (`selectorType = "bySubject"`, which `"auto"` picks in place of
    `"byRow"` when the data have subjects). `convertToCyclopsData()` ignored `subjectId` for other models, and
    `cluster()` stopped. Fits of data with `subjectId`, such as `lr` designs with several rows per person, can change
+30. `convertToCyclopsData()` takes an `offset` column in the outcomes of `lr` models: an offset added to the linear
+   predictor (log-odds scale), as `glm(offset = )`, held as a covariate with coefficient fixed at 1 (as the log time of
+   `pr` models), so every algorithm, prior and cross-validation uses it. The data object comes back finalized. Before,
+   an `lr` offset needed a covariate and `finalizeSqlCyclopsData(useOffsetCovariate = , offsetAlreadyOnLogScale = TRUE)`.
+   `predict()` on new data adds the `offset` column of `newOutcomes`, if any
 
 Cyclops v3.8.0
 ==============

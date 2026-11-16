@@ -85,6 +85,8 @@ These columns are expected in the outcome object:
 \tab        \tab from time 0 \cr
 \verb{subjectId}    \tab(integer) \tab (optional) For any model, rows with the same subject stay in one cross-validation fold \cr
 \tab        \tab and are resampled together by \code{\link{runBootstrap}} (\code{selectorType = "bySubject"}) \cr
+\verb{offset} \tab(real) \tab (optional) For \code{"lr"} models, an offset added to the linear predictor (log-odds \cr
+\tab        \tab scale), as \code{offset} in \code{glm()}; the data object is then finalized \cr
 \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
 \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided.
 }
