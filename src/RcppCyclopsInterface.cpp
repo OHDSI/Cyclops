@@ -1180,31 +1180,27 @@ NumericVector cyclopsGetLogLikelihoodHessianDiagonal(SEXP inRcppCcdInterface, SE
 
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
-    NumericVector diagonals;
-
-    if (!Rf_isNull(sexpCovariates)) {
-
-        auto& ccd = interface->getCcd();
-        auto& data = interface->getModelData();
-
-        const std::vector<double>& bitCovariates = as<std::vector<double>>(sexpCovariates);
-        ProfileVector covariates = reinterpret_cast<const std::vector<int64_t>&>(bitCovariates);
-
-        for (ProfileVector::const_iterator it = covariates.begin();
-             it != covariates.end(); ++it) {
-
-            int index = data.getColumnIndexByName(*it);
-
-            if (index == -1) {
-                std::stringstream error;
-                error << "Variable " << *it << " not found.";
-                interface->handleError(error.str());
-            } else {
-                diagonals.push_back(-ccd.getHessianDiagonal(index));
-            }
-        }
+    if (Rf_isNull(sexpCovariates)) {
+        return NumericVector(0);
     }
 
+    auto& ccd = interface->getCcd();
+    auto& data = interface->getModelData();
+
+    const std::vector<double>& bitCovariates = as<std::vector<double>>(sexpCovariates);
+    ProfileVector covariates = reinterpret_cast<const std::vector<int64_t>&>(bitCovariates);
+
+    NumericVector diagonals(covariates.size()); // filled in place: growing it copied the whole vector per column
+    for (size_t i = 0; i < covariates.size(); ++i) {
+        const int index = data.getColumnIndexByName(covariates[i]);
+        if (index == -1) {
+            std::stringstream error;
+            error << "Variable " << covariates[i] << " not found.";
+            interface->handleError(error.str());
+        } else {
+            diagonals[i] = -ccd.getHessianDiagonal(index);
+        }
+    }
     return diagonals;
 }
 
