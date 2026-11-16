@@ -9,6 +9,7 @@
 #include <map>
 #include <chrono>
 #include <functional>
+#include <thread>
 #include "Timing.h"
 
 #include "Rcpp.h"
@@ -127,6 +128,13 @@ void cyclopsSetBeta(SEXP inRcppCcdInterface, const std::vector<double>& beta) {
     using namespace bsccs;
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
     interface->getCcd().setBeta(beta);
+}
+
+// [[Rcpp::export(.cyclopsSetThreads)]]
+void cyclopsSetThreads(SEXP inRcppCcdInterface, int threads) { // until the next fit, which sets its own
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    interface->getCcd().setThreads(threads == -1 ? static_cast<int>(std::thread::hardware_concurrency()) : threads);
 }
 
 // [[Rcpp::export(.cyclopsGetBeta)]]

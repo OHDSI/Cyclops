@@ -25,6 +25,10 @@
     invisible(.Call(`_Cyclops_cyclopsSetBeta`, inRcppCcdInterface, beta))
 }
 
+.cyclopsSetThreads <- function(inRcppCcdInterface, threads) {
+    invisible(.Call(`_Cyclops_cyclopsSetThreads`, inRcppCcdInterface, threads))
+}
+
 .cyclopsGetBeta <- function(inRcppCcdInterface, index) {
     .Call(`_Cyclops_cyclopsGetBeta`, inRcppCcdInterface, index)
 }

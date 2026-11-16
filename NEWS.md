@@ -163,6 +163,13 @@ Changes:
    and are resampled together by `runBootstrap()` (`selectorType = "bySubject"`, which `"auto"` picks in place of
    `"byRow"` when the data have subjects). `convertToCyclopsData()` ignored `subjectId` for other models, and
    `cluster()` stopped. Fits of data with `subjectId`, such as `lr` designs with several rows per person, can change
+30. new `evaluateLikelihood()`: the log-likelihood at given coefficients, with its gradient and the Fisher information
+   (matrix or diagonal) of chosen covariates, under given weights (none: every row; never an earlier fit's weights).
+   For packages that build estimators on Cyclops, such as IterativeHardThresholding, which used internal functions
+31. the Fisher information of `pr` and `ls` models with weights (and of `lr` with weights that are not whole
+   numbers) no longer stops with "Weights are not yet implemented"; `vcov()` and `getSEs()` of such fits invert the
+   weighted information, as `glm()` does with prior weights
+32. the internal Fisher information after `.cyclopsSetBeta()` was computed at the previous coefficients
 
 Cyclops v3.8.0
 ==============
