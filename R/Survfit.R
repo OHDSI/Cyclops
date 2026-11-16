@@ -10,7 +10,9 @@
 #' \code{survfit(coxph(..., weights = , ties = "breslow"), ctype = 1, stype = 2)}. Rows with weight 0
 #' are left out. The curves are for the mean covariates of all rows, without the weights (as
 #' \code{survfit.coxph} for counting-process data; for right-censored data with weights it uses the
-#' weighted means). \code{\link{predict.cyclopsFit}} gives the survival of given covariates.
+#' weighted means). \code{\link{predict.cyclopsFit}} gives the survival of given covariates. It stops with an
+#' error once another model has been fitted to the same Cyclops data, unless that fit used
+#' \code{forceNewObject = TRUE}.
 #'
 #' @param formula A Cyclops survival model fit object
 #' @param type type of baseline survival, choices are: "aalen" (Breslow)
@@ -66,7 +68,7 @@ survfit.cyclopsFit <- function(formula, type="aalen", ...) {
 # Weighted Breslow cumulative hazards of a cox or cox_counting fit at linear predictor delta, one curve
 # (time, cumhaz) per stratum, named by the internal stratum index, at the stop times of the rows with
 # positive weight
-.breslowCurves <- function(cyclopsFit, delta) {
+.breslowCurves <- function(cyclopsFit, delta, linearPredictor = .fittedLinearPredictor(cyclopsFit)) {
     cyclopsData <- cyclopsFit$cyclopsData
     times <- getTimeVector(cyclopsData)
     events <- getYVector(cyclopsData)
@@ -78,17 +80,35 @@ survfit.cyclopsFit <- function(formula, type="aalen", ...) {
     if (length(strata) == 0) {
         strata <- rep(0L, length(times))
     }
-    weights <- .cyclopsGetWeights(cyclopsFit$interface) # data order; empty when every row has weight 1
-    if (length(weights) == 0) {
+    weights <- cyclopsFit$weights # data order; NULL when every row has weight 1
+    if (is.null(weights)) {
         weights <- rep(1, length(times))
     }
-    predictors <- exp(unname(predict(cyclopsFit)) - delta)
+    predictors <- exp(linearPredictor - delta)
 
     inFit <- which(weights > 0)
     rows <- split(inFit, factor(strata[inFit], levels = unique(strata[inFit])))
     lapply(rows, function(k) {
         .breslowCumulativeHazard(startTimes[k], times[k], events[k], weights[k], predictors[k])
     })
+}
+
+# The linear predictors of the fitted rows (data order) of a fit, from its interface. Every fit on a cyclopsData
+# shares one interface, so stop when a later fit there has replaced the coefficients or weights of this one
+.fittedLinearPredictor <- function(cyclopsFit) {
+    interface <- cyclopsFit$interface
+    if (.isRcppPtrNull(interface)) {
+        stop("Interface object is not initialized")
+    }
+    beta <- as.numeric(coef(cyclopsFit))
+    first <- if (.cyclopsGetHasOffset(cyclopsFit$cyclopsData)) 1 else 0 # index 0 is then the offset
+    current <- vapply(seq_along(beta) - 1 + first, function(i) .cyclopsGetBeta(interface, i), numeric(1))
+    if (!identical(current, beta) ||
+        !identical(.cyclopsGetWeights(interface), as.numeric(cyclopsFit$weights))) { # empty when unweighted
+        stop("Another model was fitted to the data of this fit after it; refit this model, ",
+             "or fit later models with forceNewObject = TRUE")
+    }
+    unname(.cyclopsPredictModel(interface)$prediction)
 }
 
 # Breslow cumulative hazard over (start, stop] risk sets with case weights w, at the distinct stop times:

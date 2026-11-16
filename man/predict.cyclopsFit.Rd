@@ -33,5 +33,8 @@ survival probability S(t | x) = exp(-Lambda0(t) exp(x'beta)) of each new row at 
 \code{\link{survfit.cyclopsFit}}), as \code{survfit(coxph(..., ties = "breslow"), newdata, ctype = 1,
 stype = 2)}. Lambda0 is a step function that includes the events at t, and is 0 before the first event.
 For a stratified fit, \code{newOutcomes} needs a \code{stratumId} column naming a stratum of the fitted
-data, and each row uses the baseline of its stratum.
+data, and each row uses the baseline of its stratum. New covariates need the numeric \code{covariateId}s
+of data from \code{\link{convertToCyclopsData}}. The baseline comes from the fitted data and the
+interface that all fits on one Cyclops data object share, so the prediction stops with an error once
+another model has been fitted to the same data, unless that fit used \code{forceNewObject = TRUE}.
 }

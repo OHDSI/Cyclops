@@ -29,7 +29,10 @@
 #' \code{\link{survfit.cyclopsFit}}), as \code{survfit(coxph(..., ties = "breslow"), newdata, ctype = 1,
 #' stype = 2)}. Lambda0 is a step function that includes the events at t, and is 0 before the first event.
 #' For a stratified fit, \code{newOutcomes} needs a \code{stratumId} column naming a stratum of the fitted
-#' data, and each row uses the baseline of its stratum.
+#' data, and each row uses the baseline of its stratum. New covariates need the numeric \code{covariateId}s
+#' of data from \code{\link{convertToCyclopsData}}. The baseline comes from the fitted data and the
+#' interface that all fits on one Cyclops data object share, so the prediction stops with an error once
+#' another model has been fitted to the same data, unless that fit used \code{forceNewObject = TRUE}.
 #'
 #' @param object    A Cyclops model fit object
 #' @param newOutcomes  An optional data frame or Andromeda table object, similar to the object used in \code{\link{convertToCyclopsData}}.
@@ -81,6 +84,8 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, times = NULL,
             intercept <- coefficients[1]
             coefficients <- coefficients[2:length(coefficients)]
         }
+        if (isCox && anyNA(suppressWarnings(as.numeric(names(coefficients))))) # names of a formula fit
+            stop("Prediction for new data needs a fit to data from convertToCyclopsData(), with numeric covariateIds")
         coefficients <- data.frame(beta = as.numeric(coefficients),
                                    covariateId = as.numeric(names(coefficients)))
         coefficients <- coefficients[coefficients$beta != 0, ]
@@ -121,7 +126,7 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, times = NULL,
         } else {
             # Not using Andromeda
             if (nrow(coefficients) == 0) {
-                prediction <- newOutcomes
+                prediction <- newOutcomes[order(newOutcomes$rowId), , drop = FALSE] # sorted, as merge() below
                 prediction$value <- intercept
             } else {
                 prediction <- merge(newCovariates, coefficients, by = "covariateId")
@@ -160,8 +165,9 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, times = NULL,
 # Survival of new rows (rowId, value = linear predictor, and stratumId for a stratified fit) at times, with
 # the weighted Breslow baseline of a cox or cox_counting fit
 .coxSurvival <- function(object, prediction, times) {
-    delta <- mean(predict(object))
-    curves <- .breslowCurves(object, delta) # centered at delta, for numerical stability
+    linearPredictor <- .fittedLinearPredictor(object)
+    delta <- mean(linearPredictor)
+    curves <- .breslowCurves(object, delta, linearPredictor) # centered at delta, for numerical stability
 
     if (length(unique(.cyclopsGetStratumVector(object$cyclopsData))) <= 1) {
         stratum <- rep(1L, nrow(prediction))

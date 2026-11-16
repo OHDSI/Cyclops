@@ -169,7 +169,9 @@ Changes:
    S(t | x) = exp(-Lambda0(t) exp(x'beta)) of new rows of `cox` and `cox_counting` fits at `times` (a matrix, a row
    per `rowId` and a column per time), with the baseline of each row's `stratumId` in stratified fits; it matches
    `survfit(coxph(..., weights = , ties = "breslow"), newdata, ctype = 1, stype = 2)`. `predict()` stopped for new
-   Cox data before
+   Cox data before. Both stop once another model has been fitted to the same Cyclops data (fits share its interface;
+   `survfit()` silently mixed the two fits before) unless that fit used `forceNewObject = TRUE`; fit objects keep
+   their `weights`
 
 Cyclops v3.8.0
 ==============

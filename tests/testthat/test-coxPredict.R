@@ -136,6 +136,65 @@ test_that("Cox prediction from Andromeda tables equals prediction from data fram
                  tolerance = 1E-6)
 })
 
+test_that("Cox prediction stops once another model is fitted to the same data", {
+    data <- simulateCoxPredictData(300, 17)
+    newCovariates <- toCovariates(newData)
+    newOutcomes <- newData[, c("rowId", "stratumId")]
+    control <- createControl(convergenceType = "gradient", tolerance = 1E-10, noiseLevel = "silent")
+    data <- data[order(-data$time, data$y, data$rowId), ] # data order, for the weights of fitCyclopsModel()
+    weights <- data$w
+    cyclopsData <- convertToCyclopsData(data[, c("rowId", "time", "y")], toCovariates(data), modelType = "cox",
+                                        quiet = TRUE)
+    first <- fitCyclopsModel(cyclopsData, weights = weights, control = control)
+    gold <- goldSurvival(goldCoxPredict(data, "cox", weighted = TRUE, stratified = FALSE), newData)
+    expect_equal(unname(predict(first, newOutcomes, newCovariates, times = predictTimes)), gold, tolerance = 1E-6)
+    firstSurvfit <- survfit(first)
+
+    for (later in list(list(weights = rev(weights)), list(weights = weights, prior = createPrior("normal", 0.01)),
+                       list())) { # other weights, another prior, no weights
+        latest <- do.call(fitCyclopsModel, c(list(cyclopsData, control = control), later))
+        expect_error(predict(first, newOutcomes, newCovariates, times = predictTimes), "Another model")
+        expect_error(survfit(first), "Another model")
+        expect_silent(predict(latest, newOutcomes, newCovariates, times = predictTimes))
+    }
+    unweighted <- goldSurvival(goldCoxPredict(data, "cox", weighted = FALSE, stratified = FALSE), newData)
+    expect_equal(unname(predict(latest, newOutcomes, newCovariates, times = predictTimes)), unweighted,
+                 tolerance = 1E-6)
+
+    # A later fit with its own interface leaves the first fit alone
+    first <- fitCyclopsModel(cyclopsData, weights = weights, control = control)
+    other <- fitCyclopsModel(cyclopsData, control = control, forceNewObject = TRUE)
+    expect_equal(unname(predict(first, newOutcomes, newCovariates, times = predictTimes)), gold, tolerance = 1E-6)
+    expect_equal(survfit(first), firstSurvfit)
+    expect_equal(unname(predict(other, newOutcomes, newCovariates, times = predictTimes)), unweighted,
+                 tolerance = 1E-6)
+
+    # confint() and runBootstrap() put the fit back
+    ci <- confint(first, c(1, 2))
+    bootstrap <- runBootstrap(first, replicates = 5)
+    expect_equal(unname(predict(first, newOutcomes, newCovariates, times = predictTimes)), gold, tolerance = 1E-6)
+})
+
+test_that("Cox prediction of a fit with all coefficients 0, from data frames and Andromeda tables", {
+    data <- simulateCoxPredictData(300, 18)
+    newCovariates <- toCovariates(newData)
+    newOutcomes <- newData[, c("rowId", "stratumId")]
+    outcomes <- data[, c("rowId", "stratumId", "time", "y")]
+    outcomes$weights <- data$w
+    cyclopsData <- convertToCyclopsData(outcomes, toCovariates(data), modelType = "cox", quiet = TRUE)
+    fit <- fitCyclopsModel(cyclopsData, prior = createPrior("laplace", variance = 1E-8))
+    expect_true(all(coef(fit) == 0))
+    gold <- coxph(Surv(time, y) ~ x1 + x2 + strata(stratumId), data, weights = w, ties = "breslow", init = c(0, 0),
+                  control = coxph.control(iter.max = 0))
+    fromDataFrames <- predict(fit, newOutcomes, newCovariates, times = predictTimes)
+    expect_equal(rownames(fromDataFrames), as.character(sort(newData$rowId)))
+    expect_equal(unname(fromDataFrames), goldSurvival(gold, newData), tolerance = 1E-6)
+    skip_if_not_installed("Andromeda")
+    andromeda <- Andromeda::andromeda(newOutcomes = newOutcomes, newCovariates = newCovariates)
+    on.exit(Andromeda::close(andromeda))
+    expect_equal(predict(fit, andromeda$newOutcomes, andromeda$newCovariates, times = predictTimes), fromDataFrames)
+})
+
 test_that("Cox prediction input checks", {
     data <- simulateCoxPredictData(100, 16)
     newCovariates <- toCovariates(newData)
@@ -146,4 +205,11 @@ test_that("Cox prediction input checks", {
     unknownStratum <- newData[, c("rowId", "stratumId")]
     unknownStratum$stratumId[1] <- 99
     expect_error(predict(fit, unknownStratum, newCovariates, times = 1), "stratumIds")
+    rm("stratumIds", envir = fit$cyclopsData) # as data from another constructor
+    expect_error(predict(fit, newData[, c("rowId", "stratumId")], newCovariates, times = 1), "convertToCyclopsData")
+
+    formulaData <- createCyclopsData(Surv(time, y) ~ x1 + x2, data = data, modelType = "cox")
+    formulaFit <- fitCyclopsModel(formulaData)
+    newCovariates$covariateId <- c("x1", "x2")[newCovariates$covariateId]
+    expect_error(predict(formulaFit, newData[, "rowId", drop = FALSE], newCovariates, times = 1), "covariateIds")
 })
