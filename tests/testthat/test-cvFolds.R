@@ -304,3 +304,38 @@ test_that("a fitHook with only ... is refit per fold, not given the folds", {
     foldOfRow <- d$folds$fold[match(fit$cvPredictions$rowId, d$folds$rowId)]
     expect_equal(fit$cvPredictions$prediction, refitPredictions(d$data(), 0.05, foldOfRow), tolerance = 1e-6)
 })
+
+test_that("fold predictions at a fixed prior do not depend on earlier evaluations, and check their folds", {
+    set.seed(5)
+    n <- 400
+    x <- matrix(rnorm(n * 2), n, 2)
+    y <- rbinom(n, 1, plogis(x %*% c(0.6, -0.4)))
+    fold <- rep(1:3, length.out = n)
+    loose <- createControl(noiseLevel = "silent", tolerance = 1e-4)
+    prior <- createPrior("normal", variance = 1)
+    fresh <- fitCyclopsModel(createCyclopsData(y ~ x - 1, modelType = "lr"), prior, loose, cvFolds = fold,
+                             returnCvPredictions = TRUE)
+    used <- createCyclopsData(y ~ x - 1, modelType = "lr")
+    invisible(evaluateLikelihood(used, c(5, 5)))
+    again <- fitCyclopsModel(used, prior, loose, cvFolds = fold, returnCvPredictions = TRUE)
+    expect_identical(again$cvPredictions, fresh$cvPredictions)
+    expect_identical(coef(again), coef(fresh))
+    expect_equal(as.character(again$call[[1]]), "fitCyclopsModel")
+
+    expect_error(fitCyclopsModel(createCyclopsData(y ~ x - 1, modelType = "lr"), prior, loose,
+                                 weights = as.numeric(fold == 1), cvFolds = fold, returnCvPredictions = TRUE),
+                 "no rows with positive weight")
+    expect_error(fitCyclopsModel(createCyclopsData(y ~ x - 1, modelType = "lr"), prior,
+                                 createControl(fold = 5, noiseLevel = "silent"), cvFolds = fold,
+                                 returnCvPredictions = TRUE), "control\\$fold is 5")
+})
+
+test_that("a fitHook that names the fold arguments without defaults is called without folds", {
+    d <- foldData()
+    prior <- createPrior("laplace", variance = 0.05)
+    prior$fitHook <- function(cyclopsData, prior, control, weights, forceNewObject, returnEstimates,
+                              startingCoefficients, fixedCoefficients, cvFolds, returnCvPredictions) {
+        list(folds = is.null(cvFolds), predictions = returnCvPredictions)
+    }
+    expect_equal(fitCyclopsModel(d$data(), prior), list(folds = TRUE, predictions = FALSE))
+})

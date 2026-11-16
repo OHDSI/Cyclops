@@ -23,18 +23,19 @@ them.}
 
 \item{weights}{Optional vector of non-negative weights, one per data row, in the order of the data as
 given. Rows of weight 0 do not count. \code{NULL}: the weights stored with the data, else
-every row once. The weights of an earlier fit are never used.}
+every row once. The weights of an earlier fit are never used. For conditional models
+(\code{"clr"}, \code{"cpr"}, \code{"sccs"}) the weights must be equal within each stratum.}
 
 \item{gradient}{Logical: return the gradient of the log-likelihood for every covariate.}
 
-\item{information}{Optional covariates (ids as numeric, integer64 or character, or names as in \code{coef()},
-such as \code{"(Intercept)"}) for which to return the Fisher information matrix.}
+\item{information}{Optional covariates (ids as numeric or integer64, or names as in \code{coef()}, such as
+\code{"(Intercept)"}) for which to return the Fisher information matrix.}
 
 \item{informationDiagonal}{Optional covariates, as for \code{information}, for which to return only the diagonal
 of the Fisher information. Cheaper than the matrix for many covariates.}
 
 \item{threads}{Number of threads for the parts that use them (the Fisher information of logistic
-regression); -1 for all cores. Results do not depend on it.}
+regression and Cox models); -1 for all cores. Results do not depend on it.}
 }
 \value{
 A list with
@@ -53,9 +54,11 @@ on Cyclops (for example through \code{prior$fitHook}): one call sets the coeffic
 evaluates, so no result depends on an earlier fit.
 }
 \details{
-The Fisher information of Cox and conditional models with weights, and of models with weights that are not
-whole numbers other than logistic, Poisson and least-squares regression, is not available and stops with an
-error. A later fit of the same data object starts from these coefficients unless it is given others.
+The Fisher information is not available, and stops with an error, for \code{"clr_efron"} and
+\code{"clr_exact"}, and for Cox-type and conditional models with weights that are not whole numbers.
+
+The coefficients and weights stay set on the data object: \code{predict()}, \code{vcov()} and similar functions
+of an earlier fit of the same data object then use them, until the next fit or evaluation.
 }
 \examples{
 set.seed(1)

@@ -119,7 +119,7 @@ fitCyclopsModel <- function(cyclopsData,
         }
         hookArguments <- names(formals(prior$fitHook))
         takesFolds <- all(c("cvFolds", "returnCvPredictions") %in% hookArguments)
-        if (takesFolds && (!is.null(cvFolds) || returnCvPredictions)) {
+        if (takesFolds) {
             return(prior$fitHook(cyclopsData, prior, control,
                                  weights, forceNewObject, returnEstimates,
                                  startingCoefficients, fixedCoefficients,
@@ -139,8 +139,10 @@ fitCyclopsModel <- function(cyclopsData,
     # Out-of-fold predictions without a hyperparameter search (a fixed prior, or a fitHook that does not take the
     # folds): the same fit on each fold's training rows predicts its held-out rows
     if (returnCvPredictions && (!is.null(prior$fitHook) || !prior$useCrossValidation)) {
-        return(.fitWithFoldPredictions(cyclopsData, prior, control, weights, forceNewObject, returnEstimates,
-                                       startingCoefficients, fixedCoefficients, warnings, computeDevice, cvFolds))
+        fit <- .fitWithFoldPredictions(cyclopsData, prior, control, weights, forceNewObject, returnEstimates,
+                                       startingCoefficients, fixedCoefficients, warnings, computeDevice, cvFolds)
+        fit$call <- match.call()
+        return(fit)
     }
 
     cl <- match.call()
@@ -1281,6 +1283,9 @@ getCrossValidationInfo <- function(object) {
     }
     .checkData(cyclopsData)
     folds <- .foldOfRow(cyclopsData, cvFolds)
+    if (isTRUE(control$foldGiven) && control$fold != length(folds$labels)) {
+        stop("control$fold is ", control$fold, " but cvFolds has ", length(folds$labels), " folds")
+    }
     n <- getNumberOfRows(cyclopsData)
     order <- cyclopsData$sortOrder
     rowWeights <- rep(1, n) # data order
@@ -1292,21 +1297,42 @@ getCrossValidationInfo <- function(object) {
     } else if (!is.null(cyclopsData$weights)) {
         rowWeights <- cyclopsData$weights
     }
+    if (anyNA(rowWeights) || any(rowWeights < 0)) {
+        stop("Only non-negative weights are allowed")
+    }
     if (any(is.na(folds$index) & rowWeights > 0)) {
         stop(sum(is.na(folds$index) & rowWeights > 0), " data rows with positive weight have no fold in cvFolds")
+    }
+    for (k in seq_along(folds$labels)) {
+        if (!any(rowWeights > 0 & !is.na(folds$index) & folds$index != k)) {
+            stop("Fold ", folds$labels[k], " leaves no rows with positive weight to fit")
+        }
     }
     asGiven <- function(w) { # data order -> the order fitCyclopsModel() takes weights in
         if (is.null(order)) w else replace(w, order, w)
     }
+    # every fit starts where a new data object would (or from startingCoefficients), so neither the order of the
+    # folds nor an earlier fit or evaluation of the data changes the results
+    .checkInterface(cyclopsData, computeDevice = computeDevice, forceNewObject = forceNewObject)
+    zero <- rep(0, getNumberOfCovariates(cyclopsData) + .cyclopsGetHasOffset(cyclopsData))
+    if (.cyclopsGetHasOffset(cyclopsData)) {
+        zero[1] <- 1
+    }
     fit <- function(w, quietly) {
-        withCallingHandlers(
-            fitCyclopsModel(cyclopsData, prior = prior, control = control, weights = w,
-                            forceNewObject = forceNewObject, returnEstimates = returnEstimates,
-                            startingCoefficients = startingCoefficients, fixedCoefficients = fixedCoefficients,
-                            warnings = warnings && !quietly, computeDevice = computeDevice),
-            warning = function(w) { # the data's own weights, replaced by the fold's on purpose
-                if (grepl("Using weights passed to fitCyclopsModel", conditionMessage(w))) invokeRestart("muffleWarning")
-            })
+        if (is.null(startingCoefficients)) {
+            .cyclopsSetBeta(cyclopsData$cyclopsInterfacePtr, zero)
+            .cyclopsSetStartingBeta(cyclopsData$cyclopsInterfacePtr, zero)
+        }
+        run <- function() fitCyclopsModel(cyclopsData, prior = prior, control = control, weights = w,
+                                          returnEstimates = returnEstimates, startingCoefficients = startingCoefficients,
+                                          fixedCoefficients = fixedCoefficients, warnings = warnings && !quietly,
+                                          computeDevice = computeDevice)
+        if (!quietly) {
+            return(run())
+        }
+        withCallingHandlers(run(), warning = function(w) { # the data's own weights, replaced by the fold's
+            if (grepl("Using weights passed to fitCyclopsModel", conditionMessage(w))) invokeRestart("muffleWarning")
+        })
     }
     prediction <- rep(NA_real_, n)
     failed <- 0
@@ -1314,7 +1340,7 @@ getCrossValidationInfo <- function(object) {
         heldOut <- !is.na(folds$index) & folds$index == k
         foldFit <- tryCatch(fit(asGiven(rowWeights * (!is.na(folds$index) & folds$index != k)), quietly = TRUE),
                             error = function(e) NULL)
-        if (is.null(foldFit) || foldFit$return_flag != "SUCCESS") {
+        if (is.null(foldFit) || !identical(foldFit$return_flag, "SUCCESS")) {
             failed <- failed + 1
             next
         }

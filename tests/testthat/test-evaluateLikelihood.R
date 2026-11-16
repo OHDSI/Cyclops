@@ -34,7 +34,9 @@ finiteDifferences <- function(data, beta, weights) {
 
 test_that("evaluateLikelihood matches finite differences for every model, with and without weights", {
     for (model in names(designs)) {
-        for (weights in list(NULL, as.numeric(seq_len(n) %% 3 != 0))) {
+        # conditional models: a weight per stratum (their strata sum over every row)
+        holdOut <- if (model == "clr") as.numeric(strata %% 3 != 0) else as.numeric(seq_len(n) %% 3 != 0)
+        for (weights in list(NULL, holdOut)) {
             data <- designs[[model]]() # never fitted
             names <- Cyclops:::.coefficientNames(data)
             beta <- rnorm(length(names), 0, 0.3)
@@ -125,4 +127,38 @@ test_that("the internal Fisher information is computed at the coefficients just 
     Cyclops:::.cyclopsSetBeta(ptr, beta)
     expect_equal(unname(Cyclops:::.cyclopsGetFisherInformation(ptr, ids)),
                  unname(evaluateLikelihood(data, beta, information = ids)$information))
+})
+
+test_that("Fine-Gray data are evaluated with their censoring weights without a fit", {
+    time <- rexp(n)
+    status <- sample(0:2, n, replace = TRUE)
+    fg <- getFineGrayWeights(time, status)
+    data <- createCyclopsData(fg$surv ~ X, modelType = "fgr", censorWeights = fg$weights)
+    fit <- fitCyclopsModel(createCyclopsData(fg$surv ~ X, modelType = "fgr", censorWeights = fg$weights),
+                           prior = createPrior("none"))
+    expect_equal(evaluateLikelihood(data, coef(fit))$logLikelihood, fit$log_likelihood, tolerance = 1e-8)
+})
+
+test_that("conditional models take weights per stratum; tied conditional models give no information", {
+    y <- rbinom(n, 1, plogis(eta))
+    data <- createCyclopsData(y ~ X + strata(strata), modelType = "clr")
+    keep <- strata %% 3 != 0
+    perStratum <- as.numeric(keep)
+    dropped <- createCyclopsData(y[keep] ~ X[keep, ] + strata(strata[keep]), modelType = "clr")
+    beta <- c(0.3, -0.2, 0.1)
+    expect_equal(evaluateLikelihood(data, beta, weights = perStratum)$logLikelihood,
+                 evaluateLikelihood(dropped, beta)$logLikelihood)
+    expect_error(evaluateLikelihood(data, beta, weights = as.numeric(seq_len(n) %% 3 != 0)), "equal within each stratum")
+    tied <- createCyclopsData(rbinom(n, 1, 0.5) ~ X + strata(strata), modelType = "clr_efron")
+    expect_error(evaluateLikelihood(tied, beta, information = 1), "not available")
+})
+
+test_that("repeated covariates, NA values and character ids are refused clearly", {
+    data <- designs$clr()
+    beta <- c(0.3, -0.2, 0.1)
+    reference <- evaluateLikelihood(data, beta, information = c("X1", "X2"))$information
+    expect_error(evaluateLikelihood(data, beta, information = c("X1", "X1")), "repeated")
+    expect_equal(evaluateLikelihood(data, beta, information = c("X1", "X2"))$information, reference)
+    expect_error(evaluateLikelihood(data, c(0.3, NA, 0.1)), "NA")
+    expect_error(evaluateLikelihood(designs$lr(), c(0, 0.3, -0.2, 0.1), weights = c(NA, rep(1, n - 1))), "non-negative")
 })

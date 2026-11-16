@@ -168,7 +168,7 @@ Changes:
    For packages that build estimators on Cyclops, such as IterativeHardThresholding, which used internal functions
 31. the Fisher information of `pr` and `ls` models with weights (and of `lr` with weights that are not whole
    numbers) no longer stops with "Weights are not yet implemented"; `vcov()` and `getSEs()` of such fits invert the
-   weighted information, as `glm()` does with prior weights
+   weighted information, as `glm()` does with prior weights (for `ls`, without a dispersion factor, as before)
 32. the internal Fisher information after `.cyclopsSetBeta()` was computed at the previous coefficients
 33. `fitCyclopsModel(returnCvPredictions = TRUE)` also works without a hyperparameter search: with a fixed prior or a
    prior with a `fitHook` (such as BrokenAdaptiveRidge's), each fold of `cvFolds` is fit on its training rows and
