@@ -1446,7 +1446,8 @@ runBootstrap <- function(object, replicates, ciCoverage = 0.95, na.rm = FALSE) {
 #' @param maximumCurvature Numeric: maximum curvature of log-likelihood profile required to compute CI
 #' @param method    String: \code{"profile"} (default) for profile-likelihood intervals or \code{"robust"} for Wald
 #'                  intervals from the cluster-robust variance (\code{includePenalty} and \code{maximumCurvature}
-#'                  are then unused, and the \code{evaluations} column is 0)
+#'                  are then unused, and the \code{evaluations} column is 0; as for profile intervals,
+#'                  regularized parameters need \code{overrideNoRegularization = TRUE})
 #' @param ... Additional argument(s) for methods
 #'
 #' @return
@@ -1484,9 +1485,13 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
 
     prof <- NULL
     if (method == "robust") {
+        regularized <- .isRegularized(object, parm)
+        if (!overrideNoRegularization && any(regularized)) {
+            stop("Variable ", as.character(parm[regularized][1]), " is regularized.")
+        }
         labels <- .coefficientNames(object, parm)
         estimate <- coef(object)[labels]
-        se <- sqrt(diag(vcov(object, type = "robust")))[labels]
+        se <- sqrt(diag(vcov(object, overrideNoRegularization = overrideNoRegularization, type = "robust")))[labels]
         z <- qnorm(1 - (1 - level) / 2)
         prof <- data.frame(covariate = as.numeric(parm), lower = estimate - z * se, upper = estimate + z * se,
                            evaluations = 0)
@@ -1851,8 +1856,11 @@ aconfint <- function(object, parm, level = 0.95, control,
 #' \code{\link{convertToCyclopsData}}), or of one row when the data have no subjects. It has no small-sample
 #' factor, as \code{coxph(..., cluster = )} and \code{sandwich::vcovCL(..., type = "HC0", cadjust = FALSE)}.
 #' Cox scores are the weighted score residuals (Breslow ties), which include the risk-set compensator. It is
-#' available for \code{"lr"}, \code{"pr"}, \code{"cox"} and \code{"cox_counting"} models (not under
-#' \code{fitter = "legacy"}), and covers only the coefficients that are not fixed.
+#' available for \code{"lr"}, \code{"pr"}, \code{"cox"} and \code{"cox_counting"} models (not for \code{"cox"}
+#' under \code{fitter = "legacy"}), and covers only the coefficients that are not fixed (a 0 x 0 matrix when all
+#' are). Under a prior, \eqn{H} and \eqn{U} are those of the log likelihood at the posterior mode, which does
+#' not give a validated variance of regularized coefficients: it then warns, unless
+#' \code{overrideNoRegularization = TRUE}.
 #'
 #' @param object    A fitted Cyclops model object
 #' @param control    A \code{"cyclopsControl"} object constructed by \code{\link{createControl}}
@@ -1873,7 +1881,7 @@ vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, t
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     .setControl(object$cyclopsData$cyclopsInterfacePtr, control, object$cyclopsData)
     if (type == "robust") {
-        return(.robustVcov(object))
+        return(.robustVcov(object, overrideNoRegularization))
     }
     fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsData$cyclopsInterfacePtr, NULL)
     if (.cyclopsGetHasOffset(object$cyclopsData)) {
@@ -1887,11 +1895,18 @@ vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, t
 
 # Cluster-robust variance H^-1 (U'U) H^-1 of the coefficients that are not fixed: H the information of the log
 # likelihood, U the score contributions summed by subject. A generalized inverse of a singular H gives the same
-# entries for the identified coefficients, since the scores lie in the row space of H
-.robustVcov <- function(object) {
+# entries for the identified coefficients, since the scores lie in the row space of H. Under a prior it is not a
+# validated variance of the regularized coefficients: it warns unless overrideNoRegularization
+.robustVcov <- function(object, overrideNoRegularization = FALSE) {
     covariates <- getCovariateIds(object$cyclopsData)
     if (!is.null(object$fixedCoefficients)) {
         covariates <- covariates[!object$fixedCoefficients]
+    }
+    if (length(covariates) == 0) { # every coefficient is fixed
+        return(matrix(numeric(0), 0, 0, dimnames = list(character(0), character(0))))
+    }
+    if (!overrideNoRegularization && any(.isRegularized(object, covariates))) {
+        warning("The robust variance excludes the prior; it is not a validated variance of regularized coefficients")
     }
     ptr <- object$cyclopsData$cyclopsInterfacePtr
     bread <- .invertInformation(.cyclopsGetFisherInformation(ptr, covariates), generalizedInverse = TRUE)
@@ -1900,6 +1915,14 @@ vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, t
     labels <- .coefficientNames(object, covariates)
     dimnames(vcov) <- list(labels, labels)
     vcov
+}
+
+# Whether the coefficients of the covariates with ids `covariates` have a prior (engine indices count an offset)
+.isRegularized <- function(object, covariates) {
+    ids <- as.character(getCovariateIds(object$cyclopsData))
+    indices <- match(as.character(bit64::as.integer64(covariates)), ids) - 1 + .cyclopsGetHasOffset(object$cyclopsData)
+    vapply(indices, function(index) .cyclopsGetIsRegularized(object$cyclopsData$cyclopsInterfacePtr, index),
+           logical(1))
 }
 
 # Inverse of a Fisher information matrix, from a pivoted Cholesky factorization of its unit-diagonal

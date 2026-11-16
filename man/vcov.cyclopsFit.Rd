@@ -44,6 +44,9 @@ contributions of one subject (\code{cluster()} in \code{\link{createCyclopsData}
 \code{\link{convertToCyclopsData}}), or of one row when the data have no subjects. It has no small-sample
 factor, as \code{coxph(..., cluster = )} and \code{sandwich::vcovCL(..., type = "HC0", cadjust = FALSE)}.
 Cox scores are the weighted score residuals (Breslow ties), which include the risk-set compensator. It is
-available for \code{"lr"}, \code{"pr"}, \code{"cox"} and \code{"cox_counting"} models (not under
-\code{fitter = "legacy"}), and covers only the coefficients that are not fixed.
+available for \code{"lr"}, \code{"pr"}, \code{"cox"} and \code{"cox_counting"} models (not for \code{"cox"}
+under \code{fitter = "legacy"}), and covers only the coefficients that are not fixed (a 0 x 0 matrix when all
+are). Under a prior, \eqn{H} and \eqn{U} are those of the log likelihood at the posterior mode, which does
+not give a validated variance of regularized coefficients: it then warns, unless
+\code{overrideNoRegularization = TRUE}.
 }

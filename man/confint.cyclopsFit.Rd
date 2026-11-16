@@ -34,7 +34,8 @@ either a vector of numbers of covariateId names}
 
 \item{method}{String: \code{"profile"} (default) for profile-likelihood intervals or \code{"robust"} for Wald
 intervals from the cluster-robust variance (\code{includePenalty} and \code{maximumCurvature}
-are then unused, and the \code{evaluations} column is 0)}
+are then unused, and the \code{evaluations} column is 0; as for profile intervals,
+regularized parameters need \code{overrideNoRegularization = TRUE})}
 
 \item{...}{Additional argument(s) for methods}
 }
