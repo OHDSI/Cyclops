@@ -163,6 +163,18 @@ Changes:
    and are resampled together by `runBootstrap()` (`selectorType = "bySubject"`, which `"auto"` picks in place of
    `"byRow"` when the data have subjects). `convertToCyclopsData()` ignored `subjectId` for other models, and
    `cluster()` stopped. Fits of data with `subjectId`, such as `lr` designs with several rows per person, can change
+30. `vcov()`, `getSEs()` and the Fisher information accept non-integer case weights for `cox`, `cox_counting`, `lr`
+   and `pr` fits (and `cpr`, `sccs` and `clr` under the default fitter): they return the inverse of the weighted
+   information, as `coxph(weights = )$naive.var` (Breslow ties) and `vcov()` of a weighted `glm()`. They stopped with
+   "Weights are not yet implemented in Fisher Information calculations"
+31. `vcov(fit, type = "robust")` returns the cluster-robust (sandwich) variance H^-1 (U'U) H^-1 of `lr`, `pr`, `cox` and
+   `cox_counting` fits: H is the information of the log likelihood (the prior excluded), and each row of U sums the
+   weighted score contributions of one subject (`cluster()` or `subjectId`; one row without subjects). Cox scores are
+   the weighted score residuals with the risk-set compensator, for counting-process data and strata. Fixed
+   coefficients are left out, and there is no small-sample factor: it matches `coxph(weights = , cluster = ,
+   ties = "breslow")$var` and `sandwich::vcovCL(glm(weights = ), cluster = , type = "HC0", cadjust = FALSE)` to
+   1e-6. `confint(fit, method = "robust")` gives the Wald intervals from it. The defaults (`type = "modelBased"`,
+   `method = "profile"`) are unchanged
 
 Cyclops v3.8.0
 ==============

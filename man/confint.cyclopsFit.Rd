@@ -12,6 +12,7 @@
   includePenalty = TRUE,
   rescale = FALSE,
   maximumCurvature = -0.001,
+  method = c("profile", "robust"),
   ...
 )
 }
@@ -31,6 +32,10 @@ either a vector of numbers of covariateId names}
 
 \item{maximumCurvature}{Numeric: maximum curvature of log-likelihood profile required to compute CI}
 
+\item{method}{String: \code{"profile"} (default) for profile-likelihood intervals or \code{"robust"} for Wald
+intervals from the cluster-robust variance (\code{includePenalty} and \code{maximumCurvature}
+are then unused, and the \code{evaluations} column is 0)}
+
 \item{...}{Additional argument(s) for methods}
 }
 \value{
@@ -41,6 +46,8 @@ These columns are labelled as (1-level) / 2 and 1 - (1 - level) / 2 in percent
 \description{
 \code{confinit.cyclopsFit} profiles the data likelihood to construct confidence intervals of
 arbitrary level. Usually it only makes sense to do this for variables that have not been regularized.
+With \code{method = "robust"} it returns Wald intervals from the cluster-robust variance
+(\code{vcov(object, type = "robust")}) instead.
 }
 \examples{
 #Generate some simulated data:

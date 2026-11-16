@@ -237,6 +237,10 @@ public:
 
 	Matrix computeFisherInformation(const std::vector<IdType>& indices) const;
 
+	// U'U for the robust (sandwich) variance: U holds, per subject (per row when the data have no
+	// subjects), the summed score contributions of the columns `indices` at the current coefficients
+	Matrix computeScoreCrossProduct(const std::vector<IdType>& indices) const;
+
 	AbstractModelSpecifics& getModelSpecifics() const { return modelSpecifics; }
 
 	// Observe-only stopping statistics (Newton plan, Phase 2). With the environment variable CYCLOPS_SHADOW set

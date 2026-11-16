@@ -50,7 +50,7 @@ test_that("vcov for cpr ignores strata without events", {
     expect_equal(vcov(fitWithEmpty), vcov(fit), tolerance = 1E-6)
 })
 
-test_that("vcov with weights: integer weights count rows, others are not supported", {
+test_that("vcov with weights: integer weights count rows, others give the weighted information", {
     formula <- case ~ spontaneous + induced
     twice <- rep(c(1, 2), length.out = nrow(infert))
     control <- createControl(tolerance = 1E-10, noiseLevel = "silent")
@@ -59,9 +59,12 @@ test_that("vcov with weights: integer weights count rows, others are not support
                                                     modelType = "lr"), control = control)
     expect_equal(vcov(fit), vcov(replicated), tolerance = 1E-6)
 
-    fit <- fitCyclopsModel(createCyclopsData(formula, data = infert, modelType = "lr"),
-                           weights = rep(c(1, 1.5), length.out = nrow(infert)))
-    expect_error(vcov(fit), "Weights are not yet implemented in Fisher Information calculations")
+    weights <- rep(c(1, 1.5), length.out = nrow(infert))
+    fit <- fitCyclopsModel(createCyclopsData(formula, data = infert, modelType = "lr"), weights = weights,
+                           control = control)
+    gold <- suppressWarnings(glm(formula, family = binomial, data = infert, weights = weights,
+                                 control = glm.control(epsilon = 1E-14)))
+    expect_equal(unname(vcov(fit)), unname(vcov(gold)), tolerance = 1E-6)
 })
 
 test_that("vcov for legacy cox and cox_time matches coxph", {

@@ -247,6 +247,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsGetScoreCrossProduct
+Eigen::MatrixXd cyclopsGetScoreCrossProduct(SEXP inRcppCcdInterface, const std::vector<double>& bitCovariates);
+RcppExport SEXP _Cyclops_cyclopsGetScoreCrossProduct(SEXP inRcppCcdInterfaceSEXP, SEXP bitCovariatesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type bitCovariates(bitCovariatesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsGetScoreCrossProduct(inRcppCcdInterface, bitCovariates));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsSecondOrder
 List cyclopsSecondOrder(SEXP inRcppCcdInterface, const SEXP sexpBitCovariates, const std::vector<double>& v, double t, int reps);
 RcppExport SEXP _Cyclops_cyclopsSecondOrder(SEXP inRcppCcdInterfaceSEXP, SEXP sexpBitCovariatesSEXP, SEXP vSEXP, SEXP tSEXP, SEXP repsSEXP) {
@@ -1101,6 +1113,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsTestProportionality", (DL_FUNC) &_Cyclops_cyclopsTestProportionality, 3},
     {"_Cyclops_cyclopsGetSchoenfeldResiduals", (DL_FUNC) &_Cyclops_cyclopsGetSchoenfeldResiduals, 2},
     {"_Cyclops_cyclopsGetFisherInformation", (DL_FUNC) &_Cyclops_cyclopsGetFisherInformation, 2},
+    {"_Cyclops_cyclopsGetScoreCrossProduct", (DL_FUNC) &_Cyclops_cyclopsGetScoreCrossProduct, 2},
     {"_Cyclops_cyclopsSecondOrder", (DL_FUNC) &_Cyclops_cyclopsSecondOrder, 5},
     {"_Cyclops_cyclopsSetPrior", (DL_FUNC) &_Cyclops_cyclopsSetPrior, 7},
     {"_Cyclops_cyclopsTestParameterizedPrior", (DL_FUNC) &_Cyclops_cyclopsTestParameterizedPrior, 4},

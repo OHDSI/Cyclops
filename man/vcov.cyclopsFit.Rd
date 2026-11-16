@@ -4,7 +4,13 @@
 \alias{vcov.cyclopsFit}
 \title{Calculate variance-covariance matrix for a fitted Cyclops model object}
 \usage{
-\method{vcov}{cyclopsFit}(object, control, overrideNoRegularization = FALSE, ...)
+\method{vcov}{cyclopsFit}(
+  object,
+  control,
+  overrideNoRegularization = FALSE,
+  type = c("modelBased", "robust"),
+  ...
+)
 }
 \arguments{
 \item{object}{A fitted Cyclops model object}
@@ -13,13 +19,31 @@
 
 \item{overrideNoRegularization}{Logical: Enable variance-covariance estimation for regularized parameters}
 
+\item{type}{String: \code{"modelBased"} (default) for the inverse Fisher information or \code{"robust"} for
+the cluster-robust sandwich variance}
+
 \item{...}{Additional argument(s) for methods}
 }
 \value{
-A matrix of the estimates covariances between all covariate estimates. When the Fisher information is
+A matrix of the estimates covariances between all covariate estimates (\code{type = "robust"}: all covariates
+with coefficients that are not fixed). When the Fisher information is
 singular (aliased covariates, such as exact duplicates), the rows and columns of the aliased covariates
 are \code{NA}, with a warning.
 }
 \description{
 \code{vcov.cyclopsFit} returns the variance-covariance matrix for all covariates of a Cyclops model object
+}
+\details{
+\code{type = "modelBased"} inverts the Fisher information of the log likelihood. With case weights this is
+the inverse of the weighted information (\code{coxph()}'s \code{naive.var}, \code{vcov()} of a weighted
+\code{glm()}), which is not a valid variance when the weights are not frequencies.
+
+\code{type = "robust"} is the cluster-robust (sandwich) variance \eqn{H^{-1} (U'U) H^{-1}}, where \eqn{H} is the
+Fisher information of the log likelihood (the prior excluded) and each row of \eqn{U} sums the weighted score
+contributions of one subject (\code{cluster()} in \code{\link{createCyclopsData}}, \code{subjectId} in
+\code{\link{convertToCyclopsData}}), or of one row when the data have no subjects. It has no small-sample
+factor, as \code{coxph(..., cluster = )} and \code{sandwich::vcovCL(..., type = "HC0", cadjust = FALSE)}.
+Cox scores are the weighted score residuals (Breslow ties), which include the risk-set compensator. It is
+available for \code{"lr"}, \code{"pr"}, \code{"cox"} and \code{"cox_counting"} models (not under
+\code{fitter = "legacy"}), and covers only the coefficients that are not fixed.
 }

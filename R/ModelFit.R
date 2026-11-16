@@ -1432,6 +1432,8 @@ runBootstrap <- function(object, replicates, ciCoverage = 0.95, na.rm = FALSE) {
 #' @description
 #' \code{confinit.cyclopsFit} profiles the data likelihood to construct confidence intervals of
 #' arbitrary level. Usually it only makes sense to do this for variables that have not been regularized.
+#' With \code{method = "robust"} it returns Wald intervals from the cluster-robust variance
+#' (\code{vcov(object, type = "robust")}) instead.
 #'
 #' @param object    A fitted Cyclops model object
 #' @param parm      A specification of which parameters require confidence intervals,
@@ -1442,6 +1444,9 @@ runBootstrap <- function(object, replicates, ciCoverage = 0.95, na.rm = FALSE) {
 #' @param includePenalty    Logical: Include regularized covariate penalty in profile
 #' @param rescale   Boolean: rescale coefficients for unnormalized covariate values
 #' @param maximumCurvature Numeric: maximum curvature of log-likelihood profile required to compute CI
+#' @param method    String: \code{"profile"} (default) for profile-likelihood intervals or \code{"robust"} for Wald
+#'                  intervals from the cluster-robust variance (\code{includePenalty} and \code{maximumCurvature}
+#'                  are then unused, and the \code{evaluations} column is 0)
 #' @param ... Additional argument(s) for methods
 #'
 #' @return
@@ -1457,7 +1462,9 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
                                includePenalty = TRUE,
                                rescale = FALSE,
                                maximumCurvature = -1E-3,
+                               method = c("profile", "robust"),
                                ...) {
+    method <- match.arg(method)
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     #.setControl(object$cyclopsData$cyclopsInterfacePtr, control)
 
@@ -1476,7 +1483,14 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
     }
 
     prof <- NULL
-    if (!is.null(object$divergentCoefficients) && object$return_flag == "ILLCONDITIONED") {
+    if (method == "robust") {
+        labels <- .coefficientNames(object, parm)
+        estimate <- coef(object)[labels]
+        se <- sqrt(diag(vcov(object, type = "robust")))[labels]
+        z <- qnorm(1 - (1 - level) / 2)
+        prof <- data.frame(covariate = as.numeric(parm), lower = estimate - z * se, upper = estimate + z * se,
+                           evaluations = 0)
+    } else if (!is.null(object$divergentCoefficients) && object$return_flag == "ILLCONDITIONED") {
         # separation with no prior on any coefficient (D5): no interval for the divergent coefficients; the others'
         # come from the fit at their limit
         divergent <- .coefficientNames(object, parm) %in% object$divergentCoefficients
@@ -1826,20 +1840,41 @@ aconfint <- function(object, parm, level = 0.95, control,
 #' @description
 #' \code{vcov.cyclopsFit} returns the variance-covariance matrix for all covariates of a Cyclops model object
 #'
+#' @details
+#' \code{type = "modelBased"} inverts the Fisher information of the log likelihood. With case weights this is
+#' the inverse of the weighted information (\code{coxph()}'s \code{naive.var}, \code{vcov()} of a weighted
+#' \code{glm()}), which is not a valid variance when the weights are not frequencies.
+#'
+#' \code{type = "robust"} is the cluster-robust (sandwich) variance \eqn{H^{-1} (U'U) H^{-1}}, where \eqn{H} is the
+#' Fisher information of the log likelihood (the prior excluded) and each row of \eqn{U} sums the weighted score
+#' contributions of one subject (\code{cluster()} in \code{\link{createCyclopsData}}, \code{subjectId} in
+#' \code{\link{convertToCyclopsData}}), or of one row when the data have no subjects. It has no small-sample
+#' factor, as \code{coxph(..., cluster = )} and \code{sandwich::vcovCL(..., type = "HC0", cadjust = FALSE)}.
+#' Cox scores are the weighted score residuals (Breslow ties), which include the risk-set compensator. It is
+#' available for \code{"lr"}, \code{"pr"}, \code{"cox"} and \code{"cox_counting"} models (not under
+#' \code{fitter = "legacy"}), and covers only the coefficients that are not fixed.
+#'
 #' @param object    A fitted Cyclops model object
 #' @param control    A \code{"cyclopsControl"} object constructed by \code{\link{createControl}}
 #' @param overrideNoRegularization   Logical: Enable variance-covariance estimation for regularized parameters
+#' @param type      String: \code{"modelBased"} (default) for the inverse Fisher information or \code{"robust"} for
+#'                  the cluster-robust sandwich variance
 #' @param ... Additional argument(s) for methods
 #'
 #' @return
-#' A matrix of the estimates covariances between all covariate estimates. When the Fisher information is
+#' A matrix of the estimates covariances between all covariate estimates (\code{type = "robust"}: all covariates
+#' with coefficients that are not fixed). When the Fisher information is
 #' singular (aliased covariates, such as exact duplicates), the rows and columns of the aliased covariates
 #' are \code{NA}, with a warning.
 #'
 #' @export
-vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, ...) {
+vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, type = c("modelBased", "robust"), ...) {
+    type <- match.arg(type)
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     .setControl(object$cyclopsData$cyclopsInterfacePtr, control, object$cyclopsData)
+    if (type == "robust") {
+        return(.robustVcov(object))
+    }
     fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsData$cyclopsInterfacePtr, NULL)
     if (.cyclopsGetHasOffset(object$cyclopsData)) {
         fisherInformation <- fisherInformation[2:nrow(fisherInformation), 2:ncol(fisherInformation)]
@@ -1850,16 +1885,35 @@ vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, .
     vcov
 }
 
+# Cluster-robust variance H^-1 (U'U) H^-1 of the coefficients that are not fixed: H the information of the log
+# likelihood, U the score contributions summed by subject. A generalized inverse of a singular H gives the same
+# entries for the identified coefficients, since the scores lie in the row space of H
+.robustVcov <- function(object) {
+    covariates <- getCovariateIds(object$cyclopsData)
+    if (!is.null(object$fixedCoefficients)) {
+        covariates <- covariates[!object$fixedCoefficients]
+    }
+    ptr <- object$cyclopsData$cyclopsInterfacePtr
+    bread <- .invertInformation(.cyclopsGetFisherInformation(ptr, covariates), generalizedInverse = TRUE)
+    vcov <- bread$generalized %*% .cyclopsGetScoreCrossProduct(ptr, covariates) %*% bread$generalized
+    vcov[is.na(bread$inverse)] <- NA
+    labels <- .coefficientNames(object, covariates)
+    dimnames(vcov) <- list(labels, labels)
+    vcov
+}
+
 # Inverse of a Fisher information matrix, from a pivoted Cholesky factorization of its unit-diagonal
 # form. A singular matrix (aliased columns, such as exact duplicates, or columns without information)
 # gets NA rows and columns for every coefficient in an aliased direction, with a warning; the other
 # entries are the same for every generalized inverse, so they come from the inverse of the identified
-# leading block of the factorization.
-.invertInformation <- function(information) {
+# leading block of the factorization. generalizedInverse = TRUE also returns that inverse padded with zeros, a
+# generalized inverse: list(inverse, generalized).
+.invertInformation <- function(information, generalizedInverse = FALSE) {
     n <- nrow(information)
     d <- diag(information)
     if (n == 0 || any(!is.finite(information))) {
-        return(solve(information))
+        inverse <- solve(information)
+        return(if (generalizedInverse) list(inverse = inverse, generalized = inverse) else inverse)
     }
     informative <- which(d > 0)
     scale <- 1 / sqrt(d[informative])
@@ -1885,6 +1939,11 @@ vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, .
     if (length(aliased) > 0) {
         warning("The Fisher information is singular: ", length(aliased),
                 " aliased coefficients have NA variances")
+    }
+    if (generalizedInverse) {
+        generalized <- matrix(0, n, n)
+        generalized[keptColumns, keptColumns] <- inverse
+        return(list(inverse = result, generalized = generalized))
     }
     result
 }
