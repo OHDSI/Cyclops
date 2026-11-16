@@ -2241,7 +2241,8 @@ double CyclicCoordinateDescent::getAsymptoticVariance(int indexOne, int indexTwo
 // 	}
 // }
 
-CyclicCoordinateDescent::Matrix CyclicCoordinateDescent::computeFisherInformation(const std::vector<IdType>& indices) const {
+CyclicCoordinateDescent::Matrix CyclicCoordinateDescent::computeFisherInformation(const std::vector<IdType>& indices) {
+    checkAllLazyFlags(); // the linear predictor of the current coefficients (setBeta() leaves it stale until here)
     modelSpecifics.makeDirty(); // clear strata cross terms cached at earlier coefficients
 
     // One Hessian block where the engine has the second-order kernels; with weights only when they

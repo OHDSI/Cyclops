@@ -1846,7 +1846,9 @@ void ModelSpecifics<BaseModel,RealType>::computeFisherInformation(int indexOne, 
 
 	ensureDenominators();
 
-	if (useWeights) {
+	// Rows that enter the likelihood independently (logistic, Poisson, least squares) carry their weight in hKWeight,
+	// which the sum below uses; risk sets and strata cross terms have no weighted form here
+	if (useWeights && (BaseModel::cumulativeGradientAndHessian || BaseModel::hasStrataCrossTerms)) {
 		throw std::logic_error("Weights are not yet implemented in Fisher Information calculations");
 	} else if (BaseModel::cumulativeGradientAndHessian) { // Cox-type: sums over risk sets
 		computeRiskSetFisherInformation(indexOne, indexTwo, oinfo);

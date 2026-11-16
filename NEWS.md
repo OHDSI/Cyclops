@@ -163,6 +163,19 @@ Changes:
    and are resampled together by `runBootstrap()` (`selectorType = "bySubject"`, which `"auto"` picks in place of
    `"byRow"` when the data have subjects). `convertToCyclopsData()` ignored `subjectId` for other models, and
    `cluster()` stopped. Fits of data with `subjectId`, such as `lr` designs with several rows per person, can change
+30. new `evaluateLikelihood()`: the log-likelihood at given coefficients, with its gradient and the Fisher information
+   (matrix or diagonal) of chosen covariates, under given weights (none: every row; never an earlier fit's weights).
+   For packages that build estimators on Cyclops, such as IterativeHardThresholding, which used internal functions
+31. the Fisher information of `pr` and `ls` models with weights (and of `lr` with weights that are not whole
+   numbers) no longer stops with "Weights are not yet implemented"; `vcov()` and `getSEs()` of such fits invert the
+   weighted information, as `glm()` does with prior weights (for `ls`, without a dispersion factor, as before)
+32. the internal Fisher information after `.cyclopsSetBeta()` was computed at the previous coefficients
+33. `fitCyclopsModel(returnCvPredictions = TRUE)` also works without a hyperparameter search: with a fixed prior or a
+   prior with a `fitHook` (such as BrokenAdaptiveRidge's), each fold of `cvFolds` is fit on its training rows and
+   predicts its held-out rows, next to the fit on all rows. A `fitHook` that names arguments `cvFolds` and
+   `returnCvPredictions` gets them and returns the predictions itself. So PatientLevelPrediction no longer needs
+   its own fold refits for any Cyclops model. A prior with `keepControl = TRUE` gives its `fitHook` the control as
+   given; other hooks still get coordinate descent when no algorithm is set
 
 Cyclops v3.8.0
 ==============

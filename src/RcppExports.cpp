@@ -73,6 +73,17 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// cyclopsSetThreads
+void cyclopsSetThreads(SEXP inRcppCcdInterface, int threads);
+RcppExport SEXP _Cyclops_cyclopsSetThreads(SEXP inRcppCcdInterfaceSEXP, SEXP threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< int >::type threads(threadsSEXP);
+    cyclopsSetThreads(inRcppCcdInterface, threads);
+    return R_NilValue;
+END_RCPP
+}
 // cyclopsGetBeta
 double cyclopsGetBeta(SEXP inRcppCcdInterface, const int index);
 RcppExport SEXP _Cyclops_cyclopsGetBeta(SEXP inRcppCcdInterfaceSEXP, SEXP indexSEXP) {
@@ -105,6 +116,18 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type beta(betaSEXP);
     Rcpp::traits::input_parameter< bool >::type fixed(fixedSEXP);
     cyclopsSetFixedBeta(inRcppCcdInterface, beta, fixed);
+    return R_NilValue;
+END_RCPP
+}
+// cyclopsSetFixedBetas
+void cyclopsSetFixedBetas(SEXP inRcppCcdInterface, int first, const std::vector<bool>& fixed);
+RcppExport SEXP _Cyclops_cyclopsSetFixedBetas(SEXP inRcppCcdInterfaceSEXP, SEXP firstSEXP, SEXP fixedSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< int >::type first(firstSEXP);
+    Rcpp::traits::input_parameter< const std::vector<bool>& >::type fixed(fixedSEXP);
+    cyclopsSetFixedBetas(inRcppCcdInterface, first, fixed);
     return R_NilValue;
 END_RCPP
 }
@@ -1086,9 +1109,11 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsGetUseOffsetNames", (DL_FUNC) &_Cyclops_cyclopsGetUseOffsetNames, 0},
     {"_Cyclops_cyclopsGetComputeDevice", (DL_FUNC) &_Cyclops_cyclopsGetComputeDevice, 1},
     {"_Cyclops_cyclopsSetBeta", (DL_FUNC) &_Cyclops_cyclopsSetBeta, 2},
+    {"_Cyclops_cyclopsSetThreads", (DL_FUNC) &_Cyclops_cyclopsSetThreads, 2},
     {"_Cyclops_cyclopsGetBeta", (DL_FUNC) &_Cyclops_cyclopsGetBeta, 2},
     {"_Cyclops_cyclopsSetStartingBeta", (DL_FUNC) &_Cyclops_cyclopsSetStartingBeta, 2},
     {"_Cyclops_cyclopsSetFixedBeta", (DL_FUNC) &_Cyclops_cyclopsSetFixedBeta, 3},
+    {"_Cyclops_cyclopsSetFixedBetas", (DL_FUNC) &_Cyclops_cyclopsSetFixedBetas, 3},
     {"_Cyclops_cyclopsGetFixedBeta", (DL_FUNC) &_Cyclops_cyclopsGetFixedBeta, 2},
     {"_Cyclops_cyclopsGetIsRegularized", (DL_FUNC) &_Cyclops_cyclopsGetIsRegularized, 2},
     {"_Cyclops_cyclopsSetWeights", (DL_FUNC) &_Cyclops_cyclopsSetWeights, 2},

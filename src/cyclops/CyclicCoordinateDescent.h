@@ -235,7 +235,7 @@ public:
 
 	void setInitialBound(double bound);
 
-	Matrix computeFisherInformation(const std::vector<IdType>& indices) const;
+	Matrix computeFisherInformation(const std::vector<IdType>& indices); // at the current coefficients and weights
 
 	AbstractModelSpecifics& getModelSpecifics() const { return modelSpecifics; }
 
