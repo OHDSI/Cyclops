@@ -47,7 +47,7 @@
 #'                without its fold, on the scale of \code{predict()}. With cross-validation, each fold is refit at
 #'                the selected variance, to the convergence criterion and tolerance of the final fit (needs
 #'                \code{cvRepetitions = 1}). Without it (a fixed prior, or a prior with a \code{fitHook}), each fold
-#'                of \code{cvFolds} is fit with the same prior on its training rows; a \code{fitHook} that takes
+#'                of \code{cvFolds} is fit with the same prior on its training rows; a \code{fitHook} that names
 #'                arguments \code{cvFolds} and \code{returnCvPredictions} gets them and returns the predictions
 #'                itself. For \code{modelType} \code{"lr"}, \code{"pr"} and \code{"ls"}.
 #'
@@ -109,15 +109,16 @@ fitCyclopsModel <- function(cyclopsData,
 
     # Delegate to prior$fitHook if exists; its loop of refits (BrokenAdaptiveRidge, IterativeHardThresholding,
     # createNonSeparablePrior) keeps coordinate descent unless an algorithm is given (Newton plan D1), or unless the
-    # prior sets keepControl = TRUE: then the hook gets the control as given and chooses itself. A hook that
-    # takes cvFolds and returnCvPredictions (by name or through ...) gets them and returns fit$cvPredictions itself;
-    # for any other hook, out-of-fold predictions come from refitting it on each fold's training rows (below)
+    # prior sets keepControl = TRUE: then the hook gets the control as given and chooses itself. A hook that names
+    # arguments cvFolds and returnCvPredictions gets them and returns fit$cvPredictions itself; for any other hook
+    # (... alone does not count: the hooks of BrokenAdaptiveRidge 1.0.2 and IterativeHardThresholding 1.0.3 pass ...
+    # to functions without these arguments), out-of-fold predictions come from refitting it on each fold (below)
     if (!is.null(prior$fitHook)) {
         if (is.null(control$algorithm) && !isTRUE(prior$keepControl)) {
             control$algorithm <- "ccd"
         }
         hookArguments <- names(formals(prior$fitHook))
-        takesFolds <- "..." %in% hookArguments || all(c("cvFolds", "returnCvPredictions") %in% hookArguments)
+        takesFolds <- all(c("cvFolds", "returnCvPredictions") %in% hookArguments)
         if (takesFolds && (!is.null(cvFolds) || returnCvPredictions)) {
             return(prior$fitHook(cyclopsData, prior, control,
                                  weights, forceNewObject, returnEstimates,

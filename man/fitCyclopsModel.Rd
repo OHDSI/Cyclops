@@ -54,7 +54,7 @@ longer matters for them. The rows of one stratum (\code{selectorType = "byPid"})
 without its fold, on the scale of \code{predict()}. With cross-validation, each fold is refit at
 the selected variance, to the convergence criterion and tolerance of the final fit (needs
 \code{cvRepetitions = 1}). Without it (a fixed prior, or a prior with a \code{fitHook}), each fold
-of \code{cvFolds} is fit with the same prior on its training rows; a \code{fitHook} that takes
+of \code{cvFolds} is fit with the same prior on its training rows; a \code{fitHook} that names
 arguments \code{cvFolds} and \code{returnCvPredictions} gets them and returns the predictions
 itself. For \code{modelType} \code{"lr"}, \code{"pr"} and \code{"ls"}.}
 }

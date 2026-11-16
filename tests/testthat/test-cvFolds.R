@@ -287,3 +287,20 @@ test_that("a fitHook gets coordinate descent unless its prior keeps the control 
     fitCyclopsModel(d$data(), hookPrior(TRUE), createControl(algorithm = "ccd", noiseLevel = "silent"))
     expect_equal(seen, "ccd")
 })
+
+test_that("a fitHook with only ... is refit per fold, not given the folds", {
+    # as in BrokenAdaptiveRidge 1.0.2 and IterativeHardThresholding 1.0.3: ... goes to a function without the new arguments
+    d <- foldData()
+    inner <- function(cyclopsData, prior, control, weights, forceNewObject, returnEstimates, startingCoefficients,
+                      fixedCoefficients) {
+        prior$fitHook <- NULL
+        fitCyclopsModel(cyclopsData, prior, control, weights, forceNewObject, returnEstimates, startingCoefficients,
+                        fixedCoefficients, warnings = FALSE)
+    }
+    prior <- createPrior("laplace", variance = 0.05)
+    prior$fitHook <- function(...) inner(...)
+    fixedControl <- createControl(tolerance = 1e-8, noiseLevel = "silent")
+    fit <- fitCyclopsModel(d$data(), prior, fixedControl, cvFolds = d$folds, returnCvPredictions = TRUE)
+    foldOfRow <- d$folds$fold[match(fit$cvPredictions$rowId, d$folds$rowId)]
+    expect_equal(fit$cvPredictions$prediction, refitPredictions(d$data(), 0.05, foldOfRow), tolerance = 1e-6)
+})
