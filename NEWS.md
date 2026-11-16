@@ -163,6 +163,13 @@ Changes:
    and are resampled together by `runBootstrap()` (`selectorType = "bySubject"`, which `"auto"` picks in place of
    `"byRow"` when the data have subjects). `convertToCyclopsData()` ignored `subjectId` for other models, and
    `cluster()` stopped. Fits of data with `subjectId`, such as `lr` designs with several rows per person, can change
+30. `survfit()` for `cox` and `cox_counting` fits uses the case weights of the fit in the Breslow baseline (event counts and
+   risk sets; rows with weight 0 are left out), and gives one curve per stratum for `cox` fits too; it used unweighted
+   counts and, for `cox`, ignored strata. `predict(fit, newOutcomes, newCovariates, times = )` returns the survival
+   S(t | x) = exp(-Lambda0(t) exp(x'beta)) of new rows of `cox` and `cox_counting` fits at `times` (a matrix, a row
+   per `rowId` and a column per time), with the baseline of each row's `stratumId` in stratified fits; it matches
+   `survfit(coxph(..., weights = , ties = "breslow"), newdata, ctype = 1, stype = 2)`. `predict()` stopped for new
+   Cox data before
 
 Cyclops v3.8.0
 ==============
