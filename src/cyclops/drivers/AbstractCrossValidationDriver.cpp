@@ -325,6 +325,8 @@ double AbstractCrossValidationDriver::doCrossValidationStep(
 			foldModeFinding.algorithmType == AlgorithmType::AUTO) { // (the search's folds, not the refits for predictions)
 		foldModeFinding.kktGuidedTolerance = 3E-3; // "auto" from the defaults: folds stop as coordinate descent's do
 		foldModeFinding.certificationBudget = 0.0;
+	} else if (arguments.foldConvergenceType == GAP) {
+		foldModeFinding.certificationBudget = -1.0; // a fold criterion given: the folds certify it
 	}
 	if (arguments.foldMaxIterations > 0) {
 		foldModeFinding.maxIterations = arguments.foldMaxIterations;

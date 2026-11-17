@@ -1479,6 +1479,10 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 	double cyclesAtKktStop = 0.0; // totalCycles at the last kkt stop
 	int kktStops = 0;
 	double lastBound = NAN; // the bound at the last kkt stop
+	double lastStopKkt = NAN; // the kkt criterion at the last kkt stop
+	// kkt-guided under a "gap" that was given, without a one-pass certificate or Newton steps to certify: the curvature
+	// certificates of the step-decrease path below take over
+	bool legacyCertify = false;
 	double firstKkt = NAN; // the kkt criterion of the first full sweep (kkt-guided)
 	// kkt-guided: stop tests whose kkt criterion of the cycles had passed but whose residual at the end of the sweep did not
 	// (coordinate descent crawling along correlated directions; a fit that converges passes it at once)
@@ -1668,7 +1672,7 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		// Kkt-guided (logistic, "auto" or "ccd"): coordinate descent's own kkt stop, then one certificate pass: the duality
 		// gap (L1), or R (every free coordinate with a normal part: elastic net, normal); a gap above tau_eff tightens the
 		// kkt tolerance. Without either certificate the kkt stop ends the fit, uncertified, as under "kkt"
-		if (kktGuided) {
+		if (kktGuided && !legacyCertify) {
 			double unused = 0.0;
 			const int consecutiveBefore = kktConsecutive;
 			const bool statBelow = getKktCriterion() < kktTolerance;
@@ -1720,12 +1724,15 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 				// coordinate descent needs about as many more decades of the kkt tolerance as the bound is above tau_eff;
 				// Newton steps (prox-Newton over the working set) converge quadratically, about two to a near-exact point
 				// and their own certificate. Without a one-pass certificate only Newton steps certify. The cheaper one runs
-				// a bound that no longer halves between kkt stops is at the rounding floor (as dualStop()'s): stop there
-				if (std::isfinite(bound) && std::isfinite(lastBound) && bound > 0.5 * lastBound) {
+				// a bound that no longer halves while the kkt criterion fell tenfold is at the rounding floor (as dualStop()'s):
+				// stop there
+				const double kktNow = getKktCriterion();
+				if (std::isfinite(bound) && std::isfinite(lastBound) && bound > 0.5 * lastBound && kktNow <= 0.1 * lastStopKkt) {
 					finish(SUCCESS, "none", bound);
 					break;
 				}
 				lastBound = bound;
+				lastStopKkt = kktNow;
 				const double decades = (std::isfinite(bound) && bound > context.tauEff) ?
 					std::max(1.0, std::ceil(std::log10(bound / context.tauEff))) : 1.0;
 				const double ccdCycles = std::isfinite(bound) ? decades * decadeCycles : std::numeric_limits<double>::infinity();
@@ -1733,11 +1740,17 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 					(!context.anyLaplace || proxFitsDense(workingSet()));
 				const double newtonCycles = (canNewton && affordable(2.0 * newtonFloorCycles)) ? 2.0 * newtonIterationCycles() :
 					std::numeric_limits<double>::infinity();
-				if (!std::isfinite(std::min(ccdCycles, newtonCycles)) || !affordable(std::min(ccdCycles, newtonCycles))) {
+				if (!std::isfinite(std::min(ccdCycles, newtonCycles)) && !gapFromDefaults) {
+					legacyCertify = true; // a given "gap" is certified, by the curvature certificates below
+					prepareNewton();
+					certifyAfter = cycles;
+				} else if (!std::isfinite(std::min(ccdCycles, newtonCycles)) || !affordable(std::min(ccdCycles, newtonCycles))) {
 					finish(SUCCESS, "none", std::isfinite(bound) ? bound : gHat); // the kkt stop, with the bound in hand
 					break;
 				}
-				if (newtonCycles <= ccdCycles) {
+				if (legacyCertify) {
+					// (on to the step-decrease path's certificates)
+				} else if (newtonCycles <= ccdCycles) {
 					newtonPhase = true;
 					phaseIterations = 0;
 					spentCycles = 0.0;
@@ -1745,9 +1758,11 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 					context.rejections = 0;
 					if (convergenceReport.newtonStart < 0) convergenceReport.newtonStart = cycles;
 					continue;
+				} else {
+					// tightened from where the criterion is, so that the next stop needs more accuracy
+					kktTolerance = std::max(std::min(kktTolerance, kktNow) * std::pow(10.0, -std::min(decades, 6.0)), 1e-12);
+					kktConsecutive = 0;
 				}
-				kktTolerance = std::max(kktTolerance * std::pow(10.0, -std::min(decades, 6.0)), 1e-12);
-				kktConsecutive = 0;
 			}
 		}
 
@@ -1801,11 +1816,11 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 
 		// A curvature certificate on the CCD path: once the estimate is within 100 tau_eff and finishing on CCD
 		// costs more than one H (or it is already below tau_eff), with 2^k cycles between failed attempts
-		if (!kktGuided && convergenceType == GAP && context.conjugateGradient && !context.allNormal && cycles >= stopFrom &&
+		if ((!kktGuided || legacyCertify) && convergenceType == GAP && context.conjugateGradient && !context.allNormal && cycles >= stopFrom &&
 				gHat <= context.tauEff && !stepsLimited) { // no curvature certificate within the memory budget
 			if (stopOnEstimate()) break;
 		}
-		if (!kktGuided && convergenceType == GAP && !context.conjugateGradient && cycles >= stopFrom && cycles >= certifyAfter &&
+		if ((!kktGuided || legacyCertify) && convergenceType == GAP && !context.conjugateGradient && cycles >= stopFrom && cycles >= certifyAfter &&
 				!stepsLimited) {
 			const double estimate = context.allNormal ? R : gHat;
 			const double remaining = context.allNormal ?

@@ -825,16 +825,18 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	const int qnQ = 0;
 
 	initialBound = arguments.initialBound;
-	// Active-set cycling relies on full sweeps for its stop tests: those of the kkt criterion, or under "gap" those of
-	// findModeGap(), which decides only after full sweeps; other criteria sweep every cycle (cross-validation fold fits
-	// may use another criterion than the final fit)
-	activeSetEvery = (convergenceType == KKT || convergenceType == GAP) ? arguments.activeSetEvery : 0;
-	activeSetThreshold = arguments.activeSetThreshold;
-	gapFromDefaults = convergenceType == GAP && algorthmType == AlgorithmType::AUTO && arguments.fallbackConvergenceType >= 0;
-	kktGuidedTolerance = arguments.kktGuidedTolerance;
-	certificationBudget = arguments.certificationBudget;
 	kktGuided = convergenceType == GAP && (algorthmType == AlgorithmType::AUTO || algorthmType == AlgorithmType::CCD) &&
 		hXI.getModelType() == ModelType::LOGISTIC && !usingGPU && !usingCUDA && !syncCV && !profileActive;
+	// Active-set cycling relies on full sweeps for its stop tests: those of the kkt criterion, or those of the kkt-guided
+	// "gap" path (findModeGap(), which decides only after full sweeps; logistic cycles are serial whatever the threads).
+	// Other criteria and models sweep every cycle (cross-validation fold fits may use another criterion than the fit)
+	activeSetEvery = (convergenceType == KKT || kktGuided) ? arguments.activeSetEvery : 0;
+	activeSetThreshold = arguments.activeSetThreshold;
+	// (a negative budget: "gap" given for these fits, e.g. cross-validation folds with their own criterion, certifies)
+	gapFromDefaults = convergenceType == GAP && algorthmType == AlgorithmType::AUTO &&
+		arguments.fallbackConvergenceType >= 0 && arguments.certificationBudget >= 0.0;
+	kktGuidedTolerance = arguments.kktGuidedTolerance;
+	certificationBudget = arguments.certificationBudget;
 	adaptiveIntercept = (convergenceType == KKT || kktGuided) && arguments.adaptiveIntercept; // its floor is a kkt tolerance
 	minIterations = arguments.minIterations;
 

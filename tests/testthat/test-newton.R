@@ -116,3 +116,37 @@ test_that("maxIterations under gap warns with the estimated gap", {
     expect_equal(fit$return_flag, "MAX_ITERATIONS")
     expect_false(fit$convergence$certified)
 })
+
+test_that("a given gap is certified or reported unmet, never stopped on the kkt criterion alone", {
+    # logistic "gap" runs coordinate descent to its kkt stop first; without a one-pass certificate (a ridge with a free
+    # intercept), the fit must still certify the gap given, or report that it did not
+    data <- createCyclopsData(y ~ x, data = data.frame(y = c(0, 1, 0, 1), x = c(.999, .999, 1.001, 1.001)), modelType = "lr")
+    prior <- createPrior("normal", variance = 1e10, exclude = "(Intercept)")
+    fit <- fitCyclopsModel(data, prior, createControl(algorithm = "ccd", convergenceType = "gap", tolerance = 1e-6,
+                                                      maxIterations = 2000, noiseLevel = "silent"),
+                           startingCoefficients = c(-10, 10), warnings = FALSE)
+    expect_true(fit$return_flag != "SUCCESS" || fit$convergence$certified)
+    auto <- fitCyclopsModel(data, prior, createControl(convergenceType = "gap", tolerance = 1e-6, noiseLevel = "silent"),
+                            startingCoefficients = c(-10, 10), warnings = FALSE)
+    expect_equal(auto$return_flag, "SUCCESS")
+    expect_true(auto$convergence$certified)
+
+    # a bound that stays above a tight tolerance is not taken for the rounding floor while the fit has not tightened
+    X <- data.frame(y = c(0, 1, 0, 1), a = c(-1, -1, 1, 1), b = c(-1, -1, 1, 1))
+    twins <- createCyclopsData(y ~ a + b - 1, data = X, modelType = "lr")
+    tight <- fitCyclopsModel(twins, createPrior("normal", variance = 1e6),
+                             createControl(convergenceType = "gap", tolerance = 1e-9, mergeDuplicates = FALSE,
+                                           noiseLevel = "silent"),
+                             startingCoefficients = c(.1, -.1), warnings = FALSE)
+    expect_true(tight$convergence$certified)
+    expect_lte(tight$convergence$gapEstimate, 1e-9)
+})
+
+test_that("active-set cycling under gap does not make Cox fits depend on threads", {
+    problem <- newtonProblem(8)
+    prior <- createPrior("normal", variance = 0.5)
+    one <- newtonFit(problem, prior, algorithm = "newton", activeSetEvery = 10, activeSetThreshold = 0, threads = 1)
+    two <- newtonFit(problem, prior, algorithm = "newton", activeSetEvery = 10, activeSetThreshold = 0, threads = 2)
+    expect_identical(coef(two), coef(one))
+    expect_identical(two$iterations, one$iterations)
+})
