@@ -142,11 +142,14 @@ test_that("a given gap is certified or reported unmet, never stopped on the kkt 
     expect_lte(tight$convergence$gapEstimate, 1e-9)
 })
 
-test_that("active-set cycling under gap does not make Cox fits depend on threads", {
+test_that("active-set settings do not make Newton fits of Cox models depend on threads", {
+    # findModeGap() sweeps every coordinate outside the kkt-guided logistic path, as concurrent (threaded) cycles do
     problem <- newtonProblem(8)
     prior <- createPrior("normal", variance = 0.5)
-    one <- newtonFit(problem, prior, algorithm = "newton", activeSetEvery = 10, activeSetThreshold = 0, threads = 1)
-    two <- newtonFit(problem, prior, algorithm = "newton", activeSetEvery = 10, activeSetThreshold = 0, threads = 2)
+    fit <- function(threads) newtonFit(problem, prior, algorithm = "newton", convergenceType = "kkt", tolerance = 1e-8,
+                                       activeSetEvery = 10, activeSetThreshold = 0, threads = threads)
+    one <- fit(1)
+    two <- fit(2)
     expect_identical(coef(two), coef(one))
     expect_identical(two$iterations, one$iterations)
 })

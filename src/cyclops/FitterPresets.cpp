@@ -151,7 +151,8 @@ ResolvedControl resolve(Working w, std::vector<std::string>& warnings) {
 	}
 	// the fitter's settings that need full-sweep stop tests ("kkt", or "gap", which decides after full sweeps) lapse
 	// under other criteria; given ones are errors
-	if (!kkt && !gap && !is(c.cvConvergenceType, "kkt") && !is(c.cvConvergenceType, "gap")) {
+	const bool lrGap = gap && is(c.modelType, "lr") && c.fitter != "legacy" && *c.algorithm != "newton";
+	if (!kkt && !lrGap && !is(c.cvConvergenceType, "kkt")) {
 		if (filledActiveSet) c.activeSetEvery = 0;
 		if (filledAdaptive) c.adaptiveIntercept = false;
 		if (*c.activeSetEvery != 0) {
@@ -164,7 +165,7 @@ ResolvedControl resolve(Working w, std::vector<std::string>& warnings) {
 
 	// "gap" for logistic regression runs coordinate descent as fitter "super" does, under every fitter but "legacy"
 	// (findModeGap: kkt-guided), with its active-set cycling and adaptive intercept steps
-	if (gap && is(c.modelType, "lr") && c.fitter != "legacy") {
+	if (lrGap) {
 		if (filledActiveSet) {
 			c.activeSetEvery = (c.nCovariates && *c.nCovariates >= activeSetMinCovariates) ? 10 : 0;
 		}

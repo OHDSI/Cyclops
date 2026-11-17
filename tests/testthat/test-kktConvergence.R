@@ -92,7 +92,8 @@ test_that("The super fitter changes logistic regression and Cox models, and crea
                      activeSetEvery = 10, adaptiveIntercept = TRUE) # "gap" decides after full sweeps too
     expect_equal(Cyclops:::.resolveControl(createControl(fitter = "super"), "lr", 5000)[foldNames],
                  c(list(algorithm = "auto"), gapFolds))
-    expect_equal(resolve("lr", 5000, algorithm = "newton")[foldNames], c(list(algorithm = "newton"), gapFolds))
+    expect_equal(resolve("lr", 5000, algorithm = "newton")[foldNames], # "newton" sweeps every coordinate
+                 c(list(algorithm = "newton"), modifyList(gapFolds, list(activeSetEvery = 0, adaptiveIntercept = FALSE))))
     expect_equal(resolve("lr", 5000, algorithm = "auto", convergenceType = "gap")[foldNames],
                  c(list(algorithm = "auto"), gapFolds))
     given <- resolve("lr", 5000, algorithm = "auto", cvConvergenceType = "kkt")

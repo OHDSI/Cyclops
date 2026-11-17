@@ -1262,6 +1262,9 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 
 	NewtonContext context;
 	context.stopType = convergenceType;
+	// other fits here ("newton", "auto" of other models; "kkt" with "newton") sweep every coordinate every cycle: the
+	// concurrent cycles of threaded fits do, and so the serial ones must
+	if (!kktGuided) activeSetEvery = 0;
 	context.tolerance = tau;
 	for (int j = 0; j < J; ++j) {
 		double precision = 0.0;
@@ -1703,7 +1706,8 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 				double bound = NAN; // the certified bound in hand
 				if (context.dualEligible) {
 					const int verdict = dualStop(context);
-					if (verdict != 0) {
+					// (-1 with a NaN gap: no dual point could be formed, e.g. outcomes of one class; not a stop)
+					if (verdict > 0 || (verdict < 0 && std::isfinite(convergenceReport.dualGap))) {
 						finish(SUCCESS, (verdict > 0) ? "dual" : "none", convergenceReport.dualGap);
 						break;
 					}
@@ -1733,8 +1737,9 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 				}
 				lastBound = bound;
 				lastStopKkt = kktNow;
+				// (R falls with the square of the kkt criterion, the duality gap about in step with it)
 				const double decades = (std::isfinite(bound) && bound > context.tauEff) ?
-					std::max(1.0, std::ceil(std::log10(bound / context.tauEff))) : 1.0;
+					std::max(1.0, std::ceil(std::log10(bound / context.tauEff) / (context.dualEligible ? 1.0 : 2.0))) : 1.0;
 				const double ccdCycles = std::isfinite(bound) ? decades * decadeCycles : std::numeric_limits<double>::infinity();
 				const bool canNewton = algorithmType == AlgorithmType::AUTO && cycles >= suppressUntil && !saturated() &&
 					(!context.anyLaplace || proxFitsDense(workingSet()));
@@ -1794,11 +1799,12 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		} else if (algorithmType == AlgorithmType::AUTO && (cycles >= warmStart || (cycles >= stopFrom && newtonCost < 1.0)) &&
 				cycles >= suppressUntil && (kktGuided ?
 					spentCycles >= 4.0 * newtonFloorCycles && spentCycles >= 4.0 * newtonIterationCycles() &&
-						(remainingCcdCycles() > 8.0 * newtonIterationCycles() || failedEndChecks >= 2) :
+						((!stepsLimited && remainingCcdCycles() > 8.0 * newtonIterationCycles()) || failedEndChecks >= 2) :
 					nHat > 4.0 * newtonCost) && !saturated()) {
 			// Kkt-guided: rent, then buy. Newton starts only once coordinate descent has spent what four Newton iterations
 			// cost (a projection early in a fit is far too pessimistic where active-set cycles are cheap), and is still
-			// projected to need twice that, or stalls (two stop tests failed at the end of the sweep after the criterion of
+			// projected to need twice that (not while steps are cut short by their bounds: far from the optimum, e.g. rows
+			// saturated, where Newton models mean little), or stalls (two stop tests failed at the end of the sweep after the criterion of
 			// the cycles had passed). Other models: when the step-decrease projection of the remaining cycles exceeds four
 			// iterations. (Laplace fits screen for 10 cycles unless prox-Newton over the working set costs under one cycle)
 			newtonPhase = true;
