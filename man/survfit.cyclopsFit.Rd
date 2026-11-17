@@ -19,3 +19,13 @@ Baseline survival function for mean covariates
 \description{
 \code{survfit.cyclopsFit} computes baseline hazard function
 }
+\details{
+For \code{cox} and \code{cox_counting} fits, the Breslow estimate uses the case weights of the fit in
+both the event counts and the risk sets, and gives one curve per stratum, as
+\code{survfit(coxph(..., weights = , ties = "breslow"), ctype = 1, stype = 2)}. Rows with weight 0
+are left out. The curves are for the mean covariates of all rows, without the weights (as
+\code{survfit.coxph} for counting-process data; for right-censored data with weights it uses the
+weighted means). \code{\link{predict.cyclopsFit}} gives the survival of given covariates. It stops with an
+error once another model has been fitted to the same Cyclops data, unless that fit used
+\code{forceNewObject = TRUE}.
+}

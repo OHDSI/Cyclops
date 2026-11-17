@@ -4,7 +4,7 @@
 \alias{predict.cyclopsFit}
 \title{Model predictions}
 \usage{
-\method{predict}{cyclopsFit}(object, newOutcomes, newCovariates, ...)
+\method{predict}{cyclopsFit}(object, newOutcomes, newCovariates, times = NULL, ...)
 }
 \arguments{
 \item{object}{A Cyclops model fit object}
@@ -13,8 +13,28 @@
 
 \item{newCovariates}{An optional data frame or Andromeda table object, similar to the object used in \code{\link{convertToCyclopsData}}.}
 
+\item{times}{Numeric vector of times at which to predict survival, for \code{cox} and \code{cox_counting}
+fits with new data (required for them, and not used otherwise).}
+
 \item{...}{Additional arguments}
+}
+\value{
+Without new data, the predictions for the rows of the fitted data. With new data, a vector named
+by \code{rowId}; for \code{cox} and \code{cox_counting}, a matrix of survival probabilities with a row
+per \code{rowId} (sorted) and a column per element of \code{times}.
 }
 \description{
 \code{predict.cyclopsFit} computes model response-scale predictive values for all data rows
+}
+\details{
+For \code{cox} and \code{cox_counting} fits, new data need \code{times}: the prediction is the
+survival probability S(t | x) = exp(-Lambda0(t) exp(x'beta)) of each new row at each of
+\code{times}, with the weighted Breslow baseline cumulative hazard Lambda0 of the fit (see
+\code{\link{survfit.cyclopsFit}}), as \code{survfit(coxph(..., ties = "breslow"), newdata, ctype = 1,
+stype = 2)}. Lambda0 is a step function that includes the events at t, and is 0 before the first event.
+For a stratified fit, \code{newOutcomes} needs a \code{stratumId} column naming a stratum of the fitted
+data, and each row uses the baseline of its stratum. New covariates need the numeric \code{covariateId}s
+of data from \code{\link{convertToCyclopsData}}. The baseline comes from the fitted data and the
+interface that all fits on one Cyclops data object share, so the prediction stops with an error once
+another model has been fitted to the same data, unless that fit used \code{forceNewObject = TRUE}.
 }

@@ -176,6 +176,15 @@ Changes:
    threads, so results do not depend on the threads. A replicate whose fit fails is `NA` (it was the estimate at
    which the fit stopped), with a warning that counts them (`failed` in the result); the summary of a coefficient
    with `NA` samples is `NA` unless `na.rm = TRUE` drops them (it was an error)
+32. `survfit()` for `cox` and `cox_counting` fits uses the case weights of the fit in the Breslow baseline (event counts and
+   risk sets; rows with weight 0 are left out), and gives one curve per stratum for `cox` fits too; it used unweighted
+   counts and, for `cox`, ignored strata. `predict(fit, newOutcomes, newCovariates, times = )` returns the survival
+   S(t | x) = exp(-Lambda0(t) exp(x'beta)) of new rows of `cox` and `cox_counting` fits at `times` (a matrix, a row
+   per `rowId` and a column per time), with the baseline of each row's `stratumId` in stratified fits; it matches
+   `survfit(coxph(..., weights = , ties = "breslow"), newdata, ctype = 1, stype = 2)`. `predict()` stopped for new
+   Cox data before. Both stop once another model has been fitted to the same Cyclops data (fits share its interface;
+   `survfit()` silently mixed the two fits before) unless that fit used `forceNewObject = TRUE`; fit objects keep
+   their `weights`
 
 Cyclops v3.8.0
 ==============
