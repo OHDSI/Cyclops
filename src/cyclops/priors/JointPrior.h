@@ -126,9 +126,15 @@ public:
 	}
 
 	const std::string getDescription() const {
+	    // every prior up to a hundred; beyond, the first hundred and the count (a prior per covariate can have
+	    // tens of thousands, and every fit reports its prior)
+	    const size_t shown = 100;
 	    std::ostringstream stream;
-	    for (PriorPtr prior : uniquePriors) {
-	        stream << prior->getDescription() << " ";
+	    for (size_t i = 0; i < uniquePriors.size() && i < shown; ++i) {
+	        stream << uniquePriors[i]->getDescription() << " ";
+	    }
+	    if (uniquePriors.size() > shown) {
+	        stream << "... (" << uniquePriors.size() << " priors in all)";
 	    }
 		return stream.str();
 	}

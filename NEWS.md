@@ -179,7 +179,9 @@ Changes:
 34. a prior with one variance per covariate (`createPrior(priorType = c(...), variance = c(...))`) is set up in time
    linear in the number of covariates; it was quadratic, in `fitCyclopsModel()` and again for each fit that merges
    duplicate columns (`mergeDuplicates`, the default under `algorithm = "auto"`). With 18,933 covariates a LASSO fit
-   took 0.094 s instead of 0.032 s, and 0.25 s instead of 0.064 s under `"auto"`
+   took 0.094 s instead of 0.032 s, and 0.25 s instead of 0.064 s under `"auto"`. `fit$prior_info` (and `print(fit)`)
+   lists at most the first 100 priors of a fit, then their number: listing every prior took about 6 ms per fit with
+   18,933 covariates
 
 Cyclops v3.8.0
 ==============
