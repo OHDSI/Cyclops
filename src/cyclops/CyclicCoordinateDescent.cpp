@@ -1886,6 +1886,7 @@ void CyclicCoordinateDescent::findMode(
 	    		if (interceptIndex >= 0) { // the reference gain per row of work for the next cycle
 	    			interceptState.rate = (interceptState.cost > 0.0) ? interceptState.gain / interceptState.cost : 0.0;
 	    			interceptState.gain = 0.0;
+	    			interceptState.boundedExtra = false;
 	    			interceptState.cost = 0.0;
 	    		}
 	    	}
@@ -2672,9 +2673,7 @@ void CyclicCoordinateDescent::trackInterceptGradient(int index, double delta, do
 	s.gain += 0.5 * hessian * delta * delta;
 	s.cost += (delta != 0.0) ? 2.0 * columnRows[index] : columnRows[index]; // gradient (+ update) rows
 	const double rate = (s.rate > 0.0) ? s.rate : s.gain / s.cost;
-	// (no extra steps in a cycle once a step was cut short by its bound: far from the optimum, e.g. from a saturated
-	// start, each bounded intercept step doubles the bound, and several per cycle let the fit run away)
-	if (boundLimitedStep && !interceptIsFree) {
+	if (s.boundedExtra) { // an extra step of this cycle was cut short by the bound: none more until the next cycle
 		return;
 	}
 	if (interceptIsFree ? (delta != 0.0) : (s.hessian > 0.0 &&
@@ -2685,7 +2684,14 @@ void CyclicCoordinateDescent::trackInterceptGradient(int index, double delta, do
 		if (trackKkt) {
 			accumulateKkt(interceptIndex, interceptDelta, lastGradientHessian);
 		}
-		interceptDelta = applyBounds(interceptDelta, interceptIndex);
+		// Extra steps keep within the intercept's bound but do not widen it (its own visit adapts it, once per cycle):
+		// from a saturated start every intercept step is bound-limited, and each widening doubled the bound, several
+		// times a cycle, until the fit ran away (NaN)
+		if (hXI.getModelType() != ModelType::NORMAL && std::abs(interceptDelta) > hDelta[interceptIndex]) {
+			interceptDelta = (interceptDelta < 0.0) ? -hDelta[interceptIndex] : hDelta[interceptIndex];
+			boundLimitedStep = true;
+			s.boundedExtra = true;
+		}
 		if (interceptDelta != 0.0) {
 			sufficientStatisticsKnown = false;
 			updateSufficientStatistics(interceptDelta, interceptIndex);

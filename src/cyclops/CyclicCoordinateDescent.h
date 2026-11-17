@@ -660,6 +660,7 @@ protected:
 		double cost = 0.0;     // their rows of work
 		double rate = 0.0;     // gain / cost of the previous cycle
 		long extraSteps = 0;
+		bool boundedExtra = false; // an extra step of this cycle hit the intercept's bound
 	};
 	AdaptiveInterceptState interceptState;
 
