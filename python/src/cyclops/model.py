@@ -126,7 +126,7 @@ class Control:
     active_set_every: int | None = None
     active_set_threshold: float | None = None
     adaptive_intercept: bool | None = None
-    merge_duplicates: bool | None = None  #: None: on under "auto" and "newton"
+    merge_duplicates: bool | None = None  #: None: on under "newton", and "auto" except logistic "gap"
 
     # Cross-validation
     cv_search: str = "auto"     #: "auto" (Brent) or "grid"
@@ -229,7 +229,10 @@ class Control:
         options.do_it_all = bool(self.do_it_all)
         options.merge_duplicates = (
             bool(self.merge_duplicates) if self.merge_duplicates is not None
-            else r["algorithm"] in ("auto", "newton")
+            else r["algorithm"] == "newton" or (
+                r["algorithm"] == "auto"
+                and not (model_type == "lr" and r["convergence"] == "gap")
+            )
         )
         options.fallback_convergence = (
             resolve(CONVERGENCE_KINDS, r["fallback_convergence"], "convergence")
@@ -261,6 +264,7 @@ class Control:
             if r["cv_convergence"] is not None else None
         )
         options.cv_tolerance = -1.0 if r["cv_tolerance"] is None else r["cv_tolerance"]
+        options.cv_folds_from_defaults = bool(r["folds_from_defaults"])
         options.cv_max_iterations = (
             -1 if r["cv_max_iterations"] is None else r["cv_max_iterations"]
         )

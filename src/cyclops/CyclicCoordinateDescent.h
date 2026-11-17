@@ -646,7 +646,7 @@ protected:
 	// "gap" from the defaults of "auto" (not given): past the kkt stop, certifying may cost at most this share of the
 	// fit's work; beyond it the fit stops there, as coordinate descent does, with the bound it has
 	bool gapFromDefaults = false;
-	static constexpr double certificationBudget = 0.1;
+	double certificationBudget = 0.1; // from ModeFindingArguments
 	static constexpr double adaptiveInterceptRatio = 0.25;
 	int interceptIndex = -1; // in the current findMode(); -1 when off
 	bool interceptIsFree = false; // least squares with a lazy intercept: a step costs O(1), taken after every move

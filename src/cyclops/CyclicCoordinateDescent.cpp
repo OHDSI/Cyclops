@@ -832,6 +832,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	activeSetThreshold = arguments.activeSetThreshold;
 	gapFromDefaults = convergenceType == GAP && algorthmType == AlgorithmType::AUTO && arguments.fallbackConvergenceType >= 0;
 	kktGuidedTolerance = arguments.kktGuidedTolerance;
+	certificationBudget = arguments.certificationBudget;
 	kktGuided = convergenceType == GAP && (algorthmType == AlgorithmType::AUTO || algorthmType == AlgorithmType::CCD) &&
 		hXI.getModelType() == ModelType::LOGISTIC && !usingGPU && !usingCUDA && !syncCV && !profileActive;
 	adaptiveIntercept = (convergenceType == KKT || kktGuided) && arguments.adaptiveIntercept; // its floor is a kkt tolerance

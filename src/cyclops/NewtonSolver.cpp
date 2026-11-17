@@ -1688,8 +1688,8 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 				// "gap" from the defaults of "auto": certifying past the kkt stop may cost a tenth of the fit's work, or about
 				// a millisecond's (1e6 entries read) whatever the fit cost; beyond that the kkt stop ends the fit, as under "kkt"
 				auto affordable = [&](double extraCycles) {
-					return !gapFromDefaults ||
-						extraCycles * sweepWork <= std::max(certificationBudget * totalCycles * sweepWork, 1e6);
+					return !gapFromDefaults || (certificationBudget > 0.0 &&
+						extraCycles * sweepWork <= std::max(certificationBudget * totalCycles * sweepWork, 1e6));
 				};
 				const bool onePass = context.dualEligible || context.allStrong;
 				if (onePass && !affordable(proxGradientSweeps)) {

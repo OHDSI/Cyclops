@@ -192,7 +192,11 @@ Changes:
    it has. An explicit `convergenceType = "gap"` certifies as before. On 30 simulated logistic designs and
    cross-validations (2,400 to 19,000 covariates), `"auto"` took a median 1.07 times the time of `algorithm = "ccd"` with
    `fitter = "super"` (before: 3.75 times, up to 19), with the same models; where coordinate descent stalls it still
-   switches to Newton steps. The same settings apply under every fitter but `"legacy"`
+   switches to Newton steps. The same settings apply under every fitter but `"legacy"`. Its cross-validation folds
+   (when no fold criterion is given) stop where coordinate descent's do, without a certificate (refits for out-of-fold
+   predictions keep the fit's own), and it merges duplicate columns only when `mergeDuplicates = TRUE` (Newton steps
+   are rare there, and their face solves handle the singular faces of duplicates), so its coefficients equal those of
+   `"ccd"` where both stop together
 36. adaptive intercept steps (`fitter = "super"`) pause in a cycle once a step was cut short by its bound: from a start
    with every row saturated (an intercept of -800), each bounded step doubled the intercept's bound and the fit diverged
    to `NaN`

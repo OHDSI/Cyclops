@@ -49,6 +49,7 @@ struct CrossValidationArguments {
     int searchDirection;        // auto-search: 0 = up below variance 1 and down above (BBR), 1 = up, -1 = down
     int foldConvergenceType;    // fold fits only; -1 = as the final fit
     double foldTolerance;       // fold fits only; <= 0 = as the final fit
+    bool foldsFromDefaults = false; // "auto" whose fold criterion is the default: folds stop as coordinate descent's
     int foldMaxIterations;      // fold fits only; <= 0 = as the final fit
     int foldMinIterations;      // fold fits only, when one of the three above is set
     bool warmStart;             // each fold starts from its own solution at the nearest hyperparameter tried
@@ -116,6 +117,9 @@ struct ModeFindingArguments {
 	// logistic "gap" fits with algorithm "auto" or "ccd": the kkt tolerance (standard-error units) whose stop triggers the
 	// certificate, as coordinate descent's own (fitter "super": 1e-4 for fits, 3e-3 for cross-validation folds)
 	double kktGuidedTolerance = 1E-4;
+	// "gap" from the defaults of "auto": the share of a fit's work that certifying past the kkt stop may cost (cross-
+	// validation folds: 0, as coordinate descent's folds stop there; a fold score needs no certificate)
+	double certificationBudget = 0.1;
 
 	ModeFindingArguments() :
 		tolerance(1E-6),

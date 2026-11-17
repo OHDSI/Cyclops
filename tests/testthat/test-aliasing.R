@@ -68,6 +68,7 @@ test_that("duplicates with different priors or a fixed member are not merged", {
     expect_equal(coef(fixed)[["D3"]], 0)
 })
 
+# (logistic "auto" merges duplicates only when asked: it runs coordinate descent first)
 test_that("names of merged groups keep each group's members and the order of the groups", {
     set.seed(11)
     n <- 1500
@@ -79,7 +80,7 @@ test_that("names of merged groups keep each group's members and the order of the
                                  data.frame(rowId = entries[, 1], covariateId = ids[entries[, 2]], covariateValue = 1),
                                  modelType = "lr", addIntercept = TRUE, quiet = TRUE)
     fit <- fitCyclopsModel(data, prior = createPrior("laplace", variance = 0.1, exclude = 0),
-                           control = createControl(noiseLevel = "silent"), warnings = FALSE)
+                           control = createControl(mergeDuplicates = TRUE, noiseLevel = "silent"), warnings = FALSE)
     expected <- lapply(1:12, function(k) as.character(bit64::as.integer64(ids[c(k, 24 + k, if (k == 3) 37)])))
     expect_equal(fit$aliasedColumns, expected)
     expect_equal(names(coef(fit))[1], "(Intercept)")
@@ -116,7 +117,8 @@ test_that("a fold merges columns equal on its training rows, whatever their orde
     }
     cv <- function(data) getCrossValidationInfo(fitCyclopsModel(data, prior = createPrior("laplace", useCrossValidation = TRUE),
         control = createControl(cvType = "grid", lowerLimit = 0.1, upperLimit = 10, gridSteps = 3, fold = 5, seed = 1,
-                                noiseLevel = "silent"), warnings = FALSE))
+                                cvConvergenceType = "gap", # folds certified: the score to rounding
+                                mergeDuplicates = TRUE, noiseLevel = "silent"), warnings = FALSE))
     a <- cv(make(1, 2))
     b <- cv(make(2, 1))
     expect_equal(b$point, a$point)
@@ -126,7 +128,7 @@ test_that("a fold merges columns equal on its training rows, whatever their orde
     # reported as an equal split
     w <- as.numeric(x == twin)
     fit <- fitCyclopsModel(make(1, 2), prior = createPrior("laplace", variance = 1), weights = w,
-                           control = createControl(noiseLevel = "silent"), warnings = FALSE)
+                           control = createControl(mergeDuplicates = TRUE, noiseLevel = "silent"), warnings = FALSE)
     expect_equal(fit$aliasedColumns, list(c("1", "2")))
     expect_equal(unname(coef(fit)["1"]), unname(coef(fit)["2"]))
     expect_true(coef(fit)["1"] != 0)
@@ -154,7 +156,8 @@ test_that("columns equal on the rows of positive weight stay apart where rows of
         convertToCyclopsData(outcomes, cov[order(cov$rowId, cov$covariateId), ], modelType = "lr", quiet = TRUE)
     }
     flat <- function(data) fitCyclopsModel(data, prior = createPrior("none"), weights = c(1, 1, 1, 0),
-                                           control = createControl(noiseLevel = "silent"), warnings = FALSE)
+                                           control = createControl(mergeDuplicates = TRUE, noiseLevel = "silent"),
+                                           warnings = FALSE)
     a <- flat(make(1, 2))
     b <- flat(make(2, 1))
     expect_null(a$aliasedColumns) # separated with a prior "none" on every coefficient: ILLCONDITIONED, by design

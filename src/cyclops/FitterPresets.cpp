@@ -111,6 +111,7 @@ void resolveAlgorithm(Working& w, std::vector<std::string>& warnings) {
 }
 
 ResolvedControl resolve(Working w, std::vector<std::string>& warnings) {
+	const bool foldGiven = w.control.cvConvergenceType.has_value() || w.control.cvTolerance.has_value();
 	resolveAlgorithm(w, warnings);
 	ControlRequest& c = w.control;
 	const ControlRequest s = fitterSettings(c);
@@ -189,6 +190,7 @@ ResolvedControl resolve(Working w, std::vector<std::string>& warnings) {
 	r.fallbackConvergenceType = w.fallbackConvergenceType;
 	r.fallbackTolerance = w.fallbackTolerance;
 	r.fallbackMaxIterations = w.fallbackMaxIterations;
+	r.foldsFromDefaults = !w.fallbackConvergenceType.empty() && !foldGiven && r.algorithm == "auto";
 	return r;
 }
 

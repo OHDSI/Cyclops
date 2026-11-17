@@ -961,8 +961,9 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              the rows with positive weight: columns that differ only on rows of weight 0 (such as a
 #'                              cross-validation fold's held-out rows) are duplicates for that fit, and their total is
 #'                              reported as an equal split whatever the prior.
-#'                              \code{NULL} (default) means \code{TRUE} with \code{algorithm = "auto"} or
-#'                              \code{"newton"} and \code{FALSE} otherwise
+#'                              \code{NULL} (default) means \code{TRUE} with \code{algorithm = "newton"}, and with
+#'                              \code{"auto"} except for logistic regression under \code{"gap"} (which runs coordinate
+#'                              descent first), and \code{FALSE} otherwise
 #' @param doItAll               Currently unused
 #' @param syncCV                Currently unused
 #'
@@ -1270,6 +1271,7 @@ getCrossValidationInfo <- function(object) {
          nullModelBound = control$cvNullModelBound,
          convergenceType = valueOr(control$cvConvergenceType, ""),
          tolerance = valueOr(control$cvTolerance, -1),
+         foldsFromDefaults = isTRUE(control$foldsFromDefaults),
          maxIterations = as.integer(valueOr(control$cvMaxIterations, -1)),
          minIterations = as.integer(control$cvMinIterations),
          warmStart = control$cvWarmStart,
@@ -1434,8 +1436,14 @@ getCrossValidationInfo <- function(object) {
     data.frame(rowId = rowId, fold = fold, prediction = prediction)
 }
 
-# Mode-finding options of a resolved control
-.modeControlOptions <- function(control) {
+# Mode-finding options of a resolved control. Exact duplicates are merged by default where Newton steps carry the fit
+# ("newton", and "auto" for models other than logistic regression, whose "gap" runs coordinate descent first and
+# takes Newton steps only where they pay; its face solves handle the singular faces of duplicates)
+.mergeDuplicatesDefault <- function(control, modelType) {
+    control$algorithm == "newton" ||
+        (control$algorithm == "auto" && !(identical(modelType, "lr") && identical(control$convergenceType, "gap")))
+}
+.modeControlOptions <- function(control, modelType = NULL) {
     valueOr <- function(value, default) if (is.null(value)) default else value
     list(activeSetEvery = as.integer(control$activeSetEvery),
          activeSetThreshold = as.numeric(control$activeSetThreshold),
@@ -1443,7 +1451,7 @@ getCrossValidationInfo <- function(object) {
          fallbackConvergenceType = valueOr(control$fallbackConvergenceType, ""),
          fallbackTolerance = as.numeric(valueOr(control$fallbackTolerance, 1E-6)),
          fallbackMaxIterations = as.integer(valueOr(control$fallbackMaxIterations, 1000)),
-         mergeDuplicates = as.logical(valueOr(control$mergeDuplicates, control$algorithm %in% c("auto", "newton"))))
+         mergeDuplicates = as.logical(valueOr(control$mergeDuplicates, .mergeDuplicatesDefault(control, modelType))))
 }
 
 .setControl <- function(cyclopsInterfacePtr, control, cyclopsData = NULL) {
@@ -1467,7 +1475,8 @@ getCrossValidationInfo <- function(object) {
                            control$algorithm, control$doItAll, control$syncCV
                           )
         .cyclopsSetCvControl(cyclopsInterfacePtr, .cvControlOptions(control))
-        .cyclopsSetModeControl(cyclopsInterfacePtr, .modeControlOptions(control))
+        .cyclopsSetModeControl(cyclopsInterfacePtr,
+                               .modeControlOptions(control, if (is.null(cyclopsData)) NULL else cyclopsData$modelType))
         return(control)
     }
 
