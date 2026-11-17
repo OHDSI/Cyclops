@@ -304,6 +304,7 @@ fitCyclopsModel <- function(cyclopsData,
     # rows without a fold (-1) must have weight 0 (checked below); they take the fold of their stratum or subject
     control$cvFoldOfRow <- if (is.null(folds)) integer(0) else ifelse(is.na(folds$index), -1L, folds$index - 1L)
 
+    givenControl <- control # as given: a retry below resolves its own (the defaults filled in depend on the criterion)
     control <- .setControl(cyclopsData$cyclopsInterfacePtr, control, cyclopsData)
     threads <- control$threads
 
@@ -469,6 +470,8 @@ fitCyclopsModel <- function(cyclopsData,
             warning("BLR convergence criterion failed; coefficient may be infinite")
         }
 
+        cvRepetitions <- control$cvRepetitions
+        control <- givenControl
         control$convergenceType <- "lange"
         if (prior$useCrossValidation) {
             # Refit only the final model at the selected variance; fold fits already fell back to "lange"
@@ -488,7 +491,7 @@ fitCyclopsModel <- function(cyclopsData,
             fit$cross_validation <- cvFit$cross_validation
             fit$cv_failed_folds <- cvFit$cv_failed_folds
             fit$cvPredictions <- cvFit$cvPredictions
-            fit$cvRepetitions <- control$cvRepetitions
+            fit$cvRepetitions <- cvRepetitions
             return(fit)
         }
         return(fitCyclopsModel(cyclopsData = cyclopsData,

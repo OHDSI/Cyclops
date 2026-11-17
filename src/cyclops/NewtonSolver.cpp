@@ -1563,6 +1563,10 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		if (iteration >= maxIterations) {
 			double gap = NAN;
 			const bool dual = context.dualEligible && dualGap(context, &gap); // at the coefficients returned
+			if (kktGuided && context.allStrong) { // R at the coefficients returned (the kkt-guided sweeps do not keep it)
+				std::vector<double> gradient;
+				if (modelSpecifics.fullGradient(context.F, gradient)) R = strongConvexityBound(context, gradient);
+			}
 			finish(MAX_ITERATIONS, "none", context.allNormal ? R : (dual ? gap :
 				(std::isfinite(convergenceReport.lambda2Half) ? convergenceReport.lambda2Half : gHat)));
 			break;
@@ -1609,6 +1613,14 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 
 		if (afterNewton) { // coefficients moved off the coordinate path: the active set restarts from a full sweep
 			afterNewton = false;
+			if (kktGuided) { // and coordinate descent's own state with it: intercept tracking, step history, rates
+				const long extraSteps = interceptState.extraSteps;
+				interceptState = AdaptiveInterceptState();
+				interceptState.extraSteps = extraSteps;
+				lastStep.assign(J, 0.0);
+				flipCount.assign(J, 0);
+				decreases.clear();
+			}
 			nextCycleFull = true;
 			cyclesSinceFull = 0;
 			epochDecrease = 0.0;
@@ -1699,8 +1711,10 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 						extraCycles * sweepWork <= std::max(certificationBudget * totalCycles * sweepWork, 1e6));
 				};
 				const bool onePass = context.dualEligible || context.allStrong;
+				// (an uncertified stop reports the estimate in hand: NaN rather than an infinite rate projection)
+				const double estimate = std::isfinite(gHat) ? gHat : NAN;
 				if (onePass && !affordable(proxGradientSweeps)) {
-					finish(SUCCESS, "none", gHat);
+					finish(SUCCESS, "none", estimate);
 					break;
 				}
 				double bound = NAN; // the certified bound in hand
@@ -1731,7 +1745,9 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 				// a bound that no longer halves while the kkt criterion fell tenfold is at the rounding floor (as dualStop()'s):
 				// stop there
 				const double kktNow = getKktCriterion();
-				if (std::isfinite(bound) && std::isfinite(lastBound) && bound > 0.5 * lastBound && kktNow <= 0.1 * lastStopKkt) {
+				// (the kkt tolerance tightens from the criterion, so it falls tenfold between stops, except at its floor)
+				if (std::isfinite(bound) && std::isfinite(lastBound) && bound > 0.5 * lastBound &&
+						(kktNow <= 0.1 * lastStopKkt || kktTolerance <= 1e-12)) {
 					finish(SUCCESS, "none", bound);
 					break;
 				}
@@ -1750,7 +1766,7 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 					prepareNewton();
 					certifyAfter = cycles;
 				} else if (!std::isfinite(std::min(ccdCycles, newtonCycles)) || !affordable(std::min(ccdCycles, newtonCycles))) {
-					finish(SUCCESS, "none", std::isfinite(bound) ? bound : gHat); // the kkt stop, with the bound in hand
+					finish(SUCCESS, "none", std::isfinite(bound) ? bound : estimate); // the kkt stop, with the bound in hand
 					break;
 				}
 				if (legacyCertify) {
@@ -1760,6 +1776,7 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 					phaseIterations = 0;
 					spentCycles = 0.0;
 					failedEndChecks = 0;
+					kktConsecutive = 0;
 					context.rejections = 0;
 					if (convergenceReport.newtonStart < 0) convergenceReport.newtonStart = cycles;
 					continue;
@@ -1767,6 +1784,7 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 					// tightened from where the criterion is, so that the next stop needs more accuracy
 					kktTolerance = std::max(std::min(kktTolerance, kktNow) * std::pow(10.0, -std::min(decades, 6.0)), 1e-12);
 					kktConsecutive = 0;
+					interceptFloor = std::min(interceptFloor, kktTolerance); // extra intercept steps keep up with it
 				}
 			}
 		}
@@ -1813,6 +1831,7 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 			phaseIterations = 0;
 			spentCycles = 0.0;
 			failedEndChecks = 0;
+			kktConsecutive = 0;
 			context.rejections = 0;
 			if (convergenceReport.newtonStart < 0) {
 				convergenceReport.newtonStart = cycles;

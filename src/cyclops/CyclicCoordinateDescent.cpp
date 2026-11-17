@@ -2694,6 +2694,7 @@ void CyclicCoordinateDescent::trackInterceptGradient(int index, double delta, do
 			boundLimitedStep = true;
 			s.boundedExtra = true;
 		}
+		cycleWork += columnWork[interceptIndex]; // an extra step reads every row
 		if (interceptDelta != 0.0) {
 			sufficientStatisticsKnown = false;
 			updateSufficientStatistics(interceptDelta, interceptIndex);
