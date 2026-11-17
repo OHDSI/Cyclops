@@ -113,6 +113,9 @@ struct ModeFindingArguments {
 	double fallbackTolerance = 1E-6;
 	int fallbackMaxIterations = 1000;
 	bool mergeDuplicates = false; // merge exact-duplicate columns for the fit (Newton plan 2.8)
+	// logistic "gap" fits with algorithm "auto" or "ccd": the kkt tolerance (standard-error units) whose stop triggers the
+	// certificate, as coordinate descent's own (fitter "super": 1e-4 for fits, 3e-3 for cross-validation folds)
+	double kktGuidedTolerance = 1E-4;
 
 	ModeFindingArguments() :
 		tolerance(1E-6),

@@ -182,6 +182,20 @@ Changes:
    took 0.094 s instead of 0.032 s, and 0.25 s instead of 0.064 s under `"auto"`. `fit$prior_info` (and `print(fit)`)
    lists at most the first 100 priors of a fit, then their number: listing every prior took about 6 ms per fit with
    18,933 covariates
+35. logistic regression under `algorithm = "auto"` (the default) runs the coordinate descent of `fitter = "super"` (active-set
+   cycling, adaptive and lazy intercept steps, skipped coordinates certified to be zero) and takes Newton steps only once
+   coordinate descent has spent what four of them cost and is projected to need much more, or stalls. Its `"kkt"` stop
+   (1e-4; 3e-3 in cross-validation folds) triggers the `"gap"` certificate: one pass for the duality gap (L1) or R (a
+   normal part on every coefficient), and past it the cheaper of Newton steps and more coordinate descent. When `"gap"`
+   comes from the defaults, certifying past the `"kkt"` stop may cost a tenth of the fit's work (or about a millisecond);
+   beyond that the fit stops there, as coordinate descent does, with `fit$convergence$certificate = "none"` and the bound
+   it has. An explicit `convergenceType = "gap"` certifies as before. On 30 simulated logistic designs and
+   cross-validations (2,400 to 19,000 covariates), `"auto"` took a median 1.07 times the time of `algorithm = "ccd"` with
+   `fitter = "super"` (before: 3.75 times, up to 19), with the same models; where coordinate descent stalls it still
+   switches to Newton steps. The same settings apply under every fitter but `"legacy"`
+36. adaptive intercept steps (`fitter = "super"`) pause in a cycle once a step was cut short by its bound: from a start
+   with every row saturated (an intercept of -800), each bounded step doubled the intercept's bound and the fit diverged
+   to `NaN`
 
 Cyclops v3.8.0
 ==============

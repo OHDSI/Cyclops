@@ -71,10 +71,12 @@ test_that("the threads of one fit do not take prox-Newton away", {
     data <- sparseLogisticData(X, y)
     prior <- createPrior("laplace", variance = 5, exclude = 0)
     # The memory check reads the value of threads, not the cores available, so 8 needs no 8-core machine. The working set
-    # (over 1,200 columns) fits one 256 MB budget, but not one divided among 8 threads
+    # (over 1,200 columns) fits one 256 MB budget, but not one divided among 8 threads. ("newton": "auto" finishes this
+    # fit by coordinate descent)
     fit <- function(threads) {
         fitCyclopsModel(data, prior = prior, forceNewObject = TRUE, warnings = FALSE,
-                        control = createControl(threads = threads, maxIterations = 300, noiseLevel = "silent"))
+                        control = createControl(algorithm = "newton", threads = threads, maxIterations = 300,
+                                                noiseLevel = "silent"))
     }
     one <- fit(1)
     eight <- fit(8)

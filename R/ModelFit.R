@@ -816,7 +816,13 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              optimum of the log posterior is below \code{tolerance}; it needs a model with
 #'                              second-order kernels (so far \code{"cox"}, \code{"cox_counting"}, \code{"cpr"}, \code{"sccs"},
 #'                              \code{"clr"} and \code{"lr"} in double precision on the CPU) and normal, Laplace or no priors; with Laplace priors the stop is an
-#'                              estimate rather than a certified bound
+#'                              estimate rather than a certified bound. For logistic regression, coordinate descent
+#'                              under \code{"gap"} runs as under \code{"kkt"} with \code{fitter = "super"}, and its
+#'                              \code{"kkt"} stop (1e-4; 3e-3 in cross-validation folds of \code{"auto"}) triggers the
+#'                              certificate. When \code{"gap"} comes from the defaults of \code{"auto"}, certifying
+#'                              past that stop may cost a tenth of the fit's work (or about a millisecond); beyond
+#'                              it the fit stops there, as coordinate descent does, with
+#'                              \code{fit$convergence$certificate = "none"} and the bound it has
 #' @param cvType						String: name of cross validation search.
 #' 													Option \code{"auto"} selects an auto-search following BBR.
 #' 													Option \code{"grid"} selects a grid-search cross validation
@@ -852,8 +858,10 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param initialBound          Numeric: Starting trust-region size
 #' @param maxBoundCount         Numeric: Maximum number of tries to decrease initial trust-region size
 #' @param algorithm             String: name of fitting algorithm to employ: \code{"ccd"} (cyclic coordinate
-#'                              descent), \code{"mm"}, \code{"auto"} (coordinate descent that switches to dense
-#'                              Newton steps when an operation count says they are cheaper, and back on failure) or
+#'                              descent), \code{"mm"}, \code{"auto"} (coordinate descent that switches to Newton
+#'                              steps when they are projected to be cheaper, and back on failure; for logistic
+#'                              regression, only once coordinate descent has spent what four of them cost and is
+#'                              projected to need much more, or stalls) or
 #'                              \code{"newton"} (Newton steps after three coordinate-descent cycles). \code{NULL}
 #'                              (default) means \code{"auto"} for \code{"cox"}, \code{"cox_counting"}, \code{"cpr"},
 #'                              \code{"sccs"}, \code{"clr"} and \code{"lr"} and \code{"ccd"} otherwise, under \code{fitter = "legacy"},
@@ -925,25 +933,25 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              \code{NULL} (default) means \code{TRUE} for logistic regression and least squares
 #'                              with \code{fitter = "super"}, and otherwise \code{TRUE} with
 #'                              \code{resetCoefficients = FALSE} except under \code{fitter = "legacy"}
-#' @param activeSetEvery        Integer: active-set cycling, which needs \code{convergenceType = "kkt"} or
-#'                              \code{cvConvergenceType = "kkt"}. Cycles between full sweeps skip coordinates
+#' @param activeSetEvery        Integer: active-set cycling, which needs \code{convergenceType} or
+#'                              \code{cvConvergenceType} \code{"kkt"} or \code{"gap"}. Cycles between full sweeps skip coordinates
 #'                              that did not move, with a full sweep at least every \code{activeSetEvery}
 #'                              cycles; 0 turns it off. \code{NULL} (default) means 10 with at least 1000
-#'                              covariates for logistic regression with \code{fitter = "super"} and for least
-#'                              squares other than under \code{fitter = "legacy"}, and 0 otherwise
+#'                              covariates for logistic regression with \code{fitter = "super"} or \code{"gap"}
+#'                              and for least squares other than under \code{fitter = "legacy"}, and 0 otherwise
 #' @param activeSetThreshold    Numeric: with active-set cycling, cycles between full sweeps also skip
 #'                              coordinates whose last step, in standard-error units, was below this fraction of
 #'                              the largest step of the last full sweep; with 0, they skip only coordinates with
 #'                              a Laplace prior that are 0 and did not move. \code{NULL} (default) means 0.01
 #' @param adaptiveIntercept     Logical: for logistic regression and least squares with an unpenalized intercept,
-#'                              which needs \code{convergenceType = "kkt"} or \code{cvConvergenceType = "kkt"}:
+#'                              which needs \code{convergenceType} or \code{cvConvergenceType} \code{"kkt"} or \code{"gap"}:
 #'                              take an extra Newton step on the intercept during a cycle whenever its predicted
 #'                              gain per row of work reaches a quarter of that of the coordinate steps in the
 #'                              previous cycle and its gradient, in standard-error units, exceeds the tolerance
 #'                              (for least squares, after every coordinate step that moves, as such a step costs
 #'                              no work over the rows). With many covariates the intercept otherwise lags behind
 #'                              them. \code{NULL} (default) means \code{TRUE} for logistic regression with
-#'                              \code{fitter = "super"} and for least squares other than under
+#'                              \code{fitter = "super"} or \code{"gap"} and for least squares other than under
 #'                              \code{fitter = "legacy"}, and \code{FALSE} otherwise
 #' @param mergeDuplicates       Logical: fit each group of exactly duplicated columns (same rows and values, same
 #'                              prior) as one coefficient. A normal prior's coefficients are reported as the equal

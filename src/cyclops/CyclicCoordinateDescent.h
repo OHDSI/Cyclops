@@ -620,6 +620,10 @@ protected:
 	double activeSetThreshold = 0.0;
 	double activeSetTau = 0.0; // activeSetThreshold times the largest step in the last full sweep
 	double cycleMaxStepSE = 0.0;
+	// Work of the serial cycle, in entries read: a coordinate visit reads its column, a move updates it (a dense column
+	// counts K). Deterministic, so decisions on it do not depend on threads or timing (findModeGap)
+	double cycleWork = 0.0;
+	std::vector<double> columnWork; // entries per column, set up once (the data do not change)
 	bool inActiveSet(int index) const {
 		if (activeSetThreshold > 0.0) {
 			return lastStepSE[index] >= activeSetTau;
@@ -634,6 +638,15 @@ protected:
 	// the coordinate steps. In sparse models those gains are near zero, so the rule also needs g0 / sqrt(h0)
 	// above the tolerance; without that floor it took a step after almost every coordinate.
 	bool adaptiveIntercept = false;
+	// Logistic regression under "gap" with algorithm "auto" or "ccd": coordinate descent runs as under "kkt" (fitter
+	// "super": active-set cycling, adaptive and lazy intercept steps), and its kkt stop at kktGuidedTolerance triggers a
+	// certificate of the gap (findModeGap); without one at tau, the kkt tolerance tightens
+	bool kktGuided = false;
+	double kktGuidedTolerance = 1e-4; // from ModeFindingArguments: the kkt tolerance that triggers certificates
+	// "gap" from the defaults of "auto" (not given): past the kkt stop, certifying may cost at most this share of the
+	// fit's work; beyond it the fit stops there, as coordinate descent does, with the bound it has
+	bool gapFromDefaults = false;
+	static constexpr double certificationBudget = 0.1;
 	static constexpr double adaptiveInterceptRatio = 0.25;
 	int interceptIndex = -1; // in the current findMode(); -1 when off
 	bool interceptIsFree = false; // least squares with a lazy intercept: a step costs O(1), taken after every move

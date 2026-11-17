@@ -106,17 +106,14 @@ penalizedObjective <- function(fit, variance, laplaceFraction) {
     -fit$log_likelihood + sum(laplaceFraction * lambda * abs(b) + (1 - laplaceFraction) * lambda / 2 * b^2)
 }
 
-test_that("Elastic nets under auto use Newton moves and reach the coordinate-descent optimum", {
+test_that("Elastic nets under auto reach the coordinate-descent optimum", {
     sim <- simulateElasticNet("lr")
     for (laplaceFraction in c(0, 0.5, 0.9, 1)) {
         prior <- createPrior("elasticnet", 0.002, laplaceFraction = laplaceFraction)
         auto <- fitWith(sim, prior)
         reference <- fitWith(sim, prior, algorithm = "ccd", convergenceType = "kkt", tolerance = 1E-10,
                              maxIterations = 1E5)
-        expect_equal(auto$return_flag, "SUCCESS")
-        if (laplaceFraction > 0) {
-            expect_equal(auto$algorithm, "newton") # prox-Newton, with the normal part on the Hessian's diagonal
-        }
+        expect_equal(auto$return_flag, "SUCCESS") # coordinate descent, then (on so small a fit) Newton steps to certify
         expect_lt(abs(penalizedObjective(auto, 0.002, laplaceFraction) -
                       penalizedObjective(reference, 0.002, laplaceFraction)), 1E-8)
         expect_equal(coef(auto), coef(reference), tolerance = 1E-7)

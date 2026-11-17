@@ -148,15 +148,26 @@ ResolvedControl resolve(Working w, std::vector<std::string>& warnings) {
 		if (!c.cvTolerance) c.cvTolerance = cvGap ? 1E-5 : (cvKkt ? 3E-3 : 1E-6);
 		if (!c.cvMaxIterations) c.cvMaxIterations = (cvKkt || cvGap) ? 5000 : 1000;
 	}
-	if (!kkt && !is(c.cvConvergenceType, "kkt")) { // the fitter's settings that need "kkt" lapse; given ones are errors
+	// the fitter's settings that need full-sweep stop tests ("kkt", or "gap", which decides after full sweeps) lapse
+	// under other criteria; given ones are errors
+	if (!kkt && !gap && !is(c.cvConvergenceType, "kkt") && !is(c.cvConvergenceType, "gap")) {
 		if (filledActiveSet) c.activeSetEvery = 0;
 		if (filledAdaptive) c.adaptiveIntercept = false;
 		if (*c.activeSetEvery != 0) {
-			throw std::invalid_argument("activeSetEvery needs convergenceType = \"kkt\" or cvConvergenceType = \"kkt\"");
+			throw std::invalid_argument("activeSetEvery needs convergenceType or cvConvergenceType \"kkt\" or \"gap\"");
 		}
 		if (*c.adaptiveIntercept) {
-			throw std::invalid_argument("adaptiveIntercept needs convergenceType = \"kkt\" or cvConvergenceType = \"kkt\"");
+			throw std::invalid_argument("adaptiveIntercept needs convergenceType or cvConvergenceType \"kkt\" or \"gap\"");
 		}
+	}
+
+	// "gap" for logistic regression runs coordinate descent as fitter "super" does, under every fitter but "legacy"
+	// (findModeGap: kkt-guided), with its active-set cycling and adaptive intercept steps
+	if (gap && is(c.modelType, "lr") && c.fitter != "legacy") {
+		if (filledActiveSet) {
+			c.activeSetEvery = (c.nCovariates && *c.nCovariates >= activeSetMinCovariates) ? 10 : 0;
+		}
+		if (filledAdaptive) c.adaptiveIntercept = true;
 	}
 
 	ResolvedControl r;

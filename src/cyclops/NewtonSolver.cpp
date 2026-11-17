@@ -1410,51 +1410,109 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		if (!proxFitsDense(W)) return std::numeric_limits<double>::infinity(); // prox-Newton is dense over W: CCD
 		return modelSpecifics.newtonCostRatio(W) * entryCount(W) / std::max(entryCount(context.F), 1.0);
 	};
-	double costRatio = context.anyLaplace ? proxCost() : modelSpecifics.newtonCostRatio(context.F);
-	convergenceReport.costRatio = costRatio;
+	// The cost of a Newton iteration, in full coordinate-descent sweeps, and the solver (each estimate reads every entry
+	// of F). Kkt-guided fits estimate it only when a decision needs it: most stop on coordinate descent before
+	double costRatio = NAN, cgRatio = NAN, newtonCost = NAN;
+	bool newtonPrepared = false;
+	auto prepareNewton = [&]() {
+		if (newtonPrepared) return;
+		newtonPrepared = true;
+		costRatio = context.anyLaplace ? proxCost() : modelSpecifics.newtonCostRatio(context.F);
+		convergenceReport.costRatio = costRatio;
 
-	// Memory gate (2.5): H, its factor and workspace of this fit (its threads share them), plus the row-wise copy of X_F. Above
-	// the budget dense Newton is off (Newton-CG takes these fits in a later version): "auto" stays on CCD and
-	// "newton" stops at setup
-	double entries = 0.0;
-	for (int j : context.F) {
-		const FormatType format = hXI.getColumnType(j);
-		entries += (format == DENSE || format == INTERCEPT) ? static_cast<double>(K) :
-			static_cast<double>(hXI.getNumberOfEntries(j));
-	}
-	const double width = static_cast<double>(context.F.size());
-	const double bytes = 24.0 * width * width + 12.0 * entries;
-	context.entries = entries;
-	const double budget = newtonMemoryBudget;
+		// Memory gate (2.5): H, its factor and workspace of this fit (its threads share them), plus the row-wise copy of X_F. Above
+		// the budget dense Newton is off (Newton-CG takes these fits in a later version): "auto" stays on CCD and
+		// "newton" stops at setup
+		double entries = 0.0;
+		for (int j : context.F) {
+			const FormatType format = hXI.getColumnType(j);
+			entries += (format == DENSE || format == INTERCEPT) ? static_cast<double>(K) :
+				static_cast<double>(hXI.getNumberOfEntries(j));
+		}
+		const double width = static_cast<double>(context.F.size());
+		const double bytes = 24.0 * width * width + 12.0 * entries;
+		context.entries = entries;
+		const double budget = newtonMemoryBudget;
 
-	// Dense or Newton-CG (2.5): CG when the dense factorization would exceed the memory budget, or when its
-	// operation count is lower; CYCLOPS_NEWTON_SOLVER = "dense" or "cg" forces one (tests, gates)
-	// Woodbury preconditioning when what it keeps fits beside the row-wise copy of X_F
-	context.woodburyAllowed = woodburyBytes(width) + 12.0 * entries <= budget;
-	if (const char* woodbury = std::getenv("CYCLOPS_NEWTON_WOODBURY")) {
-		context.woodburyAllowed = context.woodburyAllowed && std::atoi(woodbury) != 0;
-	}
-	// (prox-Newton for Laplace priors is dense over W: no CG estimate, which would copy all of X_F row-wise)
-	const double cgRatio = context.anyLaplace ? std::numeric_limits<double>::infinity() :
-		modelSpecifics.newtonCgCostRatio(context.F, context.woodburyAllowed);
-	context.conjugateGradient = !context.anyLaplace && (bytes > budget || cgRatio < costRatio);
-	if (const char* forced = std::getenv("CYCLOPS_NEWTON_SOLVER")) {
-		const std::string solver(forced);
-		if (solver == "dense" && bytes <= budget) context.conjugateGradient = false;
-		if (solver == "cg") context.conjugateGradient = true;
-	}
-	if (const char* jacobi = std::getenv("CYCLOPS_NEWTON_JACOBI")) {
-		context.jacobi = std::atoi(jacobi) != 0;
-	}
-	convergenceReport.solver = context.conjugateGradient ? "cg" : "dense";
-	double newtonCost = context.conjugateGradient ? cgRatio : costRatio;
-	convergenceReport.costRatio = newtonCost;
+		// Dense or Newton-CG (2.5): CG when the dense factorization would exceed the memory budget, or when its
+		// operation count is lower; CYCLOPS_NEWTON_SOLVER = "dense" or "cg" forces one (tests, gates)
+		// Woodbury preconditioning when what it keeps fits beside the row-wise copy of X_F
+		context.woodburyAllowed = woodburyBytes(width) + 12.0 * entries <= budget;
+		if (const char* woodbury = std::getenv("CYCLOPS_NEWTON_WOODBURY")) {
+			context.woodburyAllowed = context.woodburyAllowed && std::atoi(woodbury) != 0;
+		}
+		// (prox-Newton for Laplace priors is dense over W: no CG estimate, which would copy all of X_F row-wise)
+		cgRatio = context.anyLaplace ? std::numeric_limits<double>::infinity() :
+			modelSpecifics.newtonCgCostRatio(context.F, context.woodburyAllowed);
+		context.conjugateGradient = !context.anyLaplace && (bytes > budget || cgRatio < costRatio);
+		if (const char* forced = std::getenv("CYCLOPS_NEWTON_SOLVER")) {
+			const std::string solver(forced);
+			if (solver == "dense" && bytes <= budget) context.conjugateGradient = false;
+			if (solver == "cg") context.conjugateGradient = true;
+		}
+		if (const char* jacobi = std::getenv("CYCLOPS_NEWTON_JACOBI")) {
+			context.jacobi = std::atoi(jacobi) != 0;
+		}
+		convergenceReport.solver = context.conjugateGradient ? "cg" : "dense";
+		newtonCost = context.conjugateGradient ? cgRatio : costRatio;
+		convergenceReport.costRatio = newtonCost;
+	};
+	if (!kktGuided) prepareNewton();
 
 	const int warmStart = context.anyLaplace ? 10 : 3; // 2.4 step 2: 10 when Laplace coordinates screen
 	const int stopFrom = 3; // stop tests start after 3 cycles even when Newton waits for the longer warm start
 	bool newtonPhase = false;
 	int phaseIterations = 0;
-	int cycles = 0;
+	// With active-set cycling (activeSetEvery), cycles between full sweeps visit only the coordinates that moved: the
+	// statistics and every decision below count full sweeps, each with the decrease and the work of the cycles since the
+	// last one (an epoch). Without it, every cycle is a full sweep and an epoch
+	int cycles = 0; // full sweeps
+	int allCycles = 0;
+	double kktTolerance = kktGuidedTolerance;
+	bool afterNewton = false;
+	double epochDecrease = 0.0;
+	double epochWork = 0.0;
+	bool epochLimited = false;
+	double epochCycles = 1.0; // the work of the last epoch, in full sweeps (newtonCost's unit)
+	double spentCycles = 0.0; // coordinate-descent work since the start or the last Newton phase, in full sweeps
+	double totalCycles = 0.0; // all coordinate-descent work, in full sweeps
+	double cyclesAtKktStop = 0.0; // totalCycles at the last kkt stop
+	int kktStops = 0;
+	double lastBound = NAN; // the bound at the last kkt stop
+	double firstKkt = NAN; // the kkt criterion of the first full sweep (kkt-guided)
+	// kkt-guided: stop tests whose kkt criterion of the cycles had passed but whose residual at the end of the sweep did not
+	// (coordinate descent crawling along correlated directions; a fit that converges passes it at once)
+	int failedEndChecks = 0;
+	// one full sweep: a visit of every free coordinate of F reads its column
+	const double sweepWork = std::max(entryCount(context.F), 1.0);
+	// prox-Newton reads the gradient over all of F at every iteration, about 0.8 of a sweep (measured: a column dot
+	// against a coordinate visit); newtonCostRatio() counts only its work over the working set
+	const double proxGradientSweeps = 0.8;
+	// (kkt-guided prox-Newton: its cost follows the working set, re-estimated when that changed by a tenth since)
+	size_t costedWorkingSet = 0;
+	auto newtonIterationCycles = [&]() {
+		prepareNewton();
+		if (kktGuided && context.anyLaplace) {
+			const size_t w = workingSet().size();
+			if (costedWorkingSet == 0 || std::abs(static_cast<double>(w) - static_cast<double>(costedWorkingSet)) >
+					0.1 * static_cast<double>(costedWorkingSet)) {
+				newtonCost = proxCost();
+				convergenceReport.costRatio = newtonCost;
+				costedWorkingSet = std::max<size_t>(w, 1);
+			}
+		}
+		return newtonCost + (context.anyLaplace ? proxGradientSweeps : 0.0);
+	};
+	// a Newton iteration reads every entry of F at least twice (gradient, commit) beside its own work: half a sweep or more
+	const double newtonFloorCycles = 0.5;
+	// kkt-guided: the coordinate-descent work still projected, in full sweeps: the decades of the kkt criterion still to
+	// go, at the work per decade so far
+	auto remainingCcdCycles = [&]() {
+		const double now = getKktCriterion();
+		if (!(now > kktTolerance) || !(firstKkt > 0.0)) return 0.0;
+		const double done = std::max(0.5, std::log10(firstKkt / now));
+		return std::log10(now / kktTolerance) * totalCycles / done;
+	};
 	int failures = 0;
 	int suppressUntil = 0;
 	int certifyAfter = 0;
@@ -1507,6 +1565,7 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 			++iteration;
 			++phaseIterations;
 			++convergenceReport.newtonIterations;
+			afterNewton = true;
 			const NewtonOutcome outcome = context.anyLaplace ? proxNewtonIteration(context) : newtonIteration(context);
 			if (outcome == NewtonOutcome::CERTIFIED) {
 				if (context.dualCertified) {
@@ -1541,19 +1600,49 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 			continue;
 		}
 
+		if (afterNewton) { // coefficients moved off the coordinate path: the active set restarts from a full sweep
+			afterNewton = false;
+			nextCycleFull = true;
+			cyclesSinceFull = 0;
+			epochDecrease = 0.0;
+			epochWork = 0.0;
+			epochLimited = false;
+		}
 		shadowStepDecrease = 0.0;
 		cycle(); // advances iteration
+		++allCycles;
+		convergenceReport.cycles = allCycles;
+		epochDecrease += shadowStepDecrease;
+		epochWork += cycleWork;
+		epochLimited = epochLimited || boundLimitedStep;
+		if (activeSetEvery != 0) {
+			cyclesSinceFull = lastCycleFull ? 0 : cyclesSinceFull + 1;
+			// a full sweep at the schedule, and as soon as a partial cycle's decrease falls to tau_eff: the stop tests
+			// below need one
+			nextCycleFull = iteration < activeSetStart || cyclesSinceFull + 1 >= activeSetEvery ||
+				(kktGuided ? getKktCriterion() < kktTolerance : (!lastCycleFull && shadowStepDecrease <= context.tauEff));
+			if (!lastCycleFull) {
+				continue;
+			}
+		}
 		++cycles;
+		epochCycles = epochWork / sweepWork;
+		spentCycles += epochCycles;
+		totalCycles += epochCycles;
+		if (kktGuided && !std::isfinite(firstKkt)) firstKkt = getKktCriterion();
+		const double decreaseOfEpoch = epochDecrease;
 		// steps cut short by their bounds (far from the optimum, or rows saturating): the gap estimate means nothing yet,
 		// so no certification attempt, as coordinate descent's own rule declines convergence. (Newton steps may still
 		// start: with thousands of columns some step is bound-limited in most early cycles)
-		const bool stepsLimited = boundLimitedStep;
-		if (context.anyLaplace && (cycles == stopFrom || cycles == warmStart || cycles % 16 == 0)) {
+		const bool stepsLimited = epochLimited;
+		epochDecrease = 0.0;
+		epochWork = 0.0;
+		epochLimited = false;
+		if (newtonPrepared && context.anyLaplace && (cycles == stopFrom || cycles == warmStart || cycles % 16 == 0)) {
 			newtonCost = proxCost();
 			convergenceReport.costRatio = newtonCost;
 		}
-		convergenceReport.cycles = cycles;
-		decreases.push_back(shadowStepDecrease);
+		decreases.push_back(decreaseOfEpoch);
 
 		// Trigger statistics (2.4 step 4): the rate of the last min(t, 20) step decreases
 		double rho = NAN;
@@ -1576,13 +1665,99 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		const double nHat = (gHat <= context.tauEff) ? 0.0 :
 			((rho < 1.0) ? std::log(gHat / context.tauEff) / -std::log(rho) : std::numeric_limits<double>::infinity());
 
+		// Kkt-guided (logistic, "auto" or "ccd"): coordinate descent's own kkt stop, then one certificate pass: the duality
+		// gap (L1), or R (every free coordinate with a normal part: elastic net, normal); a gap above tau_eff tightens the
+		// kkt tolerance. Without either certificate the kkt stop ends the fit, uncertified, as under "kkt"
+		if (kktGuided) {
+			double unused = 0.0;
+			const int consecutiveBefore = kktConsecutive;
+			const bool statBelow = getKktCriterion() < kktTolerance;
+			const bool kktDone = performCheckConvergence(KKT, kktTolerance, std::numeric_limits<int>::max(), iteration, &unused);
+			if (!kktDone && statBelow && consecutiveBefore + 1 >= kktConsecutiveNeeded && kktConsecutive == 0) {
+				++failedEndChecks;
+			}
+			if (kktDone) {
+				if (lastReturnFlag != SUCCESS) { // ill-conditioned: as under "kkt"
+					finish(lastReturnFlag, "none", NAN);
+					break;
+				}
+				++kktStops;
+				// the work of the last decade of the kkt tolerance (the first stop: four decades from the start)
+				const double decadeCycles = (kktStops == 1) ? 0.25 * totalCycles : totalCycles - cyclesAtKktStop;
+				cyclesAtKktStop = totalCycles;
+				// "gap" from the defaults of "auto": certifying past the kkt stop may cost a tenth of the fit's work, or about
+				// a millisecond's (1e6 entries read) whatever the fit cost; beyond that the kkt stop ends the fit, as under "kkt"
+				auto affordable = [&](double extraCycles) {
+					return !gapFromDefaults ||
+						extraCycles * sweepWork <= std::max(certificationBudget * totalCycles * sweepWork, 1e6);
+				};
+				const bool onePass = context.dualEligible || context.allStrong;
+				if (onePass && !affordable(proxGradientSweeps)) {
+					finish(SUCCESS, "none", gHat);
+					break;
+				}
+				double bound = NAN; // the certified bound in hand
+				if (context.dualEligible) {
+					const int verdict = dualStop(context);
+					if (verdict != 0) {
+						finish(SUCCESS, (verdict > 0) ? "dual" : "none", convergenceReport.dualGap);
+						break;
+					}
+					bound = convergenceReport.dualGap;
+				} else if (context.allStrong) {
+					std::vector<double> gradient;
+					if (modelSpecifics.fullGradient(context.F, gradient)) {
+						R = strongConvexityBound(context, gradient);
+						convergenceReport.R = R;
+						if (R <= context.tauEff) {
+							finish(SUCCESS, "R", R);
+							break;
+						}
+						bound = R;
+					}
+				}
+				// Past the bound: the duality gap (and R) of an epsilon-kkt point fall about in step with epsilon, so
+				// coordinate descent needs about as many more decades of the kkt tolerance as the bound is above tau_eff;
+				// Newton steps (prox-Newton over the working set) converge quadratically, about two to a near-exact point
+				// and their own certificate. Without a one-pass certificate only Newton steps certify. The cheaper one runs
+				// a bound that no longer halves between kkt stops is at the rounding floor (as dualStop()'s): stop there
+				if (std::isfinite(bound) && std::isfinite(lastBound) && bound > 0.5 * lastBound) {
+					finish(SUCCESS, "none", bound);
+					break;
+				}
+				lastBound = bound;
+				const double decades = (std::isfinite(bound) && bound > context.tauEff) ?
+					std::max(1.0, std::ceil(std::log10(bound / context.tauEff))) : 1.0;
+				const double ccdCycles = std::isfinite(bound) ? decades * decadeCycles : std::numeric_limits<double>::infinity();
+				const bool canNewton = algorithmType == AlgorithmType::AUTO && cycles >= suppressUntil && !saturated() &&
+					(!context.anyLaplace || proxFitsDense(workingSet()));
+				const double newtonCycles = (canNewton && affordable(2.0 * newtonFloorCycles)) ? 2.0 * newtonIterationCycles() :
+					std::numeric_limits<double>::infinity();
+				if (!std::isfinite(std::min(ccdCycles, newtonCycles)) || !affordable(std::min(ccdCycles, newtonCycles))) {
+					finish(SUCCESS, "none", std::isfinite(bound) ? bound : gHat); // the kkt stop, with the bound in hand
+					break;
+				}
+				if (newtonCycles <= ccdCycles) {
+					newtonPhase = true;
+					phaseIterations = 0;
+					spentCycles = 0.0;
+					failedEndChecks = 0;
+					context.rejections = 0;
+					if (convergenceReport.newtonStart < 0) convergenceReport.newtonStart = cycles;
+					continue;
+				}
+				kktTolerance = std::max(kktTolerance * std::pow(10.0, -std::min(decades, 6.0)), 1e-12);
+				kktConsecutive = 0;
+			}
+		}
+
 		// Certificate first (2.4 step 3): R when every free coordinate has a positive precision (normal, or elastic net
 		// with alpha < 1, where it is an extra certified stop beside the prox-Newton estimate). Its gradient pass is skipped while
 		// the step-decrease estimate is still far above tau_eff (R >= gap, so no stop is missed; the
 		// estimate reads at most a few times low, E16); every 16th cycle computes it regardless, since the estimate
 		// reads far too high where the rate nears 1
 		const bool farAway = std::isfinite(gHat) && gHat > 1e3 * context.tauEff && cycles > 1 && cycles % 16 != 0;
-		if (context.allStrong && !farAway) {
+		if (context.allStrong && !farAway && !kktGuided) {
 			std::vector<double> gradient;
 			if (modelSpecifics.fullGradient(context.F, gradient)) {
 				R = strongConvexityBound(context, gradient);
@@ -1602,12 +1777,21 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		if (algorithmType == AlgorithmType::NEWTON && cycles >= warmStart && cycles >= suppressUntil && !saturated()) {
 			newtonPhase = true;
 		} else if (algorithmType == AlgorithmType::AUTO && (cycles >= warmStart || (cycles >= stopFrom && newtonCost < 1.0)) &&
-				cycles >= suppressUntil && nHat > 4.0 * newtonCost && !saturated()) {
-			// (Laplace fits screen for 10 cycles unless prox-Newton over the working set costs under one cycle)
+				cycles >= suppressUntil && (kktGuided ?
+					spentCycles >= 4.0 * newtonFloorCycles && spentCycles >= 4.0 * newtonIterationCycles() &&
+						(remainingCcdCycles() > 8.0 * newtonIterationCycles() || failedEndChecks >= 2) :
+					nHat > 4.0 * newtonCost) && !saturated()) {
+			// Kkt-guided: rent, then buy. Newton starts only once coordinate descent has spent what four Newton iterations
+			// cost (a projection early in a fit is far too pessimistic where active-set cycles are cheap), and is still
+			// projected to need twice that, or stalls (two stop tests failed at the end of the sweep after the criterion of
+			// the cycles had passed). Other models: when the step-decrease projection of the remaining cycles exceeds four
+			// iterations. (Laplace fits screen for 10 cycles unless prox-Newton over the working set costs under one cycle)
 			newtonPhase = true;
 		}
 		if (newtonPhase) {
 			phaseIterations = 0;
+			spentCycles = 0.0;
+			failedEndChecks = 0;
 			context.rejections = 0;
 			if (convergenceReport.newtonStart < 0) {
 				convergenceReport.newtonStart = cycles;
@@ -1617,11 +1801,11 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 
 		// A curvature certificate on the CCD path: once the estimate is within 100 tau_eff and finishing on CCD
 		// costs more than one H (or it is already below tau_eff), with 2^k cycles between failed attempts
-		if (convergenceType == GAP && context.conjugateGradient && !context.allNormal && cycles >= stopFrom &&
+		if (!kktGuided && convergenceType == GAP && context.conjugateGradient && !context.allNormal && cycles >= stopFrom &&
 				gHat <= context.tauEff && !stepsLimited) { // no curvature certificate within the memory budget
 			if (stopOnEstimate()) break;
 		}
-		if (convergenceType == GAP && !context.conjugateGradient && cycles >= stopFrom && cycles >= certifyAfter &&
+		if (!kktGuided && convergenceType == GAP && !context.conjugateGradient && cycles >= stopFrom && cycles >= certifyAfter &&
 				!stepsLimited) {
 			const double estimate = context.allNormal ? R : gHat;
 			const double remaining = context.allNormal ?
@@ -1636,6 +1820,7 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 				} else if (context.anyLaplace) { // one prox-Newton iteration: its L1 decrease stops the fit, or its step helps
 					++iteration;
 					++convergenceReport.newtonIterations;
+					afterNewton = true;
 					const NewtonOutcome outcome = proxNewtonIteration(context);
 					if (outcome == NewtonOutcome::CERTIFIED) {
 						finish(SUCCESS, context.dualCertified ? "dual" : "R",
