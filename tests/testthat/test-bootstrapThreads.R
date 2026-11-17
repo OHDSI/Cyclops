@@ -34,6 +34,21 @@ test_that("Cox bootstrap of subjects does not depend on the threads", {
     expect_equal(bootstrapSamples(cyclopsData, threads = 3), serial, tolerance = 1E-10)
 })
 
+test_that("Cold-start bootstrap replicates do not depend on the threads", {
+    set.seed(123)
+    sim <- simulateCyclopsData(nstrata = 1, ncovars = 4, nrows = 500, effectSizeSd = 0.5,
+                               eCovarsPerRow = 2, model = "logistic")
+    cyclopsData <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = "lr", quiet = TRUE)
+    coldSamples <- function(threads) {
+        fit <- fitCyclopsModel(cyclopsData, control = createControl(seed = 123, threads = threads, tolerance = 1E-8,
+                                                                    resetCoefficients = TRUE, noiseLevel = "silent"))
+        as.matrix(runBootstrap(fit, replicates = 20)$samples)
+    }
+    serial <- coldSamples(1)
+    expect_equal(coldSamples(3), serial, tolerance = 1E-12)
+    expect_equal(serial, bootstrapSamples(cyclopsData, threads = 1, replicates = 20), tolerance = 1E-5) # same resamples
+})
+
 test_that("Bootstrap on threads leaves the weights and coefficients of the fit", {
     set.seed(123)
     sim <- simulateCyclopsData(nstrata = 1, ncovars = 4, nrows = 300, effectSizeSd = 0.5,

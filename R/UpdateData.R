@@ -90,7 +90,8 @@ updateWeights <- function(cyclopsData, weights) {
 #'
 #' @details
 #' Available for \code{modelType} \code{"lr"}, \code{"pr"}, \code{"ls"}, \code{"clr"}, \code{"cpr"}, \code{"cox"}
-#' and \code{"cox_counting"}.
+#' and \code{"cox_counting"}. Outcomes lie between 0 and 1 in \code{"lr"} and \code{"clr"}, are 0 or 1 in \code{"cox"}
+#' and \code{"cox_counting"}, and are non-negative in \code{"pr"} and \code{"cpr"}.
 #'
 #' Fits made earlier on the data can no longer be used: their \code{vcov}, \code{predict}, \code{confint} and
 #' \code{\link{runBootstrap}} stop, and after the next fit on the data they would report that fit. Take what you need
@@ -126,6 +127,12 @@ updateOutcomes <- function(cyclopsData, y) {
     y <- as.numeric(.valuesInDataOrder(cyclopsData, y, "y"))
     if (any(!is.finite(y))) {
         stop("y must be finite")
+    }
+    if (modelType %in% c("lr", "clr") && any(y < 0 | y > 1)) {
+        stop("Logistic models need outcomes y between 0 and 1")
+    }
+    if (modelType %in% c("pr", "cpr") && any(y < 0)) {
+        stop("Poisson models need non-negative outcomes y")
     }
     time <- NULL
     if (modelType %in% c("cox", "cox_counting")) {
@@ -171,7 +178,7 @@ updateOutcomes <- function(cyclopsData, y) {
         }
         index <- match(rowIds, keys)
         if (anyNA(index) || length(keys) != n) {
-            stop("Need a ", column, " for each of the ", n, " data rows, and no other rowIds")
+            stop("Need a value of ", column, " for each of the ", n, " data rows, and no other rowIds")
         }
         return(values[[column]][index])
     }

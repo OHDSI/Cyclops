@@ -26,7 +26,8 @@ object is changed in place, and the next fit on it starts from new model state.
 }
 \details{
 Available for \code{modelType} \code{"lr"}, \code{"pr"}, \code{"ls"}, \code{"clr"}, \code{"cpr"}, \code{"cox"}
-and \code{"cox_counting"}.
+and \code{"cox_counting"}. Outcomes lie between 0 and 1 in \code{"lr"} and \code{"clr"}, are 0 or 1 in \code{"cox"}
+and \code{"cox_counting"}, and are non-negative in \code{"pr"} and \code{"cpr"}.
 
 Fits made earlier on the data can no longer be used: their \code{vcov}, \code{predict}, \code{confint} and
 \code{\link{runBootstrap}} stop, and after the next fit on the data they would report that fit. Take what you need

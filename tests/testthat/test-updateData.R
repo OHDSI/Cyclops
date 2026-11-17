@@ -198,6 +198,65 @@ test_that("updateWeights checks its input", {
     expect_error(updateWeights(cyclopsData, weights), "1 strata have rows of weight 0")
 })
 
+test_that("updateWeights stops on mixed zero weights in a stratum of every conditional model", {
+    set.seed(123)
+    n <- 100
+    stratum <- rep(1:20, each = 5)
+    outcomes <- data.frame(rowId = 1:n, stratumId = stratum, y = rep(c(1, 0, 0, 0, 0), 20), time = runif(n, 1, 5))
+    covariates <- data.frame(rowId = 1:n, stratumId = stratum, covariateId = 1, covariateValue = rnorm(n))
+    for (modelType in c("clr", "clr_efron", "clr_exact", "cpr", "sccs")) {
+        cyclopsData <- convertToCyclopsData(outcomes, covariates, modelType = modelType, quiet = TRUE)
+        weights <- ifelse(stratum == 1, 0, 1) # a whole stratum
+        expect_silent(updateWeights(cyclopsData, data.frame(rowId = 1:n, weights = weights)))
+        weights[6] <- 0 # one row of stratum 2
+        expect_error(updateWeights(cyclopsData, data.frame(rowId = 1:n, weights = weights)),
+                     "1 strata have rows of weight 0", info = modelType)
+    }
+})
+
+test_that("updateWeights and updateOutcomes take factor and integer64 rowIds", {
+    set.seed(123)
+    sim <- simulateRefitData("cox", n = 100) # the internal order is not the rowId order
+    cyclopsData <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = "cox", quiet = TRUE)
+    shuffled <- sample(sim$outcomes$rowId)
+    weights <- rpois(100, 1)[shuffled]
+    y <- rbinom(100, 1, 0.5)[shuffled]
+    refit <- function(rowId) {
+        updateWeights(cyclopsData, data.frame(rowId = rowId, weights = weights))
+        updateOutcomes(cyclopsData, data.frame(rowId = rowId, y = y))
+        coef(fitCyclopsModel(cyclopsData, control = tightControl))
+    }
+    numeric <- refit(shuffled)
+    expect_equal(refit(factor(shuffled, levels = rev(sort(shuffled)))), numeric, tolerance = 0) # codes are not ids
+    expect_equal(refit(bit64::as.integer64(shuffled)), numeric, tolerance = 0)
+})
+
+test_that("updateOutcomes checks its input", {
+    set.seed(123)
+    for (modelType in c("lr", "clr", "pr", "cpr")) {
+        sim <- simulateRefitData(modelType, n = 50, nstrata = 10)
+        cyclopsData <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = modelType, quiet = TRUE)
+        y <- sim$outcomes[, c("rowId", "y")]
+        expect_error(updateOutcomes(cyclopsData, y[-1, ]), "for each of the 50", info = modelType)
+        expect_error(updateOutcomes(cyclopsData, y[, "y", drop = FALSE]), "columns rowId and y", info = modelType)
+        expect_error(updateOutcomes(cyclopsData, data.frame(rowId = y$rowId, outcome = y$y)), "columns rowId and y",
+                     info = modelType)
+        expect_error(updateOutcomes(cyclopsData, replace(y, "y", replace(y$y, 1, NA))), "finite", info = modelType)
+        if (modelType %in% c("lr", "clr")) {
+            expect_error(updateOutcomes(cyclopsData, replace(y, "y", replace(y$y, 1, 2))), "between 0 and 1",
+                         info = modelType)
+            expect_error(updateOutcomes(cyclopsData, replace(y, "y", replace(y$y, 1, -0.5))), "between 0 and 1",
+                         info = modelType)
+            expect_silent(updateOutcomes(cyclopsData, replace(y, "y", replace(y$y, 1, 0.5)))) # a proportion
+        } else {
+            expect_error(updateOutcomes(cyclopsData, replace(y, "y", replace(y$y, 1, -1))), "non-negative",
+                         info = modelType)
+            expect_silent(updateOutcomes(cyclopsData, replace(y, "y", y$y + 0.5)))
+        }
+    }
+    expect_error(updateOutcomes(cyclopsData, 1:49), "for each of the 50")
+})
+
 test_that("A refit after updateOutcomes equals a fit of rebuilt data", {
     set.seed(123)
     for (modelType in c("lr", "pr", "ls", "cox", "cox_counting", "clr", "cpr")) {
