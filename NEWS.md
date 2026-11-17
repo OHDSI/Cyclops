@@ -1,14 +1,5 @@
-Cyclops v4.0.2
-==============
-
-Changes (CloneCensorWeight requires this version; details in the development-version items below):
-
-1. `vcov(fit, type = "robust")` returns the cluster-robust (sandwich) variance of `lr`, `pr`, `cox` and
-   `cox_counting` fits, and `confint(fit, method = "robust")` the Wald intervals from it; `vcov()`, `getSEs()`
-   and the Fisher information accept non-integer case weights
-
-Cyclops (development version)
-=============================
+Cyclops v4.0.2 (development version)
+====================================
 
 Changes:
 
