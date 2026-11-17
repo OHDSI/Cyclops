@@ -174,12 +174,17 @@ start, length, event, x1, x2
 
     fit <- fitCyclopsModel(cyclopsData, weights = rep(c(0,1), 7),
                            control = createControl(seed = 123))
-    expect_error(bootstrap <- runBootstrap(fit, replicates = 4999), "missing values and NaN")
+    expect_warning(bootstrap <- runBootstrap(fit, replicates = 4999), "replicates failed and have NA estimates")
+    expect_equal(nrow(bootstrap$samples), 4999)
+    expect_equal(bootstrap$failed, sum(!complete.cases(bootstrap$samples)))
+    expect_gt(bootstrap$failed, 0)
+    expect_true(is.na(bootstrap$summary$bpi_lower))
 
     fit <- fitCyclopsModel(cyclopsData, weights = rep(c(0,1), 7),
                            control = createControl(seed = 123))
-    bootstrap <- runBootstrap(fit, replicates = 4999, na.rm = TRUE)
-    expect_lt(nrow(bootstrap$samples), 4999)
+    expect_warning(dropped <- runBootstrap(fit, replicates = 4999, na.rm = TRUE), "they are dropped")
+    expect_equal(nrow(dropped$samples), 4999 - dropped$failed) # the refit warm-starts, so its failures can differ
+    expect_true(is.finite(dropped$summary$bpi_lower))
 })
 
 test_that("Bootstrap leaves the weights and coefficients of the fit", {

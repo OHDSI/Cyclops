@@ -9,11 +9,12 @@ updateOutcomes(cyclopsData, y)
 \arguments{
 \item{cyclopsData}{A Cyclops data object}
 
-\item{y}{The new outcomes: for data with row ids (\code{\link{convertToCyclopsData}}), a data frame
-with columns \code{rowId} and \code{y} and a row for each data row; or a vector with the
-outcome of each data row, in the order that the \code{weights} of
-\code{\link{fitCyclopsModel}} take (for data from \code{\link{createCyclopsData}}, the order
-of the data)}
+\item{y}{The new outcomes: a data frame with columns \code{rowId} and \code{y} and a row for each
+data row, for data with row ids (\code{\link{convertToCyclopsData}}); or a vector with the
+outcome of each data row, in the order of the data for data from
+\code{\link{createCyclopsData}}, or of increasing \code{rowId} for data with row ids that keep
+that order (\code{"lr"}, \code{"pr"} and \code{"ls"} data, for example; other data with row ids
+need the data frame)}
 }
 \value{
 The Cyclops data object, invisibly
@@ -25,12 +26,11 @@ object is changed in place, and the next fit on it starts from new model state.
 }
 \details{
 Available for \code{modelType} \code{"lr"}, \code{"pr"}, \code{"ls"}, \code{"clr"}, \code{"cpr"}, \code{"cox"}
-and \code{"cox_counting"}. Cox data keep their rows sorted by stratum, decreasing time and outcome, so among the
-rows of a stratum with the same time, those with \code{y = 0} must still come before those with \code{y = 1};
-otherwise rebuild the data.
+and \code{"cox_counting"}.
 
-Fits made earlier on the data share them, so their later computations (such as \code{confint} or
-\code{predict}) use the new outcomes.
+Fits made earlier on the data can no longer be used: their \code{vcov}, \code{predict}, \code{confint} and
+\code{\link{runBootstrap}} stop, and after the next fit on the data they would report that fit. Take what you need
+from a fit before you update its data.
 }
 \examples{
 counts <- c(18, 17, 15, 20, 10, 20, 25, 13, 12)

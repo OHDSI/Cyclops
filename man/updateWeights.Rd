@@ -9,11 +9,12 @@ updateWeights(cyclopsData, weights)
 \arguments{
 \item{cyclopsData}{A Cyclops data object}
 
-\item{weights}{Non-negative weights: for data with row ids (\code{\link{convertToCyclopsData}}), a data
-frame with columns \code{rowId} and \code{weights} and a row for each data row; or a vector
-with the weight of each data row, in the order that the \code{weights} of
-\code{\link{fitCyclopsModel}} take (for data from \code{\link{createCyclopsData}}, the order
-of the data); or \code{NULL}, for weight 1 on every row}
+\item{weights}{Non-negative weights: a data frame with columns \code{rowId} and \code{weights} and a row for
+each data row, for data with row ids (\code{\link{convertToCyclopsData}}); a vector with the
+weight of each data row, in the order of the data for data from
+\code{\link{createCyclopsData}}, or of increasing \code{rowId} for data with row ids that keep
+that order (\code{"lr"}, \code{"pr"} and \code{"ls"} data, for example; other data with row
+ids need the data frame); or \code{NULL}, for weight 1 on every row}
 }
 \value{
 The Cyclops data object, invisibly
@@ -27,10 +28,16 @@ rebuilding the data. The data object is changed in place.
 A row of weight 0 is left out: the fit equals that of the data without the row. In conditional models
 (\code{"clr"}, \code{"clr_efron"}, \code{"clr_exact"}, \code{"cpr"} and \code{"sccs"}), a row of weight 0
 would still enter the denominator of its stratum, so the rows of a stratum must all have weight 0 or all have
-positive weights.
+positive weights. Some weight must be positive. Two cases still differ from data without the rows: without a
+prior, a covariate that is nonzero only in rows of weight 0 makes the fit ill-conditioned (data without the rows
+would not have the covariate); and cross-validation draws its random folds over all rows and, with automatic
+search, starts from a variance computed over all rows (give \code{cvFolds} and a grid for the selection of the
+data without the rows).
 
 The weights stay with the data for all later fits; weights given to \code{\link{fitCyclopsModel}} take
-precedence, with a warning.
+precedence, with a warning. A fit object keeps pointing at its data, so after a refit, earlier fits on the data
+report the latest fit in \code{vcov}, \code{predict} and \code{confint}: take what you need from a fit before
+you update its data.
 }
 \examples{
 counts <- c(18, 17, 15, 20, 10, 20, 25, 13, 12)

@@ -27,17 +27,24 @@
 #' A row of weight 0 is left out: the fit equals that of the data without the row. In conditional models
 #' (\code{"clr"}, \code{"clr_efron"}, \code{"clr_exact"}, \code{"cpr"} and \code{"sccs"}), a row of weight 0
 #' would still enter the denominator of its stratum, so the rows of a stratum must all have weight 0 or all have
-#' positive weights.
+#' positive weights. Some weight must be positive. Two cases still differ from data without the rows: without a
+#' prior, a covariate that is nonzero only in rows of weight 0 makes the fit ill-conditioned (data without the rows
+#' would not have the covariate); and cross-validation draws its random folds over all rows and, with automatic
+#' search, starts from a variance computed over all rows (give \code{cvFolds} and a grid for the selection of the
+#' data without the rows).
 #'
 #' The weights stay with the data for all later fits; weights given to \code{\link{fitCyclopsModel}} take
-#' precedence, with a warning.
+#' precedence, with a warning. A fit object keeps pointing at its data, so after a refit, earlier fits on the data
+#' report the latest fit in \code{vcov}, \code{predict} and \code{confint}: take what you need from a fit before
+#' you update its data.
 #'
 #' @param cyclopsData A Cyclops data object
-#' @param weights     Non-negative weights: for data with row ids (\code{\link{convertToCyclopsData}}), a data
-#'                    frame with columns \code{rowId} and \code{weights} and a row for each data row; or a vector
-#'                    with the weight of each data row, in the order that the \code{weights} of
-#'                    \code{\link{fitCyclopsModel}} take (for data from \code{\link{createCyclopsData}}, the order
-#'                    of the data); or \code{NULL}, for weight 1 on every row
+#' @param weights     Non-negative weights: a data frame with columns \code{rowId} and \code{weights} and a row for
+#'                    each data row, for data with row ids (\code{\link{convertToCyclopsData}}); a vector with the
+#'                    weight of each data row, in the order of the data for data from
+#'                    \code{\link{createCyclopsData}}, or of increasing \code{rowId} for data with row ids that keep
+#'                    that order (\code{"lr"}, \code{"pr"} and \code{"ls"} data, for example; other data with row
+#'                    ids need the data frame); or \code{NULL}, for weight 1 on every row
 #'
 #' @return The Cyclops data object, invisibly
 #'
@@ -59,11 +66,13 @@ updateWeights <- function(cyclopsData, weights) {
         if (any(!is.finite(weights)) || any(weights < 0)) {
             stop("weights must be finite and non-negative")
         }
-        if (cyclopsData$modelType %in% c("clr", "clr_efron", "clr_exact", "cpr", "sccs")) {
-            stratum <- .cyclopsGetStratumVector(cyclopsData)
-            mixed <- tapply(weights > 0, stratum, function(positive) any(positive) && !all(positive))
-            if (any(mixed)) {
-                stop(sum(mixed), " strata have rows of weight 0 and rows of positive weight; in modelType = \"",
+        if (!any(weights > 0)) {
+            stop("Need a positive weight")
+        }
+        if (cyclopsData$modelType %in% .conditionalModelTypes) {
+            mixed <- .mixedZeroWeightStrata(cyclopsData, weights)
+            if (mixed > 0) {
+                stop(mixed, " strata have rows of weight 0 and rows of positive weight; in modelType = \"",
                      cyclopsData$modelType, "\", a row of weight 0 still enters its stratum")
             }
         }
@@ -81,19 +90,19 @@ updateWeights <- function(cyclopsData, weights) {
 #'
 #' @details
 #' Available for \code{modelType} \code{"lr"}, \code{"pr"}, \code{"ls"}, \code{"clr"}, \code{"cpr"}, \code{"cox"}
-#' and \code{"cox_counting"}. Cox data keep their rows sorted by stratum, decreasing time and outcome, so among the
-#' rows of a stratum with the same time, those with \code{y = 0} must still come before those with \code{y = 1};
-#' otherwise rebuild the data.
+#' and \code{"cox_counting"}.
 #'
-#' Fits made earlier on the data share them, so their later computations (such as \code{confint} or
-#' \code{predict}) use the new outcomes.
+#' Fits made earlier on the data can no longer be used: their \code{vcov}, \code{predict}, \code{confint} and
+#' \code{\link{runBootstrap}} stop, and after the next fit on the data they would report that fit. Take what you need
+#' from a fit before you update its data.
 #'
 #' @param cyclopsData A Cyclops data object
-#' @param y           The new outcomes: for data with row ids (\code{\link{convertToCyclopsData}}), a data frame
-#'                    with columns \code{rowId} and \code{y} and a row for each data row; or a vector with the
-#'                    outcome of each data row, in the order that the \code{weights} of
-#'                    \code{\link{fitCyclopsModel}} take (for data from \code{\link{createCyclopsData}}, the order
-#'                    of the data)
+#' @param y           The new outcomes: a data frame with columns \code{rowId} and \code{y} and a row for each
+#'                    data row, for data with row ids (\code{\link{convertToCyclopsData}}); or a vector with the
+#'                    outcome of each data row, in the order of the data for data from
+#'                    \code{\link{createCyclopsData}}, or of increasing \code{rowId} for data with row ids that keep
+#'                    that order (\code{"lr"}, \code{"pr"} and \code{"ls"} data, for example; other data with row ids
+#'                    need the data frame)
 #'
 #' @return The Cyclops data object, invisibly
 #'
@@ -123,13 +132,8 @@ updateOutcomes <- function(cyclopsData, y) {
         if (!all(y %in% c(0, 1))) {
             stop("Cox models need outcomes y of 0 or 1")
         }
+        # The rows were sorted with y last (stratum, decreasing time, y); the fit does not need that order within ties
         time <- getTimeVector(cyclopsData)
-        stratum <- .cyclopsGetStratumVector(cyclopsData)
-        k <- seq_len(length(y) - 1)
-        if (any(stratum[k] == stratum[k + 1] & time[k] == time[k + 1] & y[k] > y[k + 1])) {
-            stop("The new outcomes change the order of the rows (by stratum, decreasing time and outcome); ",
-                 "rebuild the data")
-        }
     }
     loadNewSqlCyclopsDataY(cyclopsData, y = y, time = time)
     # The fitted model state (sufficient statistics, separation, risk sets) came from the old outcomes
@@ -137,8 +141,19 @@ updateOutcomes <- function(cyclopsData, y) {
     invisible(cyclopsData)
 }
 
-# Values of `column` in data order, from a data frame with rowId and `column`, or a vector in the order that the
-# weights of fitCyclopsModel() take
+# Models whose rows of weight 0 still enter their stratum
+.conditionalModelTypes <- c("clr", "clr_efron", "clr_exact", "cpr", "sccs")
+
+# Number of strata with rows of weight 0 and rows of positive weight; weights in the internal order
+.mixedZeroWeightStrata <- function(cyclopsData, weights) {
+    stratum <- .cyclopsGetStratumVector(cyclopsData)
+    positive <- rowsum(as.numeric(weights > 0), stratum, reorder = FALSE)
+    rows <- rowsum(rep(1, length(stratum)), stratum, reorder = FALSE)
+    sum(positive > 0 & positive < rows)
+}
+
+# Values of `column` in the internal order, from a data frame with rowId and `column`, or a vector in data order
+# (createCyclopsData) or in increasing rowId when that is the internal order
 .valuesInDataOrder <- function(cyclopsData, values, column) {
     n <- getNumberOfRows(cyclopsData)
     if (is.data.frame(values)) {
@@ -162,6 +177,11 @@ updateOutcomes <- function(cyclopsData, y) {
     }
     if (length(values) != n) {
         stop("Need a value for each of the ", n, " data rows")
+    }
+    rowIds <- .cyclopsGetRowLabels(cyclopsData)
+    # A vector in rowId order would be read in the internal order
+    if (!is.null(rowIds) && is.unsorted(bit64::as.integer64(rowIds))) {
+        stop("These data do not keep their rows in rowId order; give a data frame with columns rowId and ", column)
     }
     if (!is.null(cyclopsData$sortOrder)) {
         values <- values[cyclopsData$sortOrder]

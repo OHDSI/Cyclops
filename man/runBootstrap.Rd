@@ -13,7 +13,9 @@ runBootstrap(object, replicates, ciCoverage = 0.95, na.rm = FALSE)
 
 \item{ciCoverage}{Numeric (0-1): coverage proportion for bootstrap confidence intervals}
 
-\item{na.rm}{Logical: strip out bootstrap replicates with NA values (most likely without a finite estimate)}
+\item{na.rm}{Logical: strip out bootstrap replicates with NA values (most likely without a finite
+estimate). Otherwise they stay in \code{samples}, and the summary of a coefficient with NA
+samples is \code{NA}}
 }
 \description{
 Run bootstrap for Cyclops model parameters
@@ -23,6 +25,12 @@ Bootstrap samples resample the units given by the fit's \code{selectorType} (see
 so models with subjects resample whole subjects by default. Units whose rows all have weight zero
 are not resampled: each sample draws as many units as the fit uses.
 Replicates run in parallel on the \code{threads} of the fit's \code{\link{createControl}}; each starts from the
-coefficients of the fit, so the samples do not depend on the number of threads. A replicate whose fit fails gives
-\code{NA} estimates (see \code{na.rm}).
+coefficients of the fit, so the samples do not depend on the number of threads. A replicate whose fit fails (most
+often under separation) gives \code{NA} estimates, with a warning that counts them; \code{failed} in the result
+holds their number. Dropping them (\code{na.rm = TRUE}) conditions on the replicates that converged, which can
+narrow the intervals a great deal.
+
+In conditional models (\code{"clr"}, \code{"clr_efron"}, \code{"clr_exact"}, \code{"cpr"} and \code{"sccs"}), a row of
+weight 0 still enters its stratum, so a fit with \code{selectorType = "byRow"} warns: its samples leave rows of
+weight 0 inside strata.
 }

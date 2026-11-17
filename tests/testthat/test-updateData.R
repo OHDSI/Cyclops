@@ -70,6 +70,67 @@ test_that("A refit after updateWeights equals a fit of rebuilt data, and zero we
     }
 })
 
+test_that("Zero weights equal reference fits of the rows with positive weight", {
+    set.seed(123)
+    n <- 600
+    x <- matrix(rnorm(2 * n), n, 2)
+    stratum <- sample(1:5, n, TRUE)
+    time <- sample(1:8, n, TRUE) # many ties
+    status <- rbinom(n, 1, plogis(x[, 1]))
+    weights <- rpois(n, 1)
+    covariates <- data.frame(rowId = rep(1:n, 2), covariateId = rep(1:2, each = n), covariateValue = c(x))
+
+    # Cox with strata and ties: survival::coxph, Breslow ties
+    coxCovariates <- covariates
+    coxCovariates$stratumId <- stratum[coxCovariates$rowId]
+    cyclopsData <- convertToCyclopsData(data.frame(rowId = 1:n, stratumId = stratum, time = time, y = status),
+                                        coxCovariates, modelType = "cox", quiet = TRUE)
+    updateWeights(cyclopsData, data.frame(rowId = 1:n, weights = weights))
+    fit <- fitCyclopsModel(cyclopsData, control = tightControl)
+    reference <- coxph(Surv(time, status) ~ x + strata(stratum), weights = weights, subset = weights > 0,
+                       ties = "breslow")
+    expect_equal(unname(coef(fit)), unname(coef(reference)), tolerance = 1E-8)
+    expect_equal(fit$log_likelihood, reference$loglik[2], tolerance = 1E-8)
+    expect_equal(unname(vcov(fit)), unname(reference$var), tolerance = 1E-6)
+
+    # lr: glm with frequency weights
+    cyclopsData <- convertToCyclopsData(data.frame(rowId = 1:n, y = status), covariates, modelType = "lr",
+                                        quiet = TRUE)
+    updateWeights(cyclopsData, data.frame(rowId = 1:n, weights = weights))
+    fit <- fitCyclopsModel(cyclopsData, control = tightControl)
+    reference <- glm(status ~ x, family = binomial, weights = weights)
+    expect_equal(unname(coef(fit)), unname(coef(reference)), tolerance = 1E-8)
+
+    # clr with zeros covering whole strata: clogit of the other strata
+    matched <- rep(1:100, each = 6)
+    case <- unlist(lapply(1:100, function(i) sample(c(1, 0, 0, 0, 0, 0))))
+    strataWeights <- ifelse(matched %in% sample(1:100, 30), 0, 1)
+    clrCovariates <- covariates
+    clrCovariates$stratumId <- matched[clrCovariates$rowId]
+    cyclopsData <- convertToCyclopsData(data.frame(rowId = 1:n, stratumId = matched, y = case), clrCovariates,
+                                        modelType = "clr", quiet = TRUE)
+    updateWeights(cyclopsData, data.frame(rowId = 1:n, weights = strataWeights))
+    fit <- fitCyclopsModel(cyclopsData, control = tightControl)
+    reference <- clogit(case ~ x + strata(matched), subset = strataWeights > 0, method = "breslow")
+    expect_equal(unname(coef(fit)), unname(coef(reference)), tolerance = 1E-8)
+})
+
+test_that("updateWeights takes a vector in rowId order only for data that keep that order", {
+    set.seed(123)
+    sim <- simulateRefitData("lr", n = 100)
+    weights <- rpois(100, 1)
+    cyclopsData <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = "lr", quiet = TRUE)
+    updateWeights(cyclopsData, weights)
+    byVector <- fitCyclopsModel(cyclopsData, control = tightControl)
+    updateWeights(cyclopsData, data.frame(rowId = sim$outcomes$rowId, weights = weights))
+    expect_equal(coef(byVector), coef(fitCyclopsModel(cyclopsData, control = tightControl)), tolerance = 0)
+
+    sim <- simulateRefitData("cox", n = 100) # sorted by decreasing time, not rowId
+    cyclopsData <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = "cox", quiet = TRUE)
+    expect_error(updateWeights(cyclopsData, weights), "give a data frame with columns rowId and weights")
+    expect_error(updateOutcomes(cyclopsData, sim$outcomes$y), "give a data frame with columns rowId and y")
+})
+
 test_that("updateWeights takes a vector in the order of fitCyclopsModel weights", {
     set.seed(123)
     sim <- simulateRefitData("cox", n = 200)
@@ -119,6 +180,7 @@ test_that("updateWeights checks its input", {
     expect_error(updateWeights(cyclopsData, rep(1, 49)), "for each of the 50")
     expect_error(updateWeights(cyclopsData, c(-1, rep(1, 49))), "non-negative")
     expect_error(updateWeights(cyclopsData, c(NA, rep(1, 49))), "finite")
+    expect_error(updateWeights(cyclopsData, rep(0, 50)), "Need a positive weight")
     expect_error(updateWeights(cyclopsData, data.frame(rowId = 1:50, weight = 1)), "columns rowId and weights")
     expect_error(updateWeights(cyclopsData, data.frame(rowId = 1:49, weights = 1)), "for each of the 50")
     expect_error(updateWeights(cyclopsData, data.frame(rowId = c(1:50, 51), weights = 1)), "no other rowIds")
@@ -148,12 +210,7 @@ test_that("A refit after updateOutcomes equals a fit of rebuilt data", {
                     lr = , clr = rbinom(n, 1, 0.4),
                     pr = , cpr = rpois(n, 1),
                     ls = rnorm(n),
-                    { # Cox: new events where no other row has the same time, which keeps the sort order
-                        y <- sim$outcomes$y
-                        unique <- !(duplicated(sim$outcomes$time) | duplicated(sim$outcomes$time, fromLast = TRUE))
-                        y[unique] <- rbinom(sum(unique), 1, 0.5)
-                        y
-                    })
+                    rbinom(n, 1, 0.5)) # Cox
         updateOutcomes(cyclopsData, data.frame(rowId = sim$outcomes$rowId, y = y))
         refit <- fitCyclopsModel(cyclopsData, control = tightControl, warnings = FALSE)
 
@@ -165,21 +222,80 @@ test_that("A refit after updateOutcomes equals a fit of rebuilt data", {
     }
 })
 
-test_that("updateOutcomes keeps the sort order of Cox data", {
-    data <- data.frame(time = c(4, 3, 3, 2, 2, 1, 1, 5), y = c(1, 0, 1, 1, 1, 0, 1, 0), x = c(0, 2, 0, 0, 1, 1, 1, 1))
-    cyclopsData <- createCyclopsData(Surv(time, y) ~ x, data = data, modelType = "cox")
-    fit <- fitCyclopsModel(cyclopsData)
+test_that("updateOutcomes on Cox data with ties equals coxph", {
+    set.seed(123)
+    n <- 400
+    x <- rnorm(n)
+    stratum <- sample(1:3, n, TRUE)
+    time <- sample(1:6, n, TRUE)
+    start <- pmax(0, time - sample(1:3, n, TRUE))
+    covariates <- data.frame(rowId = 1:n, stratumId = stratum, covariateId = 1, covariateValue = x)
+    status <- rbinom(n, 1, 0.5)
+    for (modelType in c("cox", "cox_counting")) {
+        outcomes <- data.frame(rowId = 1:n, stratumId = stratum, time = time, y = rbinom(n, 1, 0.5))
+        if (modelType == "cox_counting") outcomes$startTime <- start
+        cyclopsData <- convertToCyclopsData(outcomes, covariates, modelType = modelType, quiet = TRUE)
+        fitCyclopsModel(cyclopsData, control = tightControl)
 
-    expect_error(updateOutcomes(cyclopsData, c(1, 1, 0, 1, 1, 0, 1, 0)), "change the order of the rows")
-    expect_error(updateOutcomes(cyclopsData, c(1, 2, 0, 1, 1, 0, 1, 0)), "0 or 1")
+        # Events and censored rows swap within ties, against the order the rows were sorted in
+        updateOutcomes(cyclopsData, data.frame(rowId = 1:n, y = status))
+        fit <- fitCyclopsModel(cyclopsData, control = tightControl)
+        reference <- if (modelType == "cox") {
+            coxph(Surv(time, status) ~ x + strata(stratum), ties = "breslow")
+        } else {
+            coxph(Surv(start, time, status) ~ x + strata(stratum), ties = "breslow")
+        }
+        expect_equal(unname(coef(fit)), unname(coef(reference)), tolerance = 1E-8, info = modelType)
+        expect_equal(fit$log_likelihood, reference$loglik[2], tolerance = 1E-8, info = modelType)
+        expect_equal(unname(vcov(fit)[1, 1]), unname(reference$var[1, 1]), tolerance = 1E-6, info = modelType)
+    }
 
-    y <- c(0, 0, 1, 1, 1, 0, 1, 1) # data order
-    updateOutcomes(cyclopsData, y)
-    newData <- data
-    newData$y <- y
-    expect_equal(coef(fitCyclopsModel(cyclopsData)),
-                 coef(fitCyclopsModel(createCyclopsData(Surv(time, y) ~ x, data = newData, modelType = "cox"))),
-                 tolerance = 1E-8)
+    cyclopsData <- createCyclopsData(Surv(time, status) ~ x, data = data.frame(time, status, x), modelType = "cox")
+    expect_error(updateOutcomes(cyclopsData, replace(status, 1, 2)), "0 or 1")
+})
+
+test_that("Earlier fits cannot be used after updateOutcomes", {
+    set.seed(123)
+    sim <- simulateRefitData("lr", n = 100)
+    cyclopsData <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = "lr", quiet = TRUE)
+    fit <- fitCyclopsModel(cyclopsData, control = tightControl)
+    updateOutcomes(cyclopsData, data.frame(rowId = sim$outcomes$rowId, y = rbinom(100, 1, 0.5)))
+    expect_error(vcov(fit), "not initialized")
+    expect_error(predict(fit), "not initialized")
+})
+
+test_that("Conditional models warn where a row of weight 0 stays in its stratum", {
+    set.seed(123)
+    sim <- simulateRefitData("clr", n = 200, nstrata = 20)
+    cyclopsData <- convertToCyclopsData(sim$outcomes, sim$covariates, modelType = "clr", quiet = TRUE)
+    weights <- rep(1, 200)
+    weights[1] <- 0
+    expect_warning(fitCyclopsModel(cyclopsData, weights = weights, control = tightControl),
+                   "1 strata have rows of weight 0")
+    expect_warning(fitCyclopsModel(cyclopsData, prior = createPrior("laplace", useCrossValidation = TRUE),
+                                   control = createControl(selectorType = "byRow", cvType = "grid", gridSteps = 1,
+                                                           lowerLimit = 1, upperLimit = 1, fold = 3, seed = 1,
+                                                           noiseLevel = "silent")),
+                   "folds by row")
+})
+
+test_that("A refit after a failed gradient criterion keeps the weights of the data", {
+    set.seed(123)
+    n <- 1000 # no events in the exposed: the "gradient" criterion fails, and the fit is redone with "lange"
+    timeToCensor <- rexp(n, 0.01)
+    exposure <- runif(n) < 0.5
+    timeToEvent <- rep(Inf, n)
+    timeToEvent[!exposure] <- rexp(sum(!exposure), 0.01)
+    data <- data.frame(time = pmin(timeToCensor, timeToEvent), outcome = timeToEvent < timeToCensor,
+                       exposure = exposure)
+    weights <- rpois(n, 1)
+    cyclopsData <- createCyclopsData(Surv(time, outcome) ~ exposure, data = data, modelType = "cox")
+    updateWeights(cyclopsData, weights)
+    expect_warning(fit <- fitCyclopsModel(cyclopsData, prior = createPrior("jeffreys")), "BLR convergence")
+    reference <- fitCyclopsModel(createCyclopsData(Surv(time, outcome) ~ exposure, data = data, modelType = "cox"),
+                                 weights = weights, prior = createPrior("jeffreys"),
+                                 control = createControl(convergenceType = "lange"))
+    expect_equal(coef(fit), coef(reference), tolerance = 1E-10)
 })
 
 test_that("updateOutcomes is not available for other model types", {
