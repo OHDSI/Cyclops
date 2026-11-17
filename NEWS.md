@@ -176,6 +176,10 @@ Changes:
    `returnCvPredictions` gets them and returns the predictions itself. So PatientLevelPrediction no longer needs
    its own fold refits for any Cyclops model. A prior with `keepControl = TRUE` gives its `fitHook` the control as
    given; other hooks still get coordinate descent when no algorithm is set
+34. a prior with one variance per covariate (`createPrior(priorType = c(...), variance = c(...))`) is set up in time
+   linear in the number of covariates; it was quadratic, in `fitCyclopsModel()` and again for each fit that merges
+   duplicate columns (`mergeDuplicates`, the default under `algorithm = "auto"`). With 18,933 covariates a LASSO fit
+   took 0.094 s instead of 0.032 s, and 0.25 s instead of 0.064 s under `"auto"`
 
 Cyclops v3.8.0
 ==============

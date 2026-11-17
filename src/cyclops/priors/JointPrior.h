@@ -9,6 +9,7 @@
 #define JOINTPRIOR_H_
 
 #include <algorithm>
+#include <unordered_set>
 
 #include "Types.h"
 #include "priors/CovariatePrior.h"
@@ -71,7 +72,7 @@ public:
 //  	virtual JointPrior* clone() const = 0; // pure virtual
 
     void addVarianceParameter(const VariancePtr& ptr) {
-        if (std::find(variance.begin(), variance.end(), ptr) == variance.end()) {
+        if (varianceSeen.insert(&ptr.get()).second) { // a hash set: a per-column prior has J of them
             variance.push_back(ptr);
         }
     }
@@ -102,6 +103,7 @@ public:
 protected:
 
     std::vector<VariancePtr> variance;
+    std::unordered_set<const double*> varianceSeen;
 	// std::vector<double> variance;
 	// std::vector<std::vector<int>> varianceMap;
 
