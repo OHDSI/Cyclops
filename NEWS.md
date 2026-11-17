@@ -189,7 +189,8 @@ Changes:
    normal part on every coefficient), and past it the cheaper of Newton steps and more coordinate descent. When `"gap"`
    comes from the defaults, certifying past the `"kkt"` stop may cost a tenth of the fit's work (or about a millisecond);
    beyond that the fit stops there, as coordinate descent does, with `fit$convergence$certificate = "none"` and the bound
-   it has. An explicit `convergenceType = "gap"` certifies as before. On 30 simulated logistic designs and
+   it has. An explicit `convergenceType = "gap"` certifies as before (L1 by the duality gap, normal priors by R or a
+   curvature certificate; elastic nets with a free intercept stop on an estimate, as before). On 30 simulated logistic designs and
    cross-validations (2,400 to 19,000 covariates), `"auto"` took a median 1.07 times the time of `algorithm = "ccd"` with
    `fitter = "super"` (before: 3.75 times, up to 19), with the same models; where coordinate descent stalls it still
    switches to Newton steps. The same settings apply under every fitter but `"legacy"`. Its cross-validation folds
