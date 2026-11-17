@@ -100,6 +100,9 @@ survfit.cyclopsFit <- function(formula, type="aalen", ...) {
     if (.isRcppPtrNull(interface)) {
         stop("Interface object is not initialized")
     }
+    if (!identical(cyclopsFit$outcomesVersion, cyclopsFit$cyclopsData$outcomesVersion)) {
+        stop("updateOutcomes() replaced the outcomes of the data of this fit after it; refit this model")
+    }
     beta <- as.numeric(coef(cyclopsFit))
     first <- if (.cyclopsGetHasOffset(cyclopsFit$cyclopsData)) 1 else 0 # index 0 is then the offset
     current <- vapply(seq_along(beta) - 1 + first, function(i) .cyclopsGetBeta(interface, i), numeric(1))

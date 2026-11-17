@@ -93,8 +93,8 @@ updateWeights <- function(cyclopsData, weights) {
 #' and \code{"cox_counting"}. Outcomes lie between 0 and 1 in \code{"lr"} and \code{"clr"}, are 0 or 1 in \code{"cox"}
 #' and \code{"cox_counting"}, and are non-negative in \code{"pr"} and \code{"cpr"}.
 #'
-#' Fits made earlier on the data can no longer be used: their \code{vcov}, \code{predict}, \code{confint} and
-#' \code{\link{runBootstrap}} stop, and after the next fit on the data they would report that fit. Take what you need
+#' Fits made earlier on the data can no longer be used: their \code{vcov}, \code{predict}, \code{confint},
+#' \code{survfit} and \code{\link{runBootstrap}} stop, and after the next fit on the data they would report that fit. Take what you need
 #' from a fit before you update its data.
 #'
 #' @param cyclopsData A Cyclops data object
@@ -145,6 +145,9 @@ updateOutcomes <- function(cyclopsData, y) {
     loadNewSqlCyclopsDataY(cyclopsData, y = y, time = time)
     # The fitted model state (sufficient statistics, separation, risk sets) came from the old outcomes
     assign("cyclopsInterfacePtr", NULL, cyclopsData)
+    # Earlier fits keep their own interface, which now sees the new outcomes: the Breslow baseline checks this
+    assign("outcomesVersion", if (is.null(cyclopsData$outcomesVersion)) 1 else cyclopsData$outcomesVersion + 1,
+           cyclopsData)
     invisible(cyclopsData)
 }
 
