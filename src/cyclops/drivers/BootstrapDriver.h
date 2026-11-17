@@ -31,9 +31,9 @@ public:
 	virtual ~BootstrapDriver();
 
 	virtual void drive(
-	        CyclicCoordinateDescent& ccd,
-	        AbstractSelector& selector,
-	        const CCDArguments& allArguments);
+			CyclicCoordinateDescent& ccd,
+			AbstractSelector& selector,
+			const CCDArguments& arguments);
 
 	virtual void logResults(const CCDArguments& arguments);
 

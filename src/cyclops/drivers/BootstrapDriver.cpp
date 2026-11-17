@@ -19,8 +19,6 @@
 #include "AbstractSelector.h"
 #include "Thread.h"
 
-#include "Timer.h"
-
 namespace bsccs {
 
 using std::ostream_iterator;
@@ -81,7 +79,7 @@ void BootstrapDriver::drive(
         nThreads = std::max(1, replicates);
     }
 
-	// Replicates overwrite the weights and coefficients of the fit; restored below
+	// Replicates overwrite the weights and coefficients of the fit; restored by fitRestore below
 	std::vector<double> savedWeights = ccd.getWeights();
 	std::vector<double> savedBeta(J);
 	for (int j = 0; j < J; ++j) {
@@ -98,14 +96,23 @@ void BootstrapDriver::drive(
     ccdPool.push_back(&ccd);
     selectorPool.push_back(&selector);
 
-    // The copies are owned here, so they go also when a replicate throws; the fit gets its second-order threads back
+    // The copies are owned here, so they go also when a replicate throws; the fit gets back its second-order threads,
+    // weights and coefficients also then
     std::vector<std::unique_ptr<CyclicCoordinateDescent>> ccdCopies;
     std::vector<std::unique_ptr<AbstractSelector>> selectorCopies;
-    struct SecondOrderReset {
+    struct FitRestore {
         CyclicCoordinateDescent& ccd;
         int threads;
-        ~SecondOrderReset() { ccd.setSecondOrderThreads(threads); }
-    } secondOrderReset{ccd, allThreads};
+        std::vector<double>& weights;
+        const std::vector<double>& beta;
+        ~FitRestore() {
+            try {
+                ccd.setSecondOrderThreads(threads);
+                ccd.setWeights(weights.empty() ? NULL : weights.data());
+                ccd.setBeta(beta); // assigns rather than updates, so non-finite replicate estimates do not carry over
+            } catch (...) { } // a destructor must not throw
+        }
+    } fitRestore{ccd, allThreads, savedWeights, savedBeta};
 
     for (int i = 1; i < nThreads; ++i) {
         ccdCopies.emplace_back(ccd.clone(allArguments.computeDevice));
@@ -144,9 +151,6 @@ void BootstrapDriver::drive(
     doBootstrap(ccd, allArguments, nThreads, ccdPool, selectorPool, savedBeta);
 
     ccd.setBootStrapInfo(flattenEstimates());
-
-	ccd.setWeights(savedWeights.empty() ? NULL : savedWeights.data());
-	ccd.setBeta(savedBeta); // assigns rather than updates, so non-finite replicate estimates do not carry over
 }
 
 void BootstrapDriver::doBootstrap(
