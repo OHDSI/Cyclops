@@ -237,6 +237,19 @@ Changes:
    Cox data before. Both stop once another model has been fitted to the same Cyclops data (fits share its interface;
    `survfit()` silently mixed the two fits before) unless that fit used `forceNewObject = TRUE`; fit objects keep
    their `weights`
+39. `updateWeights()` and `updateOutcomes()` replace the row weights or the outcomes of a Cyclops data object in
+   place, so that a model is refit (bootstrap frequency weights, other outcomes on the same design) without
+   rebuilding the data; a refit equals a fit of rebuilt data. Weights and outcomes are given by `rowId` (a vector
+   only when the data keep their rows in `rowId` order) or, for `createCyclopsData()` data, in data order. A row of
+   weight 0 is left out: the fit equals that of the data without the row (`lr`, `pr`, `ls`, `cox`, `cox_counting`).
+   Not yet in conditional models (`clr`, `clr_efron`, `clr_exact`, `cpr`, `sccs`), where a row of weight 0 still
+   enters its stratum: `updateWeights()` needs weights of 0 to cover whole strata, and `fitCyclopsModel(weights = )`,
+   and cross-validation or `runBootstrap()` with `selectorType = "byRow"`, warn there
+40. `runBootstrap()` runs its replicates in parallel on `createControl(threads = )`. Each replicate starts from the
+   coefficients of the fit (it started from the previous replicate) and draws the same samples on any number of
+   threads, so results do not depend on the threads. A replicate whose fit fails is `NA` (it was the estimate at
+   which the fit stopped), with a warning that counts them (`failed` in the result); the summary of a coefficient
+   with `NA` samples is `NA` unless `na.rm = TRUE` drops them (it was an error)
 
 Cyclops v3.8.0
 ==============
