@@ -1001,6 +1001,28 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// cyclopsLoadDataPooledRows
+void cyclopsLoadDataPooledRows(Environment x, const bool implicitRows, const std::vector<int>& rowsPerSubject, const std::vector<int>& interval, const std::vector<int>& event, const std::vector<double>& rowWeight, const std::vector<double>& rowOffset, const std::vector<double>& subjectOffset, const std::vector<double>& basis, const int intervals, const std::vector<double>& timeCovariateId, const std::vector<int>& timeBasisColumn, const bool cloglog);
+RcppExport SEXP _Cyclops_cyclopsLoadDataPooledRows(SEXP xSEXP, SEXP implicitRowsSEXP, SEXP rowsPerSubjectSEXP, SEXP intervalSEXP, SEXP eventSEXP, SEXP rowWeightSEXP, SEXP rowOffsetSEXP, SEXP subjectOffsetSEXP, SEXP basisSEXP, SEXP intervalsSEXP, SEXP timeCovariateIdSEXP, SEXP timeBasisColumnSEXP, SEXP cloglogSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const bool >::type implicitRows(implicitRowsSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int>& >::type rowsPerSubject(rowsPerSubjectSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int>& >::type interval(intervalSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int>& >::type event(eventSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type rowWeight(rowWeightSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type rowOffset(rowOffsetSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type subjectOffset(subjectOffsetSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type basis(basisSEXP);
+    Rcpp::traits::input_parameter< const int >::type intervals(intervalsSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type timeCovariateId(timeCovariateIdSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int>& >::type timeBasisColumn(timeBasisColumnSEXP);
+    Rcpp::traits::input_parameter< const bool >::type cloglog(cloglogSEXP);
+    cyclopsLoadDataPooledRows(x, implicitRows, rowsPerSubject, interval, event, rowWeight, rowOffset, subjectOffset, basis, intervals, timeCovariateId, timeBasisColumn, cloglog);
+    return R_NilValue;
+END_RCPP
+}
 // cyclopsLoadDataMultipleX
 int cyclopsLoadDataMultipleX(Environment x, const std::vector<double>& covariateId, const std::vector<double>& rowId, const std::vector<double>& covariateValue, const bool checkCovariateIds, const bool checkCovariateBounds, const bool append, const bool forceSparse);
 RcppExport SEXP _Cyclops_cyclopsLoadDataMultipleX(SEXP xSEXP, SEXP covariateIdSEXP, SEXP rowIdSEXP, SEXP covariateValueSEXP, SEXP checkCovariateIdsSEXP, SEXP checkCovariateBoundsSEXP, SEXP appendSEXP, SEXP forceSparseSEXP) {
@@ -1197,6 +1219,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsLoadDataY", (DL_FUNC) &_Cyclops_cyclopsLoadDataY, 5},
     {"_Cyclops_cyclopsLoadDataStartTime", (DL_FUNC) &_Cyclops_cyclopsLoadDataStartTime, 2},
     {"_Cyclops_cyclopsLoadDataSubjectId", (DL_FUNC) &_Cyclops_cyclopsLoadDataSubjectId, 2},
+    {"_Cyclops_cyclopsLoadDataPooledRows", (DL_FUNC) &_Cyclops_cyclopsLoadDataPooledRows, 13},
     {"_Cyclops_cyclopsLoadDataMultipleX", (DL_FUNC) &_Cyclops_cyclopsLoadDataMultipleX, 8},
     {"_Cyclops_cyclopsLoadDataX", (DL_FUNC) &_Cyclops_cyclopsLoadDataX, 7},
     {"_Cyclops_cyclopsLoadDataStratTimeEffects", (DL_FUNC) &_Cyclops_cyclopsLoadDataStratTimeEffects, 5},

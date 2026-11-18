@@ -252,7 +252,7 @@ fitCyclopsModel <- function(cyclopsData,
     }
 
     if (control$selectorType == "auto") {
-        if (cyclopsData$modelType %in% c("pr", "lr")) {
+        if (cyclopsData$modelType %in% c("pr", "lr", "plr")) { # plr: a row is a subject
             control$selectorType <- "byRow"
         } else {
             rowsPerStratum <- (getNumberOfRows(cyclopsData) / getNumberOfStrata(cyclopsData))
@@ -340,6 +340,11 @@ fitCyclopsModel <- function(cyclopsData,
         yMean <- mean(getYVector(cyclopsData))
         if (cyclopsData$modelType == "lr") {
             interceptValue <- log(yMean / (1 - yMean))
+        } else if (cyclopsData$modelType == "plr") { # events per person-interval row, kept off 0 and 1
+            rows <- cyclopsData$numberOfPooledRows
+            yMean <- min(max(cyclopsData$numberOfPooledEvents / rows, 0.5 / rows), 1 - 0.5 / rows)
+            interceptValue <- if (identical(cyclopsData$pooledLink, "cloglog")) log(-log(1 - yMean)) else
+                log(yMean / (1 - yMean))
         } else if (cyclopsData$modelType == "pr") {
             interceptValue <- log(yMean)
         } else if (cyclopsData$modelType == "ls") {
@@ -815,7 +820,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              \code{"newton"}. \code{"gap"} stops when a certified bound on the distance to the
 #'                              optimum of the log posterior is below \code{tolerance}; it needs a model with
 #'                              second-order kernels (so far \code{"cox"}, \code{"cox_counting"}, \code{"cpr"}, \code{"sccs"},
-#'                              \code{"clr"} and \code{"lr"} in double precision on the CPU) and normal, Laplace or no priors; with Laplace priors the stop is an
+#'                              \code{"clr"}, \code{"lr"} and \code{"plr"} with the logit link, in double precision on the CPU) and normal, Laplace or no priors; with Laplace priors the stop is an
 #'                              estimate rather than a certified bound
 #' @param cvType						String: name of cross validation search.
 #' 													Option \code{"auto"} selects an auto-search following BBR.
@@ -856,7 +861,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              Newton steps when an operation count says they are cheaper, and back on failure) or
 #'                              \code{"newton"} (Newton steps after three coordinate-descent cycles). \code{NULL}
 #'                              (default) means \code{"auto"} for \code{"cox"}, \code{"cox_counting"}, \code{"cpr"},
-#'                              \code{"sccs"}, \code{"clr"} and \code{"lr"} and \code{"ccd"} otherwise, under \code{fitter = "legacy"},
+#'                              \code{"sccs"}, \code{"clr"}, \code{"lr"} and \code{"plr"} and \code{"ccd"} otherwise, under \code{fitter = "legacy"},
 #'                              and for the refits of a prior with a \code{fitHook} (BrokenAdaptiveRidge, IterativeHardThresholding,
 #'                              \code{\link{createNonSeparablePrior}}). Under \code{"auto"}, an explicit
 #'                              \code{convergenceType} other than \code{"gap"} runs \code{"ccd"}; under
@@ -955,6 +960,14 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              reported as an equal split whatever the prior.
 #'                              \code{NULL} (default) means \code{TRUE} with \code{algorithm = "auto"} or
 #'                              \code{"newton"} and \code{FALSE} otherwise
+#' @param newtonMemoryBudget    Numeric: memory budget, in MB (\eqn{2^{20}} bytes), of the dense working matrices of the
+#'                              Newton and prox-Newton steps of \code{algorithm = "auto"} or \code{"newton"}: 24 bytes per entry of
+#'                              the active-set Hessian (\eqn{24 |W|^2}: the matrix, its factor and workspace), plus the
+#'                              row-wise copies of columns of the design and the Nystrom, Schur-bound and
+#'                              conjugate-gradient work. Steps that would exceed it use conjugate gradients or
+#'                              coordinate descent instead. It is a ceiling, not an allocation, and it holds per fit:
+#'                              cross-validation folds or threads that run separate fits may each use it. The default
+#'                              of 1024 allows active sets of up to about 6,700 columns
 #' @param doItAll               Currently unused
 #' @param syncCV                Currently unused
 #'
@@ -1004,6 +1017,7 @@ createControl <- function(maxIterations = NULL,
                           activeSetThreshold = NULL,
                           adaptiveIntercept = NULL,
                           mergeDuplicates = NULL,
+                          newtonMemoryBudget = 1024,
                           doItAll = TRUE,
                           syncCV = FALSE) {
     validCVNames = c("grid", "auto")
@@ -1035,6 +1049,7 @@ createControl <- function(maxIterations = NULL,
     stopifnot(is.null(activeSetThreshold) || (activeSetThreshold >= 0 && activeSetThreshold < 1))
     stopifnot(is.null(adaptiveIntercept) || is.logical(adaptiveIntercept))
     stopifnot(is.null(mergeDuplicates) || is.logical(mergeDuplicates))
+    stopifnot(is.numeric(newtonMemoryBudget), length(newtonMemoryBudget) == 1, newtonMemoryBudget > 0)
 
     structure(list(maxIterations = maxIterations,
                    tolerance = tolerance,
@@ -1071,6 +1086,7 @@ createControl <- function(maxIterations = NULL,
                    activeSetThreshold = activeSetThreshold,
                    adaptiveIntercept = adaptiveIntercept,
                    mergeDuplicates = mergeDuplicates,
+                   newtonMemoryBudget = newtonMemoryBudget,
                    doItAll = doItAll,
                    syncCV = syncCV),
               class = "cyclopsControl")
@@ -1435,7 +1451,8 @@ getCrossValidationInfo <- function(object) {
          fallbackConvergenceType = valueOr(control$fallbackConvergenceType, ""),
          fallbackTolerance = as.numeric(valueOr(control$fallbackTolerance, 1E-6)),
          fallbackMaxIterations = as.integer(valueOr(control$fallbackMaxIterations, 1000)),
-         mergeDuplicates = as.logical(valueOr(control$mergeDuplicates, control$algorithm %in% c("auto", "newton"))))
+         mergeDuplicates = as.logical(valueOr(control$mergeDuplicates, control$algorithm %in% c("auto", "newton"))),
+         newtonMemoryBudget = as.numeric(valueOr(control$newtonMemoryBudget, 1024)))
 }
 
 .setControl <- function(cyclopsInterfacePtr, control, cyclopsData = NULL) {

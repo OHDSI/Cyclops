@@ -18,3 +18,7 @@
 \description{
 \code{predict.cyclopsFit} computes model response-scale predictive values for all data rows
 }
+\details{
+For an \code{lr} model fit with an \code{offset} column in the outcomes, the predictions for new data add the
+\code{offset} column of \code{newOutcomes} to the linear predictor; without that column, the offset is 0.
+}

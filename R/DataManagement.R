@@ -110,6 +110,7 @@ createCyclopsData <- function(formula, sparseFormula, indicatorFormula, modelTyp
     mf.all <- match.call(expand.dots = FALSE)
 
     if (!.isValidModelType(modelType)) stop("Invalid model type.")
+    if (modelType == "plr") stop("plr data are made by convertToCyclopsData()")
 
     .checkFloatingPoint(floatingPoint)
 

@@ -45,7 +45,8 @@ Changes:
    `fit$divergentCoefficients`
 9. Newton steps on `cox` and `cox_counting` designs solve with conjugate gradients (Newton-CG) when an
    operation count says that is cheaper than a dense factorization, or when the dense matrices of all
-   concurrent fits would exceed 256 MB. A rank-32 Woodbury preconditioner (the row part of the Hessian
+   concurrent fits would exceed `createControl(newtonMemoryBudget = )` (1024 MB by default, see 38). A
+   rank-32 Woodbury preconditioner (the row part of the Hessian
    minus a binned approximation of its risk-set part) cuts the conjugate-gradient work 8-16 fold, and the
    stop is certified from an explicit-residual bracket. With 3,068 covariates and 13,152 rows a ridge fit
    to a gap of 1e-8 takes 1.5 s (dense Newton: 7.5 s; coordinate descent did not get there in 25,000
@@ -191,6 +192,42 @@ Changes:
    variance of regularized coefficients, unless `overrideNoRegularization = TRUE`. `confint(fit, method = "robust")`
    gives the Wald intervals from it, and, as for profile intervals, stops for regularized parameters unless
    `overrideNoRegularization = TRUE`. The defaults (`type = "modelBased"`, `method = "profile"`) are unchanged
+36. `convertToCyclopsData()` takes an `offset` column in the outcomes of `lr` models: an offset added to the linear
+   predictor (log-odds scale), as `glm(offset = )`, held as a covariate with coefficient fixed at 1 (as the log time of
+   `pr` models), so every algorithm, prior and cross-validation uses it. The data object comes back finalized. Before,
+   an `lr` offset needed a covariate and `finalizeSqlCyclopsData(useOffsetCovariate = , offsetAlreadyOnLogScale = TRUE)`.
+   `predict()` on new data adds the `offset` column of `newOutcomes`, if any. Offsets must be finite, and other model
+   types warn that they ignore an `offset` column
+37. new `modelType = "plr"` (pooled logistic regression) in `convertToCyclopsData()`: logistic regression over the
+   intervals at risk of each subject without expanding the covariates to those rows. A row of the data is a subject;
+   its intervals come as one outcome row per interval (explicit) or as `entry` and `exit` (implicit, see the new
+   `convertToLongOutcome()`), with case weights and offsets per row or per subject. A `timeBasis` gives time
+   covariates by interval, and `timeEffectMap` their interactions with covariates. Fits equal `glm(binomial())` and
+   `"lr"` on the expanded rows; cross-validation folds and robust-variance clusters are subjects, or persons given
+   as `outcomes$subjectId` (e.g. the clones of one person). `link = "cloglog"` fits the complementary log-log
+   model (equal to `glm(binomial("cloglog"))` on the expanded rows), whose non-event rows factorize so a covariate
+   update costs O(nonzeros). With the logit link the second-order kernels run `algorithm = "auto"` (the default, as
+   for `"lr"`) and `"newton"` with certified `"gap"` stops (L1 by the duality gap); cloglog fits use coordinate
+   descent, which on correlated time bases needs a tighter `tolerance` than the default. The cloglog `vcov()` is
+   the observed information (`glm()` reports the expected one). Separated coefficients without a prior are
+   reported at their limit with a warning, as for `"lr"`. The expanded rows are never built, so memory stays
+   near that of one row per subject. Large Laplace fits take prox-Newton steps (the copy of the subjects'
+   covariates by row no longer counts against the memory budget of dense Newton, which had left a 100,000-person
+   CCW censoring model on coordinate descent, unconverged after 6,300 s; a fit whose active set is too wide for
+   `newtonMemoryBudget`, where 24·|W|² alone exceeds it (about 6,700 columns by default, see 38), still falls back
+   to coordinate descent, for `"lr"` too), and the Hessian block and coordinate
+   gradients use `threads`, with the same result on any number. Separation is found in time-basis and interaction
+   columns too (an interval without events in a cross-validation fold had made the selected variance differ from
+   `"lr"`'s), and the cross-validation search starts from the default variance of the person-interval rows.
+   `convertToCyclopsData()` loads the interactions in one pass over the covariates (3.5 s, was 111 s, for 1,907
+   interactions of 23.8 million covariate values).
+   Predictions are not yet implemented
+38. new `createControl(newtonMemoryBudget = 1024)`: the memory budget, in MB, of one fit's dense Newton and
+   prox-Newton work (24·|W|² for the active-set Hessian, plus the row-wise copies of X and the Nyström, Schur-bound
+   and conjugate-gradient work), a ceiling rather than an allocation. Its default rises from a fixed 256 MB to
+   1024 MB, which allows active sets of about 6,700 columns (was 3,300): a 100,000-person CCW censoring model with
+   3,550 active columns that had alternated between Newton and coordinate descent, unconverged after 13 minutes,
+   converges in 50 s with 9 Newton iterations
 
 Cyclops v3.8.0
 ==============

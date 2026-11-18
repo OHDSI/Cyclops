@@ -585,6 +585,9 @@ protected:
 	NewtonOutcome newtonIteration(NewtonContext& context);
 	NewtonOutcome proxNewtonIteration(NewtonContext& context);
 	bool proxFitsDense(const std::vector<int>& W) const;
+	// Memory budget of one fit's Newton work (2.5), in bytes: dense H, its factor and workspace, row-wise copies of
+	// columns of X (ModeFindingArguments::newtonMemoryBudget, set by update())
+	double newtonMemoryBudget = 1024.0 * 1024 * 1024;
 	double strongConvexityBound(const NewtonContext& context, const std::vector<double>& gradient) const;
 	bool newtonDirectionDense(NewtonContext& context, Eigen::VectorXd& s, Eigen::VectorXd& d, bool* stop,
 	                          bool* certified, bool* damped);

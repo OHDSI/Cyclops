@@ -54,6 +54,7 @@ namespace bsccs {
 	{ModelType::TIME_VARYING_COX, "cox_time"},
  	{ModelType::FINE_GRAY, "fgr"},
  	{ModelType::COX_COUNTING, "cox_counting"},
+ 	{ModelType::POOLED_LOGISTIC, "plr"},
  };
 
 void RcppCcdInterface::logResultsToFile(const std::string& fileName, bool withASE) {
@@ -799,6 +800,9 @@ void cyclopsSetModeControl(SEXP inRcppCcdInterface, const List& options) {
 	}
 	if (options.containsElementNamed("mergeDuplicates")) {
 		modeFinding.mergeDuplicates = as<bool>(options["mergeDuplicates"]);
+	}
+	if (options.containsElementNamed("newtonMemoryBudget")) { // MB
+		modeFinding.newtonMemoryBudget = as<double>(options["newtonMemoryBudget"]) * 1024 * 1024;
 	}
 }
 
