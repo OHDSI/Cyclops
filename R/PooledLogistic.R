@@ -155,8 +155,14 @@ convertToLongOutcome <- function(outcomes) {
             stop("timeEffectMap names a covariate or a time-basis column that is not in the data", call. = FALSE)
         }
         timeEffectMap <- timeEffectMap[order(timeEffectMap$interactionId), , drop = FALSE]
+        # the covariates are sorted by covariateId: each one's values are a run (one pass, not one per interaction)
+        runs <- rle(as.numeric(covariates$covariateId))
+        last <- cumsum(runs$lengths)
+        first <- last - runs$lengths + 1
+        run <- match(as.numeric(timeEffectMap$covariateId), runs$values)
         interactions <- lapply(seq_len(nrow(timeEffectMap)), function(m) {
-            covariates[covariates$covariateId == timeEffectMap$covariateId[m], c("rowId", "covariateValue")]
+            rows <- first[run[m]]:last[run[m]]
+            list(rowId = covariates$rowId[rows], covariateValue = covariates$covariateValue[rows])
         })
     }
     allIds <- c(if (addIntercept) 0, covariateIds, basisIds, timeEffectMap$interactionId)
