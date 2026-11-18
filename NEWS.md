@@ -163,12 +163,24 @@ Changes:
    and are resampled together by `runBootstrap()` (`selectorType = "bySubject"`, which `"auto"` picks in place of
    `"byRow"` when the data have subjects). `convertToCyclopsData()` ignored `subjectId` for other models, and
    `cluster()` stopped. Fits of data with `subjectId`, such as `lr` designs with several rows per person, can change
-30. `vcov()`, `getSEs()` and the Fisher information accept non-integer case weights for `cox`, `cox_counting`, `lr`,
-   `pr` and `ls` fits (and `cpr`, `sccs` and `clr` under the default fitter): they return the inverse of the weighted
-   information, as `coxph(weights = )$naive.var` (Breslow ties) and `vcov()` of a weighted `glm()`. They stopped with
-   "Weights are not yet implemented in Fisher Information calculations", which `cox` fits under
-   `fitter = "legacy"` still do
-31. `vcov(fit, type = "robust")` returns the cluster-robust (sandwich) variance H^-1 (U'U) H^-1 of `lr`, `pr`, `cox` and
+30. new `evaluateLikelihood()`: the log-likelihood at given coefficients, with its gradient and the Fisher information
+   (matrix or diagonal) of chosen covariates, under given weights (none: every row; never an earlier fit's weights).
+   For packages that build estimators on Cyclops, such as IterativeHardThresholding, which used internal functions
+31. the Fisher information of `pr` and `ls` models with weights (and of `lr` with weights that are not whole
+   numbers) no longer stops with "Weights are not yet implemented"; `vcov()` and `getSEs()` of such fits invert the
+   weighted information, as `glm()` does with prior weights (for `ls`, without a dispersion factor, as before)
+32. the internal Fisher information after `.cyclopsSetBeta()` was computed at the previous coefficients
+33. `fitCyclopsModel(returnCvPredictions = TRUE)` also works without a hyperparameter search: with a fixed prior or a
+   prior with a `fitHook` (such as BrokenAdaptiveRidge's), each fold of `cvFolds` is fit on its training rows and
+   predicts its held-out rows, next to the fit on all rows. A `fitHook` that names arguments `cvFolds` and
+   `returnCvPredictions` gets them and returns the predictions itself. So PatientLevelPrediction no longer needs
+   its own fold refits for any Cyclops model. A prior with `keepControl = TRUE` gives its `fitHook` the control as
+   given; other hooks still get coordinate descent when no algorithm is set
+34. `vcov()`, `getSEs()` and the Fisher information also accept non-integer case weights for `cox` and
+   `cox_counting` fits (and `cpr`, `sccs` and `clr` under the default fitter): they return the inverse of the weighted
+   information, as `coxph(weights = )$naive.var` (Breslow ties). `cox` fits under `fitter = "legacy"` still stop with
+   "Weights are not yet implemented in Fisher Information calculations"
+35. `vcov(fit, type = "robust")` returns the cluster-robust (sandwich) variance H^-1 (U'U) H^-1 of `lr`, `pr`, `cox` and
    `cox_counting` fits: H is the information of the log likelihood (the prior excluded), and each row of U sums the
    weighted score contributions of one subject (`cluster()` or `subjectId`; one row without subjects). Cox scores are
    the weighted score residuals with the risk-set compensator, for counting-process data and strata. Fixed

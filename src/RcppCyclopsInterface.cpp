@@ -9,6 +9,7 @@
 #include <map>
 #include <chrono>
 #include <functional>
+#include <thread>
 #include "Timing.h"
 
 #include "Rcpp.h"
@@ -129,6 +130,13 @@ void cyclopsSetBeta(SEXP inRcppCcdInterface, const std::vector<double>& beta) {
     interface->getCcd().setBeta(beta);
 }
 
+// [[Rcpp::export(.cyclopsSetThreads)]]
+void cyclopsSetThreads(SEXP inRcppCcdInterface, int threads) { // until the next fit, which sets its own
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    interface->getCcd().setThreads(threads == -1 ? static_cast<int>(std::thread::hardware_concurrency()) : threads);
+}
+
 // [[Rcpp::export(.cyclopsGetBeta)]]
 double cyclopsGetBeta(SEXP inRcppCcdInterface, const int index) {
 	using namespace bsccs;
@@ -149,6 +157,20 @@ void cyclopsSetFixedBeta(SEXP inRcppCcdInterface, int beta, bool fixed) {
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
     interface->getCcd().setFixedBeta(beta - 1, fixed);
+}
+
+// [[Rcpp::export(.cyclopsSetFixedBetas)]]
+void cyclopsSetFixedBetas(SEXP inRcppCcdInterface, int first, const std::vector<bool>& fixed) {
+    // fixed[i] for coefficient first + i (0-based): one call for all, not one per coefficient from R
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    auto& ccd = interface->getCcd();
+    if (first < 0 || first + static_cast<int>(fixed.size()) > ccd.getBetaSize()) {
+        Rcpp::stop("fixed coefficients out of range");
+    }
+    for (size_t i = 0; i < fixed.size(); ++i) {
+        ccd.setFixedBeta(first + static_cast<int>(i), fixed[i]);
+    }
 }
 
 // [[Rcpp::export(.cyclopsGetFixedBeta)]]
@@ -1186,31 +1208,27 @@ NumericVector cyclopsGetLogLikelihoodHessianDiagonal(SEXP inRcppCcdInterface, SE
 
     XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 
-    NumericVector diagonals;
-
-    if (!Rf_isNull(sexpCovariates)) {
-
-        auto& ccd = interface->getCcd();
-        auto& data = interface->getModelData();
-
-        const std::vector<double>& bitCovariates = as<std::vector<double>>(sexpCovariates);
-        ProfileVector covariates = reinterpret_cast<const std::vector<int64_t>&>(bitCovariates);
-
-        for (ProfileVector::const_iterator it = covariates.begin();
-             it != covariates.end(); ++it) {
-
-            int index = data.getColumnIndexByName(*it);
-
-            if (index == -1) {
-                std::stringstream error;
-                error << "Variable " << *it << " not found.";
-                interface->handleError(error.str());
-            } else {
-                diagonals.push_back(-ccd.getHessianDiagonal(index));
-            }
-        }
+    if (Rf_isNull(sexpCovariates)) {
+        return NumericVector(0);
     }
 
+    auto& ccd = interface->getCcd();
+    auto& data = interface->getModelData();
+
+    const std::vector<double>& bitCovariates = as<std::vector<double>>(sexpCovariates);
+    ProfileVector covariates = reinterpret_cast<const std::vector<int64_t>&>(bitCovariates);
+
+    NumericVector diagonals(covariates.size()); // filled in place: growing it copied the whole vector per column
+    for (size_t i = 0; i < covariates.size(); ++i) {
+        const int index = data.getColumnIndexByName(covariates[i]);
+        if (index == -1) {
+            std::stringstream error;
+            error << "Variable " << covariates[i] << " not found.";
+            interface->handleError(error.str());
+        } else {
+            diagonals[i] = -ccd.getHessianDiagonal(index);
+        }
+    }
     return diagonals;
 }
 

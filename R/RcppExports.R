@@ -25,6 +25,10 @@
     invisible(.Call(`_Cyclops_cyclopsSetBeta`, inRcppCcdInterface, beta))
 }
 
+.cyclopsSetThreads <- function(inRcppCcdInterface, threads) {
+    invisible(.Call(`_Cyclops_cyclopsSetThreads`, inRcppCcdInterface, threads))
+}
+
 .cyclopsGetBeta <- function(inRcppCcdInterface, index) {
     .Call(`_Cyclops_cyclopsGetBeta`, inRcppCcdInterface, index)
 }
@@ -35,6 +39,10 @@
 
 .cyclopsSetFixedBeta <- function(inRcppCcdInterface, beta, fixed) {
     invisible(.Call(`_Cyclops_cyclopsSetFixedBeta`, inRcppCcdInterface, beta, fixed))
+}
+
+.cyclopsSetFixedBetas <- function(inRcppCcdInterface, first, fixed) {
+    invisible(.Call(`_Cyclops_cyclopsSetFixedBetas`, inRcppCcdInterface, first, fixed))
 }
 
 .cyclopsGetFixedBeta <- function(inRcppCcdInterface, index) {

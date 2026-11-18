@@ -50,7 +50,7 @@ test_that("vcov for cpr ignores strata without events", {
     expect_equal(vcov(fitWithEmpty), vcov(fit), tolerance = 1E-6)
 })
 
-test_that("vcov with weights: integer weights count rows, others give the weighted information", {
+test_that("vcov with weights: integer weights count rows, others weight the information as glm does", {
     formula <- case ~ spontaneous + induced
     twice <- rep(c(1, 2), length.out = nrow(infert))
     control <- createControl(tolerance = 1E-10, noiseLevel = "silent")

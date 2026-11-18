@@ -235,7 +235,7 @@ public:
 
 	void setInitialBound(double bound);
 
-	Matrix computeFisherInformation(const std::vector<IdType>& indices) const;
+	Matrix computeFisherInformation(const std::vector<IdType>& indices); // at the current coefficients and weights
 
 	// U'U for the robust (sandwich) variance: U holds, per subject (per row when the data have no
 	// subjects), the summed score contributions of the columns `indices` at the current coefficients
