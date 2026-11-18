@@ -213,6 +213,14 @@ Changes:
    predictions keep the fit's own), and it merges duplicate columns only when `mergeDuplicates = TRUE` (Newton steps
    are rare there, and their face solves handle the singular faces of duplicates), so its coefficients equal those of
    `"ccd"` where both stop together
+39. under `fitter = "super"` (and the `"gap"` criterion of `algorithm = "auto"`), logistic fits whose penalized coefficients all
+   have normal priors (ridge, per-covariate variances) visit the coordinates in a new seeded order each cycle. With binary
+   covariates every coupling between columns is non-negative, the unfavourable case for the cyclic order, and nested or
+   near-duplicate columns (concept rollups, overlapping time windows) at weak penalties then shrink the error along their
+   contrast by nearly the same factor every cycle. On a simulated claims design shaped like a 85,000-person training set
+   (12,000 columns, 300 non-zeros per row), fold fits at weak penalties took 1.9-2.9 times fewer seconds, and a whole
+   ridge cross-validation 1.7 times fewer, with the same selected variance. Results do not depend on threads; the default
+   fitter keeps the cyclic order (as `"legacy"`)
 38. extra adaptive intercept steps (`fitter = "super"`) keep within the intercept's step bound without widening it: from a
    start with most rows saturated (an intercept of -800 or 100), each bounded step doubled the bound, several times a
    cycle, and the fit diverged to `NaN`

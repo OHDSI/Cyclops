@@ -120,6 +120,9 @@ struct ModeFindingArguments {
 	// "gap" from the defaults of "auto": the share of a fit's work that certifying past the kkt stop may cost (cross-
 	// validation folds: 0, as coordinate descent's folds stop there; a fold score needs no certificate)
 	double certificationBudget = 0.1;
+	// fitter "super" (and the kkt-guided "gap" path of "auto"): logistic fits whose penalized coefficients all have normal
+	// priors visit the coordinates in a new seeded order each cycle; see CyclicCoordinateDescent::coordinateOrder
+	bool shuffleCoordinates = false;
 
 	ModeFindingArguments() :
 		tolerance(1E-6),

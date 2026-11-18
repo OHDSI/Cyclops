@@ -839,6 +839,19 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	certificationBudget = arguments.certificationBudget;
 	adaptiveIntercept = (convergenceType == KKT || kktGuided) && arguments.adaptiveIntercept; // its floor is a kkt tolerance
 	minIterations = arguments.minIterations;
+	shuffleCoordinates = (arguments.shuffleCoordinates || kktGuided) && hXI.getModelType() == ModelType::LOGISTIC && !usingGPU && !usingCUDA &&
+		!syncCV && algorthmType != AlgorithmType::MM;
+	if (shuffleCoordinates) { // every penalized free coordinate has a normal prior (and there is one)
+		bool anyNormal = false;
+		for (int j = 0; j < J && shuffleCoordinates; ++j) {
+			double precision = 0.0, lambda = 0.0;
+			if (fixBeta[j]) continue;
+			if (!jointPrior->getNewtonPenalty(j, &precision, &lambda)) { shuffleCoordinates = false; break; }
+			if (lambda != 0.0) shuffleCoordinates = false;
+			anyNormal = anyNormal || precision > 0.0;
+		}
+		shuffleCoordinates = shuffleCoordinates && anyNormal;
+	}
 
 	int count = 0;
 	bool done = false;
@@ -1828,7 +1841,9 @@ void CyclicCoordinateDescent::findMode(
 	    		const bool fullSweep = activeSetEvery == 0 || nextCycleFull;
 	    		cycleMaxStepSE = 0.0;
 	    		cycleWork = 0.0;
-	    		for(int index = 0; index < J; index++) {
+	    		if (shuffleCoordinates) drawCoordinateOrder(iteration);
+	    		for(int position = 0; position < J; position++) {
+	    			const int index = shuffleCoordinates ? coordinateOrder[position] : position;
 
 	    			if (!fixBeta[index]) {
 						if (!fullSweep && !inActiveSet(index)) {
@@ -2718,6 +2733,24 @@ void CyclicCoordinateDescent::trackInterceptGradient(int index, double delta, do
 		}
 		s.gradient = 0.0;
 		++s.extraSteps;
+	}
+}
+
+void CyclicCoordinateDescent::drawCoordinateOrder(int cycleNumber) {
+	if (coordinateOrder.size() != static_cast<size_t>(J)) coordinateOrder.resize(J);
+	for (int j = 0; j < J; ++j) coordinateOrder[j] = j;
+	const int first = (J > 0 && hXI.getColumnType(0) == INTERCEPT) ? 1 : 0; // the intercept stays first
+	uint64_t state = 0x9E3779B97F4A7C15ULL * (static_cast<uint64_t>(cycleNumber) + 1); // splitmix64: the same on every platform
+	auto next = [&state]() {
+		state += 0x9E3779B97F4A7C15ULL;
+		uint64_t z = state;
+		z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+		z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+		return z ^ (z >> 31);
+	};
+	for (int i = J - 1; i > first; --i) { // Fisher-Yates over positions first..J-1
+		const int k = first + static_cast<int>(next() % static_cast<uint64_t>(i - first + 1));
+		std::swap(coordinateOrder[i], coordinateOrder[k]);
 	}
 }
 

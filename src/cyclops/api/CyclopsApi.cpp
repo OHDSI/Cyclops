@@ -684,6 +684,7 @@ void Model::Impl::applyOptions() {
     auto& arguments = interface->getArguments();
 
     arguments.fitter = options.fitter;
+    arguments.modeFinding.shuffleCoordinates = options.fitter == "super";
     arguments.modeFinding.maxIterations = options.max_iterations;
     arguments.modeFinding.tolerance = options.tolerance;
     arguments.modeFinding.convergenceType = toConvergenceType(options.convergence);

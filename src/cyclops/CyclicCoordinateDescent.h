@@ -627,6 +627,15 @@ protected:
 	// Work of the serial cycle, in entries read: a coordinate visit reads its column, a move updates it (a dense column
 	// counts K). Deterministic, so decisions on it do not depend on threads or timing (findModeGap)
 	double cycleWork = 0.0;
+	// Visiting order of the serial cycle. With binary columns every coupling x_j' W x_k is non-negative, the unfavourable
+	// case for cyclic coordinate descent: nested and near-duplicate columns trade the same correction in the same order
+	// every cycle, and at weak normal penalties the error along their contrast shrinks by nearly the same factor each
+	// time. A new order each cycle avoids that (randomly permuted coordinate descent). Used for logistic fits whose
+	// penalized coefficients all have normal priors (their cycles are always serial, so results do not depend on
+	// threads); the intercept stays first. The order is drawn from a portable generator seeded by the cycle number.
+	bool shuffleCoordinates = false;
+	std::vector<int> coordinateOrder;
+	void drawCoordinateOrder(int cycleNumber);
 	std::vector<double> columnWork; // entries per column, set up once (the data do not change)
 	bool inActiveSet(int index) const {
 		if (activeSetThreshold > 0.0) {
