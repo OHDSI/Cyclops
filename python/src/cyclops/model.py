@@ -126,7 +126,8 @@ class Control:
     active_set_every: int | None = None
     active_set_threshold: float | None = None
     adaptive_intercept: bool | None = None
-    merge_duplicates: bool | None = None  #: None: on under "newton", and "auto" except logistic "gap"
+    #: None: on under "newton", and under "auto" except for logistic "gap"
+    merge_duplicates: bool | None = None
 
     # Cross-validation
     cv_search: str = "auto"     #: "auto" (Brent) or "grid"
