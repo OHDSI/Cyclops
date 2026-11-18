@@ -342,7 +342,8 @@ fitCyclopsModel <- function(cyclopsData,
             interceptValue <- log(yMean / (1 - yMean))
         } else if (cyclopsData$modelType == "plr") { # events per person-interval row
             yMean <- sum(getYVector(cyclopsData)) / cyclopsData$numberOfPooledRows
-            interceptValue <- log(yMean / (1 - yMean))
+            interceptValue <- if (identical(cyclopsData$pooledLink, "cloglog")) log(-log(1 - yMean)) else
+                log(yMean / (1 - yMean))
         } else if (cyclopsData$modelType == "pr") {
             interceptValue <- log(yMean)
         } else if (cyclopsData$modelType == "ls") {
@@ -818,7 +819,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              \code{"newton"}. \code{"gap"} stops when a certified bound on the distance to the
 #'                              optimum of the log posterior is below \code{tolerance}; it needs a model with
 #'                              second-order kernels (so far \code{"cox"}, \code{"cox_counting"}, \code{"cpr"}, \code{"sccs"},
-#'                              \code{"clr"} and \code{"lr"} in double precision on the CPU) and normal, Laplace or no priors; with Laplace priors the stop is an
+#'                              \code{"clr"}, \code{"lr"} and \code{"plr"} with the logit link, in double precision on the CPU) and normal, Laplace or no priors; with Laplace priors the stop is an
 #'                              estimate rather than a certified bound
 #' @param cvType						String: name of cross validation search.
 #' 													Option \code{"auto"} selects an auto-search following BBR.
@@ -859,7 +860,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              Newton steps when an operation count says they are cheaper, and back on failure) or
 #'                              \code{"newton"} (Newton steps after three coordinate-descent cycles). \code{NULL}
 #'                              (default) means \code{"auto"} for \code{"cox"}, \code{"cox_counting"}, \code{"cpr"},
-#'                              \code{"sccs"}, \code{"clr"} and \code{"lr"} and \code{"ccd"} otherwise, under \code{fitter = "legacy"},
+#'                              \code{"sccs"}, \code{"clr"}, \code{"lr"} and \code{"plr"} and \code{"ccd"} otherwise, under \code{fitter = "legacy"},
 #'                              and for the refits of a prior with a \code{fitHook} (BrokenAdaptiveRidge, IterativeHardThresholding,
 #'                              \code{\link{createNonSeparablePrior}}). Under \code{"auto"}, an explicit
 #'                              \code{convergenceType} other than \code{"gap"} runs \code{"ccd"}; under

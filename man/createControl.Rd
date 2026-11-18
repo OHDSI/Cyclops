@@ -65,7 +65,7 @@ when the fit resolves to \code{"gap"} through \code{algorithm}}
 \code{"newton"}. \code{"gap"} stops when a certified bound on the distance to the
 optimum of the log posterior is below \code{tolerance}; it needs a model with
 second-order kernels (so far \code{"cox"}, \code{"cox_counting"}, \code{"cpr"}, \code{"sccs"},
-\code{"clr"} and \code{"lr"} in double precision on the CPU) and normal, Laplace or no priors; with Laplace priors the stop is an
+\code{"clr"}, \code{"lr"} and \code{"plr"} with the logit link, in double precision on the CPU) and normal, Laplace or no priors; with Laplace priors the stop is an
 estimate rather than a certified bound}
 
 \item{cvType}{String: name of cross validation search.
@@ -124,7 +124,7 @@ descent), \code{"mm"}, \code{"auto"} (coordinate descent that switches to dense
 Newton steps when an operation count says they are cheaper, and back on failure) or
 \code{"newton"} (Newton steps after three coordinate-descent cycles). \code{NULL}
 (default) means \code{"auto"} for \code{"cox"}, \code{"cox_counting"}, \code{"cpr"},
-\code{"sccs"}, \code{"clr"} and \code{"lr"} and \code{"ccd"} otherwise, under \code{fitter = "legacy"},
+\code{"sccs"}, \code{"clr"}, \code{"lr"} and \code{"plr"} and \code{"ccd"} otherwise, under \code{fitter = "legacy"},
 and for the refits of a prior with a \code{fitHook} (BrokenAdaptiveRidge, IterativeHardThresholding,
 \code{\link{createNonSeparablePrior}}). Under \code{"auto"}, an explicit
 \code{convergenceType} other than \code{"gap"} runs \code{"ccd"}; under

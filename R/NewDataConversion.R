@@ -50,6 +50,8 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #' @param timeBasis     For \code{"plr"} models, an optional data frame with columns \code{interval}, \code{covariateId}
 #'                      and \code{covariateValue}: the time basis, one covariate (with a coefficient) per basis column,
 #'                      whose value in a person-interval row is its value at the row's interval (0 where not given)
+#' @param link          For \code{"plr"} models, the link: \code{"logit"} (pooled logistic regression) or \code{"cloglog"}
+#'                      (complementary log-log, a grouped-time proportional hazards model)
 #'
 #' @details
 #' These columns are expected in the outcome object:
@@ -94,8 +96,11 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #' \code{timeBasis}, \code{alpha_b} its coefficients and \code{gamma_cb} those of the interactions named in
 #' \code{timeEffectMap}, a data frame with columns \code{covariateId}, \code{timeCovariateId} (a \code{covariateId}
 #' of \code{timeBasis}) and \code{interactionId} (the id of the interaction's coefficient). The fit equals that of
-#' \code{"lr"} on the expanded rows. Cross-validation folds and the case weights of \code{fitCyclopsModel()} are by
-#' subject, as are the score contributions of \code{vcov(type = "robust")}. Predictions are not yet implemented.
+#' \code{"lr"} on the expanded rows (with \code{link = "cloglog"}, that of \code{glm(binomial("cloglog"))}).
+#' Cross-validation folds and the case weights of \code{fitCyclopsModel()} are by subject, as are the score
+#' contributions of \code{vcov(type = "robust")}; an optional outcome column \code{subjectId} (constant within a
+#' \code{rowId}) groups subjects further, e.g. the clones of one person: folds then never split a \code{subjectId}
+#' and the robust variance is clustered by it. Predictions are not yet implemented.
 #'
 #' @return
 #' An object of type cyclopsData
@@ -130,7 +135,8 @@ convertToCyclopsData <- function(outcomes,
                                  normalize = NULL,
                                  quiet = FALSE,
                                  floatingPoint = 64,
-                                 timeBasis = NULL) {
+                                 timeBasis = NULL,
+                                 link = "logit") {
     UseMethod("convertToCyclopsData")
 }
 
@@ -161,13 +167,14 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                             normalize = NULL,
                                             quiet = FALSE,
                                             floatingPoint = 64,
-                                            timeBasis = NULL) {
+                                            timeBasis = NULL,
+                                            link = "logit") {
     if (!is.null(checkSorting))
         warning("The 'checkSorting' argument has been deprecated. Sorting is now always checked")
 
     if (modelType == "plr") {
         return(.convertToPooledCyclopsData(outcomes, covariates, timeBasis, timeEffectMap, addIntercept,
-                                           checkRowIds, normalize, quiet, floatingPoint))
+                                           checkRowIds, normalize, quiet, floatingPoint, link))
     }
 
     outcomes <- .renameEndTime(outcomes)
@@ -378,7 +385,8 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                                          normalize = NULL,
                                          quiet = FALSE,
                                          floatingPoint = 64,
-                                         timeBasis = NULL) {
+                                         timeBasis = NULL,
+                                         link = "logit") {
     if (!is.null(checkSorting))
         warning("The 'checkSorting' argument has been deprecated. Sorting is now always checked")
 
@@ -386,7 +394,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         return(.convertToPooledCyclopsData(collect(outcomes), collect(covariates),
                                            if (is.null(timeBasis)) NULL else collect(timeBasis),
                                            if (is.null(timeEffectMap)) NULL else collect(timeEffectMap),
-                                           addIntercept, checkRowIds, normalize, quiet, floatingPoint))
+                                           addIntercept, checkRowIds, normalize, quiet, floatingPoint, link))
     }
 
     outcomes <- .renameEndTime(outcomes)

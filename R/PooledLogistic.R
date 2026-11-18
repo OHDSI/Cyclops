@@ -66,7 +66,8 @@ convertToLongOutcome <- function(outcomes) {
 # convertToCyclopsData() for modelType = "plr": one row of the data per subject (rowId), with the subject's
 # person-interval rows, the time basis and the time x covariate interactions loaded beside it (PooledRows.h)
 .convertToPooledCyclopsData <- function(outcomes, covariates, timeBasis, timeEffectMap, addIntercept,
-                                        checkRowIds, normalize, quiet, floatingPoint) {
+                                        checkRowIds, normalize, quiet, floatingPoint, link = "logit") {
+    link <- match.arg(link, c("logit", "cloglog"))
     outcomes <- as.data.frame(outcomes)
     covariates <- as.data.frame(covariates)
     if (!all(outcomes$y %in% c(0, 1))) {
@@ -110,6 +111,13 @@ convertToLongOutcome <- function(outcomes) {
         event <- outcomes$y
         if ("weights" %in% colnames(outcomes)) rowWeight <- outcomes$weights
         if ("offset" %in% colnames(outcomes)) rowOffset <- outcomes$offset
+    }
+    subjectId <- NULL
+    if ("subjectId" %in% colnames(outcomes)) { # one per subject
+        subjectId <- outcomes$subjectId[!duplicated(outcomes$rowId)]
+        if (!implicitRows && any(outcomes$subjectId != rep(subjectId, rowsPerSubject))) {
+            stop("subjectId must be constant within a rowId", call. = FALSE)
+        }
     }
 
     basisIds <- numeric(0)
@@ -172,8 +180,13 @@ convertToLongOutcome <- function(outcomes) {
                                as.integer(event), as.numeric(rowWeight), as.numeric(rowOffset),
                                as.numeric(subjectOffset), as.vector(basis), nrow(basis),
                                bit64::as.integer64(c(basisIds, timeEffectMap$interactionId)),
-                               c(seq_along(basisIds), match(timeEffectMap$timeCovariateId, basisIds)))
+                               c(seq_along(basisIds), match(timeEffectMap$timeCovariateId, basisIds)),
+                               link == "cloglog")
     dataPtr$numberOfPooledRows <- sum(rowsPerSubject)
+    dataPtr$pooledLink <- link
+    if (!is.null(subjectId)) {
+        .loadCyclopsDataSubjectId(dataPtr, bit64::as.integer64(subjectId))
+    }
 
     if (!is.null(normalize)) {
         .normalizeCovariates(dataPtr, normalize)

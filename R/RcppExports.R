@@ -392,8 +392,8 @@ getStartTimeVector <- function(object) {
     invisible(.Call(`_Cyclops_cyclopsLoadDataSubjectId`, x, subjectId))
 }
 
-.loadCyclopsDataPooledRows <- function(x, implicitRows, rowsPerSubject, interval, event, rowWeight, rowOffset, subjectOffset, basis, intervals, timeCovariateId, timeBasisColumn) {
-    invisible(.Call(`_Cyclops_cyclopsLoadDataPooledRows`, x, implicitRows, rowsPerSubject, interval, event, rowWeight, rowOffset, subjectOffset, basis, intervals, timeCovariateId, timeBasisColumn))
+.loadCyclopsDataPooledRows <- function(x, implicitRows, rowsPerSubject, interval, event, rowWeight, rowOffset, subjectOffset, basis, intervals, timeCovariateId, timeBasisColumn, cloglog) {
+    invisible(.Call(`_Cyclops_cyclopsLoadDataPooledRows`, x, implicitRows, rowsPerSubject, interval, event, rowWeight, rowOffset, subjectOffset, basis, intervals, timeCovariateId, timeBasisColumn, cloglog))
 }
 
 .loadCyclopsDataMultipleX <- function(x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append, forceSparse) {
