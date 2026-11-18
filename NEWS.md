@@ -197,6 +197,13 @@ Changes:
    an `lr` offset needed a covariate and `finalizeSqlCyclopsData(useOffsetCovariate = , offsetAlreadyOnLogScale = TRUE)`.
    `predict()` on new data adds the `offset` column of `newOutcomes`, if any. Offsets must be finite, and other model
    types warn that they ignore an `offset` column
+37. new `modelType = "plr"` (pooled logistic regression) in `convertToCyclopsData()`: logistic regression over the
+   intervals at risk of each subject without expanding the covariates to those rows. A row of the data is a subject;
+   its intervals come as one outcome row per interval (explicit) or as `entry` and `exit` (implicit, see the new
+   `convertToLongOutcome()`), with case weights and offsets per row or per subject. A `timeBasis` gives time
+   covariates by interval, and `timeEffectMap` their interactions with covariates. Fits equal `glm(binomial())` and
+   `"lr"` on the expanded rows; cross-validation folds and robust-variance clusters are subjects. Coordinate
+   descent only (`algorithm = "auto"` runs it), logit link; predictions are not yet implemented
 
 Cyclops v3.8.0
 ==============
