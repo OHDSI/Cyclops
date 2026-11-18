@@ -5,7 +5,7 @@
  * weights) is a subject; subject i has rows [rowStart[i], rowStart[i + 1]), one per interval at
  * risk. Explicit rows store each row's interval and outcome; implicit rows store only the first
  * interval of each subject, its rows being consecutive intervals, with the event (y of the subject)
- * in the last. Time-basis columns and time x covariate interactions multiply a column's values in a
+ * in the last. The link is the logit or the complementary log-log. Time-basis columns and time x covariate interactions multiply a column's values in a
  * row by the time basis at the row's interval.
  */
 
@@ -22,6 +22,7 @@ namespace bsccs {
 struct PooledRows {
     bool loaded = false;
     bool implicitRows = false;
+    bool cloglog = false;               // link: complementary log-log (else logit)
     std::vector<size_t> rowStart;       // subjects + 1
     std::vector<int> interval;          // explicit: 0-based interval of each row
     std::vector<char> event;            // explicit: outcome of each row

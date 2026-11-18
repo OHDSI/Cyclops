@@ -133,10 +133,58 @@ bool CyclicCoordinateDescent::dualGap(NewtonContext& context, double* gap) {
 
 namespace {
 
-// max over rows with positive weight of sum_j a_j |x_kj|^power, columns F
+// Pooled logistic regression ("plr", PooledRows.h): the likelihood's rows are the intervals t of each row k of X
+// (a subject), and row (k, t) holds x_kj tau_s(j)(t), with slot s(j) the column's time-basis column + 1 (0 for none),
+// tau_0 = 1 and tau_{b + 1}(t) the time basis. The slots of the columns F, empty for other models
+std::vector<int> pooledSlots(const ModelData<double>& data, const std::vector<int>& F) {
+	const PooledRows& pooled = data.getPooledRows();
+	if (!pooled.loaded) {
+		return std::vector<int>();
+	}
+	std::vector<int> ofColumn(data.getNumberOfColumns(), 0);
+	for (const auto& column : pooled.timeColumns) {
+		ofColumn[data.getColumnIndex(column.first)] = column.second + 1;
+	}
+	std::vector<int> slot(F.size());
+	for (size_t i = 0; i < F.size(); ++i) slot[i] = ofColumn[F[i]];
+	return slot;
+}
+
+double pooledTau(const PooledRows& pooled, int t, int s) {
+	return s == 0 ? 1.0 : pooled.basis[static_cast<size_t>(t) * pooled.basisColumns + s - 1];
+}
+
+// max over rows with positive weight of sum_j a_j |x_kj|^power, columns F (plr: over the likelihood's rows)
 template <typename Positive>
 double rowMaximum(const ModelData<double>& data, const std::vector<int>& F, const std::vector<double>& a,
                   int power, int K, Positive positive) {
+	const std::vector<int> slot = pooledSlots(data, F);
+	if (!slot.empty()) { // sum_s |tau_s(t)|^power sum_{j: s(j) = s} a_j |x_kj|^power
+		const PooledRows& pooled = data.getPooledRows();
+		const int S = pooled.basisColumns + 1;
+		std::vector<double> sums(static_cast<size_t>(K) * S, 0.0);
+		for (size_t i = 0; i < F.size(); ++i) {
+			if (a[i] == 0.0) continue;
+			for (GenericIterator<double> it(data.getX(), F[i]); it; ++it) {
+				const double x = std::abs(it.value());
+				sums[static_cast<size_t>(it.index()) * S + slot[i]] += a[i] * (power == 2 ? x * x : x);
+			}
+		}
+		double largest = 0.0;
+		for (int k = 0; k < K; ++k) {
+			if (!positive(k)) continue;
+			for (size_t r = pooled.rowStart[k]; r < pooled.rowStart[k + 1]; ++r) {
+				const int t = pooled.intervalOf(k, r);
+				double value = 0.0;
+				for (int s = 0; s < S; ++s) {
+					const double tau = std::abs(pooledTau(pooled, t, s));
+					value += sums[static_cast<size_t>(k) * S + s] * (power == 2 ? tau * tau : tau);
+				}
+				largest = std::max(largest, value);
+			}
+		}
+		return largest;
+	}
 	std::vector<double> rows(K, 0.0);
 	for (size_t i = 0; i < F.size(); ++i) {
 		if (a[i] == 0.0) {
@@ -335,9 +383,79 @@ bool buildSchurBound(AbstractModelSpecifics& engine, const std::vector<int>& F, 
 // x_U'Q x_U - 2 sum_N x_i g_i'x_U / lambda_i + sum_N x_i^2 / lambda_i, Q = A^-1 + sum_N g_i g_i' / lambda_i: one pass over
 // X_F with the U columns of each row at hand. The expansion can cancel: the value is raised by the bound's slack times
 // the size of its terms, and kept above x_U'A^-1 x_U (a term of the sum)
+// plr form of schurNu over the likelihood's rows (k, t): with z = x_k scaled by tau_s(j)(t), every term is a quadratic
+// form in tau(t) whose S x S coefficients are summed per row k of X
+template <typename Positive>
+double pooledSchurNu(const ModelData<double>& data, const std::vector<int>& F, const std::vector<int>& slot,
+                     const std::vector<double>& precision, const SchurBound& bound, int K, Positive positive) {
+	const PooledRows& pooled = data.getPooledRows();
+	const int S = pooled.basisColumns + 1;
+	const size_t n = F.size();
+	const Eigen::Index u = static_cast<Eigen::Index>(bound.U.size());
+	Eigen::MatrixXd XU = Eigen::MatrixXd::Zero(u, K); // the U columns of each row of X
+	std::vector<int> slotU(u);
+	for (Eigen::Index c = 0; c < u; ++c) {
+		slotU[c] = slot[bound.U[c]];
+		for (GenericIterator<double> it(data.getX(), F[bound.U[c]]); it; ++it) {
+			XU(c, it.index()) = it.value();
+		}
+	}
+	Eigen::MatrixXd Q = bound.A.solve(Eigen::MatrixXd::Identity(u, u));
+	const size_t SS = static_cast<size_t>(S) * S;
+	// by row k of X: sum_N x_i^2 / lambda_i by slot of i; x_i g_i(c) XU(c, k) / lambda_i and its |.| by the slots of i, c
+	std::vector<double> square(static_cast<size_t>(K) * S, 0.0), cross(K * SS, 0.0), size(K * SS, 0.0);
+	for (size_t i = 0, c = 0; i < n; ++i) {
+		if (c < bound.U.size() && bound.U[c] == static_cast<int>(i)) { // in U
+			++c;
+			continue;
+		}
+		const Eigen::VectorXd g = bound.A.solve(Eigen::VectorXd(bound.Bt.col(i)));
+		Q.noalias() += g * g.transpose() / precision[i];
+		const int s = slot[i];
+		for (GenericIterator<double> it(data.getX(), F[i]); it; ++it) {
+			const size_t k = it.index();
+			const double x = it.value() / precision[i];
+			square[k * S + s] += x * it.value();
+			for (Eigen::Index d = 0; d < u; ++d) {
+				const double v = x * g(d) * XU(d, k);
+				cross[k * SS + s * S + slotU[d]] += v;
+				size[k * SS + s * S + slotU[d]] += std::abs(v);
+			}
+		}
+	}
+	double largest = 0.0;
+	std::vector<double> tau(S);
+	Eigen::VectorXd zu(u);
+	for (int k = 0; k < K; ++k) {
+		if (!positive(k)) continue;
+		for (size_t r = pooled.rowStart[k]; r < pooled.rowStart[k + 1]; ++r) {
+			const int t = pooled.intervalOf(k, r);
+			for (int s = 0; s < S; ++s) tau[s] = pooledTau(pooled, t, s);
+			for (Eigen::Index d = 0; d < u; ++d) zu(d) = tau[slotU[d]] * XU(d, k);
+			double sq = 0.0, cr = 0.0, sz = 0.0;
+			for (int s = 0; s < S; ++s) {
+				sq += tau[s] * tau[s] * square[static_cast<size_t>(k) * S + s];
+				for (int s2 = 0; s2 < S; ++s2) {
+					cr += tau[s] * tau[s2] * cross[k * SS + s * S + s2];
+					sz += std::abs(tau[s] * tau[s2]) * size[k * SS + s * S + s2];
+				}
+			}
+			const double quadratic = zu.dot(Q * zu);
+			const double value = sq + quadratic - 2.0 * cr;
+			const double floor = bound.A.matrixL().solve(zu).squaredNorm();
+			largest = std::max(largest, std::max(value + bound.slack * (sq + std::abs(quadratic) + 2.0 * sz), floor));
+		}
+	}
+	return std::sqrt(largest);
+}
+
 template <typename Positive>
 double schurNu(const ModelData<double>& data, const std::vector<int>& F, const std::vector<double>& precision,
                const SchurBound& bound, int K, Positive positive) {
+	const std::vector<int> slot = pooledSlots(data, F);
+	if (!slot.empty()) {
+		return pooledSchurNu(data, F, slot, precision, bound, K, positive);
+	}
 	const size_t n = F.size();
 	const Eigen::Index u = static_cast<Eigen::Index>(bound.U.size());
 	Eigen::MatrixXd XU = Eigen::MatrixXd::Zero(u, K); // the U columns of each row
@@ -385,7 +503,7 @@ std::string CyclicCoordinateDescent::secondOrderIneligibility() const {
 		return "cross-validation folds are synchronized";
 	}
 	if (!modelSpecifics.supportsSecondOrder()) {
-		return "the model has no second-order kernels (so far cox, cox_counting, cpr, sccs, clr and lr in double precision on the CPU)";
+		return "the model has no second-order kernels (so far cox, cox_counting, cpr, sccs, clr, lr and plr with the logit link, in double precision on the CPU)";
 	}
 	for (int j = 0; j < J; ++j) {
 		double precision = 0.0, lambda = 0.0;
@@ -1297,7 +1415,8 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		if (useCrossValidation && count > 0) weight = sum / count;
 	}
 	context.tauEff = tau * weight;
-	if (convergenceType == GAP && context.anyLaplace && hXI.getModelType() == ModelType::LOGISTIC) {
+	if (convergenceType == GAP && context.anyLaplace && (hXI.getModelType() == ModelType::LOGISTIC ||
+			hXI.getModelType() == ModelType::POOLED_LOGISTIC)) {
 		int free = 0;
 		for (int j = 0; j < J; ++j) free += fixBeta[j] ? 0 : 1;
 		bool eligible = free == static_cast<int>(context.F.size()); // no free column outside F (other priors)
@@ -1711,6 +1830,9 @@ struct CyclicCoordinateDescent::ProfileFactor {
 // model or the priors do not allow one
 std::shared_ptr<const CyclicCoordinateDescent::ProfileReference> CyclicCoordinateDescent::makeProfileReference(
 		const ProfileReference* like) {
+	if (hXI.getModelType() == ModelType::POOLED_LOGISTIC) {
+		return nullptr; // its eta and columnMax are of the rows of X, not of the likelihood's rows
+	}
 	auto reference = std::make_shared<ProfileReference>();
 	if (like != nullptr) {
 		reference->F = like->F;

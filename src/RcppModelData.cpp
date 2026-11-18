@@ -644,7 +644,8 @@ void cyclopsLoadDataPooledRows(Environment x,
                                const std::vector<double>& basis,
                                const int intervals,
                                const std::vector<double>& timeCovariateId,
-                               const std::vector<int>& timeBasisColumn) {
+                               const std::vector<int>& timeBasisColumn,
+                               const bool cloglog) {
 
     using namespace bsccs;
     XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
@@ -658,6 +659,7 @@ void cyclopsLoadDataPooledRows(Environment x,
     }
     PooledRows pooled;
     pooled.implicitRows = implicitRows;
+    pooled.cloglog = cloglog;
     pooled.rowStart.resize(subjects + 1, 0);
     for (size_t i = 0; i < subjects; ++i) {
         if (rowsPerSubject[i] < 1) Rcpp::stop("Every subject needs at least one interval at risk");
