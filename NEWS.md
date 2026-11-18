@@ -1,5 +1,5 @@
-Cyclops (development version)
-=============================
+Cyclops v4.0.2 (development version)
+====================================
 
 Changes:
 
@@ -176,6 +176,21 @@ Changes:
    `returnCvPredictions` gets them and returns the predictions itself. So PatientLevelPrediction no longer needs
    its own fold refits for any Cyclops model. A prior with `keepControl = TRUE` gives its `fitHook` the control as
    given; other hooks still get coordinate descent when no algorithm is set
+34. `vcov()`, `getSEs()` and the Fisher information also accept non-integer case weights for `cox` and
+   `cox_counting` fits (and `cpr`, `sccs` and `clr` under the default fitter): they return the inverse of the weighted
+   information, as `coxph(weights = )$naive.var` (Breslow ties). `cox` fits under `fitter = "legacy"` still stop with
+   "Weights are not yet implemented in Fisher Information calculations". `evaluateLikelihood()` likewise returns the
+   weighted information, and stops only for a `cox` data object whose last fit used `fitter = "legacy"`
+35. `vcov(fit, type = "robust")` returns the cluster-robust (sandwich) variance H^-1 (U'U) H^-1 of `lr`, `pr`, `cox` and
+   `cox_counting` fits: H is the information of the log likelihood (the prior excluded), and each row of U sums the
+   weighted score contributions of one subject (`cluster()` or `subjectId`; one row without subjects). Cox scores are
+   the weighted score residuals with the risk-set compensator, for counting-process data and strata. Fixed
+   coefficients are left out, and there is no small-sample factor: it matches `coxph(weights = , cluster = ,
+   ties = "breslow")$var` and `sandwich::vcovCL(glm(weights = ), cluster = , type = "HC0", cadjust = FALSE)` to
+   1e-6. `cox` fits under `fitter = "legacy"` are not supported. Under a prior it warns that it is not a validated
+   variance of regularized coefficients, unless `overrideNoRegularization = TRUE`. `confint(fit, method = "robust")`
+   gives the Wald intervals from it, and, as for profile intervals, stops for regularized parameters unless
+   `overrideNoRegularization = TRUE`. The defaults (`type = "modelBased"`, `method = "profile"`) are unchanged
 
 Cyclops v3.8.0
 ==============

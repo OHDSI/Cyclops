@@ -62,7 +62,8 @@ test_that("vcov with weights: integer weights count rows, others weight the info
     weights <- rep(c(1, 1.5), length.out = nrow(infert))
     fit <- fitCyclopsModel(createCyclopsData(formula, data = infert, modelType = "lr"), weights = weights,
                            control = control)
-    gold <- suppressWarnings(glm(formula, data = infert, family = binomial, weights = weights))
+    gold <- suppressWarnings(glm(formula, family = binomial, data = infert, weights = weights,
+                                 control = glm.control(epsilon = 1E-14)))
     expect_equal(unname(vcov(fit)), unname(vcov(gold)), tolerance = 1E-6)
 })
 

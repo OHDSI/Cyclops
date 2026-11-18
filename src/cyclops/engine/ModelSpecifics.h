@@ -239,6 +239,8 @@ protected:
                                  // double* residuals, double* numerators, double* denominators,
                                  bool useWeights);
 
+	bool scoreContributions(int index, std::vector<double>& u);
+
 	void updateXBeta(double delta, int index, bool useWeights);
 
 	void computeRemainingStatistics(bool useWeights);

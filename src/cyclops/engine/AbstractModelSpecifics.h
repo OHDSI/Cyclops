@@ -100,6 +100,13 @@ public:
                                             // double* denominators,
                                             bool useWeights) = 0; // pure virtual
 
+	// Per-row contributions u (length K, row order of the data) to the derivative of the log likelihood
+	// in the coefficient of column `index` at the current state, with the current case weights, so that
+	// they sum to the gradient: for the robust (sandwich) variance. Models without them return false.
+	virtual bool scoreContributions(int index, std::vector<double>& u) {
+		return false;
+	}
+
 	virtual void updateXBeta(double realDelta, int index, bool useWeights) = 0; // pure virtual
 
 	virtual void computeXBeta(double* beta, bool useWeights) = 0; // pure virtual
