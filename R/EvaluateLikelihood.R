@@ -33,7 +33,9 @@
 #'
 #' @details
 #' The Fisher information is not available, and stops with an error, for \code{"clr_efron"} and
-#' \code{"clr_exact"}, and for Cox-type and conditional models with weights that are not whole numbers.
+#' \code{"clr_exact"}. With weights that are not whole numbers it is the weighted information (for \code{"cox"},
+#' as \code{coxph(weights = )$naive.var} with Breslow ties), except that it stops with an error for a \code{"cox"}
+#' data object whose last fit used \code{fitter = "legacy"}.
 #'
 #' The coefficients and weights stay set on the data object: \code{predict()}, \code{vcov()} and similar functions
 #' of an earlier fit of the same data object then use them, until the next fit or evaluation.

@@ -63,6 +63,22 @@ test_that("Poisson and least-squares information take weights that are not whole
     }
 })
 
+test_that("Cox-type and conditional information take weights that are not whole numbers", {
+    for (model in c("cox", "scox", "clr")) {
+        weights <- if (model == "clr") runif(60, 0.2, 2)[strata] else runif(n, 0.2, 2)
+        data <- designs[[model]]()
+        names <- Cyclops:::.coefficientNames(data)
+        beta <- rnorm(length(names), 0, 0.3)
+        value <- evaluateLikelihood(data, beta, weights = weights, information = names)
+        expect_equal(unname(value$information), unname(finiteDifferences(data, beta, weights)$information),
+                     tolerance = 1e-6, info = model)
+    }
+    data <- designs$cox()
+    fitCyclopsModel(data, prior = createPrior("none"), control = createControl(fitter = "legacy"))
+    expect_error(evaluateLikelihood(data, c(0.1, 0.2, 0.3), weights = runif(n, 0.2, 2), information = 1:3),
+                 "Weights are not yet implemented")
+})
+
 test_that("weights count rows, held-out rows add up, and an earlier fit's weights are not used", {
     y <- rbinom(n, 1, plogis(eta))
     train <- as.numeric(seq_len(n) %% 3 != 0)
