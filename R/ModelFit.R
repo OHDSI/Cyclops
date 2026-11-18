@@ -340,8 +340,9 @@ fitCyclopsModel <- function(cyclopsData,
         yMean <- mean(getYVector(cyclopsData))
         if (cyclopsData$modelType == "lr") {
             interceptValue <- log(yMean / (1 - yMean))
-        } else if (cyclopsData$modelType == "plr") { # events per person-interval row
-            yMean <- sum(getYVector(cyclopsData)) / cyclopsData$numberOfPooledRows
+        } else if (cyclopsData$modelType == "plr") { # events per person-interval row, kept off 0 and 1
+            rows <- cyclopsData$numberOfPooledRows
+            yMean <- min(max(cyclopsData$numberOfPooledEvents / rows, 0.5 / rows), 1 - 0.5 / rows)
             interceptValue <- if (identical(cyclopsData$pooledLink, "cloglog")) log(-log(1 - yMean)) else
                 log(yMean / (1 - yMean))
         } else if (cyclopsData$modelType == "pr") {

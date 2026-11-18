@@ -111,3 +111,23 @@ test_that("plr cross-validation keeps a person's rows in one fold, as lr on the 
     expect_equal(coef(fitPlr), coef(fitLr), tolerance = 1E-6)
     expect_equal(fitCyclopsModel(plr, prior = prior, control = cv(2))$variance, fitPlr$variance)
 })
+
+test_that("plr edge cases: separation, an overflowing row offset, timeBasis checks, arguments of other models", {
+    set.seed(3)
+    rows <- data.frame(rowId = rep(1:30, each = 2), interval = rep(1:2, 30))
+    rows$y <- as.numeric(rows$rowId <= 10 | (rows$rowId %% 3 == 0 & rows$interval == 2))
+    covariates <- data.frame(rowId = 1:30, covariateId = 1, covariateValue = rnorm(30))
+    separated <- rbind(covariates, data.frame(rowId = 1:10, covariateId = 2, covariateValue = 1)) # events only
+    fit <- expect_warning(fitCyclopsModel(convertToCyclopsData(rows, separated, modelType = "plr"),
+                                          prior = createPrior("none")), "Separation")
+    expect_equal(fit$divergentCoefficients, "2")
+    rows$offset <- 0
+    rows$offset[60] <- 800
+    fit <- fitCyclopsModel(convertToCyclopsData(rows, covariates, modelType = "plr"), prior = createPrior("none"))
+    expect_true(is.finite(fit$log_likelihood))
+    expect_error(convertToCyclopsData(rows, covariates, modelType = "plr",
+                                      timeBasis = data.frame(interval = 0:2, covariateId = 10, covariateValue = 1)),
+                 "positive integers")
+    expect_warning(convertToCyclopsData(rows[, c("rowId", "y")], covariates, modelType = "lr", link = "cloglog",
+                                        quiet = TRUE), "plr models only")
+})

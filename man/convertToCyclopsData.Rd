@@ -59,7 +59,8 @@ convertToCyclopsData(
 \item{modelType}{Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", "cox", "cox_counting"
 or "plr" (pooled logistic regression; see Details)}
 
-\item{timeEffectMap}{A data frame or ffdf object containing the convariates that have time-varying effects on the outcome}
+\item{timeEffectMap}{A data frame or ffdf object containing the convariates that have time-varying effects on the outcome
+(for \code{"plr"} models, the time x covariate interactions; see Details)}
 
 \item{addIntercept}{Add an intercept to the model?}
 
@@ -78,7 +79,9 @@ and \code{covariateValue}: the time basis, one covariate (with a coefficient) pe
 whose value in a person-interval row is its value at the row's interval (0 where not given)}
 
 \item{link}{For \code{"plr"} models, the link: \code{"logit"} (pooled logistic regression) or \code{"cloglog"}
-(complementary log-log, a grouped-time proportional hazards model)}
+(complementary log-log, a grouped-time proportional hazards model). Cloglog fits run on
+coordinate descent, so with correlated time-basis columns they need a tighter \code{tolerance}
+in \code{\link{createControl}} (e.g. 1e-10); their \code{vcov()} is the observed information}
 }
 \value{
 An object of type cyclopsData

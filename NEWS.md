@@ -207,9 +207,10 @@ Changes:
    model (equal to `glm(binomial("cloglog"))` on the expanded rows), whose non-event rows factorize so a covariate
    update costs O(nonzeros). With the logit link the second-order kernels run `algorithm = "auto"` (the default, as
    for `"lr"`) and `"newton"` with certified `"gap"` stops (L1 by the duality gap); cloglog fits use coordinate
-   descent. On 1e5 subjects, 1.3e6 person-interval rows and 200 covariates (50 per subject), a fit takes 2.1 s and
-   1.0 GB (whole R process) against 12.5 s and 17.6 GB for `"lr"` on the expanded rows. Predictions are not yet
-   implemented
+   descent, which on correlated time bases needs a tighter `tolerance` than the default. The cloglog `vcov()` is
+   the observed information (`glm()` reports the expected one). Separated coefficients without a prior are
+   reported at their limit with a warning, as for `"lr"`. The expanded rows are never built, so memory stays
+   near that of one row per subject. Predictions are not yet implemented
 
 Cyclops v3.8.0
 ==============

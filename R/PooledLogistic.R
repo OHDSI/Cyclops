@@ -127,6 +127,11 @@ convertToLongOutcome <- function(outcomes) {
         if (!all(c("interval", "covariateId", "covariateValue") %in% colnames(timeBasis))) {
             stop("timeBasis needs columns interval, covariateId and covariateValue", call. = FALSE)
         }
+        if (any(timeBasis$interval < 1 | timeBasis$interval != round(timeBasis$interval)) ||
+            anyDuplicated(timeBasis[, c("interval", "covariateId")])) {
+            stop("timeBasis intervals must be positive integers, with one value per interval and covariateId",
+                 call. = FALSE)
+        }
         basisIds <- sort(unique(timeBasis$covariateId))
         basis <- matrix(0, max(lastInterval, timeBasis$interval), length(basisIds))
         basis[cbind(timeBasis$interval, match(timeBasis$covariateId, basisIds))] <- timeBasis$covariateValue
@@ -183,6 +188,7 @@ convertToLongOutcome <- function(outcomes) {
                                c(seq_along(basisIds), match(timeEffectMap$timeCovariateId, basisIds)),
                                link == "cloglog")
     dataPtr$numberOfPooledRows <- sum(rowsPerSubject)
+    dataPtr$numberOfPooledEvents <- if (implicitRows) sum(ySubject) else sum(event)
     dataPtr$pooledLink <- link
     if (!is.null(subjectId)) {
         .loadCyclopsDataSubjectId(dataPtr, bit64::as.integer64(subjectId))

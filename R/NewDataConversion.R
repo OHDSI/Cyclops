@@ -47,11 +47,14 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #' @param quiet         If true, (warning) messages are suppressed.
 #' @param floatingPoint Specified floating-point representation size (32 or 64)
 #' @param timeEffectMap A data frame or ffdf object containing the convariates that have time-varying effects on the outcome
+#'                      (for \code{"plr"} models, the time x covariate interactions; see Details)
 #' @param timeBasis     For \code{"plr"} models, an optional data frame with columns \code{interval}, \code{covariateId}
 #'                      and \code{covariateValue}: the time basis, one covariate (with a coefficient) per basis column,
 #'                      whose value in a person-interval row is its value at the row's interval (0 where not given)
 #' @param link          For \code{"plr"} models, the link: \code{"logit"} (pooled logistic regression) or \code{"cloglog"}
-#'                      (complementary log-log, a grouped-time proportional hazards model)
+#'                      (complementary log-log, a grouped-time proportional hazards model). Cloglog fits run on
+#'                      coordinate descent, so with correlated time-basis columns they need a tighter \code{tolerance}
+#'                      in \code{\link{createControl}} (e.g. 1e-10); their \code{vcov()} is the observed information
 #'
 #' @details
 #' These columns are expected in the outcome object:
@@ -176,6 +179,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
         return(.convertToPooledCyclopsData(outcomes, covariates, timeBasis, timeEffectMap, addIntercept,
                                            checkRowIds, normalize, quiet, floatingPoint, link))
     }
+    .checkPooledArguments(modelType, timeBasis, link)
 
     outcomes <- .renameEndTime(outcomes)
 
@@ -396,6 +400,7 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                                            if (is.null(timeEffectMap)) NULL else collect(timeEffectMap),
                                            addIntercept, checkRowIds, normalize, quiet, floatingPoint, link))
     }
+    .checkPooledArguments(modelType, timeBasis, link)
 
     outcomes <- .renameEndTime(outcomes)
 
@@ -579,6 +584,14 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     }
 
     return(dataPtr)
+}
+
+# timeBasis and link are for plr models only
+.checkPooledArguments <- function(modelType, timeBasis, link) {
+    if (!is.null(timeBasis) || !identical(link, "logit")) {
+        warning("timeBasis and link are for plr models only; modelType = \"", modelType, "\" ignores them",
+                call. = FALSE)
+    }
 }
 
 # The offset column of the outcomes: lr models only, and finite

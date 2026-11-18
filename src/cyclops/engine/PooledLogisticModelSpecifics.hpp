@@ -124,7 +124,7 @@ public:
                 double g = -eventWeight[i], h = 0.0; // sum_r w_r (p_r - y_r), sum_r w_r p_r (1 - p_r)
                 for (size_t r = r0; r < r1; ++r) {
                     const double e = re ? Ei * re[r] : Ei;
-                    const double p = e / (1.0 + e);
+                    const double p = std::isinf(e) ? 1.0 : e / (1.0 + e); // R_r may overflow
                     const double w = rw ? rw[r] : 1.0;
                     g += w * p;
                     h += w * p * (1.0 - p);
@@ -453,7 +453,32 @@ public:
     void setFoldPartition(FoldPartitionPtr partition, int fold) { }
     AbstractModelSpecifics::GradientDrift getGradientDrift() const { return AbstractModelSpecifics::GradientDrift(); }
     void setDriftTracking(bool on) { }
-    bool separationDirections(const std::vector<int>& columns, std::vector<int>& direction) { return false; }
+
+    // Separation over the person-interval rows, as the logistic rule on the expanded rows: d l / d beta_j =
+    // sum_r w_r x_ij (y_r - p_r) is one-signed when every row with x_ij != 0 and weight is an event exactly where
+    // x_ij > 0 (+Inf), or a non-event exactly there (-Inf). Columns with a time-basis column are left to the fit
+    // (their limit in CCD is set from x, not from x tau)
+    bool separationDirections(const std::vector<int>& columns, std::vector<int>& direction) {
+        direction.assign(columns.size(), 0);
+        for (size_t c = 0; c < columns.size(); ++c) {
+            if (slotOf[columns[c]] != 0) continue;
+            bool up = true, down = true, any = false;
+            for (GenericIterator<RealType> it(hX, columns[c]); it && (up || down); ++it) {
+                const size_t i = it.index();
+                if (it.value() == 0 || subjectWeight(i) <= 0.0) continue;
+                const bool positive = it.value() > 0;
+                for (size_t r = pooled.rowStart[i]; r < pooled.rowStart[i + 1]; ++r) {
+                    if (rowWeight(r) <= 0.0) continue;
+                    any = true;
+                    const bool event = pooled.eventOf(i, r, hY[i]);
+                    up = up && (positive == event);
+                    down = down && (positive != event);
+                }
+            }
+            direction[c] = !any ? 0 : (up ? 1 : (down ? -1 : 0));
+        }
+        return true;
+    }
 
     // The duality-gap certificate of L1 logistic regression (LogisticSecondOrder.hpp) over the person-interval rows:
     // theta_r = s w_r (y_r - q_r), q_r = sigma(eta_r + c) + shift, and X_j'theta = sum_i x_ij sum_r theta_r tau_s(j)(t_r)
@@ -662,7 +687,7 @@ private:
         const double Ei = subjectExp[i];
         if (!pooled.cloglog && Ei > 0.0 && Ei < std::numeric_limits<double>::max()) {
             const double e = rowExp.empty() ? Ei : Ei * rowExp[r];
-            const double p = e / (1.0 + e);
+            const double p = std::isinf(e) ? 1.0 : e / (1.0 + e); // R_r may overflow
             *d1 = p - (pooled.eventOf(i, r, hY[i]) ? 1.0 : 0.0);
             *d2 = p * (1.0 - p);
             return;
