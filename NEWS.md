@@ -210,7 +210,13 @@ Changes:
    descent, which on correlated time bases needs a tighter `tolerance` than the default. The cloglog `vcov()` is
    the observed information (`glm()` reports the expected one). Separated coefficients without a prior are
    reported at their limit with a warning, as for `"lr"`. The expanded rows are never built, so memory stays
-   near that of one row per subject. Predictions are not yet implemented
+   near that of one row per subject. Large Laplace fits take prox-Newton steps (the copy of the subjects'
+   covariates by row no longer counts against the 256 MB budget of dense Newton, which had left a 100,000-person
+   CCW censoring model on coordinate descent, unconverged after 6,300 s), and the Hessian block and coordinate
+   gradients use `threads`, with the same result on any number. Separation is found in time-basis and interaction
+   columns too (an interval without events in a cross-validation fold had made the selected variance differ from
+   `"lr"`'s), and the cross-validation search starts from the default variance of the person-interval rows.
+   Predictions are not yet implemented
 
 Cyclops v3.8.0
 ==============

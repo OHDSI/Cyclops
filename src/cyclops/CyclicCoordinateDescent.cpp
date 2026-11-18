@@ -951,17 +951,10 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 double CyclicCoordinateDescent::divergentLimit(int j) const {
 	// 40 over the column's smallest spacing between distinct values (0 included when it has zeros) puts the
 	// likelihood at its limit to machine precision; |x beta| <= 600 keeps exp() finite
-	auto limit = [&](const auto& X) {
-		std::vector<double> values;
+	auto fromValues = [](std::vector<double>& values) {
 		double largest = 0.0;
-		size_t entries = 0;
-		for (GenericIterator<typename std::decay<decltype(*X.getDataVector(j))>::type> it(X, j); it; ++it) {
-			values.push_back(static_cast<double>(it.value()));
-			largest = std::max(largest, std::abs(values.back()));
-			++entries;
-		}
-		if (entries < X.getNumberOfRows()) {
-			values.push_back(0.0);
+		for (double value : values) {
+			largest = std::max(largest, std::abs(value));
 		}
 		std::sort(values.begin(), values.end());
 		values.erase(std::unique(values.begin(), values.end()), values.end());
@@ -974,6 +967,22 @@ double CyclicCoordinateDescent::divergentLimit(int j) const {
 		}
 		return std::min(40.0 / spacing, 600.0 / largest);
 	};
+	auto limit = [&](const auto& X) {
+		std::vector<double> values;
+		size_t entries = 0;
+		for (GenericIterator<typename std::decay<decltype(*X.getDataVector(j))>::type> it(X, j); it; ++it) {
+			values.push_back(static_cast<double>(it.value()));
+			++entries;
+		}
+		if (entries < X.getNumberOfRows()) {
+			values.push_back(0.0);
+		}
+		return fromValues(values);
+	};
+	std::vector<double> values;
+	if (modelSpecifics.likelihoodColumnValues(j, values)) {
+		return fromValues(values);
+	}
 	if (const auto* data64 = dynamic_cast<const ModelData<double>*>(&hXI)) {
 		return limit(data64->getX());
 	} else if (const auto* data32 = dynamic_cast<const ModelData<float>*>(&hXI)) {

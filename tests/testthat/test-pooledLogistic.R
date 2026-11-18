@@ -110,6 +110,43 @@ test_that("plr cross-validation keeps a person's rows in one fold, as lr on the 
     expect_equal(fitPlr$cross_validation, fitLr$cross_validation)
     expect_equal(coef(fitPlr), coef(fitLr), tolerance = 1E-6)
     expect_equal(fitCyclopsModel(plr, prior = prior, control = cv(2))$variance, fitPlr$variance)
+    # the auto search starts from the default variance of the person-interval rows, as lr's
+    auto <- createControl(fold = 5, cvRepetitions = 1, minCVData = 10, seed = 7, noiseLevel = "silent")
+    expect_equal(fitCyclopsModel(plr, prior = prior, control = auto)$variance,
+                 fitCyclopsModel(lr, prior = prior, control = auto)$variance, tolerance = 1E-6)
+})
+
+test_that("plr flags separation in a time-basis column, as lr on the expanded rows", {
+    set.seed(4)
+    long <- data.frame(rowId = rep(1:30, each = 3), interval = rep(1:3, 30), x = rep(rnorm(30), each = 3))
+    long$y <- rbinom(90, 1, ifelse(long$interval == 3, 0, 0.3)) # no event in interval 3
+    long$day2 <- as.numeric(long$interval == 2)
+    long$day3 <- as.numeric(long$interval == 3)
+    plr <- convertToCyclopsData(long[, c("rowId", "interval", "y")],
+                                data.frame(rowId = 1:30, covariateId = 1, covariateValue = long$x[long$interval == 1]),
+                                modelType = "plr",
+                                timeBasis = data.frame(interval = 2:3, covariateId = c(2, 3), covariateValue = 1))
+    # (a prior on x: with "none" on every coefficient, a separated fit is ILLCONDITIONED)
+    fitPlr <- suppressWarnings(fitCyclopsModel(plr, prior = createPrior("normal", variance = 10, exclude = c(0, 2, 3))))
+    fitLr <- suppressWarnings(fitCyclopsModel(createCyclopsData(y ~ x + day2 + day3, data = long, modelType = "lr"),
+                                              prior = createPrior("normal", variance = 10,
+                                                                  exclude = c("(Intercept)", "day2", "day3"))))
+    expect_equal(fitPlr$divergentCoefficients, "3")
+    expect_equal(unname(coef(fitPlr)), unname(coef(fitLr)), tolerance = 1E-6)
+})
+
+test_that("plr fits with threads equal those without", {
+    set.seed(5)
+    n <- 100
+    covariates <- data.frame(rowId = rep(1:n, 80), covariateId = rep(1:80, each = n),
+                             covariateValue = rbinom(80 * n, 1, 0.3))
+    covariates <- covariates[covariates$covariateValue != 0, ]
+    subjects <- data.frame(rowId = 1:n, entry = 1, exit = sample(1:4, n, TRUE), y = rbinom(n, 1, 0.3))
+    plr <- convertToCyclopsData(subjects, covariates, modelType = "plr",
+                                timeBasis = data.frame(interval = 1:4, covariateId = 100, covariateValue = (1:4) / 4))
+    fit <- function(threads) coef(fitCyclopsModel(plr, prior = createPrior("laplace", variance = 1, exclude = c(0, 100)),
+                                                 control = createControl(threads = threads, noiseLevel = "silent")))
+    expect_identical(fit(3), fit(1))
 })
 
 test_that("plr edge cases: separation, an overflowing row offset, timeBasis checks, arguments of other models", {

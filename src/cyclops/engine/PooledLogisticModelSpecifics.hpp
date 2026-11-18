@@ -148,6 +148,29 @@ public:
         *ohessian = hessian;
     }
 
+    // Threads: the gradients of several coordinates at once (each only reads the state) and the Hessian block
+    void setThreads(int threads) {
+        if (threads <= 1) {
+            pool.reset();
+        } else if (!pool || pool->size() != threads) {
+            pool.reset(new WorkerPool(threads));
+        }
+    }
+
+    void setSecondOrderThreads(int threads) { setThreads(threads); }
+
+    bool supportsConcurrentGradients() const { return pool != nullptr; }
+
+    bool computeGradientsAndHessians(const std::vector<int>& indices, std::vector<GradientHessian>& gh,
+                                     bool useWeights) {
+        if (!pool) return false;
+        gh.resize(indices.size());
+        pool->run(indices.size(), [&](size_t task, int) {
+            computeGradientAndHessian(indices[task], &gh[task].first, &gh[task].second, useWeights);
+        });
+        return true;
+    }
+
     void updateXBeta(double delta, int index, bool useWeights) {
         axpyXBeta(delta, index);
     }
@@ -317,22 +340,72 @@ public:
         if (!secondOrderPrepare(F)) return false;
         const size_t n = F.size();
         H.assign(n * n, 0.0);
-        std::vector<double> M(S * S);
-        for (size_t i = 0; i < K; ++i) {
-            const double sw = subjectWeight(i);
-            if (sw == 0.0 || rowStartF[i] == rowStartF[i + 1]) continue;
-            subjectSums(i, nullptr, &M);
-            for (size_t e = rowStartF[i]; e < rowStartF[i + 1]; ++e) {
-                const int a = entryPosition[e];
-                const double xa = sw * entryValue[e];
-                const double* Ma = &M[slotOf[F[a]] * S];
-                for (size_t f = e; f < rowStartF[i + 1]; ++f) {
-                    const int c = entryPosition[f];
-                    const double v = xa * entryValue[f] * Ma[slotOf[F[c]]];
-                    H[a + n * c] += v;
-                    if (c != a) H[c + n * a] += v;
+        if (n == 0) return true;
+        std::vector<int> slot(n);
+        std::vector<double> count(n, 0.0);
+        for (size_t a = 0; a < n; ++a) slot[a] = slotOf[F[a]];
+        for (int a : entryPosition) count[a] += 1.0;
+        // The upper triangle, column c from the pairs (a <= c) of each subject: positions ascend within a subject.
+        // A task adds the pairs whose later position is in its range of positions, about equal in work, so every
+        // entry is a sum over subjects in increasing order, the same bit for bit on any number of threads
+        const size_t tasks = pool ? std::max<size_t>(1, std::min<size_t>(8 * static_cast<size_t>(pool->size()), n / 32)) : 1;
+        std::vector<size_t> rangeStart(tasks + 1, n);
+        rangeStart[0] = 0;
+        {
+            std::vector<double> work(n);
+            double before = 0.0, total = 0.0;
+            for (size_t c = 0; c < n; ++c) {
+                work[c] = count[c] * (before + 1.0);
+                before += count[c] / static_cast<double>(K);
+                total += work[c];
+            }
+            double run = 0.0;
+            size_t task = 0;
+            for (size_t c = 0; c < n && task + 1 < tasks; ++c) {
+                run += work[c];
+                while (task + 1 < tasks && run >= total * static_cast<double>(task + 1) / static_cast<double>(tasks)) {
+                    rangeStart[++task] = c + 1;
                 }
             }
+        }
+        // subjects a chunk at a time: the slot sums M of the chunk's subjects, then the pairs
+        const size_t chunk = 4096, block = 256;
+        std::vector<double> M(chunk * S * S);
+        for (size_t i0 = 0; i0 < K; i0 += chunk) {
+            const size_t i1 = std::min(K, i0 + chunk);
+            runTasks((i1 - i0 + block - 1) / block, [&](size_t b, int) {
+                std::vector<double> Mi(S * S);
+                for (size_t i = i0 + b * block; i < std::min(i1, i0 + (b + 1) * block); ++i) {
+                    if (subjectWeight(i) == 0.0 || rowStartF[i] == rowStartF[i + 1]) continue;
+                    subjectSums(i, nullptr, &Mi);
+                    std::copy(Mi.begin(), Mi.end(), M.begin() + (i - i0) * S * S);
+                }
+            });
+            runTasks(tasks, [&](size_t task, int) {
+                const int lo = static_cast<int>(rangeStart[task]), hi = static_cast<int>(rangeStart[task + 1]);
+                if (lo >= hi) return;
+                for (size_t i = i0; i < i1; ++i) {
+                    const double sw = subjectWeight(i);
+                    const size_t e0 = rowStartF[i], e1 = rowStartF[i + 1];
+                    if (sw == 0.0 || e0 == e1) continue;
+                    const double* Mi = &M[(i - i0) * S * S];
+                    size_t f = std::lower_bound(entryPosition.begin() + e0, entryPosition.begin() + e1, lo) -
+                        entryPosition.begin();
+                    for (; f < e1 && entryPosition[f] < hi; ++f) {
+                        const int c = entryPosition[f];
+                        const double xc = sw * entryValue[f];
+                        const double* Mc = Mi + slot[c] * S;
+                        double* column = &H[static_cast<size_t>(c) * n];
+                        for (size_t e = e0; e <= f; ++e) {
+                            const int a = entryPosition[e];
+                            column[a] += xc * entryValue[e] * Mc[slot[a]];
+                        }
+                    }
+                }
+            });
+        }
+        for (size_t c = 0; c < n; ++c) {
+            for (size_t a = 0; a < c; ++a) H[c + n * a] = H[a + n * c];
         }
         return true;
     }
@@ -455,28 +528,51 @@ public:
     void setDriftTracking(bool on) { }
 
     // Separation over the person-interval rows, as the logistic rule on the expanded rows: d l / d beta_j =
-    // sum_r w_r x_ij (y_r - p_r) is one-signed when every row with x_ij != 0 and weight is an event exactly where
-    // x_ij > 0 (+Inf), or a non-event exactly there (-Inf). Columns with a time-basis column are left to the fit
-    // (their limit in CCD is set from x, not from x tau)
+    // sum_r w_r z_r (y_r - p_r), z_r = x_ij tau_s(j)(t_r), is one-signed when every row with z_r != 0 and weight is
+    // an event exactly where z_r > 0 (+Inf), or a non-event exactly there (-Inf)
     bool separationDirections(const std::vector<int>& columns, std::vector<int>& direction) {
         direction.assign(columns.size(), 0);
         for (size_t c = 0; c < columns.size(); ++c) {
-            if (slotOf[columns[c]] != 0) continue;
+            const int s = slotOf[columns[c]];
             bool up = true, down = true, any = false;
             for (GenericIterator<RealType> it(hX, columns[c]); it && (up || down); ++it) {
                 const size_t i = it.index();
                 if (it.value() == 0 || subjectWeight(i) <= 0.0) continue;
-                const bool positive = it.value() > 0;
                 for (size_t r = pooled.rowStart[i]; r < pooled.rowStart[i + 1]; ++r) {
-                    if (rowWeight(r) <= 0.0) continue;
+                    const double z = static_cast<double>(it.value()) * tau(pooled.intervalOf(i, r), s);
+                    if (z == 0.0 || rowWeight(r) <= 0.0) continue;
                     any = true;
                     const bool event = pooled.eventOf(i, r, hY[i]);
-                    up = up && (positive == event);
-                    down = down && (positive != event);
+                    up = up && ((z > 0.0) == event);
+                    down = down && ((z > 0.0) != event);
                 }
             }
             direction[c] = !any ? 0 : (up ? 1 : (down ? -1 : 0));
         }
+        return true;
+    }
+
+    // The distinct values z_r of column j over the person-interval rows (with 0 when some row has 0), so that a
+    // divergent coefficient stops at the limit of the expanded rows
+    bool likelihoodColumnValues(int j, std::vector<double>& values) {
+        values.clear();
+        const int s = slotOf[j];
+        size_t entries = 0, keep = 4096;
+        for (GenericIterator<RealType> it(hX, j); it; ++it) {
+            const size_t i = it.index();
+            for (size_t r = pooled.rowStart[i]; r < pooled.rowStart[i + 1]; ++r) {
+                const double z = static_cast<double>(it.value()) * tau(pooled.intervalOf(i, r), s);
+                if (z == 0.0) continue;
+                values.push_back(z);
+                ++entries;
+            }
+            if (values.size() > keep) { // keep the distinct ones
+                std::sort(values.begin(), values.end());
+                values.erase(std::unique(values.begin(), values.end()), values.end());
+                keep = 2 * values.size() + 4096;
+            }
+        }
+        if (entries < pooled.rows()) values.push_back(0.0);
         return true;
     }
 
@@ -811,6 +907,17 @@ private:
     std::vector<double> entryValue;
     std::vector<double> direction;
     bool hasDirection = false;
+
+    std::unique_ptr<WorkerPool> pool; // only with more than one thread
+
+    template <typename Task>
+    void runTasks(size_t count, Task task) {
+        if (pool) {
+            pool->run(count, task);
+        } else {
+            for (size_t t = 0; t < count; ++t) task(t, 0);
+        }
+    }
 };
 
 } // namespace bsccs

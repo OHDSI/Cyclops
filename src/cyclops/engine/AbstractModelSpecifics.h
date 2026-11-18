@@ -250,6 +250,12 @@ public:
 		return false;
 	}
 
+	// The values of column j in the likelihood's rows, where they are not those of X (plr: x times the time basis),
+	// for the limit of a divergent coefficient: the distinct values, with 0 when some row has 0. False otherwise
+	virtual bool likelihoodColumnValues(int j, std::vector<double>& values) {
+		return false;
+	}
+
 	// diag(H) over F (likelihood part), one pass per column; for Jacobi preconditioning and kkt under Newton-CG
 	virtual bool hessianDiagonal(const std::vector<int>& F, std::vector<double>& h) {
 		return false;
