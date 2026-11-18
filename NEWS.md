@@ -212,7 +212,9 @@ Changes:
    reported at their limit with a warning, as for `"lr"`. The expanded rows are never built, so memory stays
    near that of one row per subject. Large Laplace fits take prox-Newton steps (the copy of the subjects'
    covariates by row no longer counts against the 256 MB budget of dense Newton, which had left a 100,000-person
-   CCW censoring model on coordinate descent, unconverged after 6,300 s), and the Hessian block and coordinate
+   CCW censoring model on coordinate descent, unconverged after 6,300 s; a fit whose active set is wider than
+   about 3,300 columns, where 24·|W|² alone exceeds the budget, still falls back to coordinate descent, for `"lr"`
+   too), and the Hessian block and coordinate
    gradients use `threads`, with the same result on any number. Separation is found in time-basis and interaction
    columns too (an interval without events in a cross-validation fold had made the selected variance differ from
    `"lr"`'s), and the cross-validation search starts from the default variance of the person-interval rows.
