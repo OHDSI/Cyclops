@@ -940,8 +940,8 @@ double CyclicCoordinateDescent::strongConvexityBound(const NewtonContext& contex
 bool CyclicCoordinateDescent::proxFitsDense(const std::vector<int>& W) const {
 	const double width = static_cast<double>(W.size());
 	double entries = 0.0;
-	// (plr's copy of X_W is by subject, no larger than X itself: counted against this fixed budget, it kept large plr
-	// fits on coordinate descent)
+	// (plr's copy of X_W is by subject, bounded by the nonzeros of X plus K per intercept or basis column: counted
+	// against this fixed budget, it kept large plr fits on coordinate descent)
 	if (hXI.getModelType() != ModelType::LOGISTIC && hXI.getModelType() != ModelType::POOLED_LOGISTIC) {
 		for (int j : W) {
 			const FormatType format = hXI.getColumnType(j);

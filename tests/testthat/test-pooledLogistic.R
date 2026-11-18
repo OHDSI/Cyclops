@@ -136,17 +136,21 @@ test_that("plr flags separation in a time-basis column, as lr on the expanded ro
 })
 
 test_that("plr fits with threads equal those without", {
-    set.seed(5)
-    n <- 100
-    covariates <- data.frame(rowId = rep(1:n, 80), covariateId = rep(1:80, each = n),
-                             covariateValue = rbinom(80 * n, 1, 0.3))
+    set.seed(5) # large enough for several column ranges and subject blocks in the Newton Hessian
+    n <- 600
+    covariates <- data.frame(rowId = rep(1:n, 150), covariateId = rep(1:150, each = n),
+                             covariateValue = rbinom(150 * n, 1, 0.3))
     covariates <- covariates[covariates$covariateValue != 0, ]
     subjects <- data.frame(rowId = 1:n, entry = 1, exit = sample(1:4, n, TRUE), y = rbinom(n, 1, 0.3))
     plr <- convertToCyclopsData(subjects, covariates, modelType = "plr",
-                                timeBasis = data.frame(interval = 1:4, covariateId = 100, covariateValue = (1:4) / 4))
-    fit <- function(threads) coef(fitCyclopsModel(plr, prior = createPrior("laplace", variance = 1, exclude = c(0, 100)),
-                                                 control = createControl(threads = threads, noiseLevel = "silent")))
-    expect_identical(fit(3), fit(1))
+                                timeBasis = data.frame(interval = 1:4, covariateId = 1000, covariateValue = (1:4) / 4),
+                                timeEffectMap = data.frame(covariateId = 1:20, timeCovariateId = 1000,
+                                                           interactionId = 2001:2020))
+    fit <- function(threads) fitCyclopsModel(plr, prior = createPrior("laplace", variance = 5, exclude = c(0, 1000)),
+                                             control = createControl(threads = threads, noiseLevel = "silent"))
+    fit4 <- fit(4)
+    expect_equal(fit4$algorithm, "newton")
+    expect_identical(coef(fit4), coef(fit(1)))
 })
 
 test_that("plr edge cases: separation, an overflowing row offset, timeBasis checks, arguments of other models", {
