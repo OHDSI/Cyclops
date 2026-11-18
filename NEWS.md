@@ -211,16 +211,22 @@ Changes:
    the observed information (`glm()` reports the expected one). Separated coefficients without a prior are
    reported at their limit with a warning, as for `"lr"`. The expanded rows are never built, so memory stays
    near that of one row per subject. Large Laplace fits take prox-Newton steps (the copy of the subjects'
-   covariates by row no longer counts against the 256 MB budget of dense Newton, which had left a 100,000-person
-   CCW censoring model on coordinate descent, unconverged after 6,300 s; a fit whose active set is wider than
-   about 3,300 columns, where 24·|W|² alone exceeds the budget, still falls back to coordinate descent, for `"lr"`
-   too), and the Hessian block and coordinate
+   covariates by row no longer counts against the memory budget of dense Newton, which had left a 100,000-person
+   CCW censoring model on coordinate descent, unconverged after 6,300 s; a fit whose active set is too wide for
+   `newtonMemoryBudget`, where 24·|W|² alone exceeds it (about 6,700 columns by default, see 38), still falls back
+   to coordinate descent, for `"lr"` too), and the Hessian block and coordinate
    gradients use `threads`, with the same result on any number. Separation is found in time-basis and interaction
    columns too (an interval without events in a cross-validation fold had made the selected variance differ from
    `"lr"`'s), and the cross-validation search starts from the default variance of the person-interval rows.
    `convertToCyclopsData()` loads the interactions in one pass over the covariates (3.5 s, was 111 s, for 1,907
    interactions of 23.8 million covariate values).
    Predictions are not yet implemented
+38. new `createControl(newtonMemoryBudget = 1024)`: the memory budget, in MB, of one fit's dense Newton and
+   prox-Newton work (24·|W|² for the active-set Hessian, plus the row-wise copies of X and the Nyström, Schur-bound
+   and conjugate-gradient work), a ceiling rather than an allocation. Its default rises from a fixed 256 MB to
+   1024 MB, which allows active sets of about 6,700 columns (was 3,300): a 100,000-person CCW censoring model with
+   3,550 active columns that had alternated between Newton and coordinate descent, unconverged after 13 minutes,
+   converges in 50 s with 9 Newton iterations
 
 Cyclops v3.8.0
 ==============

@@ -204,9 +204,6 @@ double rowMaximum(const ModelData<double>& data, const std::vector<int>& F, cons
 	return largest;
 }
 
-// Memory budget of one fit's Newton work (2.5): dense H, its factor and workspace, row-wise copies of columns of X
-const double newtonMemoryBudget = 256.0 * 1024 * 1024; // bytes
-
 // A Schur bound needs one Hessian-vector product per unpenalized coordinate; above this many there is none
 const int schurMaxUnpenalized = 32;
 
@@ -941,7 +938,7 @@ bool CyclicCoordinateDescent::proxFitsDense(const std::vector<int>& W) const {
 	const double width = static_cast<double>(W.size());
 	double entries = 0.0;
 	// (plr's copy of X_W is by subject, bounded by the nonzeros of X plus K per intercept or basis column: counted
-	// against this fixed budget, it kept large plr fits on coordinate descent)
+	// against the budget, it kept large plr fits on coordinate descent)
 	if (hXI.getModelType() != ModelType::LOGISTIC && hXI.getModelType() != ModelType::POOLED_LOGISTIC) {
 		for (int j : W) {
 			const FormatType format = hXI.getColumnType(j);

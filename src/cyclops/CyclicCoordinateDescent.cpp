@@ -829,6 +829,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	// (cross-validation fold fits may use another criterion than the final fit)
 	activeSetEvery = (convergenceType == KKT) ? arguments.activeSetEvery : 0;
 	activeSetThreshold = arguments.activeSetThreshold;
+	newtonMemoryBudget = arguments.newtonMemoryBudget;
 	adaptiveIntercept = (convergenceType == KKT) && arguments.adaptiveIntercept; // its floor is a kkt tolerance
 	minIterations = arguments.minIterations;
 

@@ -801,6 +801,9 @@ void cyclopsSetModeControl(SEXP inRcppCcdInterface, const List& options) {
 	if (options.containsElementNamed("mergeDuplicates")) {
 		modeFinding.mergeDuplicates = as<bool>(options["mergeDuplicates"]);
 	}
+	if (options.containsElementNamed("newtonMemoryBudget")) { // MB
+		modeFinding.newtonMemoryBudget = as<double>(options["newtonMemoryBudget"]) * 1024 * 1024;
+	}
 }
 
 // Cross-validation options; an option missing from the list keeps its value

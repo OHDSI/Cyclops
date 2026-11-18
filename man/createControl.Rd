@@ -39,6 +39,7 @@ createControl(
   activeSetThreshold = NULL,
   adaptiveIntercept = NULL,
   mergeDuplicates = NULL,
+  newtonMemoryBudget = 1024,
   doItAll = TRUE,
   syncCV = FALSE
 )
@@ -236,6 +237,15 @@ cross-validation fold's held-out rows) are duplicates for that fit, and their to
 reported as an equal split whatever the prior.
 \code{NULL} (default) means \code{TRUE} with \code{algorithm = "auto"} or
 \code{"newton"} and \code{FALSE} otherwise}
+
+\item{newtonMemoryBudget}{Numeric: memory budget, in MB, of the dense working matrices of the Newton and
+prox-Newton steps of \code{algorithm = "auto"} or \code{"newton"}: 24 bytes per entry of
+the active-set Hessian (\eqn{24 |W|^2}: the matrix, its factor and workspace), plus the
+row-wise copies of columns of the design and the Nystrom, Schur-bound and
+conjugate-gradient work. Steps that would exceed it use conjugate gradients or
+coordinate descent instead. It is a ceiling, not an allocation, and it holds per fit:
+cross-validation folds or threads that run separate fits may each use it. The default
+of 1024 allows active sets of up to about 6,700 columns}
 
 \item{doItAll}{Currently unused}
 

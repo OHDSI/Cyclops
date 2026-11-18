@@ -960,7 +960,15 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              reported as an equal split whatever the prior.
 #'                              \code{NULL} (default) means \code{TRUE} with \code{algorithm = "auto"} or
 #'                              \code{"newton"} and \code{FALSE} otherwise
-#' @param doItAll               Currently unused
+#' @param newtonMemoryBudget    Numeric: memory budget, in MB, of the dense working matrices of the Newton and
+#'                              prox-Newton steps of \code{algorithm = "auto"} or \code{"newton"}: 24 bytes per entry of
+#'                              the active-set Hessian (\eqn{24 |W|^2}: the matrix, its factor and workspace), plus the
+#'                              row-wise copies of columns of the design and the Nystrom, Schur-bound and
+#'                              conjugate-gradient work. Steps that would exceed it use conjugate gradients or
+#'                              coordinate descent instead. It is a ceiling, not an allocation, and it holds per fit:
+#'                              cross-validation folds or threads that run separate fits may each use it. The default
+#'                              of 1024 allows active sets of up to about 6,700 columns
+#' @param doItAll              Currently unused
 #' @param syncCV                Currently unused
 #'
 #' Todo: Describe convegence types
@@ -1009,6 +1017,7 @@ createControl <- function(maxIterations = NULL,
                           activeSetThreshold = NULL,
                           adaptiveIntercept = NULL,
                           mergeDuplicates = NULL,
+                          newtonMemoryBudget = 1024,
                           doItAll = TRUE,
                           syncCV = FALSE) {
     validCVNames = c("grid", "auto")
@@ -1040,6 +1049,7 @@ createControl <- function(maxIterations = NULL,
     stopifnot(is.null(activeSetThreshold) || (activeSetThreshold >= 0 && activeSetThreshold < 1))
     stopifnot(is.null(adaptiveIntercept) || is.logical(adaptiveIntercept))
     stopifnot(is.null(mergeDuplicates) || is.logical(mergeDuplicates))
+    stopifnot(is.numeric(newtonMemoryBudget), length(newtonMemoryBudget) == 1, newtonMemoryBudget > 0)
 
     structure(list(maxIterations = maxIterations,
                    tolerance = tolerance,
@@ -1076,6 +1086,7 @@ createControl <- function(maxIterations = NULL,
                    activeSetThreshold = activeSetThreshold,
                    adaptiveIntercept = adaptiveIntercept,
                    mergeDuplicates = mergeDuplicates,
+                   newtonMemoryBudget = newtonMemoryBudget,
                    doItAll = doItAll,
                    syncCV = syncCV),
               class = "cyclopsControl")
@@ -1440,7 +1451,8 @@ getCrossValidationInfo <- function(object) {
          fallbackConvergenceType = valueOr(control$fallbackConvergenceType, ""),
          fallbackTolerance = as.numeric(valueOr(control$fallbackTolerance, 1E-6)),
          fallbackMaxIterations = as.integer(valueOr(control$fallbackMaxIterations, 1000)),
-         mergeDuplicates = as.logical(valueOr(control$mergeDuplicates, control$algorithm %in% c("auto", "newton"))))
+         mergeDuplicates = as.logical(valueOr(control$mergeDuplicates, control$algorithm %in% c("auto", "newton"))),
+         newtonMemoryBudget = as.numeric(valueOr(control$newtonMemoryBudget, 1024)))
 }
 
 .setControl <- function(cyclopsInterfacePtr, control, cyclopsData = NULL) {
