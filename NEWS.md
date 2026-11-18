@@ -248,8 +248,8 @@ Changes:
    per `rowId` and a column per time), with the baseline of each row's `stratumId` in stratified fits; it matches
    `survfit(coxph(..., weights = , ties = "breslow"), newdata, ctype = 1, stype = 2)`. `predict()` stopped for new
    Cox data before. Both stop once another model has been fitted to the same Cyclops data (fits share its interface;
-   `survfit()` silently mixed the two fits before) unless that fit used `forceNewObject = TRUE`; fit objects keep
-   their `weights`
+   `survfit()` silently mixed the two fits before) unless that fit used `forceNewObject = TRUE`, and always once
+   `updateOutcomes()` has changed the data; fit objects keep their `weights`
 
 Cyclops v3.8.0
 ==============
