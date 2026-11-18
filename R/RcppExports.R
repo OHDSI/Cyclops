@@ -25,6 +25,10 @@
     invisible(.Call(`_Cyclops_cyclopsSetBeta`, inRcppCcdInterface, beta))
 }
 
+.cyclopsSetThreads <- function(inRcppCcdInterface, threads) {
+    invisible(.Call(`_Cyclops_cyclopsSetThreads`, inRcppCcdInterface, threads))
+}
+
 .cyclopsGetBeta <- function(inRcppCcdInterface, index) {
     .Call(`_Cyclops_cyclopsGetBeta`, inRcppCcdInterface, index)
 }
@@ -35,6 +39,10 @@
 
 .cyclopsSetFixedBeta <- function(inRcppCcdInterface, beta, fixed) {
     invisible(.Call(`_Cyclops_cyclopsSetFixedBeta`, inRcppCcdInterface, beta, fixed))
+}
+
+.cyclopsSetFixedBetas <- function(inRcppCcdInterface, first, fixed) {
+    invisible(.Call(`_Cyclops_cyclopsSetFixedBetas`, inRcppCcdInterface, first, fixed))
 }
 
 .cyclopsGetFixedBeta <- function(inRcppCcdInterface, index) {
@@ -83,6 +91,10 @@
 
 .cyclopsGetFisherInformation <- function(inRcppCcdInterface, sexpBitCovariates) {
     .Call(`_Cyclops_cyclopsGetFisherInformation`, inRcppCcdInterface, sexpBitCovariates)
+}
+
+.cyclopsGetScoreCrossProduct <- function(inRcppCcdInterface, bitCovariates) {
+    .Call(`_Cyclops_cyclopsGetScoreCrossProduct`, inRcppCcdInterface, bitCovariates)
 }
 
 .cyclopsSecondOrder <- function(inRcppCcdInterface, sexpBitCovariates, v, t, reps) {
@@ -378,6 +390,10 @@ getStartTimeVector <- function(object) {
 
 .loadCyclopsDataSubjectId <- function(x, subjectId) {
     invisible(.Call(`_Cyclops_cyclopsLoadDataSubjectId`, x, subjectId))
+}
+
+.loadCyclopsDataPooledRows <- function(x, implicitRows, rowsPerSubject, interval, event, rowWeight, rowOffset, subjectOffset, basis, intervals, timeCovariateId, timeBasisColumn, cloglog) {
+    invisible(.Call(`_Cyclops_cyclopsLoadDataPooledRows`, x, implicitRows, rowsPerSubject, interval, event, rowWeight, rowOffset, subjectOffset, basis, intervals, timeCovariateId, timeBasisColumn, cloglog))
 }
 
 .loadCyclopsDataMultipleX <- function(x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append, forceSparse) {

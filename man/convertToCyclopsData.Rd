@@ -16,7 +16,9 @@ convertToCyclopsData(
   checkRowIds = TRUE,
   normalize = NULL,
   quiet = FALSE,
-  floatingPoint = 64
+  floatingPoint = 64,
+  timeBasis = NULL,
+  link = "logit"
 )
 
 \method{convertToCyclopsData}{data.frame}(
@@ -29,7 +31,9 @@ convertToCyclopsData(
   checkRowIds = TRUE,
   normalize = NULL,
   quiet = FALSE,
-  floatingPoint = 64
+  floatingPoint = 64,
+  timeBasis = NULL,
+  link = "logit"
 )
 
 \method{convertToCyclopsData}{tbl_dbi}(
@@ -42,7 +46,9 @@ convertToCyclopsData(
   checkRowIds = TRUE,
   normalize = NULL,
   quiet = FALSE,
-  floatingPoint = 64
+  floatingPoint = 64,
+  timeBasis = NULL,
+  link = "logit"
 )
 }
 \arguments{
@@ -50,9 +56,11 @@ convertToCyclopsData(
 
 \item{covariates}{A data frame or ffdf object containing the covariates with predefined columns (see below).}
 
-\item{modelType}{Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", or "cox"}
+\item{modelType}{Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", "cox", "cox_counting"
+or "plr" (pooled logistic regression; see Details)}
 
-\item{timeEffectMap}{A data frame or ffdf object containing the convariates that have time-varying effects on the outcome}
+\item{timeEffectMap}{A data frame or ffdf object containing the convariates that have time-varying effects on the outcome
+(for \code{"plr"} models, the time x covariate interactions; see Details)}
 
 \item{addIntercept}{Add an intercept to the model?}
 
@@ -65,6 +73,15 @@ convertToCyclopsData(
 \item{quiet}{If true, (warning) messages are suppressed.}
 
 \item{floatingPoint}{Specified floating-point representation size (32 or 64)}
+
+\item{timeBasis}{For \code{"plr"} models, an optional data frame with columns \code{interval}, \code{covariateId}
+and \code{covariateValue}: the time basis, one covariate (with a coefficient) per basis column,
+whose value in a person-interval row is its value at the row's interval (0 where not given)}
+
+\item{link}{For \code{"plr"} models, the link: \code{"logit"} (pooled logistic regression) or \code{"cloglog"}
+(complementary log-log, a grouped-time proportional hazards model). Cloglog fits run on
+coordinate descent, so with correlated time-basis columns they need a tighter \code{tolerance}
+in \code{\link{createControl}} (e.g. 1e-10); their \code{vcov()} is the observed information}
 }
 \value{
 An object of type cyclopsData
@@ -85,6 +102,8 @@ These columns are expected in the outcome object:
 \tab        \tab from time 0 \cr
 \verb{subjectId}    \tab(integer) \tab (optional) For any model, rows with the same subject stay in one cross-validation fold \cr
 \tab        \tab and are resampled together by \code{\link{runBootstrap}} (\code{selectorType = "bySubject"}) \cr
+\verb{offset} \tab(real) \tab (optional) For \code{"lr"} models, an offset added to the linear predictor (log-odds \cr
+\tab        \tab scale), as \code{offset} in \code{glm()}; the data object is then finalized \cr
 \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
 \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided.
 }
@@ -101,6 +120,23 @@ These columns are expected in the timeEffectMap object:
 \tabular{lll}{
 \verb{covariateId}    \tab(integer) \tab A numeric identifier of the covariates that have time-varying effects on the outcome \cr
 }
+
+For \code{modelType = "plr"} (pooled logistic regression), a row of the data is a subject (\code{rowId}, the
+\code{rowId} of its covariates), and its rows in the likelihood are its intervals at risk, given either as one
+outcome row per subject and interval (explicit rows: columns \code{rowId}, \code{interval}, \code{y} and optional
+\code{weights} and \code{offset} per row) or as one outcome row per subject (implicit rows: columns \code{rowId},
+\code{entry}, \code{exit}, \code{y}, 1 if the event is in interval \code{exit}, and optional \code{weights} and
+\code{offset} per subject); see \code{\link{convertToLongOutcome}}. Intervals are positive integers. The
+covariates are not expanded to the intervals: row \code{r} of subject \code{i} has the linear predictor
+\code{offset + sum_j x_ij beta_j + sum_b T[t_r, b] (alpha_b + sum_c x_ic gamma_cb)}, with \code{T} the
+\code{timeBasis}, \code{alpha_b} its coefficients and \code{gamma_cb} those of the interactions named in
+\code{timeEffectMap}, a data frame with columns \code{covariateId}, \code{timeCovariateId} (a \code{covariateId}
+of \code{timeBasis}) and \code{interactionId} (the id of the interaction's coefficient). The fit equals that of
+\code{"lr"} on the expanded rows (with \code{link = "cloglog"}, that of \code{glm(binomial("cloglog"))}).
+Cross-validation folds and the case weights of \code{fitCyclopsModel()} are by subject, as are the score
+contributions of \code{vcov(type = "robust")}; an optional outcome column \code{subjectId} (constant within a
+\code{rowId}) groups subjects further, e.g. the clones of one person: folds then never split a \code{subjectId}
+and the robust variance is clustered by it. Predictions are not yet implemented.
 }
 \section{Methods (by class)}{
 \itemize{

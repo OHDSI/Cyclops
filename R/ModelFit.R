@@ -34,7 +34,8 @@
 #' @param fixedCoefficients Vector of booleans indicating if coefficient should be fix
 #' @param warnings Logical, report regularization warnings
 #' @param computeDevice String: Name of compute device to employ; defaults to \code{"native"} C++ on CPU
-#' @param cvFolds Cross-validation folds to use instead of random ones when the prior uses cross-validation:
+#' @param cvFolds Cross-validation folds to use instead of random ones when the prior uses cross-validation, and
+#'                the folds of \code{returnCvPredictions} without it:
 #'                a data frame with columns \code{rowId} and \code{fold}, for data built with row ids
 #'                (\code{\link{convertToCyclopsData}}); for data from \code{\link{createCyclopsData}}, a vector with
 #'                the fold of each row, in the order of the data. Every row with positive weight needs a fold; rows
@@ -42,10 +43,13 @@
 #'                different \code{fold} given to \code{\link{createControl}} is an error), and \code{control$seed} no
 #'                longer matters for them. The rows of one stratum (\code{selectorType = "byPid"}) or subject
 #'                (\code{"bySubject"}) must share a fold. Needs \code{cvRepetitions = 1}.
-#' @param returnCvPredictions Logical: refit each fold at the selected variance, to the convergence criterion and
-#'                tolerance of the final fit, and return in \code{fit$cvPredictions} the prediction of each row
-#'                from the fit without its fold, on the scale of \code{predict()}. For \code{modelType} \code{"lr"},
-#'                \code{"pr"} and \code{"ls"}. Needs \code{cvRepetitions = 1}.
+#' @param returnCvPredictions Logical: return in \code{fit$cvPredictions} the prediction of each row from a fit
+#'                without its fold, on the scale of \code{predict()}. With cross-validation, each fold is refit at
+#'                the selected variance, to the convergence criterion and tolerance of the final fit (needs
+#'                \code{cvRepetitions = 1}). Without it (a fixed prior, or a prior with a \code{fitHook}), each fold
+#'                of \code{cvFolds} is fit with the same prior on its training rows; a \code{fitHook} that names
+#'                arguments \code{cvFolds} and \code{returnCvPredictions} gets them and returns the predictions
+#'                itself. For \code{modelType} \code{"lr"}, \code{"pr"} and \code{"ls"}.
 #'
 #' @return
 #' A list that contains a Cyclops model fit object pointer and an operation duration. With
@@ -92,8 +96,8 @@ fitCyclopsModel <- function(cyclopsData,
                             cvFolds = NULL,
                             returnCvPredictions = FALSE) {
 
-    if ((!is.null(cvFolds) || returnCvPredictions) && (!is.null(control$setHook) || !is.null(prior$fitHook))) {
-        stop("cvFolds and returnCvPredictions are not available with this prior or control")
+    if ((!is.null(cvFolds) || returnCvPredictions) && !is.null(control$setHook)) {
+        stop("cvFolds and returnCvPredictions are not available with control$setHook")
     }
 
     # Delegate to control$setHook if exists
@@ -104,14 +108,41 @@ fitCyclopsModel <- function(cyclopsData,
     }
 
     # Delegate to prior$fitHook if exists; its loop of refits (BrokenAdaptiveRidge, IterativeHardThresholding,
-    # createNonSeparablePrior) keeps coordinate descent unless an algorithm is given (Newton plan D1)
+    # createNonSeparablePrior) keeps coordinate descent unless an algorithm is given (Newton plan D1), or unless the
+    # prior sets keepControl = TRUE: then the hook gets the control as given and chooses itself. A hook that names
+    # arguments cvFolds and returnCvPredictions gets them and returns fit$cvPredictions itself; for any other hook
+    # (... alone does not count: the hooks of BrokenAdaptiveRidge 1.0.2 and IterativeHardThresholding 1.0.3 pass ...
+    # to functions without these arguments), out-of-fold predictions come from refitting it on each fold (below)
     if (!is.null(prior$fitHook)) {
-        if (is.null(control$algorithm)) {
+        if (is.null(control$algorithm) && !isTRUE(prior$keepControl)) {
             control$algorithm <- "ccd"
         }
-        return(prior$fitHook(cyclopsData, prior, control,
-                             weights, forceNewObject, returnEstimates,
-                             startingCoefficients, fixedCoefficients))
+        hookArguments <- names(formals(prior$fitHook))
+        takesFolds <- all(c("cvFolds", "returnCvPredictions") %in% hookArguments)
+        if (takesFolds) {
+            return(prior$fitHook(cyclopsData, prior, control,
+                                 weights, forceNewObject, returnEstimates,
+                                 startingCoefficients, fixedCoefficients,
+                                 cvFolds = cvFolds, returnCvPredictions = returnCvPredictions))
+        }
+        if (!returnCvPredictions) {
+            if (!is.null(cvFolds)) {
+                stop("This prior's fitHook does not take cvFolds; use returnCvPredictions = TRUE for ",
+                     "out-of-fold predictions on these folds")
+            }
+            return(prior$fitHook(cyclopsData, prior, control,
+                                 weights, forceNewObject, returnEstimates,
+                                 startingCoefficients, fixedCoefficients))
+        }
+    }
+
+    # Out-of-fold predictions without a hyperparameter search (a fixed prior, or a fitHook that does not take the
+    # folds): the same fit on each fold's training rows predicts its held-out rows
+    if (returnCvPredictions && (!is.null(prior$fitHook) || !prior$useCrossValidation)) {
+        fit <- .fitWithFoldPredictions(cyclopsData, prior, control, weights, forceNewObject, returnEstimates,
+                                       startingCoefficients, fixedCoefficients, warnings, computeDevice, cvFolds)
+        fit$call <- match.call()
+        return(fit)
     }
 
     cl <- match.call()
@@ -221,7 +252,7 @@ fitCyclopsModel <- function(cyclopsData,
     }
 
     if (control$selectorType == "auto") {
-        if (cyclopsData$modelType %in% c("pr", "lr")) {
+        if (cyclopsData$modelType %in% c("pr", "lr", "plr")) { # plr: a row is a subject
             control$selectorType <- "byRow"
         } else {
             rowsPerStratum <- (getNumberOfRows(cyclopsData) / getNumberOfStrata(cyclopsData))
@@ -250,7 +281,7 @@ fitCyclopsModel <- function(cyclopsData,
     folds <- NULL
     if (!is.null(cvFolds) || returnCvPredictions) {
         if (!prior$useCrossValidation) {
-            stop("cvFolds and returnCvPredictions need a prior with useCrossValidation = TRUE")
+            stop("cvFolds without returnCvPredictions needs a prior with useCrossValidation = TRUE")
         }
         if (control$cvRepetitions != 1) {
             stop("cvFolds and returnCvPredictions need cvRepetitions = 1")
@@ -299,9 +330,7 @@ fitCyclopsModel <- function(cyclopsData,
         }
 
         offset <- ifelse(.cyclopsGetHasOffset(cyclopsData), 1, 0)
-        for (i in 1:length(fixedCoefficients)) {
-            .cyclopsSetFixedBeta(cyclopsData$cyclopsInterfacePtr, offset + i, fixedCoefficients[i] == TRUE)
-        }
+        .cyclopsSetFixedBetas(cyclopsData$cyclopsInterfacePtr, offset, fixedCoefficients %in% TRUE)
         assign("hasFixedCoefficients", any(fixedCoefficients), cyclopsData)
     }
 
@@ -311,6 +340,11 @@ fitCyclopsModel <- function(cyclopsData,
         yMean <- mean(getYVector(cyclopsData))
         if (cyclopsData$modelType == "lr") {
             interceptValue <- log(yMean / (1 - yMean))
+        } else if (cyclopsData$modelType == "plr") { # events per person-interval row, kept off 0 and 1
+            rows <- cyclopsData$numberOfPooledRows
+            yMean <- min(max(cyclopsData$numberOfPooledEvents / rows, 0.5 / rows), 1 - 0.5 / rows)
+            interceptValue <- if (identical(cyclopsData$pooledLink, "cloglog")) log(-log(1 - yMean)) else
+                log(yMean / (1 - yMean))
         } else if (cyclopsData$modelType == "pr") {
             interceptValue <- log(yMean)
         } else if (cyclopsData$modelType == "ls") {
@@ -787,7 +821,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              \code{"newton"}. \code{"gap"} stops when a certified bound on the distance to the
 #'                              optimum of the log posterior is below \code{tolerance}; it needs a model with
 #'                              second-order kernels (so far \code{"cox"}, \code{"cox_counting"}, \code{"cpr"}, \code{"sccs"},
-#'                              \code{"clr"} and \code{"lr"} in double precision on the CPU) and normal, Laplace or no priors; with Laplace priors the stop is an
+#'                              \code{"clr"}, \code{"lr"} and \code{"plr"} with the logit link, in double precision on the CPU) and normal, Laplace or no priors; with Laplace priors the stop is an
 #'                              estimate rather than a certified bound
 #' @param cvType						String: name of cross validation search.
 #' 													Option \code{"auto"} selects an auto-search following BBR.
@@ -828,7 +862,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              Newton steps when an operation count says they are cheaper, and back on failure) or
 #'                              \code{"newton"} (Newton steps after three coordinate-descent cycles). \code{NULL}
 #'                              (default) means \code{"auto"} for \code{"cox"}, \code{"cox_counting"}, \code{"cpr"},
-#'                              \code{"sccs"}, \code{"clr"} and \code{"lr"} and \code{"ccd"} otherwise, under \code{fitter = "legacy"},
+#'                              \code{"sccs"}, \code{"clr"}, \code{"lr"} and \code{"plr"} and \code{"ccd"} otherwise, under \code{fitter = "legacy"},
 #'                              and for the refits of a prior with a \code{fitHook} (BrokenAdaptiveRidge, IterativeHardThresholding,
 #'                              \code{\link{createNonSeparablePrior}}). Under \code{"auto"}, an explicit
 #'                              \code{convergenceType} other than \code{"gap"} runs \code{"ccd"}; under
@@ -927,6 +961,14 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              reported as an equal split whatever the prior.
 #'                              \code{NULL} (default) means \code{TRUE} with \code{algorithm = "auto"} or
 #'                              \code{"newton"} and \code{FALSE} otherwise
+#' @param newtonMemoryBudget    Numeric: memory budget, in MB (\eqn{2^{20}} bytes), of the dense working matrices of the
+#'                              Newton and prox-Newton steps of \code{algorithm = "auto"} or \code{"newton"}: 24 bytes per entry of
+#'                              the active-set Hessian (\eqn{24 |W|^2}: the matrix, its factor and workspace), plus the
+#'                              row-wise copies of columns of the design and the Nystrom, Schur-bound and
+#'                              conjugate-gradient work. Steps that would exceed it use conjugate gradients or
+#'                              coordinate descent instead. It is a ceiling, not an allocation, and it holds per fit:
+#'                              cross-validation folds or threads that run separate fits may each use it. The default
+#'                              of 1024 allows active sets of up to about 6,700 columns
 #' @param doItAll               Currently unused
 #' @param syncCV                Currently unused
 #'
@@ -976,6 +1018,7 @@ createControl <- function(maxIterations = NULL,
                           activeSetThreshold = NULL,
                           adaptiveIntercept = NULL,
                           mergeDuplicates = NULL,
+                          newtonMemoryBudget = 1024,
                           doItAll = TRUE,
                           syncCV = FALSE) {
     validCVNames = c("grid", "auto")
@@ -1007,6 +1050,7 @@ createControl <- function(maxIterations = NULL,
     stopifnot(is.null(activeSetThreshold) || (activeSetThreshold >= 0 && activeSetThreshold < 1))
     stopifnot(is.null(adaptiveIntercept) || is.logical(adaptiveIntercept))
     stopifnot(is.null(mergeDuplicates) || is.logical(mergeDuplicates))
+    stopifnot(is.numeric(newtonMemoryBudget), length(newtonMemoryBudget) == 1, newtonMemoryBudget > 0)
 
     structure(list(maxIterations = maxIterations,
                    tolerance = tolerance,
@@ -1043,6 +1087,7 @@ createControl <- function(maxIterations = NULL,
                    activeSetThreshold = activeSetThreshold,
                    adaptiveIntercept = adaptiveIntercept,
                    mergeDuplicates = mergeDuplicates,
+                   newtonMemoryBudget = newtonMemoryBudget,
                    doItAll = doItAll,
                    syncCV = syncCV),
               class = "cyclopsControl")
@@ -1241,6 +1286,91 @@ getCrossValidationInfo <- function(object) {
          foldOfRow = valueOr(control$cvFoldOfRow, integer(0))) # empty: random folds
 }
 
+# fitCyclopsModel(returnCvPredictions = TRUE) without a hyperparameter search: the fit (with its prior or fitHook)
+# on each fold's training rows, which predicts the fold's held-out rows, then the fit on all rows, which is returned
+# with fit$cvPredictions. The fit on all rows comes last, so the data object holds its state. Rows are in data order
+# throughout; weights go to fitCyclopsModel() in the order it takes them
+.fitWithFoldPredictions <- function(cyclopsData, prior, control, weights, forceNewObject, returnEstimates,
+                                    startingCoefficients, fixedCoefficients, warnings, computeDevice, cvFolds) {
+    if (is.null(cvFolds)) {
+        stop("returnCvPredictions without a hyperparameter search needs cvFolds")
+    }
+    if (!(cyclopsData$modelType %in% c("lr", "pr", "ls"))) {
+        stop("returnCvPredictions is available for modelType \"lr\", \"pr\" and \"ls\"")
+    }
+    .checkData(cyclopsData)
+    folds <- .foldOfRow(cyclopsData, cvFolds)
+    if (isTRUE(control$foldGiven) && control$fold != length(folds$labels)) {
+        stop("control$fold is ", control$fold, " but cvFolds has ", length(folds$labels), " folds")
+    }
+    n <- getNumberOfRows(cyclopsData)
+    order <- cyclopsData$sortOrder
+    rowWeights <- rep(1, n) # data order
+    if (!is.null(weights)) {
+        if (length(weights) != n) {
+            stop("Must provide a weight for each data row")
+        }
+        rowWeights <- if (is.null(order)) weights else weights[order]
+    } else if (!is.null(cyclopsData$weights)) {
+        rowWeights <- cyclopsData$weights
+    }
+    if (anyNA(rowWeights) || any(rowWeights < 0)) {
+        stop("Only non-negative weights are allowed")
+    }
+    if (any(is.na(folds$index) & rowWeights > 0)) {
+        stop(sum(is.na(folds$index) & rowWeights > 0), " data rows with positive weight have no fold in cvFolds")
+    }
+    for (k in seq_along(folds$labels)) {
+        if (!any(rowWeights > 0 & !is.na(folds$index) & folds$index != k)) {
+            stop("Fold ", folds$labels[k], " leaves no rows with positive weight to fit")
+        }
+    }
+    asGiven <- function(w) { # data order -> the order fitCyclopsModel() takes weights in
+        if (is.null(order)) w else replace(w, order, w)
+    }
+    # every fit starts where a new data object would (or from startingCoefficients), so neither the order of the
+    # folds nor an earlier fit or evaluation of the data changes the results
+    .checkInterface(cyclopsData, computeDevice = computeDevice, forceNewObject = forceNewObject)
+    zero <- rep(0, getNumberOfCovariates(cyclopsData) + .cyclopsGetHasOffset(cyclopsData))
+    if (.cyclopsGetHasOffset(cyclopsData)) {
+        zero[1] <- 1
+    }
+    fit <- function(w, quietly) {
+        if (is.null(startingCoefficients)) {
+            .cyclopsSetBeta(cyclopsData$cyclopsInterfacePtr, zero)
+            .cyclopsSetStartingBeta(cyclopsData$cyclopsInterfacePtr, zero)
+        }
+        run <- function() fitCyclopsModel(cyclopsData, prior = prior, control = control, weights = w,
+                                          returnEstimates = returnEstimates, startingCoefficients = startingCoefficients,
+                                          fixedCoefficients = fixedCoefficients, warnings = warnings && !quietly,
+                                          computeDevice = computeDevice)
+        if (!quietly) {
+            return(run())
+        }
+        withCallingHandlers(run(), warning = function(w) { # the data's own weights, replaced by the fold's
+            if (grepl("Using weights passed to fitCyclopsModel", conditionMessage(w))) invokeRestart("muffleWarning")
+        })
+    }
+    prediction <- rep(NA_real_, n)
+    failed <- 0
+    for (k in seq_along(folds$labels)) {
+        heldOut <- !is.na(folds$index) & folds$index == k
+        foldFit <- tryCatch(fit(asGiven(rowWeights * (!is.na(folds$index) & folds$index != k)), quietly = TRUE),
+                            error = function(e) NULL)
+        if (is.null(foldFit) || !identical(foldFit$return_flag, "SUCCESS")) {
+            failed <- failed + 1
+            next
+        }
+        prediction[heldOut] <- as.numeric(predict(foldFit))[heldOut]
+    }
+    result <- fit(if (is.null(weights)) NULL else weights, quietly = FALSE)
+    result$cvPredictions <- .cvPredictionTable(cyclopsData, list(prediction = prediction), folds, rowWeights)
+    if (warnings && failed > 0) {
+        warning("The fits of ", failed, " folds failed; their out-of-fold predictions are NA")
+    }
+    result
+}
+
 # Fold (1, ..., k) of each row in data order from fitCyclopsModel(cvFolds = ), and the fold labels
 .foldOfRow <- function(cyclopsData, cvFolds) {
     n <- getNumberOfRows(cyclopsData)
@@ -1322,7 +1452,8 @@ getCrossValidationInfo <- function(object) {
          fallbackConvergenceType = valueOr(control$fallbackConvergenceType, ""),
          fallbackTolerance = as.numeric(valueOr(control$fallbackTolerance, 1E-6)),
          fallbackMaxIterations = as.integer(valueOr(control$fallbackMaxIterations, 1000)),
-         mergeDuplicates = as.logical(valueOr(control$mergeDuplicates, control$algorithm %in% c("auto", "newton"))))
+         mergeDuplicates = as.logical(valueOr(control$mergeDuplicates, control$algorithm %in% c("auto", "newton"))),
+         newtonMemoryBudget = as.numeric(valueOr(control$newtonMemoryBudget, 1024)))
 }
 
 .setControl <- function(cyclopsInterfacePtr, control, cyclopsData = NULL) {
@@ -1433,6 +1564,8 @@ runBootstrap <- function(object, replicates, ciCoverage = 0.95, na.rm = FALSE) {
 #' @description
 #' \code{confinit.cyclopsFit} profiles the data likelihood to construct confidence intervals of
 #' arbitrary level. Usually it only makes sense to do this for variables that have not been regularized.
+#' With \code{method = "robust"} it returns Wald intervals from the cluster-robust variance
+#' (\code{vcov(object, type = "robust")}) instead.
 #'
 #' @param object    A fitted Cyclops model object
 #' @param parm      A specification of which parameters require confidence intervals,
@@ -1443,6 +1576,10 @@ runBootstrap <- function(object, replicates, ciCoverage = 0.95, na.rm = FALSE) {
 #' @param includePenalty    Logical: Include regularized covariate penalty in profile
 #' @param rescale   Boolean: rescale coefficients for unnormalized covariate values
 #' @param maximumCurvature Numeric: maximum curvature of log-likelihood profile required to compute CI
+#' @param method    String: \code{"profile"} (default) for profile-likelihood intervals or \code{"robust"} for Wald
+#'                  intervals from the cluster-robust variance (\code{includePenalty} and \code{maximumCurvature}
+#'                  are then unused, and the \code{evaluations} column is 0; as for profile intervals,
+#'                  regularized parameters need \code{overrideNoRegularization = TRUE})
 #' @param ... Additional argument(s) for methods
 #'
 #' @return
@@ -1458,7 +1595,9 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
                                includePenalty = TRUE,
                                rescale = FALSE,
                                maximumCurvature = -1E-3,
+                               method = c("profile", "robust"),
                                ...) {
+    method <- match.arg(method)
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     #.setControl(object$cyclopsData$cyclopsInterfacePtr, control)
 
@@ -1477,7 +1616,18 @@ confint.cyclopsFit <- function(object, parm, level = 0.95, #control,
     }
 
     prof <- NULL
-    if (!is.null(object$divergentCoefficients) && object$return_flag == "ILLCONDITIONED") {
+    if (method == "robust") {
+        regularized <- .isRegularized(object, parm)
+        if (!overrideNoRegularization && any(regularized)) {
+            stop("Variable ", as.character(parm[regularized][1]), " is regularized.")
+        }
+        labels <- .coefficientNames(object, parm)
+        estimate <- coef(object)[labels]
+        se <- sqrt(diag(vcov(object, overrideNoRegularization = overrideNoRegularization, type = "robust")))[labels]
+        z <- qnorm(1 - (1 - level) / 2)
+        prof <- data.frame(covariate = as.numeric(parm), lower = estimate - z * se, upper = estimate + z * se,
+                           evaluations = 0)
+    } else if (!is.null(object$divergentCoefficients) && object$return_flag == "ILLCONDITIONED") {
         # separation with no prior on any coefficient (D5): no interval for the divergent coefficients; the others'
         # come from the fit at their limit
         divergent <- .coefficientNames(object, parm) %in% object$divergentCoefficients
@@ -1827,20 +1977,44 @@ aconfint <- function(object, parm, level = 0.95, control,
 #' @description
 #' \code{vcov.cyclopsFit} returns the variance-covariance matrix for all covariates of a Cyclops model object
 #'
+#' @details
+#' \code{type = "modelBased"} inverts the Fisher information of the log likelihood. With case weights this is
+#' the inverse of the weighted information (\code{coxph()}'s \code{naive.var}, \code{vcov()} of a weighted
+#' \code{glm()}), which is not a valid variance when the weights are not frequencies.
+#'
+#' \code{type = "robust"} is the cluster-robust (sandwich) variance \eqn{H^{-1} (U'U) H^{-1}}, where \eqn{H} is the
+#' Fisher information of the log likelihood (the prior excluded) and each row of \eqn{U} sums the weighted score
+#' contributions of one subject (\code{cluster()} in \code{\link{createCyclopsData}}, \code{subjectId} in
+#' \code{\link{convertToCyclopsData}}), or of one row when the data have no subjects. It has no small-sample
+#' factor, as \code{coxph(..., cluster = )} and \code{sandwich::vcovCL(..., type = "HC0", cadjust = FALSE)}.
+#' Cox scores are the weighted score residuals (Breslow ties), which include the risk-set compensator. It is
+#' available for \code{"lr"}, \code{"pr"}, \code{"cox"} and \code{"cox_counting"} models (not for \code{"cox"}
+#' under \code{fitter = "legacy"}), and covers only the coefficients that are not fixed (a 0 x 0 matrix when all
+#' are). Under a prior, \eqn{H} and \eqn{U} are those of the log likelihood at the posterior mode, which does
+#' not give a validated variance of regularized coefficients: it then warns, unless
+#' \code{overrideNoRegularization = TRUE}.
+#'
 #' @param object    A fitted Cyclops model object
 #' @param control    A \code{"cyclopsControl"} object constructed by \code{\link{createControl}}
 #' @param overrideNoRegularization   Logical: Enable variance-covariance estimation for regularized parameters
+#' @param type      String: \code{"modelBased"} (default) for the inverse Fisher information or \code{"robust"} for
+#'                  the cluster-robust sandwich variance
 #' @param ... Additional argument(s) for methods
 #'
 #' @return
-#' A matrix of the estimates covariances between all covariate estimates. When the Fisher information is
+#' A matrix of the estimates covariances between all covariate estimates (\code{type = "robust"}: all covariates
+#' with coefficients that are not fixed). When the Fisher information is
 #' singular (aliased covariates, such as exact duplicates), the rows and columns of the aliased covariates
 #' are \code{NA}, with a warning.
 #'
 #' @export
-vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, ...) {
+vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, type = c("modelBased", "robust"), ...) {
+    type <- match.arg(type)
     .checkInterface(object$cyclopsData, testOnly = TRUE)
     .setControl(object$cyclopsData$cyclopsInterfacePtr, control, object$cyclopsData)
+    if (type == "robust") {
+        return(.robustVcov(object, overrideNoRegularization))
+    }
     fisherInformation <- .cyclopsGetFisherInformation(object$cyclopsData$cyclopsInterfacePtr, NULL)
     if (.cyclopsGetHasOffset(object$cyclopsData)) {
         fisherInformation <- fisherInformation[2:nrow(fisherInformation), 2:ncol(fisherInformation)]
@@ -1851,16 +2025,50 @@ vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, .
     vcov
 }
 
+# Cluster-robust variance H^-1 (U'U) H^-1 of the coefficients that are not fixed: H the information of the log
+# likelihood, U the score contributions summed by subject. A generalized inverse of a singular H gives the same
+# entries for the identified coefficients, since the scores lie in the row space of H. Under a prior it is not a
+# validated variance of the regularized coefficients: it warns unless overrideNoRegularization
+.robustVcov <- function(object, overrideNoRegularization = FALSE) {
+    covariates <- getCovariateIds(object$cyclopsData)
+    if (!is.null(object$fixedCoefficients)) {
+        covariates <- covariates[!object$fixedCoefficients]
+    }
+    if (length(covariates) == 0) { # every coefficient is fixed
+        return(matrix(numeric(0), 0, 0, dimnames = list(character(0), character(0))))
+    }
+    if (!overrideNoRegularization && any(.isRegularized(object, covariates))) {
+        warning("The robust variance excludes the prior; it is not a validated variance of regularized coefficients")
+    }
+    ptr <- object$cyclopsData$cyclopsInterfacePtr
+    bread <- .invertInformation(.cyclopsGetFisherInformation(ptr, covariates), generalizedInverse = TRUE)
+    vcov <- bread$generalized %*% .cyclopsGetScoreCrossProduct(ptr, covariates) %*% bread$generalized
+    vcov[is.na(bread$inverse)] <- NA
+    labels <- .coefficientNames(object, covariates)
+    dimnames(vcov) <- list(labels, labels)
+    vcov
+}
+
+# Whether the coefficients of the covariates with ids `covariates` have a prior (engine indices count an offset)
+.isRegularized <- function(object, covariates) {
+    ids <- as.character(getCovariateIds(object$cyclopsData))
+    indices <- match(as.character(bit64::as.integer64(covariates)), ids) - 1 + .cyclopsGetHasOffset(object$cyclopsData)
+    vapply(indices, function(index) .cyclopsGetIsRegularized(object$cyclopsData$cyclopsInterfacePtr, index),
+           logical(1))
+}
+
 # Inverse of a Fisher information matrix, from a pivoted Cholesky factorization of its unit-diagonal
 # form. A singular matrix (aliased columns, such as exact duplicates, or columns without information)
 # gets NA rows and columns for every coefficient in an aliased direction, with a warning; the other
 # entries are the same for every generalized inverse, so they come from the inverse of the identified
-# leading block of the factorization.
-.invertInformation <- function(information) {
+# leading block of the factorization. generalizedInverse = TRUE also returns that inverse padded with zeros, a
+# generalized inverse: list(inverse, generalized).
+.invertInformation <- function(information, generalizedInverse = FALSE) {
     n <- nrow(information)
     d <- diag(information)
     if (n == 0 || any(!is.finite(information))) {
-        return(solve(information))
+        inverse <- solve(information)
+        return(if (generalizedInverse) list(inverse = inverse, generalized = inverse) else inverse)
     }
     informative <- which(d > 0)
     scale <- 1 / sqrt(d[informative])
@@ -1886,6 +2094,11 @@ vcov.cyclopsFit <- function(object, control, overrideNoRegularization = FALSE, .
     if (length(aliased) > 0) {
         warning("The Fisher information is singular: ", length(aliased),
                 " aliased coefficients have NA variances")
+    }
+    if (generalizedInverse) {
+        generalized <- matrix(0, n, n)
+        generalized[keptColumns, keptColumns] <- inverse
+        return(list(inverse = result, generalized = generalized))
     }
     result
 }

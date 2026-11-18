@@ -919,6 +919,38 @@ template <typename RealType>
 double ModelData<RealType>::getNormalBasedDefaultVar() const {
 // 	return getNumberOfVariableColumns() * getNumberOfRows() / getSquaredNorm();
 	// Reciprocal of what is reported in Genkins et al.
+	if (pooledRows.loaded && pooledRows.rows() > 0) {
+		// plr: the norm and the rows of the person-interval design, where column j enters row r of subject i as
+		// x_ij tau_s(j)(t_r): sum_i x_ij^2 q_i,s(j), q_is = sum over the subject's rows of tau_s(t_r)^2
+		const size_t K = getNumberOfRows();
+		const int S = pooledRows.basisColumns + 1;
+		std::vector<double> q(K * S, 0.0);
+		for (size_t i = 0; i < K; ++i) {
+			for (size_t r = pooledRows.rowStart[i]; r < pooledRows.rowStart[i + 1]; ++r) {
+				const int t = pooledRows.intervalOf(i, r);
+				q[i * S] += 1.0;
+				for (int b = 0; b < pooledRows.basisColumns; ++b) {
+					const double v = pooledRows.basis[static_cast<size_t>(t) * pooledRows.basisColumns + b];
+					q[i * S + b + 1] += v * v;
+				}
+			}
+		}
+		std::vector<int> slot(getNumberOfColumns(), 0);
+		for (const auto& column : pooledRows.timeColumns) {
+			slot[getColumnIndex(column.first)] = column.second + 1;
+		}
+		int startIndex = 0;
+		if (hasInterceptCovariate) ++startIndex;
+		if (hasOffsetCovariate) ++startIndex;
+		double norm = 0.0;
+		for (size_t index = startIndex; index < getNumberOfColumns(); ++index) {
+			for (GenericIterator<RealType> it(X, static_cast<int>(index)); it; ++it) {
+				const double x = static_cast<double>(it.value());
+				norm += x * x * q[it.index() * S + slot[index]];
+			}
+		}
+		return norm / getNumberOfVariableColumns() / static_cast<double>(pooledRows.rows());
+	}
 	return getSquaredNorm() / getNumberOfVariableColumns() / getNumberOfRows();
 }
 

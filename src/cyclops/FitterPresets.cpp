@@ -17,7 +17,7 @@ const int activeSetMinCovariates = 1000;
 
 bool secondOrderModel(const std::optional<std::string>& modelType) { // second-order kernels (Newton plan 2.2)
 	if (!modelType) return false;
-	for (const char* m : {"cox", "cox_counting", "cpr", "sccs", "clr", "lr"}) {
+	for (const char* m : {"cox", "cox_counting", "cpr", "sccs", "clr", "lr", "plr"}) {
 		if (*modelType == m) return true;
 	}
 	return false;

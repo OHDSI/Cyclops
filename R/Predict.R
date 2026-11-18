@@ -34,6 +34,9 @@
 #' interface that all fits on one Cyclops data object share, so the prediction stops with an error once
 #' another model has been fitted to the same data, unless that fit used \code{forceNewObject = TRUE}.
 #'
+#' For an \code{lr} model fit with an \code{offset} column in the outcomes, the predictions for new data add the
+#' \code{offset} column of \code{newOutcomes} to the linear predictor; without that column, the offset is 0.
+#'
 #' @param object    A Cyclops model fit object
 #' @param newOutcomes  An optional data frame or Andromeda table object, similar to the object used in \code{\link{convertToCyclopsData}}.
 #' @param newCovariates  An optional data frame or Andromeda table object, similar to the object used in \code{\link{convertToCyclopsData}}.
@@ -53,6 +56,9 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, times = NULL,
         stop("Need to specify both newOutcomes and newCovariates")
     if (!missing(newCovariates) && (missing(newOutcomes) || is.null(newOutcomes)))
         stop("Need to specify both newOutcomes and newCovariates")
+    if (object$cyclopsData$modelType == "plr") {
+        stop("Prediction for plr models is not yet implemented")
+    }
     if (missing(newOutcomes)) {
         if (!is.null(times))
             stop("`times` needs newOutcomes and newCovariates")
@@ -96,11 +102,11 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, times = NULL,
             if (nrow(coefficients) == 0) {
                 if ("time" %in% colnames(newOutcomes)) {
                     prediction <- newOutcomes %>%
-                        select("rowId", "time", any_of("stratumId")) %>%
+                        select("rowId", "time", any_of(c("stratumId", "offset"))) %>%
                         collect()
                 } else {
                     prediction <- newOutcomes %>%
-                        select("rowId", any_of("stratumId")) %>%
+                        select("rowId", any_of(c("stratumId", "offset"))) %>%
                         collect()
                 }
                 prediction <- prediction %>%
@@ -140,6 +146,10 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, times = NULL,
                 prediction$value[is.na(prediction$value)] <- 0
                 prediction$value <- prediction$value + intercept
             }
+        }
+
+        if (modelType == "lr" && .cyclopsGetHasOffset(object$cyclopsData) && "offset" %in% colnames(prediction)) {
+            prediction$value <- prediction$value + prediction$offset
         }
 
         if (modelType == "lr") {

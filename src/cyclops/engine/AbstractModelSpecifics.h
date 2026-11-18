@@ -100,6 +100,13 @@ public:
                                             // double* denominators,
                                             bool useWeights) = 0; // pure virtual
 
+	// Per-row contributions u (length K, row order of the data) to the derivative of the log likelihood
+	// in the coefficient of column `index` at the current state, with the current case weights, so that
+	// they sum to the gradient: for the robust (sandwich) variance. Models without them return false.
+	virtual bool scoreContributions(int index, std::vector<double>& u) {
+		return false;
+	}
+
 	virtual void updateXBeta(double realDelta, int index, bool useWeights) = 0; // pure virtual
 
 	virtual void computeXBeta(double* beta, bool useWeights) = 0; // pure virtual
@@ -240,6 +247,12 @@ public:
 	// does not increase (decrease) in columns[i] whatever the other coefficients, so an unpenalized coefficient
 	// diverges to -Inf (+Inf); 0 otherwise. False when the engine cannot tell.
 	virtual bool separationDirections(const std::vector<int>& columns, std::vector<int>& direction) {
+		return false;
+	}
+
+	// The values of column j in the likelihood's rows, where they are not those of X (plr: x times the time basis),
+	// for the limit of a divergent coefficient: the distinct values, with 0 when some row has 0. False otherwise
+	virtual bool likelihoodColumnValues(int j, std::vector<double>& values) {
 		return false;
 	}
 
