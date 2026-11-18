@@ -202,8 +202,14 @@ Changes:
    its intervals come as one outcome row per interval (explicit) or as `entry` and `exit` (implicit, see the new
    `convertToLongOutcome()`), with case weights and offsets per row or per subject. A `timeBasis` gives time
    covariates by interval, and `timeEffectMap` their interactions with covariates. Fits equal `glm(binomial())` and
-   `"lr"` on the expanded rows; cross-validation folds and robust-variance clusters are subjects. Coordinate
-   descent only (`algorithm = "auto"` runs it), logit link; predictions are not yet implemented
+   `"lr"` on the expanded rows; cross-validation folds and robust-variance clusters are subjects, or persons given
+   as `outcomes$subjectId` (e.g. the clones of one person). `link = "cloglog"` fits the complementary log-log
+   model (equal to `glm(binomial("cloglog"))` on the expanded rows), whose non-event rows factorize so a covariate
+   update costs O(nonzeros). With the logit link the second-order kernels run `algorithm = "auto"` (the default, as
+   for `"lr"`) and `"newton"` with certified `"gap"` stops (L1 by the duality gap); cloglog fits use coordinate
+   descent. On 1e5 subjects, 1.3e6 person-interval rows and 200 covariates (50 per subject), a fit takes 2.1 s and
+   1.0 GB (whole R process) against 12.5 s and 17.6 GB for `"lr"` on the expanded rows. Predictions are not yet
+   implemented
 
 Cyclops v3.8.0
 ==============
