@@ -632,8 +632,10 @@ protected:
 	// every cycle, and at weak normal penalties the error along their contrast shrinks by nearly the same factor each
 	// time. A new order each cycle avoids that (randomly permuted coordinate descent). Used for logistic fits whose
 	// penalized coefficients all have normal priors (their cycles are always serial, so results do not depend on
-	// threads); the intercept stays first. The order is drawn from a portable generator seeded by the cycle number.
+	// threads); the intercept stays first. The order of the free coordinates is drawn from a portable generator seeded by
+	// the cycle number.
 	bool shuffleCoordinates = false;
+	static constexpr int shuffleMinCovariates = 1000; // as active-set cycling: only fits with at least this many free coordinates
 	std::vector<int> coordinateOrder;
 	void drawCoordinateOrder(int cycleNumber);
 	std::vector<double> columnWork; // entries per column, set up once (the data do not change)

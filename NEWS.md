@@ -214,7 +214,8 @@ Changes:
    are rare there, and their face solves handle the singular faces of duplicates), so its coefficients equal those of
    `"ccd"` where both stop together
 39. under `fitter = "super"` (and the `"gap"` criterion of `algorithm = "auto"`), logistic fits whose penalized coefficients all
-   have normal priors (ridge, per-covariate variances) visit the coordinates in a new seeded order each cycle. With binary
+   have normal priors (ridge, per-covariate variances), with at least 1,000 free covariates, visit the coordinates in a new
+   seeded order each cycle (smaller fits, such as refits on a selected support, keep the cyclic order). With binary
    covariates every coupling between columns is non-negative, the unfavourable case for the cyclic order, and nested or
    near-duplicate columns (concept rollups, overlapping time windows) at weak penalties then shrink the error along their
    contrast by nearly the same factor every cycle. On a simulated claims design shaped like a 85,000-person training set
