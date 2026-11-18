@@ -74,7 +74,8 @@ test_that("the threads of one fit do not take prox-Newton away", {
     # (over 1,200 columns) fits one 256 MB budget, but not one divided among 8 threads
     fit <- function(threads) {
         fitCyclopsModel(data, prior = prior, forceNewObject = TRUE, warnings = FALSE,
-                        control = createControl(threads = threads, maxIterations = 300, noiseLevel = "silent"))
+                        control = createControl(threads = threads, maxIterations = 300, noiseLevel = "silent",
+                                                newtonMemoryBudget = 256))
     }
     one <- fit(1)
     eight <- fit(8)

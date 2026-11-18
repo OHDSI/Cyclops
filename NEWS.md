@@ -45,7 +45,8 @@ Changes:
    `fit$divergentCoefficients`
 9. Newton steps on `cox` and `cox_counting` designs solve with conjugate gradients (Newton-CG) when an
    operation count says that is cheaper than a dense factorization, or when the dense matrices of all
-   concurrent fits would exceed 256 MB. A rank-32 Woodbury preconditioner (the row part of the Hessian
+   concurrent fits would exceed `createControl(newtonMemoryBudget = )` (1024 MB by default, see 38). A
+   rank-32 Woodbury preconditioner (the row part of the Hessian
    minus a binned approximation of its risk-set part) cuts the conjugate-gradient work 8-16 fold, and the
    stop is certified from an explicit-residual bracket. With 3,068 covariates and 13,152 rows a ridge fit
    to a gap of 1e-8 takes 1.5 s (dense Newton: 7.5 s; coordinate descent did not get there in 25,000
