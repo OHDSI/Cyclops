@@ -74,7 +74,8 @@ test_that("the threads of one fit do not take prox-Newton away", {
     # (over 1,200 columns) fits one 256 MB budget, but not one divided among 8 threads
     fit <- function(threads) {
         fitCyclopsModel(data, prior = prior, forceNewObject = TRUE, warnings = FALSE,
-                        control = createControl(threads = threads, maxIterations = 300, noiseLevel = "silent"))
+                        control = createControl(threads = threads, maxIterations = 300, noiseLevel = "silent",
+                                                newtonMemoryBudget = 256))
     }
     one <- fit(1)
     eight <- fit(8)
@@ -222,4 +223,24 @@ test_that("Newton fits and cross-validation are the same bit for bit on 1 and 4 
     one <- fit(dense, createPrior("normal", variance = 0.5, exclude = 1), 1)
     four <- fit(dense, createPrior("normal", variance = 0.5, exclude = 1), 4)
     expect_identical(coef(one), coef(four))
+})
+
+test_that("newtonMemoryBudget bounds prox-Newton; a tiny budget leaves the fit on coordinate descent", {
+    expect_equal(createControl()$newtonMemoryBudget, 1024)
+    expect_equal(createControl(newtonMemoryBudget = 2)$newtonMemoryBudget, 2)
+    expect_error(createControl(newtonMemoryBudget = 0))
+    set.seed(1)
+    X <- matrix(rnorm(300 * 5), 300, 5)
+    frame <- data.frame(y = rbinom(300, 1, plogis(X[, 1] - X[, 2])), X)
+    data <- createCyclopsData(y ~ X1 + X2 + X3 + X4 + X5, data = frame, modelType = "lr")
+    fit <- function(...) fitCyclopsModel(data, prior = createPrior("laplace", variance = 0.1, exclude = 1),
+                                         control = createControl(algorithm = "auto", noiseLevel = "silent", ...),
+                                         forceNewObject = TRUE)
+    default <- fit()
+    tiny <- fit(newtonMemoryBudget = 1e-5) # 10 bytes: below 24 |W|^2 for any active set
+    expect_equal(default$algorithm, "newton")
+    expect_gt(default$convergence$newtonIterations, 0)
+    expect_equal(tiny$algorithm, "ccd")
+    expect_equal(tiny$convergence$newtonIterations, 0)
+    expect_equal(coef(tiny), coef(default), tolerance = 1e-6)
 })

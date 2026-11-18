@@ -39,6 +39,7 @@ createControl(
   activeSetThreshold = NULL,
   adaptiveIntercept = NULL,
   mergeDuplicates = NULL,
+  newtonMemoryBudget = 1024,
   doItAll = TRUE,
   syncCV = FALSE
 )
@@ -65,7 +66,7 @@ when the fit resolves to \code{"gap"} through \code{algorithm}}
 \code{"newton"}. \code{"gap"} stops when a certified bound on the distance to the
 optimum of the log posterior is below \code{tolerance}; it needs a model with
 second-order kernels (so far \code{"cox"}, \code{"cox_counting"}, \code{"cpr"}, \code{"sccs"},
-\code{"clr"} and \code{"lr"} in double precision on the CPU) and normal, Laplace or no priors; with Laplace priors the stop is an
+\code{"clr"}, \code{"lr"} and \code{"plr"} with the logit link, in double precision on the CPU) and normal, Laplace or no priors; with Laplace priors the stop is an
 estimate rather than a certified bound}
 
 \item{cvType}{String: name of cross validation search.
@@ -124,7 +125,7 @@ descent), \code{"mm"}, \code{"auto"} (coordinate descent that switches to dense
 Newton steps when an operation count says they are cheaper, and back on failure) or
 \code{"newton"} (Newton steps after three coordinate-descent cycles). \code{NULL}
 (default) means \code{"auto"} for \code{"cox"}, \code{"cox_counting"}, \code{"cpr"},
-\code{"sccs"}, \code{"clr"} and \code{"lr"} and \code{"ccd"} otherwise, under \code{fitter = "legacy"},
+\code{"sccs"}, \code{"clr"}, \code{"lr"} and \code{"plr"} and \code{"ccd"} otherwise, under \code{fitter = "legacy"},
 and for the refits of a prior with a \code{fitHook} (BrokenAdaptiveRidge, IterativeHardThresholding,
 \code{\link{createNonSeparablePrior}}). Under \code{"auto"}, an explicit
 \code{convergenceType} other than \code{"gap"} runs \code{"ccd"}; under
@@ -236,6 +237,15 @@ cross-validation fold's held-out rows) are duplicates for that fit, and their to
 reported as an equal split whatever the prior.
 \code{NULL} (default) means \code{TRUE} with \code{algorithm = "auto"} or
 \code{"newton"} and \code{FALSE} otherwise}
+
+\item{newtonMemoryBudget}{Numeric: memory budget, in MB (\eqn{2^{20}} bytes), of the dense working matrices of the
+Newton and prox-Newton steps of \code{algorithm = "auto"} or \code{"newton"}: 24 bytes per entry of
+the active-set Hessian (\eqn{24 |W|^2}: the matrix, its factor and workspace), plus the
+row-wise copies of columns of the design and the Nystrom, Schur-bound and
+conjugate-gradient work. Steps that would exceed it use conjugate gradients or
+coordinate descent instead. It is a ceiling, not an allocation, and it holds per fit:
+cross-validation folds or threads that run separate fits may each use it. The default
+of 1024 allows active sets of up to about 6,700 columns}
 
 \item{doItAll}{Currently unused}
 

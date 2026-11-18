@@ -30,6 +30,7 @@
 #include "Iterators.h"
 #include "io/ProgressLogger.h"
 #include "io/SparseIndexer.h"
+#include "PooledRows.h"
 
 //#define USE_DRUG_STRING
 
@@ -188,6 +189,14 @@ public:
     virtual int getFloatingPointSize() const = 0;
 
     virtual ~AbstractModelData() { }
+
+    // Person-interval rows of pooled logistic regression ("plr"); see PooledRows.h
+    PooledRows& getPooledRows() { return pooledRows; }
+
+    const PooledRows& getPooledRows() const { return pooledRows; }
+
+protected:
+    PooledRows pooledRows;
 
 // private:
 //     AbstractModelData(const AbstractModelData&);

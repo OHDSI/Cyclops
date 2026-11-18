@@ -829,6 +829,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	// (cross-validation fold fits may use another criterion than the final fit)
 	activeSetEvery = (convergenceType == KKT) ? arguments.activeSetEvery : 0;
 	activeSetThreshold = arguments.activeSetThreshold;
+	newtonMemoryBudget = arguments.newtonMemoryBudget;
 	adaptiveIntercept = (convergenceType == KKT) && arguments.adaptiveIntercept; // its floor is a kkt tolerance
 	minIterations = arguments.minIterations;
 
@@ -839,7 +840,9 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	// prior that is exact for the group; the members stay fixed at 0 until the write-back below
 	aliasGroups.clear();
 	priors::JointPriorPtr unmergedPrior = jointPrior;
-	if (arguments.mergeDuplicates && !arguments.useKktSwindle && !syncCV && !usingGPU && !usingCUDA) {
+	// plr: equal columns of X differ by their time-basis column, which X does not show
+	if (arguments.mergeDuplicates && !arguments.useKktSwindle && !syncCV && !usingGPU && !usingCUDA &&
+			hXI.getModelType() != ModelType::POOLED_LOGISTIC) {
 		findAliasGroups();
 		if (!aliasGroups.empty()) {
 			std::vector<int> groupSize(J, 1);
@@ -949,17 +952,10 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 double CyclicCoordinateDescent::divergentLimit(int j) const {
 	// 40 over the column's smallest spacing between distinct values (0 included when it has zeros) puts the
 	// likelihood at its limit to machine precision; |x beta| <= 600 keeps exp() finite
-	auto limit = [&](const auto& X) {
-		std::vector<double> values;
+	auto fromValues = [](std::vector<double>& values) {
 		double largest = 0.0;
-		size_t entries = 0;
-		for (GenericIterator<typename std::decay<decltype(*X.getDataVector(j))>::type> it(X, j); it; ++it) {
-			values.push_back(static_cast<double>(it.value()));
-			largest = std::max(largest, std::abs(values.back()));
-			++entries;
-		}
-		if (entries < X.getNumberOfRows()) {
-			values.push_back(0.0);
+		for (double value : values) {
+			largest = std::max(largest, std::abs(value));
 		}
 		std::sort(values.begin(), values.end());
 		values.erase(std::unique(values.begin(), values.end()), values.end());
@@ -972,6 +968,22 @@ double CyclicCoordinateDescent::divergentLimit(int j) const {
 		}
 		return std::min(40.0 / spacing, 600.0 / largest);
 	};
+	auto limit = [&](const auto& X) {
+		std::vector<double> values;
+		size_t entries = 0;
+		for (GenericIterator<typename std::decay<decltype(*X.getDataVector(j))>::type> it(X, j); it; ++it) {
+			values.push_back(static_cast<double>(it.value()));
+			++entries;
+		}
+		if (entries < X.getNumberOfRows()) {
+			values.push_back(0.0);
+		}
+		return fromValues(values);
+	};
+	std::vector<double> values;
+	if (modelSpecifics.likelihoodColumnValues(j, values)) {
+		return fromValues(values);
+	}
 	if (const auto* data64 = dynamic_cast<const ModelData<double>*>(&hXI)) {
 		return limit(data64->getX());
 	} else if (const auto* data32 = dynamic_cast<const ModelData<float>*>(&hXI)) {
@@ -2241,18 +2253,13 @@ double CyclicCoordinateDescent::getAsymptoticVariance(int indexOne, int indexTwo
 // 	}
 // }
 
-CyclicCoordinateDescent::Matrix CyclicCoordinateDescent::computeFisherInformation(const std::vector<IdType>& indices) const {
+CyclicCoordinateDescent::Matrix CyclicCoordinateDescent::computeFisherInformation(const std::vector<IdType>& indices) {
+    checkAllLazyFlags(); // the linear predictor of the current coefficients (setBeta() leaves it stale until here)
     modelSpecifics.makeDirty(); // clear strata cross terms cached at earlier coefficients
 
-    // One Hessian block where the engine has the second-order kernels; with weights only when they
-    // are all integers (non-integer weights keep the per-pair path, which refuses them)
-    bool integerWeights = true;
-    if (useCrossValidation) {
-        for (size_t k = 0; k < hWeights.size() && integerWeights; ++k) {
-            integerWeights = std::floor(hWeights[k]) == hWeights[k];
-        }
-    }
-    if (modelSpecifics.supportsSecondOrder() && integerWeights) {
+    // One Hessian block where the engine has the second-order kernels, which carry the case weights. With
+    // non-integer weights this is the weighted information (coxph's naive.var), the bread of the robust variance
+    if (modelSpecifics.supportsSecondOrder()) {
         const std::vector<int> F(indices.begin(), indices.end());
         std::vector<double> H;
         if (modelSpecifics.hessianBlock(F, H)) {
@@ -2271,6 +2278,29 @@ CyclicCoordinateDescent::Matrix CyclicCoordinateDescent::computeFisherInformatio
         }
     }
     return fisherInformation;
+}
+
+CyclicCoordinateDescent::Matrix CyclicCoordinateDescent::computeScoreCrossProduct(const std::vector<IdType>& indices) const {
+    const IntVector& subject = hXI.getSubjectIndexVectorRef(); // empty: each row its own subject
+    Matrix scores;
+    std::vector<double> u;
+    for (size_t p = 0; p < indices.size(); ++p) {
+        if (!modelSpecifics.scoreContributions(static_cast<int>(indices[p]), u)) {
+            throw std::logic_error("Score contributions are not implemented for this model type");
+        }
+        if (p == 0) {
+            const size_t subjects = subject.empty() ? u.size() :
+                static_cast<size_t>(*std::max_element(subject.begin(), subject.end())) + 1;
+            scores = Matrix::Zero(subjects, indices.size());
+        }
+        for (size_t k = 0; k < u.size(); ++k) {
+            scores(subject.empty() ? k : subject[k], p) += u[k];
+        }
+    }
+    if (indices.empty()) {
+        return Matrix::Zero(0, 0);
+    }
+    return scores.transpose() * scores;
 }
 
 void CyclicCoordinateDescent::computeAsymptoticPrecisionMatrix(void) {

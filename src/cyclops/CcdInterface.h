@@ -113,6 +113,7 @@ struct ModeFindingArguments {
 	double fallbackTolerance = 1E-6;
 	int fallbackMaxIterations = 1000;
 	bool mergeDuplicates = false; // merge exact-duplicate columns for the fit (Newton plan 2.8)
+	double newtonMemoryBudget = 1024.0 * 1024 * 1024; // bytes: ceiling on one fit's dense Newton work (2.5)
 
 	ModeFindingArguments() :
 		tolerance(1E-6),
