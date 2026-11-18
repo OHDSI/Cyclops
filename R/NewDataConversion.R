@@ -309,6 +309,10 @@ convertToCyclopsData.data.frame <- function(outcomes,
         .loadCyclopsDataStartTime(dataPtr, outcomes$startTime)
     }
 
+    if (modelType == "cox" || modelType == "cox_counting") { # the stratum of each internal index, for predict()
+        dataPtr$stratumIds <- unique(outcomes$stratumId)
+    }
+
     if ("subjectId" %in% colnames(outcomes)) {
         .loadCyclopsDataSubjectId(dataPtr, bit64::as.integer64(outcomes$subjectId))
     }
@@ -519,6 +523,10 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
 
     if (modelType == "cox_counting" && "startTime" %in% colnames(outcomes)) {
         .loadCyclopsDataStartTime(dataPtr, outcomes$startTime)
+    }
+
+    if (modelType == "cox" || modelType == "cox_counting") { # the stratum of each internal index, for predict()
+        dataPtr$stratumIds <- unique(outcomes$stratumId)
     }
 
     if ("subjectId" %in% colnames(outcomes)) {

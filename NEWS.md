@@ -228,6 +228,15 @@ Changes:
    1024 MB, which allows active sets of about 6,700 columns (was 3,300): a 100,000-person CCW censoring model with
    3,550 active columns that had alternated between Newton and coordinate descent, unconverged after 13 minutes,
    converges in 50 s with 9 Newton iterations
+39. `survfit()` for `cox` and `cox_counting` fits uses the case weights of the fit in the Breslow baseline (event counts and
+   risk sets; rows with weight 0 are left out), and gives one curve per stratum for `cox` fits too; it used unweighted
+   counts and, for `cox`, ignored strata. `predict(fit, newOutcomes, newCovariates, times = )` returns the survival
+   S(t | x) = exp(-Lambda0(t) exp(x'beta)) of new rows of `cox` and `cox_counting` fits at `times` (a matrix, a row
+   per `rowId` and a column per time), with the baseline of each row's `stratumId` in stratified fits; it matches
+   `survfit(coxph(..., weights = , ties = "breslow"), newdata, ctype = 1, stype = 2)`. `predict()` stopped for new
+   Cox data before. Both stop once another model has been fitted to the same Cyclops data (fits share its interface;
+   `survfit()` silently mixed the two fits before) unless that fit used `forceNewObject = TRUE`; fit objects keep
+   their `weights`
 39. `updateWeights()` and `updateOutcomes()` replace the row weights or the outcomes of a Cyclops data object in
    place, so that a model is refit (bootstrap frequency weights, other outcomes on the same design) without
    rebuilding the data; a refit equals a fit of rebuilt data. Weights and outcomes are given by `rowId` (a vector
