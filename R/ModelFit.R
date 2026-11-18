@@ -273,6 +273,11 @@ fitCyclopsModel <- function(cyclopsData,
     if (control$selectorType == "bySubject" && .cyclopsGetNumberOfSubjects(cyclopsData) == 0) {
         stop("selectorType = \"bySubject\" requires subjects from cluster() or outcomes$subjectId")
     }
+    if (warnings && prior$useCrossValidation && control$selectorType == "byRow" &&
+        cyclopsData$modelType %in% .conditionalModelTypes) {
+        warning("In modelType = \"", cyclopsData$modelType, "\", a row of weight 0 still enters its stratum, so ",
+                "folds by row do not hold out their rows; use selectorType = \"byPid\"")
+    }
 
     if (control$cvRepetitions == "auto") {
         control$cvRepetitions <- .getNumberOfRepetitions(getNumberOfRows(cyclopsData))
@@ -360,6 +365,7 @@ fitCyclopsModel <- function(cyclopsData,
 
     # Handle weights
 
+    weightsArgument <- weights # for a refit below: it sorts them again and leaves cyclopsData$weights to the data
     weightsUnsorted <- TRUE
     if (!is.null(cyclopsData$weights)) {
         if (!is.null(weights)) {
@@ -380,6 +386,13 @@ fitCyclopsModel <- function(cyclopsData,
         if (weightsUnsorted) {
             if (!is.null(cyclopsData$sortOrder)) {
                 weights <- weights[cyclopsData$sortOrder]
+            }
+            if (warnings && cyclopsData$modelType %in% .conditionalModelTypes) {
+                mixed <- .mixedZeroWeightStrata(cyclopsData, weights)
+                if (mixed > 0) {
+                    warning(mixed, " strata have rows of weight 0 and rows of positive weight; in modelType = \"",
+                            cyclopsData$modelType, "\", a row of weight 0 still enters its stratum")
+                }
             }
         }
 
@@ -483,7 +496,7 @@ fitCyclopsModel <- function(cyclopsData,
             fit <- fitCyclopsModel(cyclopsData = cyclopsData,
                                    prior = prior,
                                    control = control,
-                                   weights = weights,
+                                   weights = weightsArgument,
                                    forceNewObject = forceNewObject,
                                    returnEstimates = returnEstimates,
                                    startingCoefficients = startingCoefficients,
@@ -499,7 +512,7 @@ fitCyclopsModel <- function(cyclopsData,
         return(fitCyclopsModel(cyclopsData = cyclopsData,
                                prior = prior,
                                control = control,
-                               weights = weights,
+                               weights = weightsArgument,
                                forceNewObject = forceNewObject,
                                returnEstimates = returnEstimates,
                                startingCoefficients = startingCoefficients,
@@ -522,6 +535,7 @@ fitCyclopsModel <- function(cyclopsData,
     fit$scale <- cyclopsData$scale
     fit$threads <- threads
     fit$seed <- control$seed
+    fit$selectorType <- control$selectorType
 
     if (prior$useCrossValidation) {
         fit$cvRepetitions <- control$cvRepetitions
@@ -1521,15 +1535,31 @@ getSEs <- function(object, covariates) {
 #' Bootstrap samples resample the units given by the fit's \code{selectorType} (see \code{\link{createControl}}),
 #' so models with subjects resample whole subjects by default. Units whose rows all have weight zero
 #' are not resampled: each sample draws as many units as the fit uses.
+#' Replicates run in parallel on the \code{threads} of the fit's \code{\link{createControl}}. Whatever the number of
+#' threads, each replicate draws the same resample and starts from the coefficients of the fit (or from the starting
+#' values, with \code{resetCoefficients = TRUE}), so the estimates do not depend on the threads. A replicate whose fit
+#' fails (most often under separation) gives \code{NA} estimates, with a warning that counts them; \code{failed} in
+#' the result holds their number. Dropping them (\code{na.rm = TRUE}) conditions on the replicates that converged,
+#' which can narrow the intervals a great deal.
+#'
+#' In conditional models (\code{"clr"}, \code{"clr_efron"}, \code{"clr_exact"}, \code{"cpr"} and \code{"sccs"}), a row of
+#' weight 0 still enters its stratum, so a fit with \code{selectorType = "byRow"} warns: its samples leave rows of
+#' weight 0 inside strata.
 #'
 #' @param object          A fitted Cyclops model object
 #' @param replicates      Numeric: number of bootstrap samples
 #' @param ciCoverage      Numeric (0-1): coverage proportion for bootstrap confidence intervals
-#' @param na.rm           Logical: strip out bootstrap replicates with NA values (most likely without a finite estimate)
+#' @param na.rm           Logical: strip out bootstrap replicates with NA values (most likely without a finite
+#'                        estimate). Otherwise they stay in \code{samples}, and the summary of a coefficient with NA
+#'                        samples is \code{NA}
 #'
 #' @export
 runBootstrap <- function(object, replicates, ciCoverage = 0.95, na.rm = FALSE) {
     .checkInterface(object$cyclopsData, testOnly = TRUE)
+    if (identical(object$selectorType, "byRow") && object$cyclopsData$modelType %in% .conditionalModelTypes) {
+        warning("In modelType = \"", object$cyclopsData$modelType, "\", a row of weight 0 still enters its stratum, ",
+                "so samples by row are not fits of the resampled rows; use selectorType = \"byPid\"")
+    }
     bs <- .cyclopsRunBootstrap(object$cyclopsData$cyclopsInterfacePtr, "", "1", replicates) # TODO Remove unneeded arguments
 
     if (.cyclopsGetHasOffset(object$cyclopsData)) {
@@ -1541,18 +1571,25 @@ runBootstrap <- function(object, replicates, ciCoverage = 0.95, na.rm = FALSE) {
     colnames(bs$samples) <- .coefficientNames(object)
     bs$samples <- as_tibble(bs$samples)
 
+    bs$failed <- sum(!stats::complete.cases(bs$samples))
+    if (bs$failed > 0) {
+        warning(bs$failed, " of ", replicates, " bootstrap replicates failed and have NA estimates; ",
+                if (na.rm) "they are dropped" else "the summary of their coefficients is NA (na.rm = TRUE drops them)")
+    }
+
     if (na.rm) {
         bs$samples <- bs$samples %>% tidyr::drop_na()
     }
 
     epsilon <- 1 - ciCoverage
+    quantileOrNA <- function(x, probs) if (anyNA(x)) NA_real_ else stats::quantile(x, probs = probs)
 
     bs$summary <- data.frame(
         original = coef(object),
         bias = sapply(bs$samples, mean) - coef(object),
         std_err = sapply(bs$samples, function(x) { sqrt(stats::var(x)) }),
-        bpi_lower = sapply(bs$samples, stats::quantile, probs = epsilon / 2),
-        bpi_upper = sapply(bs$samples, stats::quantile, probs = 1 - epsilon / 2)
+        bpi_lower = sapply(bs$samples, quantileOrNA, probs = epsilon / 2),
+        bpi_upper = sapply(bs$samples, quantileOrNA, probs = 1 - epsilon / 2)
     )
 
     return(bs)

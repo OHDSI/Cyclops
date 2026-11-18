@@ -11,10 +11,13 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cmath>
+#include <limits>
+#include <memory>
 #include <sstream>
 
 #include "BootstrapDriver.h"
 #include "AbstractSelector.h"
+#include "Thread.h"
 
 namespace bsccs {
 
@@ -57,43 +60,184 @@ std::vector<double> BootstrapDriver::flattenEstimates() {
 }
 
 void BootstrapDriver::drive(
-		CyclicCoordinateDescent& ccd,
-		AbstractSelector& selector,
-		const CCDArguments& arguments) {
+        CyclicCoordinateDescent& ccd,
+        AbstractSelector& selector,
+        const CCDArguments& allArguments) {
 
-	// TODO Make sure that selector is type-of BootstrapSelector
-	std::vector<double> weights;
+    // Start of new multi-thread set-up
+    int nThreads = (allArguments.threads == -1) ?
+        bsccs::thread::hardware_concurrency() :
+        allArguments.threads;
 
-	// Replicates overwrite the weights and coefficients of the fit; restored below
+    if (nThreads < 1) {
+        nThreads = 1;
+    }
+    const int allThreads = nThreads; // before the clamp: see the second-order threads below
+
+    // More threads than replicates would only hold unused copies of the model
+    if (nThreads > replicates) {
+        nThreads = std::max(1, replicates);
+    }
+
+	// Replicates overwrite the weights and coefficients of the fit; restored by fitRestore below
 	std::vector<double> savedWeights = ccd.getWeights();
 	std::vector<double> savedBeta(J);
 	for (int j = 0; j < J; ++j) {
 		savedBeta[j] = ccd.getBeta(j);
 	}
 
-    // TODO parallelize this loop using multiple threads (see example in cross-validation)
-    // TODO via a pool of CCD, but call selector.permute() in series to keep same PRNG stream
-	for (int step = 0; step < replicates; step++) {
-		selector.permute();
-		selector.getWeights(0, weights);
-		ccd.setWeights(&weights[0]); // TODO ERROR FOR BS WITH WEIGHTS?
+    std::ostringstream stream2;
+    stream2 << "Using " << nThreads << " thread(s)";
+    logger->writeLine(stream2);
+
+    std::vector<CyclicCoordinateDescent*> ccdPool;
+    std::vector<AbstractSelector*> selectorPool;
+
+    ccdPool.push_back(&ccd);
+    selectorPool.push_back(&selector);
+
+    // The copies are owned here, so they go also when a replicate throws; the fit gets back its second-order threads,
+    // weights and coefficients also then
+    std::vector<std::unique_ptr<CyclicCoordinateDescent>> ccdCopies;
+    std::vector<std::unique_ptr<AbstractSelector>> selectorCopies;
+    struct FitRestore {
+        CyclicCoordinateDescent& ccd;
+        int threads;
+        std::vector<double>& weights;
+        const std::vector<double>& beta;
+        ~FitRestore() {
+            try {
+                ccd.setSecondOrderThreads(threads);
+                ccd.setWeights(weights.empty() ? NULL : weights.data());
+                ccd.setBeta(beta); // assigns rather than updates, so non-finite replicate estimates do not carry over
+            } catch (...) { } // a destructor must not throw
+        }
+    } fitRestore{ccd, allThreads, savedWeights, savedBeta};
+
+    for (int i = 1; i < nThreads; ++i) {
+        ccdCopies.emplace_back(ccd.clone(allArguments.computeDevice));
+        selectorCopies.emplace_back(selector.clone());
+        ccdPool.push_back(ccdCopies.back().get());
+        selectorPool.push_back(selectorCopies.back().get());
+    }
+
+    // Check of poor allocation
+    bool allocationError = false;
+    for (auto element : ccdPool) {
+        if (element == nullptr) {
+            allocationError = true;
+        }
+    }
+
+    for (auto element : selectorPool) {
+        if (element == nullptr) {
+            allocationError = true;
+            }
+    }
+
+    if (allocationError) {
+        std::ostringstream errorStream;
+        errorStream << "Memory allocation error in multi-threaded bootstrap driver";
+        error->throwError(errorStream);
+        }
+
+    // Threads beyond the replicates in parallel go to each replicate's logistic Hessian block, whose result does not
+    // depend on its threads
+    for (auto element : ccdPool) {
+        element->setSecondOrderThreads(allThreads / nThreads);
+    }
+    // End of multi-thread set-up
+
+    doBootstrap(ccd, allArguments, nThreads, ccdPool, selectorPool, savedBeta);
+
+    ccd.setBootStrapInfo(flattenEstimates());
+}
+
+void BootstrapDriver::doBootstrap(
+        CyclicCoordinateDescent& ccd,
+        const CCDArguments& allArguments,
+        int nThreads,
+        std::vector<CyclicCoordinateDescent*>& ccdPool,
+        std::vector<AbstractSelector*>& selectorPool,
+        const std::vector<double>& startingBeta) {
+
+    bool coldStart = allArguments.resetCoefficients;
+
+    std::vector<std::vector<double>> weightsPool(nThreads);
+
+    // Replicates drawn so far by each selector: a selector skips the draws of the replicates other threads ran, so
+    // replicate r has the r-th draws of the serial stream whichever thread runs it
+    std::vector<int> drawn(nThreads, 0);
+
+    // allocate results so cache-lines do not thrash each other
+    std::vector<double> storage(J * replicates);
+
+    // Every replicate starts from the coefficients of the fit (or cold), so its estimates do not depend on the
+    // replicates its thread ran before, nor on the number of threads
+    auto oneTask = [&](size_t task, size_t uniqueId) {
+
+        auto ccdTask = ccdPool[uniqueId];
+        auto selector = selectorPool[uniqueId];
+
+        selector->advance(static_cast<int>(task) - drawn[uniqueId]); // tasks start in increasing order
+        selector->permute();
+        drawn[uniqueId] = static_cast<int>(task) + 1;
+
+        selector->getWeights(0, weightsPool[uniqueId]);
+        ccdTask->setWeights(weightsPool[uniqueId].data());
 
         std::ostringstream stream;
-		stream << std::endl << "Running replicate #" << (step + 1);
-		logger->writeLine(stream);
-		// Run CCD using a warm start
-		ccd.update(arguments.modeFinding);
+        stream << "\nRunning replicate #" << (task + 1);
+        logger->writeLine(stream);
 
-		// Store point estimates
-		for (int j = 0; j < J; ++j) {
-			estimates[j]->push_back(ccd.getBeta(j));
-		}
-	}
+        if (coldStart) {
+            ccdTask->resetBeta();
+        } else {
+            ccdTask->setBeta(startingBeta);
+        }
 
-	ccd.setBootStrapInfo(flattenEstimates());
+        ccdTask->update(allArguments.modeFinding);
 
-	ccd.setWeights(savedWeights.empty() ? NULL : savedWeights.data());
-	ccd.setBeta(savedBeta); // assigns rather than updates, so non-finite replicate estimates do not carry over
+        if (ccdTask->getUpdateReturnFlag() == SUCCESS) {
+
+            for (int j = 0; j < J; ++j) {
+                storage[task * J + j] = ccdTask->getBeta(j);
+            }
+
+        } else {
+
+            for (int j = 0; j < J; ++j) {
+                storage[task * J + j] = std::numeric_limits<double>::quiet_NaN();
+            }
+        }
+    };
+
+    // execute all tasks in parallel; the first error stops the others and is rethrown here
+    if (nThreads > 1) {
+        ccd.getProgressLogger().setConcurrent(true);
+    }
+
+    try {
+        executeDynamic(replicates, nThreads, oneTask);
+    } catch (...) {
+        if (nThreads > 1) {
+            ccd.getProgressLogger().setConcurrent(false);
+            ccd.getProgressLogger().flush();
+        }
+        throw;
+    }
+
+    if (nThreads > 1) {
+        ccd.getProgressLogger().setConcurrent(false);
+        ccd.getProgressLogger().flush();
+    }
+
+    // transpose results
+    for (int i = 0; i < replicates; ++i) {
+        for (int j = 0; j < J; ++j) {
+            estimates[j]->push_back(storage[i * J + j]);
+        }
+    }
 }
 
 void BootstrapDriver::logResults(const CCDArguments& arguments) {

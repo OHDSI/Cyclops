@@ -172,12 +172,19 @@ start, length, event, x1, x2
                                      data = test,
                                      modelType = "cox")
 
-    fit <- fitCyclopsModel(cyclopsData, weights = rep(c(0,1), 7))
-    expect_error(bootstrap <- runBootstrap(fit, replicates = 4999), "missing values and NaN")
+    fit <- fitCyclopsModel(cyclopsData, weights = rep(c(0,1), 7),
+                           control = createControl(seed = 123))
+    expect_warning(bootstrap <- runBootstrap(fit, replicates = 4999), "replicates failed and have NA estimates")
+    expect_equal(nrow(bootstrap$samples), 4999)
+    expect_equal(bootstrap$failed, sum(!complete.cases(bootstrap$samples)))
+    expect_gt(bootstrap$failed, 0)
+    expect_true(is.na(bootstrap$summary$bpi_lower))
 
-    fit <- fitCyclopsModel(cyclopsData, weights = rep(c(0,1), 7))
-    bootstrap <- runBootstrap(fit, replicates = 4999, na.rm = TRUE)
-    expect_lt(nrow(bootstrap$samples), 4999)
+    fit <- fitCyclopsModel(cyclopsData, weights = rep(c(0,1), 7),
+                           control = createControl(seed = 123))
+    expect_warning(dropped <- runBootstrap(fit, replicates = 4999, na.rm = TRUE), "they are dropped")
+    expect_equal(nrow(dropped$samples), 4999 - dropped$failed) # the refit warm-starts, so its failures can differ
+    expect_true(is.finite(dropped$summary$bpi_lower))
 })
 
 test_that("Bootstrap leaves the weights and coefficients of the fit", {
@@ -239,7 +246,8 @@ test_that("Large logistic bootstrap with and without weights", {
     cyclopsData <- convertToCyclopsData(outcomes = sim$outcomes,
                                         covariates = sim$covariates,
                                         modelType = "lr")
-    fitCyclopsNoWeights <- fitCyclopsModel(cyclopsData = cyclopsData)
+    fitCyclopsNoWeights <- fitCyclopsModel(cyclopsData = cyclopsData,
+                                           control = createControl(seed = 123))
     bsNoWeights <- runBootstrap(fitCyclopsNoWeights, replicates = 1999)
 
     bbNoWeights <- bootstrap(
@@ -263,7 +271,8 @@ test_that("Large logistic bootstrap with and without weights", {
     cyclopsData <- convertToCyclopsData(outcomes = sim$outcomes,
                                         covariates = sim$covariates,
                                         modelType = "lr")
-    fitCyclopsYesWeights <- fitCyclopsModel(cyclopsData = cyclopsData)
+    fitCyclopsYesWeights <- fitCyclopsModel(cyclopsData = cyclopsData,
+                                            control = createControl(seed = 123))
     bsYesWeights <- runBootstrap(fitCyclopsYesWeights, replicates = 1999)
 
     bbYesWeights <- bootstrap(convertToDf(sim, 4),
@@ -297,7 +306,8 @@ test_that("Large Poisson bootstrap with and without weights", {
     cyclopsData <- convertToCyclopsData(outcomes = sim$outcomes,
                                         covariates = sim$covariates,
                                         modelType = "pr")
-    fitCyclopsNoWeights <- fitCyclopsModel(cyclopsData = cyclopsData)
+    fitCyclopsNoWeights <- fitCyclopsModel(cyclopsData = cyclopsData,
+                                           control = createControl(seed = 123))
     bsNoWeights <- runBootstrap(fitCyclopsNoWeights, replicates = 1999)
 
     bbNoWeights <- bootstrap(
@@ -321,7 +331,8 @@ test_that("Large Poisson bootstrap with and without weights", {
     cyclopsData <- convertToCyclopsData(outcomes = sim$outcomes,
                                         covariates = sim$covariates,
                                         modelType = "pr")
-    fitCyclopsYesWeights <- fitCyclopsModel(cyclopsData = cyclopsData)
+    fitCyclopsYesWeights <- fitCyclopsModel(cyclopsData = cyclopsData,
+                                            control = createControl(seed = 123))
     bsYesWeights <- runBootstrap(fitCyclopsYesWeights, replicates = 1999)
 
     bbYesWeights <- bootstrap(
@@ -357,7 +368,8 @@ test_that("Large Cox bootstrap with and without weights", {
     cyclopsData <- convertToCyclopsData(outcomes = sim$outcomes,
                                         covariates = sim$covariates,
                                         modelType = "cox")
-    fitCyclopsNoWeights <- fitCyclopsModel(cyclopsData = cyclopsData)
+    fitCyclopsNoWeights <- fitCyclopsModel(cyclopsData = cyclopsData,
+                                           control = createControl(seed = 123))
     bsNoWeights <- runBootstrap(fitCyclopsNoWeights, replicates = 3999)
 
     bbNoWeights <- bootstrap(
@@ -381,7 +393,8 @@ test_that("Large Cox bootstrap with and without weights", {
     cyclopsData <- convertToCyclopsData(outcomes = sim$outcomes,
                                         covariates = sim$covariates,
                                         modelType = "cox")
-    fitCyclops <- fitCyclopsModel(cyclopsData = cyclopsData)
+    fitCyclops <- fitCyclopsModel(cyclopsData = cyclopsData,
+                                  control = createControl(seed = 123))
     bsYesWeights <- runBootstrap(fitCyclops, replicates = 3999)
 
     bbYesWeights <- bootstrap(

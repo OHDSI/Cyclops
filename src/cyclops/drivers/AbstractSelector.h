@@ -48,6 +48,8 @@ public:
 	// Fold in which each row is held out under the current assignment; false if the selector has no folds
 	virtual bool getFoldOfRow(std::vector<int>& foldOfRow) const { return false; }
 
+	virtual void advance(int permutationCount) { } // Do nothing by default
+
 protected:
 	const std::vector<int> ids;
 	SelectorType type;

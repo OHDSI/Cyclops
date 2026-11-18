@@ -65,6 +65,16 @@ AbstractSelector* BootstrapSelector::clone() const {
 	return new BootstrapSelector(*this);
 }
 
+void BootstrapSelector::advance(int permutationCount) {
+    // The draws of permutationCount calls to permute(); uniform() can call prng() more than once, so prng.discard()
+    // would not do
+    std::uniform_int_distribution<int> uniform(0, indicesIncluded.size() - 1);
+    const size_t count = indicesIncluded.size() * static_cast<size_t>(permutationCount);
+    for (size_t i = 0; i < count; ++i) {
+        uniform(prng);
+    }
+}
+
 void BootstrapSelector::permute() {
 	selectedSet.clear();
 
