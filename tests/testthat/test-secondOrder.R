@@ -111,8 +111,12 @@ test_that("Fisher information from the Hessian block matches the per-pair legacy
     # with a fixed coefficient, on a subset of covariates
     fixed <- fitCyclopsModel(data, startingCoefficients = beta, fixedCoefficients = c(TRUE, FALSE, TRUE, FALSE),
                              control = createControl(noiseLevel = "silent"))
-    legacyFixed <- fitCyclopsModel(legacyData, startingCoefficients = beta, fixedCoefficients = c(TRUE, FALSE, TRUE, FALSE),
+    # the legacy engine at the same coefficients: each refit stops at its own tolerance, and from some
+    # starting points the default fit ends ~5e-9 from the optimum, which moves the standard errors more than 1e-10
+    legacyFixed <- fitCyclopsModel(legacyData, startingCoefficients = coef(fixed),
+                                   fixedCoefficients = rep(TRUE, length(beta)),
                                    control = createControl(fitter = "legacy", noiseLevel = "silent"))
+    expect_identical(coef(legacyFixed), coef(fixed))
     subset <- c("x2", "x4")
     ses <- suppressWarnings(getSEs(fixed, subset))
     legacySes <- suppressWarnings(getSEs(legacyFixed, subset))

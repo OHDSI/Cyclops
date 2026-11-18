@@ -1,5 +1,5 @@
-Cyclops (development version)
-=============================
+Cyclops v4.0.2 (development version)
+====================================
 
 Changes:
 
@@ -45,7 +45,8 @@ Changes:
    `fit$divergentCoefficients`
 9. Newton steps on `cox` and `cox_counting` designs solve with conjugate gradients (Newton-CG) when an
    operation count says that is cheaper than a dense factorization, or when the dense matrices of all
-   concurrent fits would exceed 256 MB. A rank-32 Woodbury preconditioner (the row part of the Hessian
+   concurrent fits would exceed `createControl(newtonMemoryBudget = )` (1024 MB by default, see 38). A
+   rank-32 Woodbury preconditioner (the row part of the Hessian
    minus a binned approximation of its risk-set part) cuts the conjugate-gradient work 8-16 fold, and the
    stop is certified from an explicit-residual bracket. With 3,068 covariates and 13,152 rows a ridge fit
    to a gap of 1e-8 takes 1.5 s (dense Newton: 7.5 s; coordinate descent did not get there in 25,000
@@ -163,7 +164,71 @@ Changes:
    and are resampled together by `runBootstrap()` (`selectorType = "bySubject"`, which `"auto"` picks in place of
    `"byRow"` when the data have subjects). `convertToCyclopsData()` ignored `subjectId` for other models, and
    `cluster()` stopped. Fits of data with `subjectId`, such as `lr` designs with several rows per person, can change
-30. `updateWeights()` and `updateOutcomes()` replace the row weights or the outcomes of a Cyclops data object in
+30. new `evaluateLikelihood()`: the log-likelihood at given coefficients, with its gradient and the Fisher information
+   (matrix or diagonal) of chosen covariates, under given weights (none: every row; never an earlier fit's weights).
+   For packages that build estimators on Cyclops, such as IterativeHardThresholding, which used internal functions
+31. the Fisher information of `pr` and `ls` models with weights (and of `lr` with weights that are not whole
+   numbers) no longer stops with "Weights are not yet implemented"; `vcov()` and `getSEs()` of such fits invert the
+   weighted information, as `glm()` does with prior weights (for `ls`, without a dispersion factor, as before)
+32. the internal Fisher information after `.cyclopsSetBeta()` was computed at the previous coefficients
+33. `fitCyclopsModel(returnCvPredictions = TRUE)` also works without a hyperparameter search: with a fixed prior or a
+   prior with a `fitHook` (such as BrokenAdaptiveRidge's), each fold of `cvFolds` is fit on its training rows and
+   predicts its held-out rows, next to the fit on all rows. A `fitHook` that names arguments `cvFolds` and
+   `returnCvPredictions` gets them and returns the predictions itself. So PatientLevelPrediction no longer needs
+   its own fold refits for any Cyclops model. A prior with `keepControl = TRUE` gives its `fitHook` the control as
+   given; other hooks still get coordinate descent when no algorithm is set
+34. `vcov()`, `getSEs()` and the Fisher information also accept non-integer case weights for `cox` and
+   `cox_counting` fits (and `cpr`, `sccs` and `clr` under the default fitter): they return the inverse of the weighted
+   information, as `coxph(weights = )$naive.var` (Breslow ties). `cox` fits under `fitter = "legacy"` still stop with
+   "Weights are not yet implemented in Fisher Information calculations". `evaluateLikelihood()` likewise returns the
+   weighted information, and stops only for a `cox` data object whose last fit used `fitter = "legacy"`
+35. `vcov(fit, type = "robust")` returns the cluster-robust (sandwich) variance H^-1 (U'U) H^-1 of `lr`, `pr`, `cox` and
+   `cox_counting` fits: H is the information of the log likelihood (the prior excluded), and each row of U sums the
+   weighted score contributions of one subject (`cluster()` or `subjectId`; one row without subjects). Cox scores are
+   the weighted score residuals with the risk-set compensator, for counting-process data and strata. Fixed
+   coefficients are left out, and there is no small-sample factor: it matches `coxph(weights = , cluster = ,
+   ties = "breslow")$var` and `sandwich::vcovCL(glm(weights = ), cluster = , type = "HC0", cadjust = FALSE)` to
+   1e-6. `cox` fits under `fitter = "legacy"` are not supported. Under a prior it warns that it is not a validated
+   variance of regularized coefficients, unless `overrideNoRegularization = TRUE`. `confint(fit, method = "robust")`
+   gives the Wald intervals from it, and, as for profile intervals, stops for regularized parameters unless
+   `overrideNoRegularization = TRUE`. The defaults (`type = "modelBased"`, `method = "profile"`) are unchanged
+36. `convertToCyclopsData()` takes an `offset` column in the outcomes of `lr` models: an offset added to the linear
+   predictor (log-odds scale), as `glm(offset = )`, held as a covariate with coefficient fixed at 1 (as the log time of
+   `pr` models), so every algorithm, prior and cross-validation uses it. The data object comes back finalized. Before,
+   an `lr` offset needed a covariate and `finalizeSqlCyclopsData(useOffsetCovariate = , offsetAlreadyOnLogScale = TRUE)`.
+   `predict()` on new data adds the `offset` column of `newOutcomes`, if any. Offsets must be finite, and other model
+   types warn that they ignore an `offset` column
+37. new `modelType = "plr"` (pooled logistic regression) in `convertToCyclopsData()`: logistic regression over the
+   intervals at risk of each subject without expanding the covariates to those rows. A row of the data is a subject;
+   its intervals come as one outcome row per interval (explicit) or as `entry` and `exit` (implicit, see the new
+   `convertToLongOutcome()`), with case weights and offsets per row or per subject. A `timeBasis` gives time
+   covariates by interval, and `timeEffectMap` their interactions with covariates. Fits equal `glm(binomial())` and
+   `"lr"` on the expanded rows; cross-validation folds and robust-variance clusters are subjects, or persons given
+   as `outcomes$subjectId` (e.g. the clones of one person). `link = "cloglog"` fits the complementary log-log
+   model (equal to `glm(binomial("cloglog"))` on the expanded rows), whose non-event rows factorize so a covariate
+   update costs O(nonzeros). With the logit link the second-order kernels run `algorithm = "auto"` (the default, as
+   for `"lr"`) and `"newton"` with certified `"gap"` stops (L1 by the duality gap); cloglog fits use coordinate
+   descent, which on correlated time bases needs a tighter `tolerance` than the default. The cloglog `vcov()` is
+   the observed information (`glm()` reports the expected one). Separated coefficients without a prior are
+   reported at their limit with a warning, as for `"lr"`. The expanded rows are never built, so memory stays
+   near that of one row per subject. Large Laplace fits take prox-Newton steps (the copy of the subjects'
+   covariates by row no longer counts against the memory budget of dense Newton, which had left a 100,000-person
+   CCW censoring model on coordinate descent, unconverged after 6,300 s; a fit whose active set is too wide for
+   `newtonMemoryBudget`, where 24·|W|² alone exceeds it (about 6,700 columns by default, see 38), still falls back
+   to coordinate descent, for `"lr"` too), and the Hessian block and coordinate
+   gradients use `threads`, with the same result on any number. Separation is found in time-basis and interaction
+   columns too (an interval without events in a cross-validation fold had made the selected variance differ from
+   `"lr"`'s), and the cross-validation search starts from the default variance of the person-interval rows.
+   `convertToCyclopsData()` loads the interactions in one pass over the covariates (3.5 s, was 111 s, for 1,907
+   interactions of 23.8 million covariate values).
+   Predictions are not yet implemented
+38. new `createControl(newtonMemoryBudget = 1024)`: the memory budget, in MB, of one fit's dense Newton and
+   prox-Newton work (24·|W|² for the active-set Hessian, plus the row-wise copies of X and the Nyström, Schur-bound
+   and conjugate-gradient work), a ceiling rather than an allocation. Its default rises from a fixed 256 MB to
+   1024 MB, which allows active sets of about 6,700 columns (was 3,300): a 100,000-person CCW censoring model with
+   3,550 active columns that had alternated between Newton and coordinate descent, unconverged after 13 minutes,
+   converges in 50 s with 9 Newton iterations
+39. `updateWeights()` and `updateOutcomes()` replace the row weights or the outcomes of a Cyclops data object in
    place, so that a model is refit (bootstrap frequency weights, other outcomes on the same design) without
    rebuilding the data; a refit equals a fit of rebuilt data. Weights and outcomes are given by `rowId` (a vector
    only when the data keep their rows in `rowId` order) or, for `createCyclopsData()` data, in data order. A row of
@@ -171,12 +236,12 @@ Changes:
    Not yet in conditional models (`clr`, `clr_efron`, `clr_exact`, `cpr`, `sccs`), where a row of weight 0 still
    enters its stratum: `updateWeights()` needs weights of 0 to cover whole strata, and `fitCyclopsModel(weights = )`,
    and cross-validation or `runBootstrap()` with `selectorType = "byRow"`, warn there
-31. `runBootstrap()` runs its replicates in parallel on `createControl(threads = )`. Each replicate starts from the
+40. `runBootstrap()` runs its replicates in parallel on `createControl(threads = )`. Each replicate starts from the
    coefficients of the fit (it started from the previous replicate) and draws the same samples on any number of
    threads, so results do not depend on the threads. A replicate whose fit fails is `NA` (it was the estimate at
    which the fit stopped), with a warning that counts them (`failed` in the result); the summary of a coefficient
    with `NA` samples is `NA` unless `na.rm = TRUE` drops them (it was an error)
-32. `survfit()` for `cox` and `cox_counting` fits uses the case weights of the fit in the Breslow baseline (event counts and
+41. `survfit()` for `cox` and `cox_counting` fits uses the case weights of the fit in the Breslow baseline (event counts and
    risk sets; rows with weight 0 are left out), and gives one curve per stratum for `cox` fits too; it used unweighted
    counts and, for `cox`, ignored strata. `predict(fit, newOutcomes, newCovariates, times = )` returns the survival
    S(t | x) = exp(-Lambda0(t) exp(x'beta)) of new rows of `cox` and `cox_counting` fits at `times` (a matrix, a row

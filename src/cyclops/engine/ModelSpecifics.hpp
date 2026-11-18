@@ -1846,11 +1846,13 @@ void ModelSpecifics<BaseModel,RealType>::computeFisherInformation(int indexOne, 
 
 	ensureDenominators();
 
-	if (useWeights) {
+	// Rows that enter the likelihood independently (logistic, Poisson, least squares) carry their weight in hKWeight,
+	// which the sum below uses; risk sets and strata cross terms have no weighted form here
+	if (useWeights && (BaseModel::cumulativeGradientAndHessian || BaseModel::hasStrataCrossTerms)) {
 		throw std::logic_error("Weights are not yet implemented in Fisher Information calculations");
 	} else if (BaseModel::cumulativeGradientAndHessian) { // Cox-type: sums over risk sets
 		computeRiskSetFisherInformation(indexOne, indexTwo, oinfo);
-	} else { // no weights
+	} else {
 		switch (hX.getFormatType(indexOne)) {
 			case INDICATOR :
 				dispatchFisherInformation<IndicatorIterator<RealType>>(indexOne, indexTwo, oinfo, weighted);
@@ -1866,6 +1868,28 @@ void ModelSpecifics<BaseModel,RealType>::computeFisherInformation(int indexOne, 
 				break;
 		}
 	}
+}
+
+template <class BaseModel,typename RealType>
+bool ModelSpecifics<BaseModel,RealType>::scoreContributions(int index, std::vector<double>& u) {
+
+	// u_k = w_k x_k (y_k - mu_k) for logistic (mu = p) and Poisson (mu = exp(eta)) regression
+	const bool logistic = std::is_same<BaseModel, LogisticRegression<RealType>>::value;
+	const bool poisson = std::is_same<BaseModel, PoissonRegression<RealType>>::value;
+	if (!logistic && !poisson) {
+		return false;
+	}
+	flushIntercept();
+	u.assign(K, 0.0);
+	for (GenericIterator<RealType> it(hX, index); it; ++it) {
+		const int k = it.index();
+		const double w = static_cast<double>(hKWeight[k]);
+		if (w != 0.0) { // rows of weight 0 may hold stale predictions
+			const double mu = logistic ? readP(offsExpXBeta[k]) : static_cast<double>(offsExpXBeta[k]);
+			u[k] = w * static_cast<double>(it.value()) * (static_cast<double>(hY[k]) - mu);
+		}
+	}
+	return true;
 }
 
 template <class BaseModel, typename RealType> template <typename IteratorTypeOne, class Weights>

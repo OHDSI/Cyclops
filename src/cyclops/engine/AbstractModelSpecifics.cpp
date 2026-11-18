@@ -12,6 +12,7 @@
 #include "ModelData.h"
 #include "engine/ModelSpecifics.h"
 #include "engine/CountingProcessModelSpecifics.hpp"
+#include "engine/PooledLogisticModelSpecifics.hpp"
 
 #ifdef HAVE_OPENCL
 #include "engine/GpuModelSpecifics.hpp"
@@ -128,6 +129,11 @@ AbstractModelSpecifics* precisionFactory<float>(
             model = new CountingProcessModelSpecifics<float>(modelData);
         }
         break;
+    case ModelType::POOLED_LOGISTIC :
+        if (deviceType == DeviceType::CPU) {
+            model = new PooledLogisticModelSpecifics<float>(modelData);
+        }
+        break;
     default:
     	break;
     }
@@ -227,6 +233,11 @@ AbstractModelSpecifics* precisionFactory<double>(
     case ModelType::COX_COUNTING :
         if (deviceType == DeviceType::CPU) {
             model = new CountingProcessModelSpecifics<double>(modelData);
+        }
+        break;
+    case ModelType::POOLED_LOGISTIC :
+        if (deviceType == DeviceType::CPU) {
+            model = new PooledLogisticModelSpecifics<double>(modelData);
         }
         break;
     default:

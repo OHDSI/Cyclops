@@ -38,7 +38,8 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'
 #' @param outcomes      A data frame or ffdf object containing the outcomes with predefined columns (see below).
 #' @param covariates    A data frame or ffdf object containing the covariates with predefined columns (see below).
-#' @param modelType     Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", or "cox"
+#' @param modelType     Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", "cox", "cox_counting"
+#'                      or "plr" (pooled logistic regression; see Details)
 #' @param addIntercept  Add an intercept to the model?
 #' @param checkSorting  (DEPRECATED) Check if the data are sorted appropriately, and if not, sort.
 #' @param checkRowIds   Check if all rowIds in the covariates appear in the outcomes.
@@ -46,6 +47,14 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #' @param quiet         If true, (warning) messages are suppressed.
 #' @param floatingPoint Specified floating-point representation size (32 or 64)
 #' @param timeEffectMap A data frame or ffdf object containing the convariates that have time-varying effects on the outcome
+#'                      (for \code{"plr"} models, the time x covariate interactions; see Details)
+#' @param timeBasis     For \code{"plr"} models, an optional data frame with columns \code{interval}, \code{covariateId}
+#'                      and \code{covariateValue}: the time basis, one covariate (with a coefficient) per basis column,
+#'                      whose value in a person-interval row is its value at the row's interval (0 where not given)
+#' @param link          For \code{"plr"} models, the link: \code{"logit"} (pooled logistic regression) or \code{"cloglog"}
+#'                      (complementary log-log, a grouped-time proportional hazards model). Cloglog fits run on
+#'                      coordinate descent, so with correlated time-basis columns they need a tighter \code{tolerance}
+#'                      in \code{\link{createControl}} (e.g. 1e-10); their \code{vcov()} is the observed information
 #'
 #' @details
 #' These columns are expected in the outcome object:
@@ -60,6 +69,8 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'                  \tab        \tab from time 0 \cr
 #'   \verb{subjectId}    \tab(integer) \tab (optional) For any model, rows with the same subject stay in one cross-validation fold \cr
 #'                  \tab        \tab and are resampled together by \code{\link{runBootstrap}} (\code{selectorType = "bySubject"}) \cr
+#'   \verb{offset} \tab(real) \tab (optional) For \code{"lr"} models, an offset added to the linear predictor (log-odds \cr
+#'                  \tab        \tab scale), as \code{offset} in \code{glm()}; the data object is then finalized \cr
 #'   \verb{weights} \tab(real) \tab (optional) Non-negative weights to apply to outcome \cr
 #'   \verb{censorWeights} \tab(real) \tab (optional) Non-negative censoring weights for competing risk model; will be computed if not provided.
 #' }
@@ -76,6 +87,23 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #' \tabular{lll}{
 #'   \verb{covariateId}    \tab(integer) \tab A numeric identifier of the covariates that have time-varying effects on the outcome \cr
 #' }
+#'
+#' For \code{modelType = "plr"} (pooled logistic regression), a row of the data is a subject (\code{rowId}, the
+#' \code{rowId} of its covariates), and its rows in the likelihood are its intervals at risk, given either as one
+#' outcome row per subject and interval (explicit rows: columns \code{rowId}, \code{interval}, \code{y} and optional
+#' \code{weights} and \code{offset} per row) or as one outcome row per subject (implicit rows: columns \code{rowId},
+#' \code{entry}, \code{exit}, \code{y}, 1 if the event is in interval \code{exit}, and optional \code{weights} and
+#' \code{offset} per subject); see \code{\link{convertToLongOutcome}}. Intervals are positive integers. The
+#' covariates are not expanded to the intervals: row \code{r} of subject \code{i} has the linear predictor
+#' \code{offset + sum_j x_ij beta_j + sum_b T[t_r, b] (alpha_b + sum_c x_ic gamma_cb)}, with \code{T} the
+#' \code{timeBasis}, \code{alpha_b} its coefficients and \code{gamma_cb} those of the interactions named in
+#' \code{timeEffectMap}, a data frame with columns \code{covariateId}, \code{timeCovariateId} (a \code{covariateId}
+#' of \code{timeBasis}) and \code{interactionId} (the id of the interaction's coefficient). The fit equals that of
+#' \code{"lr"} on the expanded rows (with \code{link = "cloglog"}, that of \code{glm(binomial("cloglog"))}).
+#' Cross-validation folds and the case weights of \code{fitCyclopsModel()} are by subject, as are the score
+#' contributions of \code{vcov(type = "robust")}; an optional outcome column \code{subjectId} (constant within a
+#' \code{rowId}) groups subjects further, e.g. the clones of one person: folds then never split a \code{subjectId}
+#' and the robust variance is clustered by it. Predictions are not yet implemented.
 #'
 #' @return
 #' An object of type cyclopsData
@@ -109,7 +137,9 @@ convertToCyclopsData <- function(outcomes,
                                  checkRowIds = TRUE,
                                  normalize = NULL,
                                  quiet = FALSE,
-                                 floatingPoint = 64) {
+                                 floatingPoint = 64,
+                                 timeBasis = NULL,
+                                 link = "logit") {
     UseMethod("convertToCyclopsData")
 }
 
@@ -139,9 +169,17 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                             checkRowIds = TRUE,
                                             normalize = NULL,
                                             quiet = FALSE,
-                                            floatingPoint = 64) {
+                                            floatingPoint = 64,
+                                            timeBasis = NULL,
+                                            link = "logit") {
     if (!is.null(checkSorting))
         warning("The 'checkSorting' argument has been deprecated. Sorting is now always checked")
+
+    if (modelType == "plr") {
+        return(.convertToPooledCyclopsData(outcomes, covariates, timeBasis, timeEffectMap, addIntercept,
+                                           checkRowIds, normalize, quiet, floatingPoint, link))
+    }
+    .checkPooledArguments(modelType, timeBasis, link)
 
     outcomes <- .renameEndTime(outcomes)
 
@@ -259,11 +297,13 @@ convertToCyclopsData.data.frame <- function(outcomes,
 
     dataPtr <- createSqlCyclopsData(modelType = modelType, floatingPoint = floatingPoint)
 
+    .checkOffsetColumn(outcomes, modelType)
+    hasOffset <- modelType == "lr" && "offset" %in% colnames(outcomes) # loaded as the time, then made the offset
     loadNewSqlCyclopsDataY(object = dataPtr,
                            stratumId = if ("stratumId" %in% colnames(outcomes)) outcomes$stratumId else NULL,
                            rowId = outcomes$rowId,
                            y = outcomes$y,
-                           time = if ("time" %in% colnames(outcomes)) outcomes$time else NULL)
+                           time = if (hasOffset) outcomes$offset else if ("time" %in% colnames(outcomes)) outcomes$time else NULL)
 
     if (modelType == "cox_counting" && "startTime" %in% colnames(outcomes)) {
         .loadCyclopsDataStartTime(dataPtr, outcomes$startTime)
@@ -299,6 +339,9 @@ convertToCyclopsData.data.frame <- function(outcomes,
 
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
+
+    if (hasOffset) # a covariate with coefficient fixed at 1
+        finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1, offsetAlreadyOnLogScale = TRUE)
 
     if (!is.null(normalize)) {
         .normalizeCovariates(dataPtr, normalize)
@@ -349,9 +392,19 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                                          checkRowIds = TRUE,
                                          normalize = NULL,
                                          quiet = FALSE,
-                                         floatingPoint = 64) {
+                                         floatingPoint = 64,
+                                         timeBasis = NULL,
+                                         link = "logit") {
     if (!is.null(checkSorting))
         warning("The 'checkSorting' argument has been deprecated. Sorting is now always checked")
+
+    if (modelType == "plr") { # one row per subject: collected
+        return(.convertToPooledCyclopsData(collect(outcomes), collect(covariates),
+                                           if (is.null(timeBasis)) NULL else collect(timeBasis),
+                                           if (is.null(timeEffectMap)) NULL else collect(timeEffectMap),
+                                           addIntercept, checkRowIds, normalize, quiet, floatingPoint, link))
+    }
+    .checkPooledArguments(modelType, timeBasis, link)
 
     outcomes <- .renameEndTime(outcomes)
 
@@ -460,11 +513,13 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         stop("Cox models require start times of 0; use modelType = \"cox_counting\" for start times", call. = FALSE)
     }
 
+    .checkOffsetColumn(outcomes, modelType)
+    hasOffset <- modelType == "lr" && "offset" %in% colnames(outcomes) # loaded as the time, then made the offset
     loadNewSqlCyclopsDataY(object = dataPtr,
                            stratumId = if ("stratumId" %in% colnames(outcomes)) outcomes$stratumId else NULL,
                            rowId = outcomes$rowId,
                            y = outcomes$y,
-                           time = if ("time" %in% colnames(outcomes)) (select(outcomes, time) %>% pull()) else NULL)
+                           time = if (hasOffset) outcomes$offset else if ("time" %in% colnames(outcomes)) (select(outcomes, time) %>% pull()) else NULL)
 
     if (modelType == "cox_counting" && "startTime" %in% colnames(outcomes)) {
         .loadCyclopsDataStartTime(dataPtr, outcomes$startTime)
@@ -509,6 +564,9 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     if (modelType == "pr" || modelType == "cpr")
         finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1)
 
+    if (hasOffset) # a covariate with coefficient fixed at 1
+        finalizeSqlCyclopsData(dataPtr, useOffsetCovariate = -1, offsetAlreadyOnLogScale = TRUE)
+
     if (!is.null(normalize)) {
         .normalizeCovariates(dataPtr, normalize)
     }
@@ -534,4 +592,26 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     }
 
     return(dataPtr)
+}
+
+# timeBasis and link are for plr models only
+.checkPooledArguments <- function(modelType, timeBasis, link) {
+    if (!is.null(timeBasis) || !identical(link, "logit")) {
+        warning("timeBasis and link are for plr models only; modelType = \"", modelType, "\" ignores them",
+                call. = FALSE)
+    }
+}
+
+# The offset column of the outcomes: lr models only, and finite
+.checkOffsetColumn <- function(outcomes, modelType) {
+    if (!"offset" %in% colnames(outcomes)) {
+        return(invisible())
+    }
+    if (modelType != "lr") {
+        warning("The offset column of the outcomes is for lr models only; modelType = \"", modelType,
+                "\" ignores it", call. = FALSE)
+    } else if (any(!is.finite(outcomes$offset))) {
+        stop("The offset column of the outcomes must be finite (", sum(!is.finite(outcomes$offset)),
+             " rows are NA, NaN or infinite)", call. = FALSE)
+    }
 }

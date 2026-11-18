@@ -37,4 +37,7 @@ data, and each row uses the baseline of its stratum. New covariates need the num
 of data from \code{\link{convertToCyclopsData}}. The baseline comes from the fitted data and the
 interface that all fits on one Cyclops data object share, so the prediction stops with an error once
 another model has been fitted to the same data, unless that fit used \code{forceNewObject = TRUE}.
+
+For an \code{lr} model fit with an \code{offset} column in the outcomes, the predictions for new data add the
+\code{offset} column of \code{newOutcomes} to the linear predictor; without that column, the offset is 0.
 }
