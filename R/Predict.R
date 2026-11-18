@@ -39,6 +39,9 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
         stop("Need to specify both newOutcomes and newCovariates")
     if (!missing(newCovariates) && (missing(newOutcomes) || is.null(newOutcomes)))
         stop("Need to specify both newOutcomes and newCovariates")
+    if (object$cyclopsData$modelType == "plr") {
+        stop("Prediction for plr models is not yet implemented")
+    }
     if (missing(newOutcomes)) {
         # Predict for same data that was used to fit the model:
         .checkInterface(object$cyclopsData, testOnly = TRUE)

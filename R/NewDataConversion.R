@@ -38,7 +38,8 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'
 #' @param outcomes      A data frame or ffdf object containing the outcomes with predefined columns (see below).
 #' @param covariates    A data frame or ffdf object containing the covariates with predefined columns (see below).
-#' @param modelType     Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", or "cox"
+#' @param modelType     Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", "cox", "cox_counting"
+#'                      or "plr" (pooled logistic regression; see Details)
 #' @param addIntercept  Add an intercept to the model?
 #' @param checkSorting  (DEPRECATED) Check if the data are sorted appropriately, and if not, sort.
 #' @param checkRowIds   Check if all rowIds in the covariates appear in the outcomes.
@@ -46,6 +47,9 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #' @param quiet         If true, (warning) messages are suppressed.
 #' @param floatingPoint Specified floating-point representation size (32 or 64)
 #' @param timeEffectMap A data frame or ffdf object containing the convariates that have time-varying effects on the outcome
+#' @param timeBasis     For \code{"plr"} models, an optional data frame with columns \code{interval}, \code{covariateId}
+#'                      and \code{covariateValue}: the time basis, one covariate (with a coefficient) per basis column,
+#'                      whose value in a person-interval row is its value at the row's interval (0 where not given)
 #'
 #' @details
 #' These columns are expected in the outcome object:
@@ -79,6 +83,20 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'   \verb{covariateId}    \tab(integer) \tab A numeric identifier of the covariates that have time-varying effects on the outcome \cr
 #' }
 #'
+#' For \code{modelType = "plr"} (pooled logistic regression), a row of the data is a subject (\code{rowId}, the
+#' \code{rowId} of its covariates), and its rows in the likelihood are its intervals at risk, given either as one
+#' outcome row per subject and interval (explicit rows: columns \code{rowId}, \code{interval}, \code{y} and optional
+#' \code{weights} and \code{offset} per row) or as one outcome row per subject (implicit rows: columns \code{rowId},
+#' \code{entry}, \code{exit}, \code{y}, 1 if the event is in interval \code{exit}, and optional \code{weights} and
+#' \code{offset} per subject); see \code{\link{convertToLongOutcome}}. Intervals are positive integers. The
+#' covariates are not expanded to the intervals: row \code{r} of subject \code{i} has the linear predictor
+#' \code{offset + sum_j x_ij beta_j + sum_b T[t_r, b] (alpha_b + sum_c x_ic gamma_cb)}, with \code{T} the
+#' \code{timeBasis}, \code{alpha_b} its coefficients and \code{gamma_cb} those of the interactions named in
+#' \code{timeEffectMap}, a data frame with columns \code{covariateId}, \code{timeCovariateId} (a \code{covariateId}
+#' of \code{timeBasis}) and \code{interactionId} (the id of the interaction's coefficient). The fit equals that of
+#' \code{"lr"} on the expanded rows. Cross-validation folds and the case weights of \code{fitCyclopsModel()} are by
+#' subject, as are the score contributions of \code{vcov(type = "robust")}. Predictions are not yet implemented.
+#'
 #' @return
 #' An object of type cyclopsData
 #'
@@ -111,7 +129,8 @@ convertToCyclopsData <- function(outcomes,
                                  checkRowIds = TRUE,
                                  normalize = NULL,
                                  quiet = FALSE,
-                                 floatingPoint = 64) {
+                                 floatingPoint = 64,
+                                 timeBasis = NULL) {
     UseMethod("convertToCyclopsData")
 }
 
@@ -141,9 +160,15 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                             checkRowIds = TRUE,
                                             normalize = NULL,
                                             quiet = FALSE,
-                                            floatingPoint = 64) {
+                                            floatingPoint = 64,
+                                            timeBasis = NULL) {
     if (!is.null(checkSorting))
         warning("The 'checkSorting' argument has been deprecated. Sorting is now always checked")
+
+    if (modelType == "plr") {
+        return(.convertToPooledCyclopsData(outcomes, covariates, timeBasis, timeEffectMap, addIntercept,
+                                           checkRowIds, normalize, quiet, floatingPoint))
+    }
 
     outcomes <- .renameEndTime(outcomes)
 
@@ -352,9 +377,17 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                                          checkRowIds = TRUE,
                                          normalize = NULL,
                                          quiet = FALSE,
-                                         floatingPoint = 64) {
+                                         floatingPoint = 64,
+                                         timeBasis = NULL) {
     if (!is.null(checkSorting))
         warning("The 'checkSorting' argument has been deprecated. Sorting is now always checked")
+
+    if (modelType == "plr") { # one row per subject: collected
+        return(.convertToPooledCyclopsData(collect(outcomes), collect(covariates),
+                                           if (is.null(timeBasis)) NULL else collect(timeBasis),
+                                           if (is.null(timeEffectMap)) NULL else collect(timeEffectMap),
+                                           addIntercept, checkRowIds, normalize, quiet, floatingPoint))
+    }
 
     outcomes <- .renameEndTime(outcomes)
 

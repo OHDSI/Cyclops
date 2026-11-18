@@ -252,7 +252,7 @@ fitCyclopsModel <- function(cyclopsData,
     }
 
     if (control$selectorType == "auto") {
-        if (cyclopsData$modelType %in% c("pr", "lr")) {
+        if (cyclopsData$modelType %in% c("pr", "lr", "plr")) { # plr: a row is a subject
             control$selectorType <- "byRow"
         } else {
             rowsPerStratum <- (getNumberOfRows(cyclopsData) / getNumberOfStrata(cyclopsData))
@@ -339,6 +339,9 @@ fitCyclopsModel <- function(cyclopsData,
         is.null(startingCoefficients)) {
         yMean <- mean(getYVector(cyclopsData))
         if (cyclopsData$modelType == "lr") {
+            interceptValue <- log(yMean / (1 - yMean))
+        } else if (cyclopsData$modelType == "plr") { # events per person-interval row
+            yMean <- sum(getYVector(cyclopsData)) / cyclopsData$numberOfPooledRows
             interceptValue <- log(yMean / (1 - yMean))
         } else if (cyclopsData$modelType == "pr") {
             interceptValue <- log(yMean)
