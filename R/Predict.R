@@ -27,6 +27,10 @@
 #' @param newCovariates  An optional data frame or Andromeda table object, similar to the object used in \code{\link{convertToCyclopsData}}.
 #' @param ...   Additional arguments
 #'
+#' @details
+#' For an \code{lr} model fit with an \code{offset} column in the outcomes, the predictions for new data add the
+#' \code{offset} column of \code{newOutcomes} to the linear predictor; without that column, the offset is 0.
+#'
 #' @importFrom stats predict
 #'
 #' @export
@@ -69,11 +73,11 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
             if (nrow(coefficients) == 0) {
                 if ("time" %in% colnames(newOutcomes)) {
                     prediction <- newOutcomes %>%
-                        select("rowId", "time") %>%
+                        select("rowId", "time", any_of("offset")) %>%
                         collect()
                 } else {
                     prediction <- newOutcomes %>%
-                        select("rowId") %>%
+                        select("rowId", any_of("offset")) %>%
                         collect()
                 }
                 prediction <- prediction %>%
@@ -109,6 +113,10 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, ...) {
                 prediction$value[is.na(prediction$value)] <- 0
                 prediction$value <- prediction$value + intercept
             }
+        }
+
+        if (modelType == "lr" && .cyclopsGetHasOffset(object$cyclopsData) && "offset" %in% colnames(prediction)) {
+            prediction$value <- prediction$value + prediction$offset
         }
 
         if (modelType == "lr") {
