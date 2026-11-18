@@ -371,6 +371,20 @@ Eigen::MatrixXd cyclopsGetFisherInformation(SEXP inRcppCcdInterface, const SEXP 
     return interface->getCcd().computeFisherInformation(indices);
 }
 
+// U'U, U the score contributions of the given covariates summed by subject (by row without subjects)
+// [[Rcpp::export(".cyclopsGetScoreCrossProduct")]]
+Eigen::MatrixXd cyclopsGetScoreCrossProduct(SEXP inRcppCcdInterface, const std::vector<double>& bitCovariates) {
+	using namespace bsccs;
+	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+
+	ProfileVector covariates = reinterpret_cast<const std::vector<int64_t>&>(bitCovariates);
+	std::vector<IdType> indices;
+	for (auto it = covariates.begin(); it != covariates.end(); ++it) {
+		indices.push_back(interface->getModelData().getColumnIndex(*it));
+	}
+	return interface->getCcd().computeScoreCrossProduct(indices);
+}
+
 // Internal (tests and timing): the second-order kernels over the given columns (all when NULL) at the
 // current coefficients. trial = log likelihood at beta + t v without changing the state; committed = log
 // likelihood after commitStep(t), after which the state is recomputed from beta. seconds per call

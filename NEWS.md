@@ -1,5 +1,5 @@
-Cyclops (development version)
-=============================
+Cyclops v4.0.2 (development version)
+====================================
 
 Changes:
 
@@ -176,13 +176,28 @@ Changes:
    `returnCvPredictions` gets them and returns the predictions itself. So PatientLevelPrediction no longer needs
    its own fold refits for any Cyclops model. A prior with `keepControl = TRUE` gives its `fitHook` the control as
    given; other hooks still get coordinate descent when no algorithm is set
-34. a prior with one variance per covariate (`createPrior(priorType = c(...), variance = c(...))`) is set up in time
+34. `vcov()`, `getSEs()` and the Fisher information also accept non-integer case weights for `cox` and
+   `cox_counting` fits (and `cpr`, `sccs` and `clr` under the default fitter): they return the inverse of the weighted
+   information, as `coxph(weights = )$naive.var` (Breslow ties). `cox` fits under `fitter = "legacy"` still stop with
+   "Weights are not yet implemented in Fisher Information calculations". `evaluateLikelihood()` likewise returns the
+   weighted information, and stops only for a `cox` data object whose last fit used `fitter = "legacy"`
+35. `vcov(fit, type = "robust")` returns the cluster-robust (sandwich) variance H^-1 (U'U) H^-1 of `lr`, `pr`, `cox` and
+   `cox_counting` fits: H is the information of the log likelihood (the prior excluded), and each row of U sums the
+   weighted score contributions of one subject (`cluster()` or `subjectId`; one row without subjects). Cox scores are
+   the weighted score residuals with the risk-set compensator, for counting-process data and strata. Fixed
+   coefficients are left out, and there is no small-sample factor: it matches `coxph(weights = , cluster = ,
+   ties = "breslow")$var` and `sandwich::vcovCL(glm(weights = ), cluster = , type = "HC0", cadjust = FALSE)` to
+   1e-6. `cox` fits under `fitter = "legacy"` are not supported. Under a prior it warns that it is not a validated
+   variance of regularized coefficients, unless `overrideNoRegularization = TRUE`. `confint(fit, method = "robust")`
+   gives the Wald intervals from it, and, as for profile intervals, stops for regularized parameters unless
+   `overrideNoRegularization = TRUE`. The defaults (`type = "modelBased"`, `method = "profile"`) are unchanged
+36. a prior with one variance per covariate (`createPrior(priorType = c(...), variance = c(...))`) is set up in time
    linear in the number of covariates; it was quadratic, in `fitCyclopsModel()` and again for each fit that merges
    duplicate columns (`mergeDuplicates`, the default under `algorithm = "auto"`). With 18,933 covariates a LASSO fit
    took 0.094 s instead of 0.032 s, and 0.25 s instead of 0.064 s under `"auto"`. `fit$prior_info` (and `print(fit)`)
    lists at most the first 100 priors of a fit, then their number: listing every prior took about 6 ms per fit with
    18,933 covariates
-35. logistic regression under `algorithm = "auto"` (the default) runs the coordinate descent of `fitter = "super"` (active-set
+37. logistic regression under `algorithm = "auto"` (the default) runs the coordinate descent of `fitter = "super"` (active-set
    cycling, adaptive and lazy intercept steps, skipped coordinates certified to be zero) and takes Newton steps only once
    coordinate descent has spent what four of them cost and is projected to need much more, or stalls. Its `"kkt"` stop
    (1e-4; 3e-3 in cross-validation folds) triggers the `"gap"` certificate: one pass for the duality gap (L1) or R (a
@@ -191,16 +206,16 @@ Changes:
    beyond that the fit stops there, as coordinate descent does, with `fit$convergence$certificate = "none"` and the bound
    it has. An explicit `convergenceType = "gap"` certifies as before (L1 by the duality gap, normal priors by R or a
    curvature certificate; elastic nets with a free intercept stop on an estimate, as before). On 30 simulated logistic designs and
-   cross-validations (2,400 to 19,000 covariates), `"auto"` took a median 1.07 times the time of `algorithm = "ccd"` with
+   cross-validations (2,400 to 19,000 covariates), `"auto"` took a median 1.02 times the time of `algorithm = "ccd"` with
    `fitter = "super"` (before: 3.75 times, up to 19), with the same models; where coordinate descent stalls it still
    switches to Newton steps. The same settings apply under every fitter but `"legacy"`. Its cross-validation folds
    (when no fold criterion is given) stop where coordinate descent's do, without a certificate (refits for out-of-fold
    predictions keep the fit's own), and it merges duplicate columns only when `mergeDuplicates = TRUE` (Newton steps
    are rare there, and their face solves handle the singular faces of duplicates), so its coefficients equal those of
    `"ccd"` where both stop together
-36. adaptive intercept steps (`fitter = "super"`) pause in a cycle once a step was cut short by its bound: from a start
-   with every row saturated (an intercept of -800), each bounded step doubled the intercept's bound and the fit diverged
-   to `NaN`
+38. extra adaptive intercept steps (`fitter = "super"`) keep within the intercept's step bound without widening it: from a
+   start with most rows saturated (an intercept of -800 or 100), each bounded step doubled the bound, several times a
+   cycle, and the fit diverged to `NaN`
 
 Cyclops v3.8.0
 ==============

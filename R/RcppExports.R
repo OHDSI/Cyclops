@@ -93,6 +93,10 @@
     .Call(`_Cyclops_cyclopsGetFisherInformation`, inRcppCcdInterface, sexpBitCovariates)
 }
 
+.cyclopsGetScoreCrossProduct <- function(inRcppCcdInterface, bitCovariates) {
+    .Call(`_Cyclops_cyclopsGetScoreCrossProduct`, inRcppCcdInterface, bitCovariates)
+}
+
 .cyclopsSecondOrder <- function(inRcppCcdInterface, sexpBitCovariates, v, t, reps) {
     .Call(`_Cyclops_cyclopsSecondOrder`, inRcppCcdInterface, sexpBitCovariates, v, t, reps)
 }

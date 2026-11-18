@@ -2266,15 +2266,9 @@ CyclicCoordinateDescent::Matrix CyclicCoordinateDescent::computeFisherInformatio
     checkAllLazyFlags(); // the linear predictor of the current coefficients (setBeta() leaves it stale until here)
     modelSpecifics.makeDirty(); // clear strata cross terms cached at earlier coefficients
 
-    // One Hessian block where the engine has the second-order kernels; with weights only when they
-    // are all integers (non-integer weights keep the per-pair path, which refuses them)
-    bool integerWeights = true;
-    if (useCrossValidation) {
-        for (size_t k = 0; k < hWeights.size() && integerWeights; ++k) {
-            integerWeights = std::floor(hWeights[k]) == hWeights[k];
-        }
-    }
-    if (modelSpecifics.supportsSecondOrder() && integerWeights) {
+    // One Hessian block where the engine has the second-order kernels, which carry the case weights. With
+    // non-integer weights this is the weighted information (coxph's naive.var), the bread of the robust variance
+    if (modelSpecifics.supportsSecondOrder()) {
         const std::vector<int> F(indices.begin(), indices.end());
         std::vector<double> H;
         if (modelSpecifics.hessianBlock(F, H)) {
@@ -2293,6 +2287,29 @@ CyclicCoordinateDescent::Matrix CyclicCoordinateDescent::computeFisherInformatio
         }
     }
     return fisherInformation;
+}
+
+CyclicCoordinateDescent::Matrix CyclicCoordinateDescent::computeScoreCrossProduct(const std::vector<IdType>& indices) const {
+    const IntVector& subject = hXI.getSubjectIndexVectorRef(); // empty: each row its own subject
+    Matrix scores;
+    std::vector<double> u;
+    for (size_t p = 0; p < indices.size(); ++p) {
+        if (!modelSpecifics.scoreContributions(static_cast<int>(indices[p]), u)) {
+            throw std::logic_error("Score contributions are not implemented for this model type");
+        }
+        if (p == 0) {
+            const size_t subjects = subject.empty() ? u.size() :
+                static_cast<size_t>(*std::max_element(subject.begin(), subject.end())) + 1;
+            scores = Matrix::Zero(subjects, indices.size());
+        }
+        for (size_t k = 0; k < u.size(); ++k) {
+            scores(subject.empty() ? k : subject[k], p) += u[k];
+        }
+    }
+    if (indices.empty()) {
+        return Matrix::Zero(0, 0);
+    }
+    return scores.transpose() * scores;
 }
 
 void CyclicCoordinateDescent::computeAsymptoticPrecisionMatrix(void) {

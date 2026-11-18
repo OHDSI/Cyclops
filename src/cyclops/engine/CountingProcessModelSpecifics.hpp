@@ -74,6 +74,8 @@ public:
                                     std::vector<double>* times, std::vector<int>* strata,
                                     double* covariate, double* score, bool useWeights);
 
+    bool scoreContributions(int index, std::vector<double>& u);
+
     void computeMMGradientAndHessian(std::vector<GradientHessian>& gh,
                                      const std::vector<bool>& fixBeta, bool useWeights) {
         throw std::logic_error("MM updates are not yet implemented for Cox models");
@@ -810,10 +812,7 @@ template <typename RealType>
 void CountingProcessModelSpecifics<RealType>::computeFisherInformation(int indexOne, int indexTwo,
                                                                        double* oinfo, bool useWeights) {
 
-    if (useWeights) {
-        throw std::logic_error("Weights are not yet implemented in Fisher Information calculations");
-    }
-
+    // Case weights (hKWeight, all 1 without weights) enter the risk-set sums and hNWeight the event counts
     const std::vector<RealType> xOne = denseColumn(indexOne);
     const std::vector<RealType> xTwo = denseColumn(indexTwo);
     std::vector<RealType> xBoth(K);
@@ -831,6 +830,50 @@ void CountingProcessModelSpecifics<RealType>::computeFisherInformation(int index
         information += hNWeight[g] * (numerBoth[g] / denom - numerOne[g] * numerTwo[g] / (denom * denom));
     }
     *oinfo = static_cast<double>(information);
+}
+
+template <typename RealType>
+bool CountingProcessModelSpecifics<RealType>::scoreContributions(int index, std::vector<double>& u) {
+
+    // Weighted score residuals (Breslow ties), as coxph's robust variance uses them: row k with weight w_k,
+    // r_k = exp(x_k'beta), at risk in groups [entry, end) and event indicator delta_k contributes
+    //   u_k = w_k [delta_k (x_k - xbar_entry) - r_k sum_{g in [entry, end)} (x_k - xbar_g) d_g / D_g],
+    // xbar_g = S1_g / D_g; the sums over a row's groups are differences of running sums within its stratum
+    if (accDenomPid.size() < N || hNWeight.size() < N || offsExpXBeta.size() < K) {
+        return false;
+    }
+    const std::vector<RealType> x = denseColumn(index);
+    const std::vector<RealType> numer = riskSetSums(x);
+    std::vector<double> hazard(N); // running sums within the stratum of d_g / D_g
+    std::vector<double> weighted(N); // and of xbar_g d_g / D_g
+    for (size_t g = 0; g < N; ++g) {
+        const double denom = static_cast<double>(accDenomPid[g]);
+        const double increment = static_cast<double>(hNWeight[g]) / denom;
+        const bool first = static_cast<int>(g) == groupStratumStart[g];
+        hazard[g] = (first ? 0.0 : hazard[g - 1]) + increment;
+        weighted[g] = (first ? 0.0 : weighted[g - 1]) + increment * static_cast<double>(numer[g]) / denom;
+    }
+
+    const int unused = static_cast<int>(N);
+    u.assign(K, 0.0);
+    for (size_t k = 0; k < K; ++k) {
+        const double w = static_cast<double>(hKWeight[k]);
+        if (hPid[k] >= unused || w == 0.0) { // outside every risk set
+            continue;
+        }
+        const int entry = hPid[k];
+        const int last = rowEnd(static_cast<int>(k)) - 1;
+        const bool first = entry == groupStratumStart[entry];
+        const double dHazard = hazard[last] - (first ? 0.0 : hazard[entry - 1]);
+        const double dWeighted = weighted[last] - (first ? 0.0 : weighted[entry - 1]);
+        const double xk = static_cast<double>(x[k]);
+        double value = -static_cast<double>(offsExpXBeta[k]) * (xk * dHazard - dWeighted);
+        if (hY[k] != static_cast<RealType>(0)) {
+            value += xk - static_cast<double>(numer[entry]) / static_cast<double>(accDenomPid[entry]);
+        }
+        u[k] = w * value;
+    }
+    return true;
 }
 
 template <typename RealType>
