@@ -632,6 +632,86 @@ void cyclopsLoadDataSubjectId(Environment x,
     data->loadSubjectId(reinterpret_cast<const std::vector<int64_t>&>(subjectId));
 }
 
+// [[Rcpp::export(".loadCyclopsDataPooledRows")]]
+void cyclopsLoadDataPooledRows(Environment x,
+                               const bool implicitRows,
+                               const std::vector<int>& rowsPerSubject,
+                               const std::vector<int>& interval,
+                               const std::vector<int>& event,
+                               const std::vector<double>& rowWeight,
+                               const std::vector<double>& rowOffset,
+                               const std::vector<double>& subjectOffset,
+                               const std::vector<double>& basis,
+                               const int intervals,
+                               const std::vector<double>& timeCovariateId,
+                               const std::vector<int>& timeBasisColumn) {
+
+    using namespace bsccs;
+    XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
+
+    // rowsPerSubject: one per row of the data. interval (1-based): explicit, one per person-interval row;
+    // implicit, the first interval of each subject. event: explicit only, one per row. basis: intervals x B,
+    // by column (an R matrix); timeCovariateId[c] is the covariate on time-basis column timeBasisColumn[c] (1-based)
+    const size_t subjects = data->getNumberOfRows();
+    if (rowsPerSubject.size() != subjects) {
+        Rcpp::stop("Rows per subject must be given for every row of the data");
+    }
+    PooledRows pooled;
+    pooled.implicitRows = implicitRows;
+    pooled.rowStart.resize(subjects + 1, 0);
+    for (size_t i = 0; i < subjects; ++i) {
+        if (rowsPerSubject[i] < 1) Rcpp::stop("Every subject needs at least one interval at risk");
+        pooled.rowStart[i + 1] = pooled.rowStart[i] + rowsPerSubject[i];
+    }
+    const size_t rows = pooled.rowStart.back();
+    if (implicitRows) {
+        if (interval.size() != subjects || !event.empty()) Rcpp::stop("Implicit rows need one entry interval per subject");
+        pooled.entry.resize(subjects);
+        for (size_t i = 0; i < subjects; ++i) pooled.entry[i] = interval[i] - 1;
+    } else {
+        if (interval.size() != rows || event.size() != rows) Rcpp::stop("Explicit rows need an interval and outcome per row");
+        pooled.interval.resize(rows);
+        pooled.event.resize(rows);
+        for (size_t r = 0; r < rows; ++r) {
+            pooled.interval[r] = interval[r] - 1;
+            pooled.event[r] = event[r] != 0;
+        }
+    }
+    if ((!rowWeight.empty() && rowWeight.size() != rows) || (!rowOffset.empty() && rowOffset.size() != rows) ||
+        (!subjectOffset.empty() && subjectOffset.size() != subjects)) {
+        Rcpp::stop("Row weights and offsets need one value per row, subject offsets one per subject");
+    }
+    pooled.rowWeight = rowWeight;
+    pooled.rowOffset = rowOffset;
+    pooled.subjectOffset = subjectOffset;
+
+    const int B = intervals > 0 ? static_cast<int>(basis.size() / intervals) : 0;
+    if (static_cast<size_t>(intervals) * B != basis.size()) Rcpp::stop("The time basis must have one row per interval");
+    pooled.intervals = intervals;
+    pooled.basisColumns = B;
+    pooled.basis.resize(basis.size());
+    for (int t = 0; t < intervals; ++t) {
+        for (int b = 0; b < B; ++b) pooled.basis[static_cast<size_t>(t) * B + b] = basis[static_cast<size_t>(b) * intervals + t];
+    }
+    if (B > 0) {
+        for (size_t i = 0; i < subjects; ++i) {
+            for (size_t r = pooled.rowStart[i]; r < pooled.rowStart[i + 1]; ++r) {
+                const int t = pooled.intervalOf(i, r);
+                if (t < 0 || t >= intervals) Rcpp::stop("Every interval at risk must be a row of the time basis");
+            }
+        }
+    }
+    if (timeCovariateId.size() != timeBasisColumn.size()) Rcpp::stop("Vector length mismatch");
+    const std::vector<int64_t>& ids = reinterpret_cast<const std::vector<int64_t>&>(timeCovariateId);
+    for (size_t c = 0; c < ids.size(); ++c) {
+        if (timeBasisColumn[c] < 1 || timeBasisColumn[c] > B) Rcpp::stop("Invalid time-basis column");
+        if (data->getColumnIndexByName(ids[c]) < 0) Rcpp::stop("Unknown covariate on the time basis");
+        pooled.timeColumns.emplace_back(ids[c], timeBasisColumn[c] - 1);
+    }
+    pooled.loaded = true;
+    data->getPooledRows() = std::move(pooled);
+}
+
 // [[Rcpp::export(".loadCyclopsDataMultipleX")]]
 int cyclopsLoadDataMultipleX(Environment x,
 		const std::vector<double>& covariateId,

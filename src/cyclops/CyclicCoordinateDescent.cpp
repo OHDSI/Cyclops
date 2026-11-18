@@ -839,7 +839,9 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	// prior that is exact for the group; the members stay fixed at 0 until the write-back below
 	aliasGroups.clear();
 	priors::JointPriorPtr unmergedPrior = jointPrior;
-	if (arguments.mergeDuplicates && !arguments.useKktSwindle && !syncCV && !usingGPU && !usingCUDA) {
+	// plr: equal columns of X differ by their time-basis column, which X does not show
+	if (arguments.mergeDuplicates && !arguments.useKktSwindle && !syncCV && !usingGPU && !usingCUDA &&
+			hXI.getModelType() != ModelType::POOLED_LOGISTIC) {
 		findAliasGroups();
 		if (!aliasGroups.empty()) {
 			std::vector<int> groupSize(J, 1);

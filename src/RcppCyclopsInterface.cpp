@@ -54,6 +54,7 @@ namespace bsccs {
 	{ModelType::TIME_VARYING_COX, "cox_time"},
  	{ModelType::FINE_GRAY, "fgr"},
  	{ModelType::COX_COUNTING, "cox_counting"},
+ 	{ModelType::POOLED_LOGISTIC, "plr"},
  };
 
 void RcppCcdInterface::logResultsToFile(const std::string& fileName, bool withASE) {
