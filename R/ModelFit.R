@@ -533,6 +533,7 @@ fitCyclopsModel <- function(cyclopsData,
     }
     fit$rowNames <- cyclopsData$rowNames
     fit$weights <- weights # data order; NULL when unweighted. For the Breslow baseline of Cox fits
+    fit$outcomesVersion <- cyclopsData$outcomesVersion # NULL until updateOutcomes(); likewise
     fit$scale <- cyclopsData$scale
     fit$threads <- threads
     fit$seed <- control$seed

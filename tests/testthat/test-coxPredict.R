@@ -213,3 +213,27 @@ test_that("Cox prediction input checks", {
     newCovariates$covariateId <- c("x1", "x2")[newCovariates$covariateId]
     expect_error(predict(formulaFit, newData[, "rowId", drop = FALSE], newCovariates, times = 1), "covariateIds")
 })
+
+test_that("Cox prediction and survfit stop after updateOutcomes", {
+    data <- simulateCoxPredictData(300, 19)
+    newCovariates <- toCovariates(newData)
+    newOutcomes <- newData[, c("rowId", "stratumId")]
+    control <- createControl(convergenceType = "gradient", tolerance = 1E-10, noiseLevel = "silent")
+    cyclopsData <- convertToCyclopsData(data[, c("rowId", "time", "y")], toCovariates(data), modelType = "cox",
+                                        quiet = TRUE)
+    updateWeights(cyclopsData, data.frame(rowId = data$rowId, weights = data$w))
+    first <- fitCyclopsModel(cyclopsData, control = control)
+    gold <- goldSurvival(goldCoxPredict(data, "cox", weighted = TRUE, stratified = FALSE), newData)
+    expect_equal(unname(predict(first, newOutcomes, newCovariates, times = predictTimes)), gold, tolerance = 1E-6)
+
+    # The fit keeps its interface, which would see the new outcomes
+    data$y <- rev(data$y)
+    updateOutcomes(cyclopsData, data.frame(rowId = data$rowId, y = data$y))
+    expect_error(predict(first, newOutcomes, newCovariates, times = predictTimes), "updateOutcomes")
+    expect_error(survfit(first), "updateOutcomes")
+    refit <- fitCyclopsModel(cyclopsData, control = control, forceNewObject = TRUE)
+    expect_error(predict(first, newOutcomes, newCovariates, times = predictTimes), "updateOutcomes")
+    expect_equal(unname(predict(refit, newOutcomes, newCovariates, times = predictTimes)),
+                 goldSurvival(goldCoxPredict(data, "cox", weighted = TRUE, stratified = FALSE), newData),
+                 tolerance = 1E-6)
+})

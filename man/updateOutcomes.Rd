@@ -29,8 +29,8 @@ Available for \code{modelType} \code{"lr"}, \code{"pr"}, \code{"ls"}, \code{"clr
 and \code{"cox_counting"}. Outcomes lie between 0 and 1 in \code{"lr"} and \code{"clr"}, are 0 or 1 in \code{"cox"}
 and \code{"cox_counting"}, and are non-negative in \code{"pr"} and \code{"cpr"}.
 
-Fits made earlier on the data can no longer be used: their \code{vcov}, \code{predict}, \code{confint} and
-\code{\link{runBootstrap}} stop, and after the next fit on the data they would report that fit. Take what you need
+Fits made earlier on the data can no longer be used: their \code{vcov}, \code{predict}, \code{confint},
+\code{survfit} and \code{\link{runBootstrap}} stop, and after the next fit on the data they would report that fit. Take what you need
 from a fit before you update its data.
 }
 \examples{
