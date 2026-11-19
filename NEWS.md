@@ -259,13 +259,19 @@ Changes:
    Cox data before. Both stop once another model has been fitted to the same Cyclops data (fits share its interface;
    `survfit()` silently mixed the two fits before) unless that fit used `forceNewObject = TRUE`, and always once
    `updateOutcomes()` has changed the data; fit objects keep their `weights`
-43. A Laplace logistic fit under the `"gap"` criterion whose prox-Newton steps meet their own stop (an exact face solve
+42. A Laplace logistic fit under the `"gap"` criterion whose prox-Newton steps meet their own stop (an exact face solve
    with Newton decrement and scaled KKT residual within tau_eff) while the duality gap stays above tau_eff stops,
    uncertified (`fit$convergence$certificate` "none", the gap in `gapEstimate`), once a further such step does not halve
    the gap. With dense continuous columns the dual point can stay that far from the primal at the optimum, and the fit
    used to alternate 50-step Newton phases with coordinate descent until `maxIterations`: a 497,463-row CCW censoring
    model (KKT residual 2e-7, gap 4.7e-6 against 1e-6) ran over 20 minutes, and now stops after 12 Newton iterations
    (77 s with data conversion). Fits that the gap certifies are unchanged
+43. A Laplace fit under `algorithm = "auto"` or `"newton"` that `createControl(newtonMemoryBudget = )` leaves without any
+   Newton step (its prox-Newton work, 24·|W|² + 12 bytes per entry of the working-set columns, exceeds the budget)
+   warns, with the memory it needed in `fit$convergence$budgetBytes`. Such fits run coordinate descent, which on
+   correlated designs can need thousands of cycles: a 500,000-person CCW Cox censoring model (1.2·10^8 entries, 1.4 GB
+   of prox-Newton work) ran 1,700 cycles in 25 minutes without converging under the 1024 MB default, and converged in
+   24 iterations and 105 s with `newtonMemoryBudget = 4096`
 
 Cyclops v3.8.0
 ==============

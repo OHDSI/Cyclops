@@ -935,7 +935,7 @@ double CyclicCoordinateDescent::strongConvexityBound(const NewtonContext& contex
 	return 0.5 * sum;
 }
 
-bool CyclicCoordinateDescent::proxFitsDense(const std::vector<int>& W) const {
+bool CyclicCoordinateDescent::proxFitsDense(const std::vector<int>& W) {
 	const double width = static_cast<double>(W.size());
 	double entries = 0.0;
 	// (plr's copy of X_W is by subject, bounded by the nonzeros of X plus K per intercept or basis column: counted
@@ -947,7 +947,11 @@ bool CyclicCoordinateDescent::proxFitsDense(const std::vector<int>& W) const {
 				static_cast<double>(hXI.getNumberOfEntries(j));
 		}
 	}
-	return 24.0 * width * width + 12.0 * entries <= newtonMemoryBudget;
+	const double bytes = 24.0 * width * width + 12.0 * entries;
+	if (bytes > newtonMemoryBudget && !(bytes <= convergenceReport.budgetBytes)) {
+		convergenceReport.budgetBytes = bytes; // R warns when this left the fit without Newton steps
+	}
+	return bytes <= newtonMemoryBudget;
 }
 
 CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIteration(NewtonContext& context) {
