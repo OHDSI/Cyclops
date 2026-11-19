@@ -474,6 +474,11 @@ fitCyclopsModel <- function(cyclopsData,
         is.finite(fit$convergence$gapEstimate)) {
         warning("Reached maxIterations; the estimated gap to the optimum is ", signif(fit$convergence$gapEstimate, 3))
     }
+    if (warnings && isTRUE(is.finite(fit$convergence$budgetBytes)) && isTRUE(fit$convergence$newtonIterations == 0)) {
+        warning("Prox-Newton steps needed about ", signif(fit$convergence$budgetBytes / 2^20, 2), " MB, more than ",
+                "newtonMemoryBudget = ", if (is.null(control$newtonMemoryBudget)) 1024 else control$newtonMemoryBudget, " MB, so the fit used coordinate ",
+                "descent, which can be slow or stop short on correlated covariates; raise createControl(newtonMemoryBudget = )")
+    }
 
     # POOR_BLR_STEP comes from the "gradient" criterion: explicit, the default, or the one a fit that could not take
     # Newton steps fell back to under "auto"
@@ -983,7 +988,9 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              conjugate-gradient work. Steps that would exceed it use conjugate gradients or
 #'                              coordinate descent instead. It is a ceiling, not an allocation, and it holds per fit:
 #'                              cross-validation folds or threads that run separate fits may each use it. The default
-#'                              of 1024 allows active sets of up to about 6,700 columns
+#'                              of 1024 allows active sets of up to about 6,700 columns. A Laplace fit that the budget
+#'                              leaves without any Newton step warns, with the memory it needed in
+#'                              \code{fit$convergence$budgetBytes}
 #' @param doItAll               Currently unused
 #' @param syncCV                Currently unused
 #'

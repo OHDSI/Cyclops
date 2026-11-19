@@ -245,7 +245,9 @@ row-wise copies of columns of the design and the Nystrom, Schur-bound and
 conjugate-gradient work. Steps that would exceed it use conjugate gradients or
 coordinate descent instead. It is a ceiling, not an allocation, and it holds per fit:
 cross-validation folds or threads that run separate fits may each use it. The default
-of 1024 allows active sets of up to about 6,700 columns}
+of 1024 allows active sets of up to about 6,700 columns. A Laplace fit that the budget
+leaves without any Newton step warns, with the memory it needed in
+\code{fit$convergence$budgetBytes}}
 
 \item{doItAll}{Currently unused}
 

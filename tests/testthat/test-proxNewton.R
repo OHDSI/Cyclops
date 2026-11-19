@@ -236,11 +236,17 @@ test_that("newtonMemoryBudget bounds prox-Newton; a tiny budget leaves the fit o
     fit <- function(...) fitCyclopsModel(data, prior = createPrior("laplace", variance = 0.1, exclude = 1),
                                          control = createControl(algorithm = "auto", noiseLevel = "silent", ...),
                                          forceNewObject = TRUE)
-    default <- fit()
-    tiny <- fit(newtonMemoryBudget = 1e-5) # 10 bytes: below 24 |W|^2 for any active set
+    default <- expect_no_warning(fit())
+    # 10 bytes: below 24 |W|^2 for any active set
+    expect_warning(tiny <- fit(newtonMemoryBudget = 1e-5), "more than newtonMemoryBudget = 1e-05 MB")
     expect_equal(default$algorithm, "newton")
     expect_gt(default$convergence$newtonIterations, 0)
+    expect_true(is.na(default$convergence$budgetBytes))
     expect_equal(tiny$algorithm, "ccd")
     expect_equal(tiny$convergence$newtonIterations, 0)
+    expect_gt(tiny$convergence$budgetBytes, 10)
+    expect_no_warning(fitCyclopsModel(data, prior = createPrior("laplace", variance = 0.1, exclude = 1), warnings = FALSE,
+                                      control = createControl(algorithm = "auto", noiseLevel = "silent", newtonMemoryBudget = 1e-5),
+                                      forceNewObject = TRUE))
     expect_equal(coef(tiny), coef(default), tolerance = 1e-6)
 })

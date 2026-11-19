@@ -826,7 +826,8 @@ FitResult Model::Impl::collectResult(double fitSeconds) {
             {"rankDeficientFaceRounds", double(report.rankDeficientFaceRounds)},
             {"eigenFaceRounds", double(report.eigenFaceRounds)},
             {"faceRounds", double(report.faceRounds)},
-            {"dualChecks", double(report.dualChecks)}};
+            {"dualChecks", double(report.dualChecks)},
+            {"budgetBytes", report.budgetBytes}};
         result.convergence_text = {{"algorithm", report.algorithm},
                                    {"certificate", report.certificate},
                                    {"solver", report.solver},
