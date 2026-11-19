@@ -297,6 +297,7 @@ public:
 		int dualChecks = 0;             // how many were computed
 		int eigenFaceRounds = 0;         // prox-Newton face rounds solved by an eigendecomposition
 		std::string ineligible;         // why a requested Newton path ran as CCD
+		double budgetBytes = NAN;       // the largest prox-Newton work refused for newtonMemoryBudget (bytes)
 	};
 
 	const ConvergenceReport& getConvergenceReport() const { return convergenceReport; }
@@ -584,7 +585,7 @@ protected:
 	                 AlgorithmType algorithmType, int convergenceType);
 	NewtonOutcome newtonIteration(NewtonContext& context);
 	NewtonOutcome proxNewtonIteration(NewtonContext& context);
-	bool proxFitsDense(const std::vector<int>& W) const;
+	bool proxFitsDense(const std::vector<int>& W); // records a refusal in convergenceReport.budgetBytes
 	// Memory budget of one fit's Newton work (2.5), in bytes: dense H, its factor and workspace, row-wise copies of
 	// columns of X (ModeFindingArguments::newtonMemoryBudget, set by update())
 	double newtonMemoryBudget = 1024.0 * 1024 * 1024;

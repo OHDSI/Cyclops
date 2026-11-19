@@ -905,6 +905,7 @@ static void appendNewtonReports(Rcpp::List& list, bsccs::RcppCcdInterface& rcppI
 		convergence.push_back(report.faceRounds, "faceRounds");
 		convergence.push_back(report.dualChecks, "dualChecks");
 		convergence.push_back(report.eigenFaceRounds, "eigenFaceRounds");
+		convergence.push_back(report.budgetBytes, "budgetBytes");
 		list["convergence"] = convergence;
 	}
 }

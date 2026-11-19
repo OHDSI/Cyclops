@@ -259,6 +259,12 @@ Changes:
    Cox data before. Both stop once another model has been fitted to the same Cyclops data (fits share its interface;
    `survfit()` silently mixed the two fits before) unless that fit used `forceNewObject = TRUE`, and always once
    `updateOutcomes()` has changed the data; fit objects keep their `weights`
+42. A Laplace fit under `algorithm = "auto"` or `"newton"` that `createControl(newtonMemoryBudget = )` leaves without any
+   Newton step (its prox-Newton work, 24·|W|² + 12 bytes per entry of the working-set columns, exceeds the budget)
+   warns, with the memory it needed in `fit$convergence$budgetBytes`. Such fits run coordinate descent, which on
+   correlated designs can need thousands of cycles: a 500,000-person CCW Cox censoring model (1.2·10^8 entries, 1.4 GB
+   of prox-Newton work) ran 1,700 cycles in 25 minutes without converging under the 1024 MB default, and converged in
+   24 iterations and 105 s with `newtonMemoryBudget = 4096`
 
 Cyclops v3.8.0
 ==============
