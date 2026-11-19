@@ -87,6 +87,7 @@ struct CyclicCoordinateDescent::NewtonContext {
 	int dualIntercept = -1;         // position in F of the free unpenalized column, -1 without one
 	bool dualCertified = false;
 	double dualFloor = 0.0;         // the rounding level of the last duality gap
+	double stopGap = NAN;           // the duality gap of the previous prox-Newton iteration that met its own stop
 	int weightedRows = 0;           // rows with positive weight (all K without weights)
 };
 
@@ -981,7 +982,15 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 	auto stopHere = [&](NewtonOutcome noStep) {
 		if (!context.dualEligible) return NewtonOutcome::UNCERTIFIED;
 		const int verdict = dualStop(context);
-		return (verdict > 0) ? NewtonOutcome::CERTIFIED : ((verdict < 0) ? NewtonOutcome::UNCERTIFIED : noStep);
+		if (verdict != 0) return (verdict > 0) ? NewtonOutcome::CERTIFIED : NewtonOutcome::UNCERTIFIED;
+		// Newton's own stop holds but the gap does not certify. A gap that the next such iteration does not halve is the
+		// looseness of the dual point, not a distance Newton steps close: on dense continuous columns, rescaling theta to
+		// |X_j' theta| <= lambda_j can cost far more than dualFloor (a 500,000-row CCW censoring model stayed at a gap of
+		// 4.7e-6 against tau_eff = 1e-6 with a KKT residual of 2e-7 and a zero Newton decrement, then alternated 50-step
+		// Newton phases with coordinate descent for over 20 minutes)
+		const bool stalled = convergenceReport.dualGap > 0.5 * context.stopGap;
+		context.stopGap = convergenceReport.dualGap;
+		return stalled ? NewtonOutcome::UNCERTIFIED : noStep;
 	};
 	if (w == 0) {
 		convergenceReport.lambda2Half = 0.0;
@@ -1200,6 +1209,9 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 		stop = exact && decrease <= context.tauEff && 0.5 * maxR * maxR <= context.tauEff;
 	} else if (context.stopType == KKT) {
 		stop = maxR < context.tolerance;
+	}
+	if (!stop) {
+		context.stopGap = NAN; // stalls count over consecutive iterations that meet the stop
 	}
 
 	// composite Armijo on the penalized objective over W, inside the eta trust region. Unpenalized coordinates move

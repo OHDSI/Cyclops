@@ -244,3 +244,37 @@ test_that("newtonMemoryBudget bounds prox-Newton; a tiny budget leaves the fit o
     expect_equal(tiny$convergence$newtonIterations, 0)
     expect_equal(coef(tiny), coef(default), tolerance = 1e-6)
 })
+
+test_that("a duality gap that Newton steps no longer reduce ends the fit uncertified", {
+    # Dense columns with a few values in (0, 1] beside binary ones (a CCW censoring model's design): at the optimum the
+    # dual point's gap stays near 3e-9, above tau_eff = 1e-9, while prox-Newton is stationary. The fit used to run
+    # 50-step Newton phases between coordinate descent until maxIterations (3,000 iterations, 50 s)
+    set.seed(1)
+    n <- 20000
+    p <- 300
+    prevalence <- runif(p, 0.05, 0.95)
+    rows <- lapply(seq_len(p), function(j) which(runif(n) < prevalence[j]))
+    dense <- sapply(c(11, 4, 7), function(k) sample(seq_len(k), n, replace = TRUE) / k)
+    covariates <- data.frame(rowId = c(unlist(rows), rep(seq_len(n), 3)),
+                             covariateId = c(rep(seq_len(p), lengths(rows)), rep(p + 1:3, each = n)),
+                             covariateValue = c(rep(1, sum(lengths(rows))), as.vector(dense)))
+    beta <- c(rnorm(p, 0, 0.15), 1.5, -1, 0.8)
+    lp <- 0.8 + as.vector(tapply(covariates$covariateValue * beta[covariates$covariateId], covariates$rowId, sum)) -
+        0.5 * sum(prevalence * beta[1:p])
+    data <- convertToCyclopsData(data.frame(rowId = seq_len(n), y = rbinom(n, 1, plogis(lp))), covariates,
+                                 modelType = "lr", quiet = TRUE)
+    fit <- function(tolerance) {
+        fitCyclopsModel(data, prior = createPrior("laplace", variance = 0.01, exclude = 0), forceNewObject = TRUE,
+                        control = createControl(convergenceType = "gap", tolerance = tolerance, noiseLevel = "silent",
+                                                maxIterations = 3000))
+    }
+    certified <- fit(1e-8)
+    expect_equal(certified$convergence$certificate, "dual")
+    stalled <- fit(1e-9)
+    expect_equal(stalled$return_flag, "SUCCESS")
+    expect_equal(stalled$convergence$certificate, "none")
+    expect_equal(stalled$convergence$fallbacks, 0)
+    expect_lt(stalled$convergence$newtonIterations, 50)
+    expect_gt(stalled$convergence$gapEstimate, 1e-9)
+    expect_equal(coef(stalled), coef(certified), tolerance = 1e-5)
+})
