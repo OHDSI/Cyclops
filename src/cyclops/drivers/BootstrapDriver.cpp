@@ -141,8 +141,11 @@ void BootstrapDriver::drive(
         error->throwError(errorStream);
         }
 
-    // Threads beyond the replicates in parallel go to each replicate's logistic Hessian block, whose result does not
-    // depend on its threads
+    // Threads beyond the replicates in parallel go to each replicate's logistic (lr, plr) second-order kernels, whose
+    // results do not depend on their threads. Coordinate descent on a copy keeps one thread. The replicates on the fit
+    // itself (ccdPool[0]) keep the fit's threads (unlike cross-validation, which sets them to 1), so a plr model's
+    // coordinate descent there computes several coordinates' gradients at once on these threads, as before; the
+    // estimates are the same either way
     for (auto element : ccdPool) {
         element->setSecondOrderThreads(allThreads / nThreads);
     }

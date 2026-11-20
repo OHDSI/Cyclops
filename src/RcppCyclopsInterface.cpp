@@ -913,12 +913,20 @@ static void appendNewtonReports(Rcpp::List& list, bsccs::RcppCcdInterface& rcppI
 	}
 }
 
+// CYCLOPS_ZVERIFY (debugging): the certified zero steps of the fit (its cross-validation folds included), each checked
+static void appendZeroCertificates(List& list, const bsccs::CyclicCoordinateDescent& ccd, int64_t checkedBefore) {
+	if (ccd.getVerifyZeroCertificates()) {
+		list["zeroCertificates"] = static_cast<double>(ccd.getCheckedCertifiedVisits() - checkedBefore);
+	}
+}
+
 // [[Rcpp::export(".cyclopsRunCrossValidation")]]
 List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface) {
 	using namespace bsccs;
 
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
 	interface->getArguments().crossValidation.doFitAtOptimal = true;
+	const int64_t checkedBefore = interface->getCcd().getCheckedCertifiedVisits();
 	double timeUpdate = interface->runCrossValidation();
 
 	interface->diagnoseModel(0.0, 0.0);
@@ -929,6 +937,7 @@ List cyclopsRunCrossValidationl(SEXP inRcppCcdInterface) {
 		);
 	RcppCcdInterface::appendRList(list, interface->getResult());
 	appendNewtonReports(list, *interface);
+	appendZeroCertificates(list, interface->getCcd(), checkedBefore);
 
 	// Out-of-fold predictions in data order, with the fold (0, 1, ...) that held each row out
 	const auto& predictions = interface->getCcd().getCrossValidationPredictions();
@@ -975,6 +984,7 @@ List cyclopsFitModel(SEXP inRcppCcdInterface) {
 	using namespace bsccs;
 
 	XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+	const int64_t checkedBefore = interface->getCcd().getCheckedCertifiedVisits();
 	double timeUpdate = interface->fitModel();
 
 	interface->diagnoseModel(0.0, 0.0);
@@ -984,6 +994,8 @@ List cyclopsFitModel(SEXP inRcppCcdInterface) {
 			Rcpp::Named("timeFit")=timeUpdate
 		);
 	RcppCcdInterface::appendRList(list, interface->getResult());
+
+	appendZeroCertificates(list, interface->getCcd(), checkedBefore);
 
 	// Observe-only stopping statistics (CYCLOPS_SHADOW; Newton plan, Phase 2)
 	const auto& shadow = interface->getCcd().getShadowLog();

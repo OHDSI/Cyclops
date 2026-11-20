@@ -2175,6 +2175,7 @@ public:
 
     void turnOnSyncCV(int foldToCompute) {
     	ModelSpecifics<BaseModel, RealType>::turnOnSyncCV(foldToCompute);
+    	denomPid2.resize(denomPid.size()); // only the GPU reads it (ModelSpecifics::initialize no longer sizes it)
 
     	std::cout << "start turn on syncCV\n";
 

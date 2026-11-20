@@ -354,6 +354,9 @@ public:
 		const double* highUp = nullptr;
 		const double* highDown = nullptr;
 		bool valid = false;
+		// the rounding of p as a gradient reads it, per row, in eps, summed over the two readings that a
+		// certificate compares: 3 each for lr (p read as (B e) / (1 + B e)), 4 each for plr (e = E_i R_r first)
+		double endReadEps = 6.0;
 		// The bucket of a Hessian: its binary exponent e (h = m 2^e, m in [0.5, 1)) plus 12, clamped to
 		// [0, buckets); 0 for h below 2^-12, not positive or not finite. From the exponent bits: no libm.
 		static int bucketOf(double h) {
@@ -370,6 +373,10 @@ public:
 
 	// Whether the model keeps the drift totals of getGradientDrift() (switching on starts a new epoch)
 	virtual void setDriftTracking(bool on) {}
+
+	// The rows whose p the gradient of column `index` sums, each with factor 1 (an indicator column), when
+	// getGradientDrift() covers the column, so that a zero certificate can skip it; 0 otherwise
+	virtual double getCertifiableRows(int index) { return 0.0; }
 
 	virtual std::vector<double> getBeta() {
 		std::vector<double> blah;

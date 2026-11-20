@@ -4,7 +4,10 @@
  * Persistent threads for short parallel loops. run(count, task) calls task(i, thread) for every
  * i in [0, count), on the calling thread (thread 0) and on the workers (1 .. size() - 1), and
  * returns when all calls are done. Tasks are handed out one at a time, so uneven tasks balance.
- * Runs come in quick succession, so workers and the caller spin briefly before sleeping.
+ * Runs come in quick succession, so workers and the caller spin briefly before sleeping. Only the
+ * workers a run can use take part (at most count - 1, and at most maxThreads - 1 when given): only
+ * they are woken (each worker sleeps on its own condition variable) and waited for, so a short run
+ * is not held up by idle threads.
  */
 
 #ifndef WORKERPOOL_H_
@@ -12,10 +15,12 @@
 
 #include <atomic>
 #include <chrono>
+#include <algorithm>
 #include <condition_variable>
 #include <cstddef>
 #include <exception>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -28,6 +33,9 @@ public:
 
     explicit WorkerPool(int threads) {
         for (int thread = 1; thread < threads; ++thread) {
+            start.emplace_back(new std::condition_variable());
+        }
+        for (int thread = 1; thread < threads; ++thread) {
             workers.emplace_back([this, thread] { work(thread); });
         }
     }
@@ -37,7 +45,9 @@ public:
             std::lock_guard<std::mutex> lock(mutex);
             stopping.store(true);
         }
-        start.notify_all();
+        for (auto& wake : start) {
+            wake->notify_one();
+        }
         for (auto& worker : workers) {
             worker.join();
         }
@@ -48,8 +58,12 @@ public:
 
     int size() const { return static_cast<int>(workers.size()) + 1; }
 
-    void run(size_t count, const Task& task) {
-        if (workers.empty() || count < 2) {
+    void run(size_t count, const Task& task, int maxThreads = 0) {
+        size_t use = std::min(workers.size(), count > 0 ? count - 1 : 0);
+        if (maxThreads > 0) {
+            use = std::min(use, static_cast<size_t>(maxThreads - 1));
+        }
+        if (use == 0) {
             for (size_t i = 0; i < count; ++i) {
                 task(i, 0);
             }
@@ -60,11 +74,14 @@ public:
             job = &task;
             jobCount = count;
             next.store(0);
-            pending.store(static_cast<int>(workers.size()));
+            engaged = static_cast<int>(use); // workers 1 .. engaged take part
+            pending.store(engaged);
             error = nullptr;
             generation.fetch_add(1);
         }
-        start.notify_all();
+        for (size_t worker = 0; worker < use; ++worker) {
+            start[worker]->notify_one();
+        }
         execute(0);
 
         spin([this] { return pending.load() == 0; });
@@ -103,11 +120,14 @@ private:
             spin([&] { return stopping.load() || generation.load() != seen; });
             {
                 std::unique_lock<std::mutex> lock(mutex);
-                start.wait(lock, [&] { return stopping.load() || generation.load() != seen; });
+                start[thread - 1]->wait(lock, [&] { return stopping.load() || generation.load() != seen; });
                 if (stopping.load()) {
                     return;
                 }
                 seen = generation.load();
+                if (thread > engaged) {
+                    continue; // not part of this run
+                }
             }
             execute(thread);
             if (pending.fetch_sub(1) == 1) {
@@ -119,10 +139,11 @@ private:
 
     std::vector<std::thread> workers;
     std::mutex mutex;
-    std::condition_variable start;
+    std::vector<std::unique_ptr<std::condition_variable>> start; // per worker
     std::condition_variable done;
     const Task* job = nullptr;
     size_t jobCount = 0;
+    int engaged = 0;
     std::atomic<size_t> next{0};
     std::atomic<size_t> generation{0};
     std::atomic<int> pending{0};

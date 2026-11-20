@@ -26,7 +26,8 @@
  *
  * Subclass of the logistic ModelSpecifics, which keeps the weights of the subjects (case weights and
  * cross-validation folds); every per-row computation is overridden here, and the optimizations of the logistic
- * engine that read its per-row state (lazy intercept, fold partitions, gradient-drift certificates) are off.
+ * engine that read its per-row state (lazy intercept, fold partitions) are off. Zero certificates
+ * (CyclicCoordinateDescent::certifiedZero()) have drift bounds of their own here (recordDrift()).
  */
 
 #ifndef POOLEDLOGISTICMODELSPECIFICS_HPP_
@@ -41,6 +42,15 @@
 
 #include "ModelSpecifics.h"
 
+// A loop the compiler must not vectorize: a running sum of products that has to be added as the serial code adds it
+#if defined(__clang__)
+#define PLR_SCALAR_LOOP _Pragma("clang loop vectorize(disable) interleave(disable)")
+#elif defined(__GNUC__) && __GNUC__ >= 14
+#define PLR_SCALAR_LOOP _Pragma("GCC novector")
+#else
+#define PLR_SCALAR_LOOP
+#endif
+
 namespace bsccs {
 
 template <typename RealType>
@@ -48,6 +58,14 @@ class PooledLogisticModelSpecifics :
         public ModelSpecifics<LogisticRegression<RealType>, RealType> {
 public:
     typedef ModelSpecifics<LogisticRegression<RealType>, RealType> Base;
+
+    struct Column { // a column's entries: their subjects (none: dense, all K) and values (none: 1)
+        const int* rows;
+        const RealType* values;
+        size_t n;
+        size_t row(size_t q) const { return rows ? static_cast<size_t>(rows[q]) : q; }
+        double value(size_t q) const { return values ? static_cast<double>(values[q]) : 1.0; }
+    };
 
     PooledLogisticModelSpecifics(const ModelData<RealType>& input)
         : Base(input), pooled(input.getPooledRows()) { }
@@ -79,7 +97,9 @@ public:
         eventStart.assign(K + 1, 0);
         eventRow.clear();
         eventWeight.assign(K, 0.0);
+        maxSubjectRows = 1;
         for (size_t i = 0; i < K; ++i) {
+            maxSubjectRows = std::max<size_t>(maxSubjectRows, pooled.rowStart[i + 1] - pooled.rowStart[i]);
             for (size_t r = pooled.rowStart[i]; r < pooled.rowStart[i + 1]; ++r) {
                 if (pooled.eventOf(i, r, hY[i])) {
                     eventRow.push_back(r);
@@ -91,6 +111,9 @@ public:
         subjectExp.assign(K, 1.0);
         rowExp.assign((B > 0 || !pooled.rowOffset.empty()) ? pooled.rows() : 0, 1.0);
         if (pooled.cloglog) nonEvent.assign(K, 0.0);
+        this->driftTracking = false; // the drift structures are built when tracking is next switched on
+        driftBuilt = false;
+        maxAbsStateSlot.assign(S, 0.0);
         refreshAll();
         rowWiseF.clear();
         rowStartF.clear();
@@ -99,18 +122,49 @@ public:
         hasDirection = false;
     }
 
+    // One coordinate's gradient and Hessian, of a large column on the threads (coordinateTasks()): the same sums
     void computeGradientAndHessian(int index, double* ogradient, double* ohessian, bool useWeights) {
+        const Column col = column(index);
+        const size_t tasks = coordinateTasks(col.n);
+        if (tasks > 1) {
+            parallelGradient(index, col, tasks, ogradient, ohessian);
+        } else {
+            gradientTerms<false>(index, col, 0, col.n, ogradient, ohessian, nullptr);
+        }
+        noteHessian(index, *ohessian);
+    }
+
+    // The terms of entries [q0, q1) of column index, in the order the gradient adds them: a d1 to the gradient and
+    // b d2 to the Hessian, for a row, or for all the rows of an entry's subject at once (the logit sums of p - y and
+    // p (1 - p) over its rows, or the cloglog factorization). Keep = false: adds them, into *ogradient and *ohessian
+    // (the serial pass); Keep = true: appends their factors to *keep in that order, for parallelGradient(). One body
+    // for both, so the threads compute every term in the serial pass's expressions
+    struct Term {
+        double a, d1, b, d2;
+    };
+
+    template <bool Keep>
+    void gradientTerms(int index, const Column& col, size_t q0, size_t q1, double* ogradient, double* ohessian,
+                       std::vector<Term>* keep) const {
         const int s = slotOf[index];
         const double* rw = pooled.rowWeight.empty() ? nullptr : pooled.rowWeight.data();
         const double* re = rowExp.empty() ? nullptr : rowExp.data();
         double gradient = 0.0, hessian = 0.0;
-        for (GenericIterator<RealType> it(hX, index); it; ++it) {
-            const size_t i = it.index();
+        for (size_t q = q0; q < q1; ++q) {
+            const size_t i = col.row(q);
+            const size_t r0 = pooled.rowStart[i], r1 = pooled.rowStart[i + 1];
+            auto addSubject = [&](double a, double d1, double b, double d2) {
+                if (Keep) {
+                    keep->push_back(Term{a, d1, b, d2});
+                } else {
+                    gradient += a * d1;
+                    hessian += b * d2;
+                }
+            };
             const double sw = subjectWeight(i);
             if (sw == 0.0) continue;
-            const double x = static_cast<double>(it.value());
+            const double x = col.value(q);
             const double Ei = subjectExp[i];
-            const size_t r0 = pooled.rowStart[i], r1 = pooled.rowStart[i + 1];
             if (pooled.cloglog && s == 0) { // the non-event rows factorize
                 double g = Ei * nonEvent[i], h = g;
                 for (size_t e = eventStart[i]; e < eventStart[i + 1]; ++e) {
@@ -120,8 +174,7 @@ public:
                     g += rowWeight(r) * d1;
                     h += rowWeight(r) * d2;
                 }
-                gradient += sw * x * g;
-                hessian += sw * x * x * h;
+                addSubject(sw * x, g, sw * x * x, h);
             } else if (!pooled.cloglog && s == 0 && Ei > 0.0 && Ei < std::numeric_limits<double>::max()) {
                 double g = -eventWeight[i], h = 0.0; // sum_r w_r (p_r - y_r), sum_r w_r p_r (1 - p_r)
                 for (size_t r = r0; r < r1; ++r) {
@@ -131,8 +184,7 @@ public:
                     g += w * p;
                     h += w * p * (1.0 - p);
                 }
-                gradient += sw * x * g;
-                hessian += sw * x * x * h;
+                addSubject(sw * x, g, sw * x * x, h);
             } else {
                 for (size_t r = r0; r < r1; ++r) {
                     const int t = pooled.intervalOf(i, r);
@@ -141,8 +193,59 @@ public:
                     double d1, d2;
                     rowDerivatives(i, r, t, &d1, &d2);
                     const double w = sw * (rw ? rw[r] : 1.0);
-                    gradient += w * z * d1;
-                    hessian += w * z * z * d2;
+                    const double a = w * z, b = w * z * z;
+                    if (Keep) {
+                        keep->push_back(Term{a, d1, b, d2});
+                    } else {
+                        gradient += a * d1;
+                        hessian += b * d2;
+                    }
+                }
+            }
+        }
+        if (!Keep) {
+            *ogradient = gradient;
+            *ohessian = hessian;
+        }
+    }
+
+    // The terms on the threads, a contiguous range of entries per task (gradientTerms<true>()), then added here in
+    // task order, so in the serial pass's order, with its products a d1 and b d2. Each sum gets the same terms in the
+    // same order, so it is the same bit for bit, whatever the number of tasks (no sum is split between tasks). The
+    // loop is kept scalar (PLR_SCALAR_LOOP), as the serial pass is: clang otherwise vectorizes the products and keeps
+    // the adds in order, which is allowed but leaves them unfused where the serial pass fuses each product with its add
+    // (a fused multiply-add): the sums then differ in the last bits (measured). The terms are kept for a window of
+    // entries at a time, of at most termWindow rows (a term per row at most), and added before the next window's are
+    // computed: the same sums in the same order, in bounded memory
+    void parallelGradient(int index, const Column& col, size_t tasks, double* ogradient, double* ohessian) {
+        if (termsOf.size() < tasks) termsOf.resize(tasks);
+        const size_t window = logistic::termWindow;
+        double gradient = 0.0, hessian = 0.0;
+        for (size_t w0 = 0, w1; w0 < col.n; w0 = w1) {
+            if (pooled.rows() <= window || (col.n - w0) * maxSubjectRows <= window) {
+                w1 = col.n;
+            } else if (window / maxSubjectRows >= coordinateMinEntries) {
+                w1 = w0 + window / maxSubjectRows;
+            } else { // long subjects: count the rows (at least one entry)
+                size_t rows = 0;
+                for (w1 = w0; w1 < col.n; ++w1) {
+                    const size_t i = col.row(w1);
+                    rows += pooled.rowStart[i + 1] - pooled.rowStart[i];
+                    if (rows > window && w1 > w0) break;
+                }
+            }
+            const size_t n = w1 - w0;
+            pool->run(tasks, [&](size_t task, int) {
+                termsOf[task].clear();
+                gradientTerms<true>(index, col, w0 + n * task / tasks, w0 + n * (task + 1) / tasks, nullptr, nullptr,
+                                    &termsOf[task]);
+            }, static_cast<int>(tasks));
+            for (size_t task = 0; task < tasks; ++task) {
+                const std::vector<Term>& terms = termsOf[task];
+                PLR_SCALAR_LOOP
+                for (size_t k = 0; k < terms.size(); ++k) {
+                    gradient += terms[k].a * terms[k].d1;
+                    hessian += terms[k].b * terms[k].d2;
                 }
             }
         }
@@ -150,16 +253,35 @@ public:
         *ohessian = hessian;
     }
 
-    // Threads: the gradients of several coordinates at once (each only reads the state) and the Hessian block
+    // For recordDrift(): column index's Hessian at this state. On the calling thread after a coordinate's gradient
+    // (the threads of parallelGradient() do not write it); concurrent calls from computeGradientsAndHessians() write
+    // distinct indices
+    void noteHessian(int index, double hessian) {
+        if (this->driftTracking) {
+            hessianVersion[index] = colIndicator[index] ? this->expVersion : -1;
+            hessianValue[index] = hessian;
+        }
+    }
+
+    // Threads: the gradients of several coordinates at once (each only reads the state; computeGradientsAndHessians()),
+    // a large coordinate's gradient and update (coordinateTasks()), and the second-order kernels; results are the
+    // same on any number of threads. setSecondOrderThreads() (cross-validation folds and bootstrap replicates, which
+    // already run in parallel) gives them to the second-order kernels and to several coordinates' gradients at once
+    // (used only where the fit's coordinate descent has more than one thread: the bootstrap replicates on the fit
+    // itself), not to a single coordinate's gradient and update
     void setThreads(int threads) {
         if (threads <= 1) {
             pool.reset();
         } else if (!pool || pool->size() != threads) {
             pool.reset(new WorkerPool(threads));
         }
+        coordinateThreads = true;
     }
 
-    void setSecondOrderThreads(int threads) { setThreads(threads); }
+    void setSecondOrderThreads(int threads) {
+        setThreads(threads);
+        coordinateThreads = false; // measured: no faster, and more CPU, with a fold's spare threads in its CCD
+    }
 
     bool supportsConcurrentGradients() const { return pool != nullptr; }
 
@@ -167,8 +289,11 @@ public:
                                      bool useWeights) {
         if (!pool) return false;
         gh.resize(indices.size());
-        pool->run(indices.size(), [&](size_t task, int) {
-            computeGradientAndHessian(indices[task], &gh[task].first, &gh[task].second, useWeights);
+        pool->run(indices.size(), [&](size_t task, int) { // each coordinate on one thread
+            const int index = indices[task];
+            const Column col = column(index);
+            gradientTerms<false>(index, col, 0, col.n, &gh[task].first, &gh[task].second, nullptr);
+            noteHessian(index, gh[task].second);
         });
         return true;
     }
@@ -177,18 +302,44 @@ public:
         axpyXBeta(delta, index);
     }
 
+    // An update of column j by beta: one pass over its entries, a large column's on the threads (coordinateTasks();
+    // each entry is a distinct subject, whose state, E_i, R_r and A_i it alone writes, so the values do not depend on
+    // the threads). The running maximum of |state| (zero certificates) is a maximum over the tasks' maxima, and while
+    // tracking drift the count of E_i and R_r that are not normal numbers a sum of the tasks' integer counts: exact
     void axpyXBeta(const double beta, const int j) {
         if (beta == 0.0) return;
         const int s = slotOf[j];
-        for (GenericIterator<RealType> it(hX, j); it; ++it) {
-            const size_t i = it.index();
-            state[i * S + s] += beta * static_cast<double>(it.value());
-            if (s == 0) {
-                subjectExp[i] = std::exp(state[i * S] + subjectOffset(i));
-            } else {
-                refreshRows(i, s);
+        const Column col = column(j);
+        const bool tracking = this->driftTracking;
+        const long before = nonNormal;
+        double largest = 0.0;
+        long change = 0;
+        const size_t tasks = coordinateTasks(col.n);
+        if (tasks > 1) {
+            std::vector<double> largestOf(tasks, 0.0);
+            std::vector<long> changeOf(tasks, 0);
+            pool->run(tasks, [&](size_t task, int) {
+                const size_t q0 = col.n * task / tasks, q1 = col.n * (task + 1) / tasks;
+                largestOf[task] = tracking ? updateEntries<true>(col, q0, q1, beta, s, &changeOf[task]) :
+                    updateEntries<false>(col, q0, q1, beta, s, nullptr);
+            }, static_cast<int>(tasks));
+            for (size_t task = 0; task < tasks; ++task) {
+                largest = std::max(largest, largestOf[task]);
+                change += changeOf[task];
             }
+        } else {
+            largest = tracking ? updateEntries<true>(col, 0, col.n, beta, s, &change) :
+                updateEntries<false>(col, 0, col.n, beta, s, nullptr);
         }
+        maxAbsStateSlot[s] = std::max(maxAbsStateSlot[s], largest);
+        if (!tracking) return;
+        nonNormal += change;
+        if (before > 0 || nonNormal > 0) {
+            this->restartDrift();
+        } else {
+            recordDrift(beta, j, s);
+        }
+        ++this->expVersion;
     }
 
     void zeroXBeta() {
@@ -323,37 +474,58 @@ public:
         std::swap(entryValue, spareEntryValue);
         if (F == rowWiseF && rowStartF.size() == K + 1) return true;
         rowWiseF = F;
-        rowStartF.assign(K + 1, 0);
-        for (int j : F) {
-            for (GenericIterator<RealType> it(hX, j); it; ++it) ++rowStartF[it.index() + 1];
-        }
-        for (size_t i = 0; i < K; ++i) rowStartF[i + 1] += rowStartF[i];
+        std::vector<Column> cols(F.size());
+        for (size_t a = 0; a < F.size(); ++a) cols[a] = column(F[a]);
+        const SubjectParts parts = subjectParts(cols);
+        countBySubject(cols, parts, rowStartF);
         entryPosition.resize(rowStartF[K]);
         entryValue.resize(rowStartF[K]);
-        std::vector<size_t> next(rowStartF.begin(), rowStartF.end() - 1);
-        for (size_t a = 0; a < F.size(); ++a) {
-            for (GenericIterator<RealType> it(hX, F[a]); it; ++it) {
-                const size_t e = next[it.index()]++;
-                entryPosition[e] = static_cast<int>(a);
-                entryValue[e] = static_cast<double>(it.value());
-            }
-        }
+        fillBySubject(cols, parts, rowStartF, [&](size_t e, size_t a, size_t q) {
+            entryPosition[e] = static_cast<int>(a);
+            entryValue[e] = cols[a].value(q);
+        });
         return true;
     }
 
-    // g = the gradient of the negative log likelihood over F
+    // g = the gradient of the negative log likelihood over F: each subject's slot sums m, then g_a += sw x m_s(a) over
+    // the subjects in increasing order. With threads the slot sums of a chunk of subjects are computed on them, and
+    // the chunk is then added here in the same order with the same products: the same sums bit for bit
     bool fullGradient(const std::vector<int>& F, std::vector<double>& g) {
         if (!secondOrderPrepare(F)) return false;
         g.assign(F.size(), 0.0);
+        auto add = [&](size_t i, double sw, const double* m) {
+            for (size_t e = rowStartF[i]; e < rowStartF[i + 1]; ++e) {
+                const int a = entryPosition[e];
+                g[a] += sw * entryValue[e] * m[slotOf[F[a]]];
+            }
+        };
+        if (pool) {
+            const size_t chunk = std::min<size_t>(K, 16384);
+            subjectM.resize(chunk * S);
+            for (size_t i0 = 0; i0 < K; i0 += chunk) {
+                const size_t i1 = std::min(K, i0 + chunk);
+                runTasks((i1 - i0 + 255) / 256, [&](size_t b, int) {
+                    std::vector<double> m(S);
+                    for (size_t i = i0 + b * 256; i < std::min(i1, i0 + (b + 1) * 256); ++i) {
+                        if (subjectWeight(i) == 0.0 || rowStartF[i] == rowStartF[i + 1]) continue;
+                        subjectSums(i, &m, nullptr);
+                        std::copy(m.begin(), m.end(), subjectM.begin() + (i - i0) * S);
+                    }
+                });
+                for (size_t i = i0; i < i1; ++i) {
+                    const double sw = subjectWeight(i);
+                    if (sw == 0.0 || rowStartF[i] == rowStartF[i + 1]) continue;
+                    add(i, sw, &subjectM[(i - i0) * S]);
+                }
+            }
+            return true;
+        }
         std::vector<double> m(S);
         for (size_t i = 0; i < K; ++i) {
             const double sw = subjectWeight(i);
             if (sw == 0.0 || rowStartF[i] == rowStartF[i + 1]) continue;
             subjectSums(i, &m, nullptr);
-            for (size_t e = rowStartF[i]; e < rowStartF[i + 1]; ++e) {
-                const int a = entryPosition[e];
-                g[a] += sw * entryValue[e] * m[slotOf[F[a]]];
-            }
+            add(i, sw, m.data());
         }
         return true;
     }
@@ -375,16 +547,14 @@ public:
         std::vector<int> rank(entries), entrySlot(entries);
         std::vector<double> value(entries);
         {
-            std::vector<size_t> next(rowStartF.begin(), rowStartF.end() - 1);
-            for (size_t k = 0; k < n; ++k) {
-                const int j = F[order[k]];
-                for (GenericIterator<RealType> it(hX, j); it; ++it) {
-                    const size_t e = next[it.index()]++;
-                    rank[e] = static_cast<int>(k);
-                    entrySlot[e] = slotOf[j];
-                    value[e] = static_cast<double>(it.value());
-                }
-            }
+            std::vector<Column> cols(n);
+            for (size_t k = 0; k < n; ++k) cols[k] = column(F[order[k]]);
+            const SubjectParts parts = subjectParts(cols);
+            fillBySubject(cols, parts, rowStartF, [&](size_t e, size_t k, size_t q) {
+                rank[e] = static_cast<int>(k);
+                entrySlot[e] = slotOf[F[order[k]]];
+                value[e] = cols[k].value(q);
+            });
         }
         // The permuted upper triangle, column c from the pairs (a <= c) of each subject. A task adds the pairs whose
         // later rank is in its range of ranks, about equal in work, so every entry is a sum over subjects in
@@ -509,12 +679,14 @@ public:
     bool setDirection(const std::vector<int>& F, const std::vector<double>& d) {
         if (!secondOrderPrepare(F) || d.size() != F.size()) return false;
         direction.assign(K * S, 0.0);
-        for (size_t i = 0; i < K; ++i) {
-            for (size_t e = rowStartF[i]; e < rowStartF[i + 1]; ++e) {
-                const int a = entryPosition[e];
-                direction[i * S + slotOf[F[a]]] += entryValue[e] * d[a];
+        runTasks((K + subjectBlock - 1) / subjectBlock, [&](size_t b, int) { // subject i writes its own slots
+            for (size_t i = b * subjectBlock; i < std::min(K, (b + 1) * subjectBlock); ++i) {
+                for (size_t e = rowStartF[i]; e < rowStartF[i + 1]; ++e) {
+                    const int a = entryPosition[e];
+                    direction[i * S + slotOf[F[a]]] += entryValue[e] * d[a];
+                }
             }
-        }
+        });
         hasDirection = true;
         return true;
     }
@@ -575,8 +747,31 @@ public:
     void setHeldOutRowsUnused(bool unused) { }
     FoldPartitionPtr makeFoldPartition(const std::vector<int>& segmentOfRow, int folds) const { return nullptr; }
     void setFoldPartition(FoldPartitionPtr partition, int fold) { }
-    AbstractModelSpecifics::GradientDrift getGradientDrift() const { return AbstractModelSpecifics::GradientDrift(); }
-    void setDriftTracking(bool on) { }
+
+    // Zero certificates: the drift totals of the logistic engine (ModelSpecifics.h), kept by recordDrift() over the
+    // person-interval rows; the logit link in double precision with 0/1 subject and row weights only
+    AbstractModelSpecifics::GradientDrift getGradientDrift() const {
+        AbstractModelSpecifics::GradientDrift drift = Base::getGradientDrift();
+        drift.valid = driftSupported() && this->binaryWeights && rowWeightsBinary && this->driftTracking;
+        drift.endReadEps = 8.0; // e = E_i R_r, then p = e / (1 + e): 4 eps per reading
+        return drift;
+    }
+
+    void setDriftTracking(bool on) {
+        on = on && driftSupported();
+        if (on && !this->driftTracking) {
+            buildDrift();
+            nonNormal = countNonNormal();
+        }
+        Base::setDriftTracking(on); // a new epoch when switched on
+    }
+
+    // A column of 1s (slot 0, or a time-basis column of 0s and 1s): the rows of its subjects (where the basis is 1)
+    double getCertifiableRows(int index) {
+        if (!driftSupported()) return 0.0;
+        buildDrift();
+        return colIndicator[index] ? colRows[index] : 0.0;
+    }
 
     // Separation over the person-interval rows, as the logistic rule on the expanded rows: d l / d beta_j =
     // sum_r w_r z_r (y_r - p_r), z_r = x_ij tau_s(j)(t_r), is one-signed when every row with z_r != 0 and weight is
@@ -844,8 +1039,10 @@ private:
         rowTerms(eta(i, r, t, &state[i * S]), pooled.eventOf(i, r, hY[i]), &loss, d1, d2);
     }
 
-    // R_r of the rows of subject i where tau_s is not 0 (all rows: s < 0), and A_i under cloglog
-    void refreshRows(size_t i, int s) {
+    // R_r of the rows of subject i where tau_s is not 0 (all rows: s < 0), and A_i under cloglog; Count: adds the
+    // change in the count of R_r that are not normal numbers to *nonNormalChange
+    template <bool Count = false>
+    void refreshRows(size_t i, int s, long* nonNormalChange = nullptr) {
         const double* st = &state[i * S];
         if (!rowExp.empty()) {
             for (size_t r = pooled.rowStart[i]; r < pooled.rowStart[i + 1]; ++r) {
@@ -853,7 +1050,13 @@ private:
                 if (s > 0 && tau(t, s) == 0.0) continue;
                 double value = linear(t, st) - st[0];
                 if (!pooled.rowOffset.empty()) value += pooled.rowOffset[r];
-                rowExp[r] = std::exp(value);
+                if (Count) {
+                    const double old = rowExp[r];
+                    rowExp[r] = std::exp(value);
+                    *nonNormalChange += notNormal(rowExp[r]) - notNormal(old);
+                } else {
+                    rowExp[r] = std::exp(value);
+                }
             }
         }
         if (pooled.cloglog) { // A_i
@@ -871,9 +1074,191 @@ private:
     }
 
     void refreshAll() {
+        runTasks((K + subjectBlock - 1) / subjectBlock, [&](size_t b, int) { // subject i writes its own E_i, R_r, A_i
+            for (size_t i = b * subjectBlock; i < std::min(K, (b + 1) * subjectBlock); ++i) {
+                subjectExp[i] = std::exp(state[i * S] + subjectOffset(i));
+                refreshRows(i, -1);
+            }
+        });
+        scanState(); // every E_i and R_r from this state
+        if (this->driftTracking) { // a new epoch
+            nonNormal = countNonNormal();
+            this->restartDrift();
+        }
+    }
+
+    // ---- Zero certificates: drift bounds (see CyclicCoordinateDescent::certifiedZero()) ----
+    //
+    // The logistic engine keeps e = exp(eta) per row and multiplies it by exp(delta x) in an update. Here
+    // e_r = E_i R_r, and an update recomputes E_i = exp(state_i0 + offset_i) (slot 0) or R_r = exp(eta_r - state_i0
+    // - offset_i) (slot s > 0, the rows where tau_s != 0) from the state. The log of the ratio of the computed new
+    // and old values is then delta x tau within kappa, the rounding of the two arguments and of the two exps
+    // (recordDrift()). The arguments' rounding grows with |state|, so kappa uses the largest |state_is| seen since
+    // the last refreshAll() (every stored E_i and R_r was computed from a state since then; a slot-0 update does
+    // not recompute R_r, whose rounding is that of the state_i0 when it was last computed). The bound needs E_i and
+    // R_r to be normal numbers (a relative error): while any is not, every update starts a new epoch. The running
+    // maximum is kept whether tracking or not (a scan of the state in refreshAll(), a comparison per entry in an
+    // update), so that it covers every state since the last refreshAll() when tracking is switched on.
+
+    static long notNormal(double v) {
+        return (v >= std::numeric_limits<double>::min() && v <= std::numeric_limits<double>::max()) ? 0 : 1;
+    }
+
+    bool driftSupported() const {
+        return std::is_same<RealType, double>::value && !this->legacy && !pooled.cloglog;
+    }
+
+    long countNonNormal() const {
+        long count = 0;
+        for (double v : subjectExp) count += notNormal(v);
+        for (double v : rowExp) count += notNormal(v);
+        return count;
+    }
+
+    void scanState() {
+        std::fill(maxAbsStateSlot.begin(), maxAbsStateSlot.end(), 0.0);
         for (size_t i = 0; i < K; ++i) {
-            subjectExp[i] = std::exp(state[i * S] + subjectOffset(i));
-            refreshRows(i, -1);
+            for (int s = 0; s < S; ++s) {
+                maxAbsStateSlot[s] = std::max(maxAbsStateSlot[s], std::abs(state[i * S + s]));
+            }
+        }
+    }
+
+    // Once per model (the data do not change), on the first use: not paid by fits without certificates
+    void buildDrift() {
+        if (driftBuilt) return;
+        rowWeightsBinary = true;
+        for (double w : pooled.rowWeight) rowWeightsBinary = rowWeightsBinary && (w == 0.0 || w == 1.0);
+        maxRowOffset = 0.0;
+        for (double o : pooled.rowOffset) maxRowOffset = std::max(maxRowOffset, std::abs(o));
+        maxSubjectOffset = 0.0;
+        for (double o : pooled.subjectOffset) maxSubjectOffset = std::max(maxSubjectOffset, std::abs(o));
+        maxTauSlot.assign(S, 0.0);
+        maxTauSlot[0] = 1.0;
+        std::vector<char> basis01(S, 1); // tau_s in {0, 1}
+        const size_t T = (B > 0) ? pooled.basis.size() / B : 0;
+        for (size_t t = 0; t < T; ++t) {
+            for (int b = 0; b < B; ++b) {
+                const double v = basisValue(static_cast<int>(t), b);
+                maxTauSlot[b + 1] = std::max(maxTauSlot[b + 1], std::abs(v));
+                if (v != 0.0 && v != 1.0) basis01[b + 1] = 0;
+            }
+        }
+        // colRows: the rows whose e an update recomputes, which are also the rows its gradient reads: every row of
+        // the subjects with x != 0 (slot 0; x = 0 leaves E_i as it is), or the rows where tau_s != 0 of every
+        // subject in the column (slot s; R_r is recomputed from the current state_i0 even where x = 0)
+        colRows.assign(J, 0.0);
+        colMaxAbsX.assign(J, 0.0);
+        colIndicator.assign(J, 0);
+        for (size_t j = 0; j < J; ++j) {
+            const int s = slotOf[j];
+            bool ones = true;
+            for (GenericIterator<RealType> it(hX, static_cast<int>(j)); it; ++it) {
+                const size_t i = it.index();
+                const double x = static_cast<double>(it.value());
+                ones = ones && x == 1.0;
+                colMaxAbsX[j] = std::max(colMaxAbsX[j], std::abs(x));
+                if (s == 0 && x == 0.0) continue;
+                for (size_t r = pooled.rowStart[i]; r < pooled.rowStart[i + 1]; ++r) {
+                    if (s == 0 || tau(pooled.intervalOf(i, r), s) != 0.0) colRows[j] += 1.0;
+                }
+            }
+            colIndicator[j] = (ones && basis01[s]) ? 1 : 0;
+        }
+        hessianVersion.assign(J, -1);
+        hessianValue.assign(J, 0.0);
+        driftBuilt = true;
+    }
+
+    // Entries [q0, q1) of column col (slot s) moved by beta: the state, then E_i (slot 0) or R_r (and A_i). Returns
+    // the largest |state| written; Count (while tracking drift): adds the change in the count of E_i and R_r that are
+    // not normal numbers to *nonNormalChange
+    template <bool Count>
+    double updateEntries(const Column& col, size_t q0, size_t q1, double beta, int s, long* nonNormalChange) {
+        double largest = 0.0;
+        for (size_t q = q0; q < q1; ++q) {
+            const size_t i = col.row(q);
+            double& v = state[i * S + s];
+            v += beta * col.value(q);
+            largest = std::max(largest, std::abs(v));
+            if (s == 0) {
+                const double old = subjectExp[i];
+                subjectExp[i] = std::exp(v + subjectOffset(i));
+                if (Count) *nonNormalChange += notNormal(subjectExp[i]) - notNormal(old);
+            } else {
+                refreshRows<Count>(i, s, nonNormalChange);
+            }
+        }
+        return largest;
+    }
+
+    // The drift of p = e / (1 + e) in an update of column j (slot s) by delta, as the logistic engine bounds it
+    // (ModelSpecifics.hpp, updateXBetaImpl()), with the log of every row's factor within |delta x tau| + kappa:
+    // - kappa: the arguments of exp are sums of at most B + 3 terms, each at most max|tau_q| max|state_q| or an
+    //   offset, so each rounds within (B + 3) eps / 2 of their absolute sum, and an exp within eps (doubled
+    //   throughout for margin);
+    // - a column of 1s (colIndicator) moves every row the way of delta, by at most tanh((|delta| + kappa) / 4) and
+    //   by at most p (1 - p) G, G = exp(|delta| + kappa) - 1, and against it by at most kappa / 4; right after the
+    //   column's gradient (hessianVersion), the rows' sum of p (1 - p) is that gradient's Hessian (0/1 weights);
+    //   0.25 bounds the largest p (1 - p) (no work per row in the gradient)
+    // - another column moves every row by at most tanh((|delta| max|x| max|tau_s| + kappa) / 4), either way.
+    void recordDrift(double delta, int j, int s) {
+        const double eps = std::numeric_limits<double>::epsilon();
+        double kappa;
+        if (s == 0) {
+            const double m = maxAbsStateSlot[0];
+            kappa = eps * (2.0 * m + 2.0 * (m + maxSubjectOffset)) + 4.0 * eps;
+        } else {
+            double sum = maxRowOffset;
+            for (int q = 0; q < S; ++q) sum += maxTauSlot[q] * maxAbsStateSlot[q];
+            kappa = 2.0 * (B + 4) * eps * sum + 4.0 * eps;
+        }
+        kappa *= 1.0 + 1E-12;
+        const double terms = colRows[j];
+        const double ad = std::abs(delta) * (1.0 + 4.0 * eps);
+        double up = 0.0, down = 0.0, maxUp = 0.0, maxDown = 0.0;
+        if (colIndicator[j]) {
+            const bool rises = delta > 0.0;
+            const double growth = std::expm1(ad + kappa) * (1.0 + 4.0 * eps) + 4.0 * eps;
+            const double largestMove = std::min(1.0, std::tanh(0.25 * (ad + kappa)) * (1.0 + 1E-12) + 10.0 * eps);
+            const double wrong = std::min(1.0, 0.25 * kappa * (1.0 + 1E-12) + 10.0 * eps); // against the step
+            double sum = terms * largestMove, largest = largestMove;
+            const double h = hessianValue[j];
+            const bool fromHessian = hessianVersion[j] == this->expVersion && h >= 0.0 &&
+                h <= std::numeric_limits<double>::max();
+            if (fromHessian) {
+                sum = std::min(growth * (h * (1.0 + (terms + 8.0) * eps) + 4.0 * eps * terms) * (1.0 + 1E-12) +
+                               10.0 * eps * terms, sum);
+                largest = std::min(largestMove, 0.25 * growth * (1.0 + 1E-12) + 10.0 * eps);
+            }
+            const double wrongSum = terms * wrong;
+            if (rises) {
+                up = sum; maxUp = largest; down = wrongSum; maxDown = wrong;
+            } else {
+                down = sum; maxDown = largest; up = wrongSum; maxUp = wrong;
+            }
+            if (fromHessian) { // the step's way by the column's Hessian bucket; against it for every column
+                this->recordSidedDrift(AbstractModelSpecifics::GradientDrift::bucketOf(h), rises ? sum : 0.0,
+                                       rises ? 0.0 : sum, rises ? growth : 0.0, rises ? 0.0 : growth);
+                this->recordSidedDrift(0, rises ? 0.0 : wrongSum, rises ? wrongSum : 0.0, 0.0, 0.0);
+            } else {
+                this->recordSidedDrift(0, up, down, 0.0, 0.0);
+            }
+        } else {
+            const double scale = colMaxAbsX[j] * maxTauSlot[s];
+            const double largestMove = std::min(1.0,
+                std::tanh(0.25 * (ad * scale * (1.0 + 4.0 * eps) + kappa)) * (1.0 + 1E-12) + 10.0 * eps);
+            up = down = terms * largestMove;
+            maxUp = maxDown = largestMove;
+            this->recordSidedDrift(0, up, down, 0.0, 0.0);
+        }
+        this->accumulate(this->driftUp, up);
+        this->accumulate(this->driftDown, down);
+        this->accumulate(this->driftMaxUp, maxUp);
+        this->accumulate(this->driftMaxDown, maxDown);
+        ++this->driftUpdates;
+        if (!std::isfinite(this->driftUp + this->driftDown + this->driftMaxUp + this->driftMaxDown)) {
+            this->restartDrift();
         }
     }
 
@@ -890,18 +1275,54 @@ private:
         }
     }
 
-    // -sum_r w_r loss_r at the state plus t dir (a compensated sum)
+    // -sum_r w_r loss_r at the state plus t dir (a compensated sum). With threads the terms are computed on them, by
+    // subject, and then added here in row order with the same compensated sum: the same bit for bit. They are kept for
+    // a window of subjects at a time, of at most termWindow rows (or one subject), in bounded memory
     double logLikelihood(const double* weights, const std::vector<double>* dir, double t) const {
-        double sum = 0.0, compensation = 0.0;
-        forEachRow(weights, [&](size_t i, size_t r, int interval, double w, bool y) {
+        auto term = [&](size_t i, size_t r, int interval, double w, bool y) {
             double e = eta(i, r, interval, &state[i * S]);
             if (dir) e += t * linear(interval, &(*dir)[i * S]);
             double loss, d1, d2;
             rowTerms(e, y, &loss, &d1, &d2);
-            const double term = -w * loss;
+            return -w * loss;
+        };
+        double sum = 0.0, compensation = 0.0;
+        auto add = [&](double term) {
             const double next = sum + term;
             compensation += (std::abs(sum) >= std::abs(term)) ? (sum - next) + term : (term - next) + sum;
             sum = next;
+        };
+        if (pool) {
+            const size_t window = logistic::termWindow;
+            for (size_t i0 = 0, i1; i0 < K; i0 = i1) {
+                const size_t first = pooled.rowStart[i0];
+                i1 = std::max(i0 + 1, static_cast<size_t>(std::upper_bound(pooled.rowStart.begin() + i0,
+                    pooled.rowStart.begin() + K + 1, first + window) - pooled.rowStart.begin()) - 1);
+                const size_t rows = pooled.rowStart[i1] - first;
+                if (llTerm.size() < rows) {
+                    llTerm.resize(rows);
+                    llUse.resize(rows);
+                }
+                runTasks((i1 - i0 + subjectBlock - 1) / subjectBlock, [&](size_t b, int) { // the rows forEachRow() visits
+                    for (size_t i = i0 + b * subjectBlock; i < std::min(i1, i0 + (b + 1) * subjectBlock); ++i) {
+                        const double sw = weights ? weights[i] : subjectWeight(i);
+                        for (size_t r = pooled.rowStart[i]; r < pooled.rowStart[i + 1]; ++r) {
+                            const double w = sw * rowWeight(r);
+                            llUse[r - first] = sw != 0.0 && w != 0.0;
+                            if (llUse[r - first]) {
+                                llTerm[r - first] = term(i, r, pooled.intervalOf(i, r), w, pooled.eventOf(i, r, hY[i]));
+                            }
+                        }
+                    }
+                });
+                for (size_t r = 0; r < rows; ++r) {
+                    if (llUse[r]) add(llTerm[r]);
+                }
+            }
+            return sum + compensation;
+        }
+        forEachRow(weights, [&](size_t i, size_t r, int interval, double w, bool y) {
+            add(term(i, r, interval, w, y));
         });
         return sum + compensation;
     }
@@ -1007,8 +1428,127 @@ private:
 
     std::unique_ptr<WorkerPool> pool; // only with more than one thread
 
+    // zero certificates (buildDrift(), axpyXBeta())
+    bool driftBuilt = false;
+    bool rowWeightsBinary = true;
+    std::vector<double> colRows;      // the rows whose e an update of each column recomputes
+    std::vector<double> colMaxAbsX;   // max |x| per column
+    std::vector<char> colIndicator;   // a column of 1s whose slot's basis is 0 or 1 (certifiable)
+    std::vector<double> maxTauSlot;   // max |tau_s|
+    double maxRowOffset = 0.0;
+    double maxSubjectOffset = 0.0;
+    std::vector<double> maxAbsStateSlot; // max |state_is| since the last refreshAll()
+    long nonNormal = 0;               // E_i and R_r that are not normal numbers (while tracking)
+    std::vector<long> hessianVersion; // per column: expVersion of its last gradient (-1: not certifiable)
+    std::vector<double> hessianValue; // and its Hessian
+
+    // ---- Threads within one fit ----
+    //
+    // Results are the same bit for bit on any number of threads, and the same as on one. Some partitions of the work
+    // depend on the threads (the parts of subjectParts(), the tasks of coordinateTasks() and of the Hessian block's
+    // pairs); identity holds because every output gets the same terms, added in the same order, whatever the
+    // partition. Every loop on the threads is one of:
+    // - elementwise: each output (a subject's state, E_i, R_r and A_i, its slots of the direction, a place of a
+    //   layout, a row's log-likelihood term) is written by one task, from inputs no task writes, with the
+    //   expressions of the serial loop. A layout by subject is filled, within each subject, in column order, as one
+    //   pass over the columns fills it;
+    // - an ordered reduction: the tasks keep the terms, and the calling thread adds them in the serial order, with
+    //   the serial expressions; no sum is split between tasks (parallelGradient(), logLikelihood(), fullGradient());
+    // - exact: maxima and integer counts (axpyXBeta()).
+    // The serial and threaded paths share each term's expressions (gradientTerms(), logLikelihood()'s term). Whether a
+    // compiler fuses a product with the add that follows into one multiply-add can still differ between them:
+    // clang vectorized the threaded gradient's sum of products, leaving its adds unfused where the serial pass fuses
+    // them, so that loop is kept scalar (PLR_SCALAR_LOOP). GCC's default -ffp-contract=fast also fuses across
+    // statements on targets with FMA (arm64, or x86-64 with -march=native); baseline x86-64 has no FMA. The tests
+    // (test-threadsOneFit.R) compare 1 with 3 threads.
+
+    // The tasks of one coordinate's gradient or update (threads of the pool, one task each): 1 (this thread) for a
+    // column under coordinateMinEntries entries, or without coordinate threads; else one per
+    // coordinateEntriesPerThread entries, at most coordinateMaxThreads. A run wakes only those threads
+    // (WorkerPool::run()'s maxThreads). Measured on a CCW model (25,000 subjects): more than 4 threads per coordinate
+    // made coordinate descent on 8 threads slower than on 4
+    static constexpr size_t coordinateMinEntries = 4096;
+    static constexpr size_t coordinateEntriesPerThread = 2048;
+    static constexpr size_t coordinateMaxThreads = 4;
+
+    size_t coordinateTasks(size_t n) const {
+        if (!pool || !coordinateThreads || n < coordinateMinEntries) return 1;
+        return std::min<size_t>(std::min<size_t>(static_cast<size_t>(pool->size()), coordinateMaxThreads),
+                                (n + coordinateEntriesPerThread - 1) / coordinateEntriesPerThread);
+    }
+
+    Column column(int j) const {
+        const FormatType format = hX.getFormatType(j);
+        const bool dense = format == DENSE || format == INTERCEPT;
+        Column c;
+        c.rows = dense ? nullptr : hX.getCompressedColumnVector(j);
+        c.values = (format == SPARSE || format == DENSE) ? hX.getDataVector(j) : nullptr;
+        c.n = dense ? static_cast<size_t>(hX.getNumberOfRows()) : static_cast<size_t>(hX.getNumberOfEntries(j));
+        return c;
+    }
+
+    // Columns laid out by subject, as a pass over the columns in their order puts them: within a subject, its entries
+    // in the order of the columns. With threads the subjects are cut into parts; a part passes over every column's
+    // entries of its subjects (found by bisection: a column's subjects ascend) and writes only its subjects' counts
+    // and places, so every place gets the same entry on any number of threads
+    struct SubjectParts {
+        size_t parts;
+        std::vector<size_t> bound; // column c's first entry in part p: [c * (parts + 1) + p]
+    };
+
+    SubjectParts subjectParts(const std::vector<Column>& cols) const {
+        SubjectParts sp;
+        sp.parts = pool ? std::min<size_t>(2 * static_cast<size_t>(pool->size()), std::max<size_t>(1, K / 1024)) : 1;
+        const size_t stride = sp.parts + 1;
+        sp.bound.resize(cols.size() * stride);
+        runTasks((cols.size() + 63) / 64, [&](size_t b, int) {
+            for (size_t c = b * 64; c < std::min(cols.size(), (b + 1) * 64); ++c) {
+                for (size_t p = 0; p <= sp.parts; ++p) {
+                    const size_t i = K * p / sp.parts;
+                    sp.bound[c * stride + p] = cols[c].rows ? static_cast<size_t>(std::lower_bound(cols[c].rows,
+                        cols[c].rows + cols[c].n, static_cast<int>(i)) - cols[c].rows) : std::min(i, cols[c].n);
+                }
+            }
+        });
+        return sp;
+    }
+
+    void countBySubject(const std::vector<Column>& cols, const SubjectParts& sp, std::vector<size_t>& start) const {
+        const size_t stride = sp.parts + 1;
+        start.assign(K + 1, 0);
+        runTasks(sp.parts, [&](size_t p, int) {
+            for (size_t c = 0; c < cols.size(); ++c) {
+                for (size_t q = sp.bound[c * stride + p]; q < sp.bound[c * stride + p + 1]; ++q) ++start[cols[c].row(q) + 1];
+            }
+        });
+        for (size_t i = 0; i < K; ++i) start[i + 1] += start[i];
+    }
+
+    // put(e, c, q): entry q of column c at place e
+    template <class Put>
+    void fillBySubject(const std::vector<Column>& cols, const SubjectParts& sp, const std::vector<size_t>& start,
+                       Put put) const {
+        const size_t stride = sp.parts + 1;
+        std::vector<size_t> next(start.begin(), start.end() - 1);
+        runTasks(sp.parts, [&](size_t p, int) {
+            for (size_t c = 0; c < cols.size(); ++c) {
+                for (size_t q = sp.bound[c * stride + p]; q < sp.bound[c * stride + p + 1]; ++q) {
+                    put(next[cols[c].row(q)]++, c, q);
+                }
+            }
+        });
+    }
+
+    bool coordinateThreads = true; // setThreads() (not only setSecondOrderThreads())
+    static constexpr size_t subjectBlock = 2048; // subjects per task of the elementwise loops
+    std::vector<std::vector<Term>> termsOf; // parallelGradient(): the terms of each task (of a window)
+    size_t maxSubjectRows = 1;        // the most rows of a subject
+    std::vector<double> subjectM;     // fullGradient(): slot sums of a chunk of subjects
+    mutable std::vector<double> llTerm; // logLikelihood(): terms by row of a window
+    mutable std::vector<uint8_t> llUse;
+
     template <typename Task>
-    void runTasks(size_t count, Task task) {
+    void runTasks(size_t count, Task task) const {
         if (pool) {
             pool->run(count, task);
         } else {

@@ -54,13 +54,15 @@ void ModelSpecifics<BaseModel,RealType>::lrColumnAxpy(int j, double a, std::vect
 template <class BaseModel, typename RealType>
 void ModelSpecifics<BaseModel,RealType>::lrRowWeights(bool curvature, std::vector<double>& a) const {
 	a.assign(K, 0.0);
-	for (size_t k = 0; k < K; ++k) {
-		const double w = static_cast<double>(hKWeight[k]);
-		if (w != 0.0) {
-			const double p = readP(offsExpXBeta[k]);
-			a[k] = curvature ? w * p * (1.0 - p) : w * p;
+	logistic::runTasks(lrPool.get(), (K + logistic::rowBlock - 1) / logistic::rowBlock, [&](size_t b, int) {
+		for (size_t k = b * logistic::rowBlock; k < std::min(static_cast<size_t>(K), (b + 1) * logistic::rowBlock); ++k) {
+			const double w = static_cast<double>(hKWeight[k]);
+			if (w != 0.0) {
+				const double p = readP(offsExpXBeta[k]);
+				a[k] = curvature ? w * p * (1.0 - p) : w * p;
+			}
 		}
-	}
+	});
 }
 
 template <class BaseModel, typename RealType>
@@ -72,9 +74,11 @@ bool ModelSpecifics<BaseModel,RealType>::lrFullGradient(const std::vector<int>& 
 	std::vector<double> a;
 	lrRowWeights(false, a);
 	g.resize(F.size());
-	for (size_t p = 0; p < F.size(); ++p) {
-		g[p] = lrColumnDot(F[p], a, false) - static_cast<double>(hXjY[F[p]]);
-	}
+	logistic::runTasks(lrPool.get(), (F.size() + logistic::columnBlock - 1) / logistic::columnBlock, [&](size_t b, int) {
+		for (size_t p = b * logistic::columnBlock; p < std::min(F.size(), (b + 1) * logistic::columnBlock); ++p) {
+			g[p] = lrColumnDot(F[p], a, false) - static_cast<double>(hXjY[F[p]]);
+		}
+	});
 	return true;
 }
 
@@ -287,40 +291,45 @@ bool ModelSpecifics<BaseModel,RealType>::lrHessianBlock(const std::vector<int>& 
 	}
 	for (size_t r0 = 0; r0 < K; r0 += chunk) {
 		const size_t r1 = std::min(K, r0 + chunk);
-		std::fill(rowStart.begin(), rowStart.end(), 0);
-		for (size_t p = 0; p < n; ++p) { // count, without moving the cursors
-			if (rows[p] == nullptr) {
-				for (size_t k = r0; k < r1; ++k) {
-					++rowStart[k - r0 + 1];
-				}
-			} else {
-				for (size_t e = cursor[p]; e < count[p] && static_cast<size_t>(rows[p][e]) < r1; ++e) {
-					++rowStart[rows[p][e] - r0 + 1];
-				}
+		// The rows of the chunk in parts, one task each (more parts with more threads), each column's entries of a
+		// part found by bisection. A part counts and fills only its own rows, and fills each row's positions in
+		// accumulation order, as one pass over the columns does: the layout is the same for any number of parts
+		const size_t parts = lrPool ? std::min<size_t>(4 * static_cast<size_t>(lrPool->size()), (r1 - r0 + 255) / 256) : 1;
+		std::vector<size_t> partStart((parts + 1) * n); // entry of column p at the start of part q: [q * n + p]
+		for (size_t p = 0; p < n; ++p) {
+			for (size_t q = 0; q <= parts; ++q) {
+				const size_t k = r0 + (r1 - r0) * q / parts;
+				partStart[q * n + p] = (rows[p] == nullptr) ? k : (q == 0 ? cursor[p] :
+					static_cast<size_t>(std::lower_bound(rows[p] + cursor[p], rows[p] + count[p], static_cast<int>(k)) - rows[p]));
 			}
 		}
+		std::fill(rowStart.begin(), rowStart.end(), 0);
+		logistic::runTasks(lrPool.get(), parts, [&](size_t q, int) { // count
+			for (size_t p = 0; p < n; ++p) {
+				for (size_t e = partStart[q * n + p]; e < partStart[(q + 1) * n + p]; ++e) {
+					++rowStart[(rows[p] == nullptr ? e : static_cast<size_t>(rows[p][e])) - r0 + 1];
+				}
+			}
+		});
 		for (size_t i = 0; i < r1 - r0; ++i) {
 			rowStart[i + 1] += rowStart[i];
 		}
 		position.resize(rowStart[r1 - r0]);
 		value.resize(rowStart[r1 - r0]);
 		std::vector<int> next(rowStart.begin(), rowStart.begin() + (r1 - r0));
-		for (size_t slot = 0; slot < n; ++slot) { // fill in accumulation order: positions ascend within each row
-			const size_t p = order[slot];
-			if (rows[p] == nullptr) {
-				for (size_t k = r0; k < r1; ++k) {
-					const int e = next[k - r0]++;
-					position[e] = static_cast<int>(slot);
-					value[e] = (values[p] == nullptr) ? 1.0 : static_cast<double>(values[p][k]);
-				}
-			} else {
-				for (; cursor[p] < count[p] && static_cast<size_t>(rows[p][cursor[p]]) < r1; ++cursor[p]) {
-					const size_t k = rows[p][cursor[p]];
-					const int e = next[k - r0]++;
-					position[e] = static_cast<int>(slot);
-					value[e] = (values[p] == nullptr) ? 1.0 : static_cast<double>(values[p][cursor[p]]);
+		logistic::runTasks(lrPool.get(), parts, [&](size_t q, int) { // fill in accumulation order
+			for (size_t slot = 0; slot < n; ++slot) {
+				const size_t p = order[slot];
+				for (size_t e = partStart[q * n + p]; e < partStart[(q + 1) * n + p]; ++e) {
+					const size_t k = (rows[p] == nullptr) ? e : static_cast<size_t>(rows[p][e]);
+					const int f = next[k - r0]++;
+					position[f] = static_cast<int>(slot);
+					value[f] = (values[p] == nullptr) ? 1.0 : static_cast<double>(values[p][e]);
 				}
 			}
+		});
+		for (size_t p = 0; p < n; ++p) {
+			if (rows[p] != nullptr) cursor[p] = partStart[parts * n + p];
 		}
 		// task t adds the pairs whose later column is in its range: each entry has one owner
 		auto accumulate = [&](size_t task, int) {
@@ -367,12 +376,14 @@ bool ModelSpecifics<BaseModel,RealType>::lrHessianBlock(const std::vector<int>& 
 	for (size_t slot = 0; slot < n; ++slot) {
 		slotOf[order[slot]] = slot;
 	}
-	for (size_t b = 0; b < n; ++b) {
-		for (size_t a = 0; a < n; ++a) {
-			const size_t sa = slotOf[a], sb = slotOf[b];
-			H[a + b * n] = (sa <= sb) ? permuted[sa + sb * n] : permuted[sb + sa * n];
+	logistic::runTasks(lrPool.get(), (n + 63) / 64, [&](size_t c, int) {
+		for (size_t b = c * 64; b < std::min(n, (c + 1) * 64); ++b) {
+			for (size_t a = 0; a < n; ++a) {
+				const size_t sa = slotOf[a], sb = slotOf[b];
+				H[a + b * n] = (sa <= sb) ? permuted[sa + sb * n] : permuted[sb + sa * n];
+			}
 		}
-	}
+	});
 	return true;
 }
 
@@ -433,13 +444,37 @@ double ModelSpecifics<BaseModel,RealType>::lrTrialLogLikelihood(double t) {
 	if (!lrReady() || !gsHasDirection || lrDirection.size() != K) {
 		return std::numeric_limits<double>::quiet_NaN();
 	}
+	auto term = [&](size_t k, double w) { // row k's term (weight w != 0), on either path
+		const double eta = static_cast<double>(hXBeta[k]) + t * lrDirection[k];
+		return w * (static_cast<double>(hY[k]) * eta - logistic::log1pExp(eta));
+	};
 	double sum = 0.0, compensation = 0.0;
+	if (lrPool) { // the terms on the threads (elementwise), then the same compensated sum in row order here, a window
+		// of at most termWindow rows at a time (bounded memory)
+		const size_t window = std::min(static_cast<size_t>(K), logistic::termWindow);
+		lrTerm.resize(window);
+		lrUse.resize(window);
+		for (size_t k0 = 0; k0 < K; k0 += window) {
+			const size_t k1 = std::min(static_cast<size_t>(K), k0 + window);
+			logistic::runTasks(lrPool.get(), (k1 - k0 + logistic::rowBlock - 1) / logistic::rowBlock, [&](size_t b, int) {
+				for (size_t k = k0 + b * logistic::rowBlock; k < std::min(k1, k0 + (b + 1) * logistic::rowBlock); ++k) {
+					const double w = static_cast<double>(hKWeight[k]);
+					lrUse[k - k0] = w != 0.0;
+					if (w != 0.0) {
+						lrTerm[k - k0] = term(k, w);
+					}
+				}
+			});
+			for (size_t k = k0; k < k1; ++k) {
+				if (lrUse[k - k0]) grouped::addCompensated(sum, compensation, lrTerm[k - k0]);
+			}
+		}
+		return sum + compensation;
+	}
 	for (size_t k = 0; k < K; ++k) {
 		const double w = static_cast<double>(hKWeight[k]);
 		if (w != 0.0) {
-			const double eta = static_cast<double>(hXBeta[k]) + t * lrDirection[k];
-			grouped::addCompensated(sum, compensation,
-				w * (static_cast<double>(hY[k]) * eta - logistic::log1pExp(eta)));
+			grouped::addCompensated(sum, compensation, term(k, w));
 		}
 	}
 	return sum + compensation;
@@ -451,13 +486,15 @@ bool ModelSpecifics<BaseModel,RealType>::lrCommitStep(double t) {
 	if (!lrReady() || !gsHasDirection || lrDirection.size() != K) {
 		return false;
 	}
-	for (size_t k = 0; k < K; ++k) {
-		if (lrDirection[k] == 0.0 || (trainingRowsOnly && hKWeight[k] == static_cast<RealType>(0))) {
-			continue; // held-out rows stay as coordinate descent leaves them
+	logistic::runTasks(lrPool.get(), (K + logistic::rowBlock - 1) / logistic::rowBlock, [&](size_t b, int) {
+		for (size_t k = b * logistic::rowBlock; k < std::min(static_cast<size_t>(K), (b + 1) * logistic::rowBlock); ++k) {
+			if (lrDirection[k] == 0.0 || (trainingRowsOnly && hKWeight[k] == static_cast<RealType>(0))) {
+				continue; // held-out rows stay as coordinate descent leaves them
+			}
+			hXBeta[k] += static_cast<RealType>(t * lrDirection[k]);
+			offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], static_cast<int>(k));
 		}
-		hXBeta[k] += static_cast<RealType>(t * lrDirection[k]);
-		offsExpXBeta[k] = BaseModel::getOffsExpXBeta(hOffs.data(), hXBeta[k], hY[k], static_cast<int>(k));
-	}
+	});
 	denominatorsStale = true; // denomPid = 1 + e, rebuilt on demand
 	restartDrift();           // e rebuilt
 	makeDirty();
