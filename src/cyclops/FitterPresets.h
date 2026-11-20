@@ -58,6 +58,9 @@ struct ResolvedControl {
 	std::string fallbackConvergenceType;    // "auto" with the "gap" criterion: the criterion of a CCD fallback
 	std::optional<double> fallbackTolerance;
 	std::optional<int> fallbackMaxIterations;
+	// "auto" with its "gap" and the fold criterion all from the defaults: logistic fold fits stop as coordinate descent's
+	// folds do (kkt-guided at the folds' kkt tolerance, without a certificate past it)
+	bool foldsFromDefaults = false;
 	std::vector<std::string> warnings;      // for the caller to issue, in order
 	std::string error;                      // settings that contradict each other (after the warnings); else empty
 };

@@ -832,6 +832,9 @@ void cyclopsSetCvControl(SEXP inRcppCcdInterface, const List& options) {
 	if (options.containsElementNamed("tolerance")) {
 		cv.foldTolerance = as<double>(options["tolerance"]);
 	}
+	if (options.containsElementNamed("foldsFromDefaults")) {
+		cv.foldsFromDefaults = as<bool>(options["foldsFromDefaults"]);
+	}
 	if (options.containsElementNamed("maxIterations")) {
 		cv.foldMaxIterations = as<int>(options["maxIterations"]);
 	}
@@ -1779,5 +1782,6 @@ List cyclopsResolveControl(List control, SEXP modelType, SEXP nCovariates) {
         Named("adaptiveIntercept") = r.adaptiveIntercept,
         Named("fallbackConvergenceType") = r.fallbackConvergenceType,
         Named("fallbackTolerance") = orNull(r.fallbackTolerance),
-        Named("fallbackMaxIterations") = orNull(r.fallbackMaxIterations));
+        Named("fallbackMaxIterations") = orNull(r.fallbackMaxIterations),
+        Named("foldsFromDefaults") = r.foldsFromDefaults);
 }

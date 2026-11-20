@@ -251,6 +251,32 @@ test_that("newtonMemoryBudget bounds prox-Newton; a tiny budget leaves the fit o
     expect_equal(coef(tiny), coef(default), tolerance = 1e-6)
 })
 
+test_that("coordinate descent under \"gap\" does not warn about newtonMemoryBudget; logistic \"auto\" with a Laplace prior does", {
+    design <- function(rho) {
+        set.seed(1)
+        x <- sqrt(rho) * rnorm(1000) + sqrt(1 - rho) * matrix(rnorm(1000 * 60), 1000)
+        createCyclopsData(rbinom(1000, 1, plogis(x[, 1:5] %*% rep(0.4, 5))) ~ x, modelType = "lr")
+    }
+    fit <- function(data, ...) fitCyclopsModel(data, prior = createPrior("laplace", variance = 0.1, exclude = 1),
+                                               control = createControl(noiseLevel = "silent", ...), forceNewObject = TRUE)
+    # an explicit "ccd" with "gap" runs the kkt-guided coordinate descent, which takes no Newton steps: a budget too small
+    # for any changes nothing and records nothing
+    for (rho in c(0, 0.99)) {
+        data <- design(rho)
+        ample <- expect_no_warning(fit(data, algorithm = "ccd", convergenceType = "gap"))
+        tiny <- expect_no_warning(fit(data, algorithm = "ccd", convergenceType = "gap", newtonMemoryBudget = 1e-5))
+        expect_equal(tiny$convergence$newtonIterations, 0)
+        expect_true(is.na(tiny$convergence$budgetBytes))
+        expect_identical(coef(tiny), coef(ample))
+    }
+    # logistic "auto" with a Laplace prior keeps the Newton-first path: a budget that refuses its Newton steps warns
+    correlated <- design(0.99)
+    expect_gt(fit(correlated)$convergence$newtonIterations, 0)
+    expect_warning(refused <- fit(correlated, newtonMemoryBudget = 1e-5), "more than newtonMemoryBudget")
+    expect_equal(refused$convergence$newtonIterations, 0)
+    expect_gt(refused$convergence$budgetBytes, 10)
+})
+
 test_that("a duality gap that Newton steps no longer reduce ends the fit uncertified", {
     # Dense columns with a few values in (0, 1] beside binary ones (a CCW censoring model's design): at the optimum the
     # dual point's gap stays near 3e-9, above tau_eff = 1e-9, while prox-Newton is stationary. The fit used to run

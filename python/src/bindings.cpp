@@ -148,6 +148,7 @@ PYBIND11_MODULE(_cyclops, m) {
         .def_readwrite("cv_search_direction", &FitOptions::cv_search_direction)
         .def_readwrite("cv_convergence", &FitOptions::cv_convergence)
         .def_readwrite("cv_tolerance", &FitOptions::cv_tolerance)
+        .def_readwrite("cv_folds_from_defaults", &FitOptions::cv_folds_from_defaults)
         .def_readwrite("cv_max_iterations", &FitOptions::cv_max_iterations)
         .def_readwrite("cv_min_iterations", &FitOptions::cv_min_iterations)
         .def_readwrite("cv_warm_start", &FitOptions::cv_warm_start)
@@ -382,6 +383,7 @@ PYBIND11_MODULE(_cyclops, m) {
               d["active_set_threshold"] = r.activeSetThreshold;
               d["adaptive_intercept"] = r.adaptiveIntercept;
               d["fallback_convergence"] = r.fallbackConvergenceType;
+              d["folds_from_defaults"] = r.foldsFromDefaults;
               d["fallback_tolerance"] = r.fallbackTolerance;
               d["fallback_max_iterations"] = r.fallbackMaxIterations;
               d["warnings"] = r.warnings;
