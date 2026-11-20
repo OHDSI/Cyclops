@@ -175,6 +175,16 @@ test_that("plr fits with threads equal those without", {
     fit4 <- fit(4)
     expect_equal(fit4$algorithm, "newton")
     expect_identical(coef(fit4), coef(fit(1)))
+    # and by the super fitter's coordinate descent, whose cycles skip coordinates (active set) and take extra
+    # intercept steps on threads as on one
+    ccd <- function(threads) fitCyclopsModel(plr, prior = createPrior("laplace", variance = 0.01, exclude = c(0, 1000)),
+                                             control = createControl(threads = threads, noiseLevel = "silent",
+                                                                     fitter = "super", algorithm = "ccd",
+                                                                     activeSetEvery = 3))
+    ccd2 <- ccd(2)
+    ccd1 <- ccd(1)
+    expect_identical(coef(ccd2), coef(ccd1))
+    expect_identical(ccd2$iterations, ccd1$iterations)
 })
 
 test_that("plr gradient and Hessian block equal lr's on the expanded rows, in cache tiles and on threads", {

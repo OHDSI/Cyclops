@@ -282,6 +282,10 @@ Changes:
    instead of rebuilding them. Cross-validating a CCW censoring model of 25,000 persons (72,748 person-intervals,
    3,821 columns) took 218 s on 4 threads and 466 s on 1, and takes 128 s and 402 s (`lr` on the expanded rows:
    126 s and 395 s); the Hessian is the same up to rounding
+46. Coordinate descent with `threads > 1` (`plr`, and `cox` with `activeSetEvery`) takes the steps it takes on one
+   thread: its cycles skip the coordinates of the active set and take the extra intercept steps of
+   `adaptiveIntercept` (it made full sweeps without extra intercept steps), so results no longer depend on
+   `threads`. A `plr` fit by the super fitter's coordinate descent moved by up to 7e-6 on 2 threads
 
 Cyclops v3.8.0
 ==============

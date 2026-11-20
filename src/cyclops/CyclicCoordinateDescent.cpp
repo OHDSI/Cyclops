@@ -1815,8 +1815,11 @@ void CyclicCoordinateDescent::findMode(
 	    		}
 	    		hBeta = modelSpecifics.getBeta();
 	    	} else if (threads > 1 && modelSpecifics.supportsConcurrentGradients()) {
-	    		cycleWithConcurrentGradients(log); // always a full sweep
-	    		lastCycleFull = true;
+	    		// the steps of the serial cycle below, with its active set and extra intercept steps
+	    		const bool fullSweep = activeSetEvery == 0 || nextCycleFull;
+	    		cycleMaxStepSE = 0.0;
+	    		cycleWithConcurrentGradients(log, fullSweep);
+	    		finishCycle(fullSweep);
 	    	} else {
 
 	    		// Do a complete cycle in serial
@@ -1872,16 +1875,7 @@ void CyclicCoordinateDescent::findMode(
 				}
 	    			log(index);
 	    		}
-	    		lastCycleFull = fullSweep;
-	    		modelSpecifics.flushIntercept();
-	    		if (fullSweep) {
-	    			activeSetTau = activeSetThreshold * cycleMaxStepSE;
-	    		}
-	    		if (interceptIndex >= 0) { // the reference gain per row of work for the next cycle
-	    			interceptState.rate = (interceptState.cost > 0.0) ? interceptState.gain / interceptState.cost : 0.0;
-	    			interceptState.gain = 0.0;
-	    			interceptState.cost = 0.0;
-	    		}
+	    		finishCycle(fullSweep);
 	    	}
 	    }
 	    iteration++;
@@ -2383,12 +2377,14 @@ void CyclicCoordinateDescent::setThreads(int threads) {
 	modelSpecifics.setThreads(this->threads);
 }
 
-void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<void(int)>& log) {
+void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<void(int)>& log, bool fullSweep) {
 
 	// A coordinate at zero that did not move last cycle, or has a Laplace (or elastic net) prior, usually stays at
 	// zero (delta == 0), and then the model state is unchanged. So the gradients of a run of such
 	// coordinates are computed together, and the run is processed in order exactly as the serial
-	// cycle, stopping at the first coordinate that moves (the gradients after it are stale).
+	// cycle, stopping at the first coordinate after which the state changed (the gradients after it are
+	// stale): a coordinate that moves, or an extra intercept step. The cycle skips the coordinates the
+	// serial cycle skips (active set), so both take the same steps.
 	// Runs are only worth it when they are long, so the chance that a candidate moves is tracked,
 	// and runs are cut to about twice the expected run length.
 	if (stayedAtZero.size() != static_cast<size_t>(J)) {
@@ -2399,8 +2395,11 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 	std::vector<int> run;
 	std::vector<GradientHessian> gh;
 
-	auto isCandidate = [this](int j) {
-		return !fixBeta[j] && hBeta[j] == 0.0 &&
+	auto skipped = [this, fullSweep](int j) {
+		return fixBeta[j] || (!fullSweep && !inActiveSet(j));
+	};
+	auto isCandidate = [this, &skipped](int j) {
+		return !skipped(j) && hBeta[j] == 0.0 &&
 			(stayedAtZero[j] || hasZeroKink(j));
 	};
 	auto finish = [this, &log](int index, double delta, bool candidate, double curvature) {
@@ -2411,20 +2410,30 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 			jointPrior->getNewtonPenalty(index, &precision, &rate);
 			shadowStepDecrease += 0.5 * (curvature + precision) * delta * delta;
 		}
+		if (activeSetEvery != 0) {
+			lastStepSE[index] = std::abs(delta) * std::sqrt(std::max(curvature, 0.0));
+			cycleMaxStepSE = std::max(cycleMaxStepSE, lastStepSE[index]);
+		}
 		if (delta != 0.0) {
 			sufficientStatisticsKnown = false;
 			updateSufficientStatistics(delta, index);
+		}
+		bool changed = delta != 0.0;
+		if (interceptIndex >= 0) {
+			const long steps = interceptState.extraSteps;
+			trackInterceptGradient(index, delta, curvature);
+			changed = changed || interceptState.extraSteps != steps;
 		}
 		stayedAtZero[index] = (delta == 0.0 && hBeta[index] == 0.0);
 		if (candidate) {
 			moveRate = 0.99 * moveRate + 0.01 * (delta != 0.0 ? 1.0 : 0.0);
 		}
 		log(index);
-		return delta != 0.0;
+		return changed;
 	};
 
 	for (int index = 0; index < J; ) {
-		if (fixBeta[index]) {
+		if (skipped(index)) {
 			log(index);
 			++index;
 			continue;
@@ -2465,6 +2474,19 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 			finish(index, delta, candidate, lastGradientHessian.second);
 			++index;
 		}
+	}
+}
+
+void CyclicCoordinateDescent::finishCycle(bool fullSweep) {
+	lastCycleFull = fullSweep;
+	modelSpecifics.flushIntercept();
+	if (fullSweep) {
+		activeSetTau = activeSetThreshold * cycleMaxStepSE;
+	}
+	if (interceptIndex >= 0) { // the reference gain per row of work for the next cycle
+		interceptState.rate = (interceptState.cost > 0.0) ? interceptState.gain / interceptState.cost : 0.0;
+		interceptState.gain = 0.0;
+		interceptState.cost = 0.0;
 	}
 }
 
