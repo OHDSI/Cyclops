@@ -272,19 +272,30 @@ Changes:
    correlated designs can need thousands of cycles: a 500,000-person CCW Cox censoring model (1.2·10^8 entries, 1.4 GB
    of prox-Newton work) ran 1,700 cycles in 25 minutes without converging under the 1024 MB default, and converged in
    24 iterations and 105 s with `newtonMemoryBudget = 4096`
-44. a prior with one variance per covariate (`createPrior(priorType = c(...), variance = c(...))`) is set up in time
+44. `convertToCyclopsData()` from data frames needs much less memory beyond its input: it reads the covariate vectors
+   in place instead of copying them (into `integer64` vectors and again into C++), and sorts unsorted `lr` and `pr`
+   covariates through a permutation instead of a sorted copy. With 26 million covariate values (100,000 rows,
+   20,000 covariates) the process peak fell from 1.96 GB to 0.82 GB for covariates sorted by `covariateId` and
+   `rowId`, and from 2.57 GB to 1.04 GB for covariates sorted by `rowId`. The batches of an `Andromeda` table are read
+   in place too. The data, and so every fit, are the same as before
+45. `convertToCyclopsData()` takes `lr` and `pr` covariates as a sparse matrix (`dgCMatrix`, `lgCMatrix` or
+   `ngCMatrix`, one row per outcome row, column `j` the covariate with id `j`), read in place without a data frame of
+   its entries; the data equal those of that data frame. With 26 million binary values (100,000 rows, 20,000 columns),
+   converting took 0.08 GB beyond the matrix and 0.3 s, against 0.28 GB and 0.7 s through a data frame of the entries
+   (1.25 GB and 3.6 s before item 44)
+46. a prior with one variance per covariate (`createPrior(priorType = c(...), variance = c(...))`) is set up in time
    linear in the number of covariates; it was quadratic, in `fitCyclopsModel()` and again for each fit that merges
    duplicate columns (`mergeDuplicates`, the default under `algorithm = "auto"`). With 18,933 covariates a LASSO fit
    took 0.094 s instead of 0.032 s, and 0.25 s instead of 0.064 s under `"auto"`. `fit$prior_info` (and `print(fit)`)
    lists at most the first 100 priors of a fit, then their number: listing every prior took about 6 ms per fit with
    18,933 covariates
-45. extra adaptive intercept steps (`fitter = "super"`) keep within the intercept's step bound without widening it: from a
+47. extra adaptive intercept steps (`fitter = "super"`) keep within the intercept's step bound without widening it: from a
    start with most rows saturated (an intercept of -800 or 100), each bounded step doubled the bound, several times a
    cycle, and the fit diverged to `NaN`
-46. a covariate whose values are all `NaN` (FeatureExtraction can give a value covariate `NaN` in every row) and that a
+48. a covariate whose values are all `NaN` (FeatureExtraction can give a value covariate `NaN` in every row) and that a
    Laplace prior holds at 0 no longer makes the `"kkt"` stop of `fitter = "super"` return `ILLCONDITIONED`: its
    gradient is `NaN`, but a coefficient held at 0 does not move
-47. logistic regression under `algorithm = "auto"` (the default) with a prior that has no L1 part (ridge, per-covariate
+49. logistic regression under `algorithm = "auto"` (the default) with a prior that has no L1 part (ridge, per-covariate
    normal variances) runs the coordinate descent of `fitter = "super"` (active-set cycling, adaptive and lazy intercept
    steps) and takes Newton steps only once coordinate descent has spent what four of them cost and is projected to need
    much more, or stalls. Its `"kkt"` stop (1e-4; 3e-3 in cross-validation folds) triggers the `"gap"` certificate: one
@@ -299,7 +310,7 @@ Changes:
    fitter but `"legacy"`. On 8 real prediction tasks (47,000 to 300,000 persons, 2,200 to 7,400 columns, one thread),
    ridge fits took 31 s instead of 48 s in total (0.39 to 1.15 times the earlier time per task), with coefficients
    within 6e-5 of the earlier ones and the same held-out AUC; Laplace fits and their cross-validations were unchanged
-48. under `fitter = "super"` (and the `"gap"` criterion of `algorithm = "auto"`), logistic fits whose penalized coefficients all
+50. under `fitter = "super"` (and the `"gap"` criterion of `algorithm = "auto"`), logistic fits whose penalized coefficients all
    have normal priors (ridge, per-covariate variances), with at least 1,000 free covariates, visit the coordinates in a new
    seeded order each cycle (smaller fits, such as refits on a selected support, keep the cyclic order). With binary
    covariates every coupling between columns is non-negative, the unfavourable case for the cyclic order, and nested or
@@ -308,6 +319,7 @@ Changes:
    (12,000 columns, 300 non-zeros per row), fold fits at weak penalties took 1.9-2.9 times fewer seconds, and a whole
    ridge cross-validation 1.7 times fewer, with the same selected variance. Results do not depend on threads; the default
    fitter keeps the cyclic order (as `"legacy"`)
+
 
 Cyclops v3.8.0
 ==============
