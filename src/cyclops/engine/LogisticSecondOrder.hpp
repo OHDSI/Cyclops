@@ -32,12 +32,22 @@ bool ModelSpecifics<BaseModel,RealType>::lrReady() const {
 // direction): the dot of column j with a row vector, and the row vector plus a times column j
 template <class BaseModel, typename RealType>
 double ModelSpecifics<BaseModel,RealType>::lrColumnDot(int j, const std::vector<double>& a, bool squared) const {
-	double sum = 0.0;
-	for (GenericIterator<RealType> it(hX, j); it; ++it) {
-		const double x = static_cast<double>(it.value());
-		sum += (squared ? x * x : x) * a[it.index()];
+	// one loop per column format (no format test per entry): the same terms in the same order, rounded the same way
+	auto pass = [&](auto it) {
+		double sum = 0.0;
+		for (; it; ++it) {
+			const double x = static_cast<double>(it.value());
+			sum = addProduct(sum, squared ? x * x : x, a[it.index()]);
+		}
+		return sum;
+	};
+	switch (hX.getFormatType(j)) {
+		case INDICATOR : return pass(IndicatorIterator<RealType>(hX, j));
+		case SPARSE : return pass(SparseIterator<RealType>(hX, j));
+		case DENSE : return pass(DenseIterator<RealType>(hX, j));
+		case INTERCEPT : return pass(InterceptIterator<RealType>(hX, j));
 	}
-	return sum;
+	return 0.0;
 }
 
 template <class BaseModel, typename RealType>

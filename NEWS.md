@@ -345,6 +345,11 @@ Changes:
    O(rows + event times x groups) instead of one extra row per competing event and later event time. All of them
    equal the `cox_counting` fit on those expanded rows (tests to 1e-8 or better). Survival prediction and
    `survfit()` are not yet implemented for these models and stop with an error; they need double precision
+53. X'y and the column dot products of `lr` Newton steps (the full gradient, Hessian-vector products and the
+   diagonal) loop over one column format at a time and sum in a local, without a format test per entry; X'y no longer
+   stores and reloads its running sum. The terms are added in the same order and rounded the same way, so results
+   are bitwise unchanged. A normal-prior `lr` fit (100,000 rows, 13,000 columns, 18 million values; `"auto"`, Newton)
+   takes 11.0 s instead of 12.3 s on 1 thread and 10.8 s instead of 12.2 s on 4; Laplace fits are unchanged
 
 Cyclops v3.8.0
 ==============
