@@ -197,8 +197,10 @@ void AbstractCrossValidationDriver::drive(
     }
 	// End of multi-thread set-up
 
-	// Threads beyond the folds in parallel go to each fold's logistic Hessian block, whose result does not depend on
-	// its threads (coordinate descent in a fold keeps one)
+	// Threads beyond the folds in parallel go to each fold's logistic (lr, plr) second-order kernels (the Hessian block,
+	// the full gradient, passes over the rows), whose results do not depend on their threads. Coordinate descent in a
+	// fold keeps one: a plr fold's large columns on its spare threads were no faster and took more CPU (10 folds on 20
+	// threads, a CCW model)
 	for (auto element : ccdPool) {
 		element->setSecondOrderThreads(allThreads / nThreads);
 	}
