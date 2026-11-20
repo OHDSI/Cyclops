@@ -94,6 +94,8 @@ public:
         refreshAll();
         rowWiseF.clear();
         rowStartF.clear();
+        spareF.clear();
+        spareRowStartF.clear();
         hasDirection = false;
     }
 
@@ -296,9 +298,15 @@ public:
         return std::is_same<RealType, double>::value && !pooled.cloglog;
     }
 
-    // X_F by subject: positions in F and values
+    // X_F by subject: positions in F and values. The layouts of the last two sets are kept: a Newton iteration
+    // takes the gradient over F, then the Hessian block and the direction over its working set
     bool secondOrderPrepare(const std::vector<int>& F) {
         if (!supportsSecondOrder()) return false;
+        if (F == rowWiseF && rowStartF.size() == K + 1) return true;
+        std::swap(rowWiseF, spareF);
+        std::swap(rowStartF, spareRowStartF);
+        std::swap(entryPosition, spareEntryPosition);
+        std::swap(entryValue, spareEntryValue);
         if (F == rowWiseF && rowStartF.size() == K + 1) return true;
         rowWiseF = F;
         rowStartF.assign(K + 1, 0);
@@ -341,35 +349,61 @@ public:
         const size_t n = F.size();
         H.assign(n * n, 0.0);
         if (n == 0) return true;
-        std::vector<int> slot(n);
-        std::vector<double> count(n, 0.0);
-        for (size_t a = 0; a < n; ++a) slot[a] = slotOf[F[a]];
-        for (int a : entryPosition) count[a] += 1.0;
-        // The upper triangle, column c from the pairs (a <= c) of each subject: positions ascend within a subject.
-        // A task adds the pairs whose later position is in its range of positions, about equal in work, so every
-        // entry is a sum over subjects in increasing order, the same bit for bit on any number of threads
-        const size_t tasks = pool ? std::max<size_t>(1, std::min<size_t>(8 * static_cast<size_t>(pool->size()), n / 32)) : 1;
+        // The accumulation order of the columns, as the logistic engine's (LogisticSecondOrder.hpp): by entries, most
+        // first, so the pairs of the densest columns (most of the work) fall in a block of the permuted upper triangle
+        // that stays in cache. Each subject's entries are laid out again in that order: ranks ascend within a subject
+        std::vector<size_t> count(n, 0);
+        for (int a : entryPosition) ++count[a];
+        std::vector<int> order(n);
+        for (size_t a = 0; a < n; ++a) order[a] = static_cast<int>(a);
+        std::stable_sort(order.begin(), order.end(), [&](int a, int b) { return count[a] > count[b]; });
+        const size_t entries = rowStartF[K];
+        std::vector<int> rank(entries), entrySlot(entries);
+        std::vector<double> value(entries);
+        {
+            std::vector<size_t> next(rowStartF.begin(), rowStartF.end() - 1);
+            for (size_t k = 0; k < n; ++k) {
+                const int j = F[order[k]];
+                for (GenericIterator<RealType> it(hX, j); it; ++it) {
+                    const size_t e = next[it.index()]++;
+                    rank[e] = static_cast<int>(k);
+                    entrySlot[e] = slotOf[j];
+                    value[e] = static_cast<double>(it.value());
+                }
+            }
+        }
+        // The permuted upper triangle, column c from the pairs (a <= c) of each subject. A task adds the pairs whose
+        // later rank is in its range of ranks, about equal in work, so every entry is a sum over subjects in
+        // increasing order, the same bit for bit on any number of threads. On one thread the ranges are cache tiles,
+        // as the logistic engine's: one per 128 columns, at most 16
+        const size_t tasks = pool ?
+            std::max<size_t>(1, std::min<size_t>(8 * static_cast<size_t>(pool->size()), n / 32)) :
+            std::max<size_t>(1, std::min<size_t>(16, n / 128));
         std::vector<size_t> rangeStart(tasks + 1, n);
         rangeStart[0] = 0;
         {
             std::vector<double> work(n);
             double before = 0.0, total = 0.0;
-            for (size_t c = 0; c < n; ++c) {
-                work[c] = count[c] * (before + 1.0);
-                before += count[c] / static_cast<double>(K);
-                total += work[c];
+            for (size_t k = 0; k < n; ++k) {
+                const double c = static_cast<double>(count[order[k]]);
+                work[k] = c * (before + 1.0);
+                before += c / static_cast<double>(K);
+                total += work[k];
             }
             double run = 0.0;
             size_t task = 0;
-            for (size_t c = 0; c < n && task + 1 < tasks; ++c) {
-                run += work[c];
+            for (size_t k = 0; k < n && task + 1 < tasks; ++k) {
+                run += work[k];
                 while (task + 1 < tasks && run >= total * static_cast<double>(task + 1) / static_cast<double>(tasks)) {
-                    rangeStart[++task] = c + 1;
+                    rangeStart[++task] = k + 1;
                 }
             }
         }
-        // subjects a chunk at a time: the slot sums M of the chunk's subjects, then the pairs
-        const size_t chunk = 4096, block = 256;
+        std::vector<double> permuted(n * n, 0.0);
+        // subjects a chunk at a time: the slot sums M of the chunk's subjects (about 1 MB at most for S up to 45), then
+        // the pairs
+        const size_t chunk = std::max<size_t>(64, std::min<size_t>(4096, (static_cast<size_t>(1) << 17) / (S * S)));
+        const size_t block = 256;
         std::vector<double> M(chunk * S * S);
         for (size_t i0 = 0; i0 < K; i0 += chunk) {
             const size_t i1 = std::min(K, i0 + chunk);
@@ -389,23 +423,26 @@ public:
                     const size_t e0 = rowStartF[i], e1 = rowStartF[i + 1];
                     if (sw == 0.0 || e0 == e1) continue;
                     const double* Mi = &M[(i - i0) * S * S];
-                    size_t f = std::lower_bound(entryPosition.begin() + e0, entryPosition.begin() + e1, lo) -
-                        entryPosition.begin();
-                    for (; f < e1 && entryPosition[f] < hi; ++f) {
-                        const int c = entryPosition[f];
-                        const double xc = sw * entryValue[f];
-                        const double* Mc = Mi + slot[c] * S;
-                        double* column = &H[static_cast<size_t>(c) * n];
+                    size_t f = std::lower_bound(rank.begin() + e0, rank.begin() + e1, lo) - rank.begin();
+                    for (; f < e1 && rank[f] < hi; ++f) {
+                        const double xc = sw * value[f];
+                        const double* Mc = Mi + entrySlot[f] * S;
+                        double* column = &permuted[static_cast<size_t>(rank[f]) * n];
                         for (size_t e = e0; e <= f; ++e) {
-                            const int a = entryPosition[e];
-                            column[a] += xc * entryValue[e] * Mc[slot[a]];
+                            column[rank[e]] += xc * value[e] * Mc[entrySlot[e]];
                         }
                     }
                 }
             });
         }
+        // back to the order of F: entry (r, c), r <= c, of the permuted upper triangle is H(order[r], order[c])
         for (size_t c = 0; c < n; ++c) {
-            for (size_t a = 0; a < c; ++a) H[c + n * a] = H[a + n * c];
+            const size_t b = static_cast<size_t>(order[c]);
+            for (size_t r = 0; r <= c; ++r) {
+                const size_t a = static_cast<size_t>(order[r]);
+                H[a + n * b] = permuted[r + n * c];
+                H[b + n * a] = permuted[r + n * c];
+            }
         }
         return true;
     }
@@ -769,6 +806,7 @@ private:
             rowDerivatives(i, r, t, &d1, &d2);
             for (int s = 0; s < S; ++s) {
                 const double ts = tau(t, s);
+                if (ts == 0.0) continue; // adds nothing to row s (and column s) of M
                 if (m) (*m)[s] += w * d1 * ts;
                 if (M) {
                     for (int s2 = 0; s2 < S; ++s2) (*M)[s * S + s2] += w * d2 * ts * tau(t, s2);
@@ -905,6 +943,10 @@ private:
     std::vector<size_t> rowStartF;
     std::vector<int> entryPosition;
     std::vector<double> entryValue;
+    std::vector<int> spareF; // the layout before (secondOrderPrepare())
+    std::vector<size_t> spareRowStartF;
+    std::vector<int> spareEntryPosition;
+    std::vector<double> spareEntryValue;
     std::vector<double> direction;
     bool hasDirection = false;
 

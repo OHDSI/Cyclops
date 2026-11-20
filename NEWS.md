@@ -272,6 +272,20 @@ Changes:
    correlated designs can need thousands of cycles: a 500,000-person CCW Cox censoring model (1.2·10^8 entries, 1.4 GB
    of prox-Newton work) ran 1,700 cycles in 25 minutes without converging under the 1024 MB default, and converged in
    24 iterations and 105 s with `newtonMemoryBudget = 4096`
+44. `createControl(fitter = "super")` fits pooled logistic regression (`plr`) as it fits `lr`: the `"kkt"` criterion, an
+   auto-search that steps down first, stays at or above the null-model variance and refines its result, per-fold warm
+   starts, active-set cycling and adaptive intercept steps. `plr` fits used the settings of
+   `fitter = "default"`, so a model fit with `plr` and with `lr` on its expanded rows could select different variances
+   under `"super"`
+45. The prox-Newton Hessian block of `plr` adds its pairs of columns in the order and cache tiles of `lr`'s (densest
+   columns first), and a Newton iteration keeps the per-person layouts of both its free set and its working set
+   instead of rebuilding them. Cross-validating a CCW censoring model of 25,000 persons (72,748 person-intervals,
+   3,821 columns) took 218 s on 4 threads and 466 s on 1, and takes 128 s and 402 s (`lr` on the expanded rows:
+   126 s and 395 s); the Hessian is the same up to rounding
+46. Coordinate descent with `threads > 1` (`plr`, and `cox` with `activeSetEvery`) takes the steps it takes on one
+   thread: its cycles skip the coordinates of the active set and take the extra intercept steps of
+   `adaptiveIntercept` (it made full sweeps without extra intercept steps), so results no longer depend on
+   `threads`. A `plr` fit by the super fitter's coordinate descent moved by up to 7e-6 on 2 threads
 
 Cyclops v3.8.0
 ==============

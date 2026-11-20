@@ -27,7 +27,8 @@ bool is(const std::optional<std::string>& value, const char* text) {
 	return value && *value == text;
 }
 
-// Settings that createControl() leaves to the fitter. fitter = "super" changes logistic regression: the "kkt"
+// Settings that createControl() leaves to the fitter. fitter = "super" changes logistic regression ("lr", and pooled
+// logistic regression "plr"): the "kkt"
 // convergence criterion, cross-validation fold fits by "kkt" at a looser tolerance, a search that steps down first and
 // refines its result, per-fold warm starts, active-set cycling for models with many covariates and adaptive intercept
 // steps. Least squares uses "kkt", active-set cycling, adaptive intercept steps and a search that steps up from the
@@ -43,7 +44,7 @@ ControlRequest fitterSettings(const ControlRequest& control) {
 	s.activeSetEvery = 0;
 	s.activeSetThreshold = 0.01;
 	s.adaptiveIntercept = false;
-	if (control.fitter == "super" && is(control.modelType, "lr")) {
+	if (control.fitter == "super" && (is(control.modelType, "lr") || is(control.modelType, "plr"))) {
 		s.convergenceType = "kkt";
 		s.cvConvergenceType = "kkt";
 		s.cvSearchDirection = "down";
@@ -114,7 +115,7 @@ ResolvedControl resolve(Working w, std::vector<std::string>& warnings) {
 	resolveAlgorithm(w, warnings);
 	ControlRequest& c = w.control;
 	const ControlRequest s = fitterSettings(c);
-	if (c.fitter == "super" && is(c.modelType, "lr") && c.tolerance && !c.convergenceType) {
+	if (c.fitter == "super" && (is(c.modelType, "lr") || is(c.modelType, "plr")) && c.tolerance && !c.convergenceType) {
 		warnings.push_back("tolerance is ignored without convergenceType under fitter = \"super\": its \"kkt\" "
 		                   "criterion measures the tolerance in standard-error units");
 		c.tolerance.reset();

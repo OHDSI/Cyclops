@@ -475,7 +475,9 @@ protected:
 
 	void recordZeroCertificate(int index, double delta);
 
-	void cycleWithConcurrentGradients(const std::function<void(int)>& log);
+	void cycleWithConcurrentGradients(const std::function<void(int)>& log, bool fullSweep);
+
+	void finishCycle(bool fullSweep); // the bookkeeping at the end of a coordinate descent cycle
 
 
 	void mmUpdateAllBeta(std::vector<double>& allDelta,
@@ -635,8 +637,8 @@ protected:
 		return !activeSetCandidate[index] || hBeta[index] != 0.0 || lastStepSE[index] > 0.0;
 	}
 
-	// Adaptive extra intercept steps (logistic regression with an unpenalized intercept column, serial
-	// cycles, "kkt" convergence): an extra Newton step on the intercept whenever its predicted gain
+	// Adaptive extra intercept steps (logistic and pooled logistic regression with an unpenalized intercept column, coordinate
+	// descent on the CPU, "kkt" convergence): an extra Newton step on the intercept whenever its predicted gain
 	// g0^2 / (2 h0) per row of work (2 K) reaches adaptiveInterceptRatio times the gain per row of work of
 	// the coordinate steps in the previous cycle; g0, the intercept gradient, is tracked to first order from
 	// the coordinate steps. In sparse models those gains are near zero, so the rule also needs g0 / sqrt(h0)
