@@ -272,6 +272,17 @@ Changes:
    correlated designs can need thousands of cycles: a 500,000-person CCW Cox censoring model (1.2·10^8 entries, 1.4 GB
    of prox-Newton work) ran 1,700 cycles in 25 minutes without converging under the 1024 MB default, and converged in
    24 iterations and 105 s with `newtonMemoryBudget = 4096`
+44. `convertToCyclopsData()` from data frames needs much less memory beyond its input: it reads the covariate vectors
+   in place instead of copying them (into `integer64` vectors and again into C++), and sorts unsorted `lr` and `pr`
+   covariates through a permutation instead of a sorted copy. With 26 million covariate values (100,000 rows,
+   20,000 covariates) the process peak fell from 1.96 GB to 0.82 GB for covariates sorted by `covariateId` and
+   `rowId`, and from 2.57 GB to 1.04 GB for covariates sorted by `rowId`. The batches of an `Andromeda` table are read
+   in place too. The data, and so every fit, are the same as before
+45. `convertToCyclopsData()` takes `lr` and `pr` covariates as a sparse matrix (`dgCMatrix`, `lgCMatrix` or
+   `ngCMatrix`, one row per outcome row, column `j` the covariate with id `j`), read in place without a data frame of
+   its entries; the data equal those of that data frame. With 26 million binary values (100,000 rows, 20,000 columns),
+   converting took 0.08 GB beyond the matrix and 0.3 s, against 0.28 GB and 0.7 s through a data frame of the entries
+   (1.25 GB and 3.6 s before item 44)
 
 Cyclops v3.8.0
 ==============

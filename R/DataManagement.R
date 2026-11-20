@@ -719,6 +719,24 @@ appendSqlCyclopsData <- function(object,
 }
 
 #' @importFrom bit64 as.integer64 is.integer64
+# Ids as the loader reads them in place (no copies): integer, integer64 and double vectors read as bit64::as.integer64()
+# reads them. Other types (e.g. character), and doubles that overflow int64 (so that bit64 warns), go through bit64 here
+.idsForLoading <- function(x) {
+    if ((!is.numeric(x) && !bit64::is.integer64(x)) || .anyIdOverflow(x)) {
+        x <- bit64::as.integer64(x)
+    }
+    x
+}
+
+# Values as the loader reads them in place: integer, logical and double vectors (an integer64 vector by its doubles, as
+# before). Other types go through the conversion the loader's argument used to make (Rcpp's, with its errors)
+.valuesForLoading <- function(x) {
+    if (!is.null(x) && !typeof(x) %in% c("double", "integer", "logical")) {
+        x <- .asLoaderDoubles(x)
+    }
+    x
+}
+
 #' @keywords internal
 loadNewSqlCyclopsDataMultipleX <- function(object,
                                            covariateId, # Vector
@@ -729,7 +747,8 @@ loadNewSqlCyclopsDataMultipleX <- function(object,
                                            checkSorting = FALSE,
                                            checkCovariateIds = FALSE,
                                            checkCovariateBounds = FALSE,
-                                           forceSparse = FALSE) {
+                                           forceSparse = FALSE,
+                                           order = NULL) { # order: a permutation that sorts the ids, read through
 
     if (!isInitialized(object)) stop("Object is no longer or improperly initialized.")
 
@@ -750,13 +769,9 @@ loadNewSqlCyclopsDataMultipleX <- function(object,
         stop("Not yet implemented")
     }
 
-    if (!bit64::is.integer64(covariateId)) {
-      covariateId <- bit64::as.integer64(covariateId)
-    }
-
-    if (!bit64::is.integer64(rowId)) {
-      rowId <- bit64::as.integer64(rowId)
-    }
+    covariateId <- .idsForLoading(covariateId)
+    rowId <- .idsForLoading(rowId)
+    covariateValue <- .valuesForLoading(covariateValue)
 
     index <- .loadCyclopsDataMultipleX(object,
                                        covariateId,
@@ -765,7 +780,8 @@ loadNewSqlCyclopsDataMultipleX <- function(object,
                                        checkCovariateIds,
                                        checkCovariateBounds,
                                        append,
-                                       forceSparse)
+                                       forceSparse,
+                                       order)
 
     if (!missing(name)) {
         if (is.null(object$coefficientNames)) {

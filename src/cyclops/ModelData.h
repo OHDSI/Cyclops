@@ -19,6 +19,8 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <cstring>
+#include <type_traits>
 #include <numeric>
 
 // using std::map;
@@ -43,6 +45,80 @@ namespace bsccs {
  		vec[i] = temp[ind[i]];
  	}
  }
+
+// A read-only view of a vector of ids or values held elsewhere (an R vector), read element by element so that loading
+// does not copy it. Ids read as int64 as bit64::as.integer64() reads them: integers as they are, doubles truncated
+// toward zero, NA, NaN and doubles outside the int64 range as NA_integer64 (INT64_MIN; bit64 also warns). Values read
+// as doubles, an integer NA as R's NA_real_
+struct NumberView {
+    enum Kind { INT32, INT64, DOUBLE };
+    const void* data = nullptr;
+    size_t size = 0;
+    Kind kind = DOUBLE;
+    const int* order = nullptr; // optional: element i is data[order[i] - orderBase]
+    int orderBase = 1;          // 1: order holds positions, as R's order(); 0: it holds 0-based indices (a matrix's @i)
+    NumberView() = default;
+    NumberView(const void* data, size_t size, Kind kind, const int* order = nullptr) :
+        data(data), size(size), kind(kind), order(order) { }
+    template <typename T>
+    explicit NumberView(const std::vector<T>& vector) : data(vector.data()), size(vector.size()),
+        kind(std::is_same<T, int64_t>::value ? INT64 : std::is_same<T, int>::value ? INT32 : DOUBLE) {
+        static_assert(std::is_same<T, int64_t>::value || std::is_same<T, int>::value || std::is_same<T, double>::value,
+                      "ids or values of type int, int64_t or double");
+    }
+
+    static constexpr int64_t naId = std::numeric_limits<int64_t>::min();
+
+    // a double as an id: truncated toward zero, or NA when NaN or outside the int64 range (a cast would be undefined)
+    static int64_t idOfDouble(double v) {
+        return (v > -9223372036854775808.0 && v < 9223372036854775808.0) ? static_cast<int64_t>(v) : naId;
+    }
+
+    int64_t id(size_t i) const {
+        if (order != nullptr) i = static_cast<size_t>(order[i] - orderBase);
+        switch (kind) {
+        case INT32: {
+            const int v = static_cast<const int*>(data)[i];
+            return v == std::numeric_limits<int>::min() ? naId : v;
+        }
+        case INT64:
+            return int64At(i);
+        default:
+            return idOfDouble(static_cast<const double*>(data)[i]);
+        }
+    }
+
+    double value(size_t i) const {
+        if (order != nullptr) i = static_cast<size_t>(order[i] - orderBase);
+        switch (kind) {
+        case INT32: {
+            const int v = static_cast<const int*>(data)[i];
+            return v == std::numeric_limits<int>::min() ? naReal() : v;
+        }
+        case INT64: {
+            const int64_t v = int64At(i);
+            return v == naId ? naReal() : static_cast<double>(v);
+        }
+        default:
+            return static_cast<const double*>(data)[i];
+        }
+    }
+
+private:
+    // integer64 vectors keep their int64 values in R's double storage: read the bytes, not through an aliased pointer
+    int64_t int64At(size_t i) const {
+        int64_t v;
+        std::memcpy(&v, static_cast<const char*>(data) + i * sizeof(int64_t), sizeof(int64_t));
+        return v;
+    }
+
+    static double naReal() { // R's NA_real_: a NaN with payload 1954
+        const uint64_t bits = 0x7FF00000000007A2ULL;
+        double v;
+        std::memcpy(&v, &bits, sizeof(double));
+        return v;
+    }
+};
 
 class AbstractModelData {
     // fp-agnostic interface to model data
@@ -157,13 +233,28 @@ public:
             const bool checkExisting = true // false: the caller has already checked that covariateId is new
     ) = 0;
 
+    // covariateId and rowId sorted by covariate id (equal ids together) and then row id; covariateValue empty for
+    // indicator columns
     virtual int loadMultipleX(
-            const std::vector<int64_t>& covariateId,
-            const std::vector<int64_t>& rowId,
-            const std::vector<double>& covariateValue,
+            const NumberView& covariateId,
+            const NumberView& rowId,
+            const NumberView& covariateValue,
             const bool checkCovariateIds,
             const bool checkCovariateBounds,
             const bool append,
+            const bool forceSparse
+    ) = 0;
+
+    // Columns of a compressed sparse column matrix (a Matrix dgCMatrix, lgCMatrix or ngCMatrix): column j holds entries
+    // columnStarts[j] .. columnStarts[j + 1] - 1, its id is columnIds.id(j), and rowIds reads each entry's row id (in
+    // increasing order within a column); values is empty for a pattern matrix. Columns without entries are left out, as
+    // a covariate without rows in a data frame. Loads as loadMultipleX() loads the same entries sorted by column and row
+    virtual int loadColumns(
+            const int* columnStarts,
+            const size_t columns,
+            const NumberView& columnIds,
+            const NumberView& rowIds,
+            const NumberView& values,
             const bool forceSparse
     ) = 0;
 
@@ -343,12 +434,21 @@ public:
 	);
 
 	int loadMultipleX(
-		const std::vector<int64_t>& covariateId,
-		const std::vector<int64_t>& rowId,
-		const std::vector<double>& covariateValue,
+		const NumberView& covariateId,
+		const NumberView& rowId,
+		const NumberView& covariateValue,
 		const bool checkCovariateIds,
 		const bool checkCovariateBounds,
 		const bool append,
+		const bool forceSparse
+	);
+
+	int loadColumns(
+		const int* columnStarts,
+		const size_t columns,
+		const NumberView& columnIds,
+		const NumberView& rowIds,
+		const NumberView& values,
 		const bool forceSparse
 	);
 
@@ -873,6 +973,11 @@ protected:
 
     typedef bsccs::unordered_map<IdType,size_t> RowIdMap;
     RowIdMap rowIdMap;
+
+    // Appends entries [begin, end) of rowIds and values to column index, or to a new column with the given id when index
+    // is negative (indicator unless the first value is neither 0 nor 1, or forceSparse); values of 0 are not kept
+    void appendEntries(int index, const int64_t columnId, const NumberView& rowIds, const NumberView& values,
+                       const size_t begin, const size_t end, const bool forceSparse);
 
     // Row of a covariate rowId; a rowId that is not among the outcome rowIds is an error (operator[] would
     // silently insert it as row 0)

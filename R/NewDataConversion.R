@@ -37,7 +37,8 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #' \code{convertToCyclopsData} loads data from two data frames or ffdf objects, and inserts it into a Cyclops data object.
 #'
 #' @param outcomes      A data frame or ffdf object containing the outcomes with predefined columns (see below).
-#' @param covariates    A data frame or ffdf object containing the covariates with predefined columns (see below).
+#' @param covariates    A data frame or ffdf object containing the covariates with predefined columns (see below),
+#'                      or, for \code{"lr"} and \code{"pr"} models with data-frame outcomes, a sparse matrix (see below).
 #' @param modelType     Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", "cox", "cox_counting"
 #'                      or "plr" (pooled logistic regression; see Details)
 #' @param addIntercept  Add an intercept to the model?
@@ -82,6 +83,14 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'   \verb{covariateId}    \tab(integer) \tab A numeric identifier of a covariate  \cr
 #'   \verb{covariateValue}    \tab(real) \tab The value of the specified covariate \cr
 #' }
+#'
+#' For \code{"lr"} and \code{"pr"} models the covariates can instead be a sparse matrix from the \pkg{Matrix}
+#' package (a \code{dgCMatrix}, \code{lgCMatrix} or \code{ngCMatrix}) with one row per row of \code{outcomes}:
+#' row \code{r} holds the covariates of \code{outcomes$rowId[r]}, and column \code{j} is the covariate with
+#' \code{covariateId} \code{j}, named by \code{colnames()} if the matrix has them. The matrix is read in place,
+#' without a data frame of its entries; columns without non-zero entries are left out, as covariates without rows
+#' in a data frame are. The data equal those of the data frame with \code{rowId = outcomes$rowId[x@i + 1]},
+#' \code{covariateId} the column number and \code{covariateValue = x@x}.
 #'
 #' These columns are expected in the timeEffectMap object:
 #' \tabular{lll}{
@@ -175,6 +184,10 @@ convertToCyclopsData.data.frame <- function(outcomes,
     if (!is.null(checkSorting))
         warning("The 'checkSorting' argument has been deprecated. Sorting is now always checked")
 
+    # covariates as a sparse matrix (lr and pr): row r belongs to outcomes row r, column j is covariate j; the matrix is
+    # read in place, without a data frame of its entries
+    sparseCovariates <- .isSparseCovariateMatrix(covariates, outcomes, modelType)
+
     if (modelType == "plr") {
         return(.convertToPooledCyclopsData(outcomes, covariates, timeBasis, timeEffectMap, addIntercept,
                                            checkRowIds, normalize, quiet, floatingPoint, link))
@@ -198,23 +211,30 @@ convertToCyclopsData.data.frame <- function(outcomes,
 
     if (modelType == "lr" | modelType == "pr") {
         outcomes$stratumId <- NULL
-        covariates$stratumId <- NULL
+        if (!sparseCovariates) covariates$stratumId <- NULL
     }
     if ((modelType == "cox" | modelType == "cox_time" | modelType == "fgr" | modelType == "cox_counting") & !"stratumId" %in% colnames(outcomes)) {
         outcomes$stratumId <- 0
         covariates$stratumId <- 0
     }
 
+    covariateOrder <- NULL # lr and pr: the permutation that sorts the covariates, if they were not sorted
     if (modelType == "lr" | modelType == "pr") {
         if (!isSorted(outcomes, c("rowId"))) {
             if (!quiet)
                 writeLines("Sorting outcomes by rowId")
-            outcomes <- outcomes[order(outcomes$rowId),]
+            rowOrder <- order(outcomes$rowId)
+            outcomes <- outcomes[rowOrder,]
+            if (sparseCovariates) covariates <- covariates[rowOrder, , drop = FALSE] # rows follow their outcomes
         }
-        if (!isSorted(covariates, c("covariateId", "rowId"))) {
+        if (!sparseCovariates && !isSorted(covariates, c("covariateId", "rowId"))) {
             if (!quiet)
                 writeLines("Sorting covariates by covariateId and rowId")
-            covariates <- covariates[order(covariates$covariateId, covariates$rowId),]
+            # the permutation only, read through when loading (a sorted copy of the covariates and order()'s work
+            # took about 40 bytes per covariate value); order() and a sorted copy where .sortOrder() does not decide
+            covariateOrder <- .sortOrder(covariates$covariateId, covariates$rowId)
+            if (is.null(covariateOrder))
+                covariates <- covariates[order(covariates$covariateId, covariates$rowId),]
         }
     }
 
@@ -285,7 +305,12 @@ convertToCyclopsData.data.frame <- function(outcomes,
         }
     }
 
-    if (checkRowIds) {
+    # (.allIn() decides most cases without match()'s vectors as long as the covariates; NA: not decided there)
+    if (!sparseCovariates && checkRowIds && !isTRUE(.allIn(covariates$rowId, outcomes$rowId))) {
+        if (!is.null(covariateOrder)) { # sorted, as before
+            covariates <- covariates[covariateOrder, ]
+            covariateOrder <- NULL
+        }
         mapping <- match(covariates$rowId,outcomes$rowId)
         if (any(is.na(mapping))) {
             if (!quiet)
@@ -321,12 +346,27 @@ convertToCyclopsData.data.frame <- function(outcomes,
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
     }
 
-    covarNames <- unique(covariates$covariateId)
+    if (sparseCovariates) {
+        covarNames <- .loadSparseCovariateMatrix(dataPtr, covariates, outcomes$rowId)
+    } else {
+    # the covariates are sorted by covariateId first, so its distinct values are the starts of its runs (no hash table
+    # as long as the covariates); unique() if they are not
+    starts <- .runStarts(covariates$covariateId, covariateOrder)
+    covarNames <- if (is.null(starts)) {
+        unique(if (is.null(covariateOrder)) covariates$covariateId else covariates$covariateId[covariateOrder])
+    } else if (is.null(covariateOrder)) {
+        covariates$covariateId[starts]
+    } else {
+        covariates$covariateId[covariateOrder[starts]]
+    }
+    rm(starts)
     loadNewSqlCyclopsDataMultipleX(object = dataPtr,
                                    covariateId = covariates$covariateId,
                                    rowId = covariates$rowId,
                                    covariateValue = covariates$covariateValue,
-                                   name = covarNames)
+                                   name = covarNames,
+                                   order = covariateOrder)
+    }
 
     if (modelType == "cox_time" && !is.null(timeEffectMap)) {
         if (!all(timeEffectMap$covariateId %in% covarNames)) stop("Invalid covariateId for time effects.")
@@ -592,6 +632,46 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
     }
 
     return(dataPtr)
+}
+
+# Whether covariates is a sparse matrix of covariates (checked: lr or pr, one row per outcome); FALSE for a data frame.
+# A dgCMatrix, lgCMatrix or ngCMatrix is read in place; other Matrix classes are refused rather than copied
+.isSparseCovariateMatrix <- function(covariates, outcomes, modelType) {
+    if (!methods::is(covariates, "Matrix")) {
+        return(FALSE)
+    }
+    if (!class(covariates)[1] %in% c("dgCMatrix", "lgCMatrix", "ngCMatrix")) {
+        stop("Sparse matrix covariates must be a dgCMatrix, lgCMatrix or ngCMatrix (column-compressed and general), ",
+             "e.g. methods::as(methods::as(x, \"generalMatrix\"), \"CsparseMatrix\")", call. = FALSE)
+    }
+    if (!modelType %in% c("lr", "pr")) {
+        stop("Sparse matrix covariates are supported for modelType \"lr\" and \"pr\"; ",
+             "give the covariates as a data frame for other models", call. = FALSE)
+    }
+    if (nrow(covariates) != nrow(outcomes)) {
+        stop("A sparse covariate matrix needs one row per outcome row: ", nrow(covariates), " rows for ",
+             nrow(outcomes), " outcomes", call. = FALSE)
+    }
+    TRUE
+}
+
+# Loads the columns of a sparse covariate matrix whose row r belongs to rowIds[r]: column j has covariate id j, and is
+# named by colnames() if the matrix has them (else by its id). Columns without non-zero entries are left out, as
+# covariates without rows in a data frame. Returns the names of the columns loaded
+.loadSparseCovariateMatrix <- function(dataPtr, covariates, rowIds) {
+    p <- covariates@p
+    kept <- which(diff(p) > 0)
+    if (length(kept) == 0) {
+        return(character(0))
+    }
+    index <- .loadCyclopsDataColumns(dataPtr, p, covariates@i, if (methods::.hasSlot(covariates, "x")) covariates@x else NULL,
+                                     .idsForLoading(rowIds), seq_len(ncol(covariates)), FALSE)
+    names <- if (is.null(colnames(covariates))) as.character(kept) else colnames(covariates)[kept]
+    if (is.null(dataPtr$coefficientNames)) {
+        dataPtr$coefficientNames <- as.character(c())
+    }
+    dataPtr$coefficientNames[index + seq_along(names)] <- names
+    names
 }
 
 # timeBasis and link are for plr models only
