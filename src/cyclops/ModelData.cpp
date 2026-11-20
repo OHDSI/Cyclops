@@ -98,9 +98,18 @@ void ModelData<RealType>::loadY(
 
 		bool processStrata = oStratumId.size() > 0;
 
+		bool consecutive = oRowId.size() > 0;
+		for (size_t i = 1; i < oRowId.size() && consecutive; ++i) {
+			consecutive = static_cast<uint64_t>(oRowId[i]) - static_cast<uint64_t>(oRowId[i - 1]) == 1; // no overflow
+		}
+		consecutiveRowIds = consecutive;
+		firstRowId = consecutive ? oRowId[0] : 0;
+
 		for (size_t i = 0; i < oRowId.size(); ++i) { // ignored if oRowId.size() == 0
 			IdType currentRowId = oRowId[i];
-			rowIdMap[currentRowId] = i;
+			if (!consecutive) {
+				rowIdMap[currentRowId] = i;
+			}
 
 			// Begin code duplication
 			if (processStrata) {
@@ -120,10 +129,12 @@ void ModelData<RealType>::loadY(
 			}
 			++getX().nRows;
 
-			// TODO Check timing on adding label as string
-			std::stringstream ss;
-			ss << currentRowId;
-			labels.push_back(ss.str());
+			if (!consecutive) {
+				// TODO Check timing on adding label as string
+				std::stringstream ss;
+				ss << currentRowId;
+				labels.push_back(ss.str());
+			}
 			// End code duplication
 		}
 
@@ -218,7 +229,7 @@ int ModelData<RealType>::loadMultipleX(
 	}
 
 	const bool hasCovariateValues = covariateValues.size() > 0;
-	const bool useRowMap = rowIdMap.size() > 0;
+	const bool useRowMap = consecutiveRowIds || rowIdMap.size() > 0;
 
 // 	std::function<size_t(IdType)>
 //     xform = [this](IdType id) {
@@ -295,7 +306,7 @@ int ModelData<RealType>::loadX(
 		const bool checkExisting) {
 
     const bool hasCovariateValues = covariateValue.size() > 0;
-    const bool useRowMap = rowIdMap.size() > 0;
+    const bool useRowMap = consecutiveRowIds || rowIdMap.size() > 0;
 
     // Determine covariate type
     FormatType newType = rowId.size() == 0 ?
@@ -416,6 +427,7 @@ std::vector<std::string> ModelData<RealType>::loadStratTimeEffects(
         const std::vector<IdType>& oSubjectId,
         const std::vector<IdType>& timeEffectCovariateIds) {
 
+    materializeRowIds(); // looks rows up through rowIdMap and adds rows
     int numOfFixedCov = getNumberOfColumns();
 
     // Valid subjects in current stratum
@@ -568,6 +580,7 @@ size_t ModelData<RealType>::append(
         const std::vector<IdType>& cCovariateId,
         const std::vector<double>& cCovariateValue) {
 
+    materializeRowIds(); // adds rows with their labels
     // Check covariate dimensions
     if ((cRowId.size() != cCovariateId.size()) ||
         (cRowId.size() != cCovariateValue.size())) {
@@ -1003,7 +1016,10 @@ void ModelData<RealType>::sumByPid(std::vector<double>& out, const IdType covari
 }
 
 template <typename RealType>
-const std::string& ModelData<RealType>::getRowLabel(const size_t i) const {
+std::string ModelData<RealType>::getRowLabel(const size_t i) const {
+    if (consecutiveRowIds && i < getX().nRows) {
+        return std::to_string(firstRowId + static_cast<IdType>(i));
+    }
     if (i >= labels.size()) {
         return missing;
     } else {

@@ -309,6 +309,11 @@ Changes:
 48. Dense Newton steps scale the system by its diagonal before solving it: with a normal prior of tiny variance
    (about 1e-9 or less, as cross-validation can select) next to unpenalized columns, the solve dropped the unpenalized
    directions as if singular, and the fit stopped away from its optimum (an intercept of -3.15 instead of -3.32)
+49. Less memory per data object and per cross-validation or bootstrap copy, with the same results and speed: outcomes
+   whose row IDs are consecutive (as `lr` data built from sorted tables, such as CCW's expanded rows) keep no row-ID
+   map and no row labels (converting 3 million `lr` rows: 12.2 s instead of 15.3 s); and the engines no longer allocate the
+   censoring weights of the two-way-scan models (Fine-Gray) for other models, or three per-row arrays only the GPU
+   engines use (40 bytes per row in every copy)
 
 Cyclops v3.8.0
 ==============

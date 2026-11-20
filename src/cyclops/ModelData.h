@@ -14,6 +14,7 @@
 #include <stdexcept>
 
 #include <atomic>
+#include <cstdint>
 #include <vector>
 #include <map>
 #include <algorithm>
@@ -84,7 +85,7 @@ public:
 
     virtual bool getHasRowLabels() const = 0;
 
-    virtual const std::string& getRowLabel(const size_t covariate) const = 0;
+    virtual std::string getRowLabel(const size_t covariate) const = 0;
 
     virtual bool getTouchedY() const = 0;
 
@@ -478,7 +479,7 @@ public:
 	}
 
 	bool getHasRowLabels() const {
-		return (labels.size() == getNumberOfRows());
+		return consecutiveRowIds || (labels.size() == getNumberOfRows());
 	}
 
 	bool getIsFinalized() const {
@@ -509,7 +510,7 @@ public:
 
     std::vector<double> normalizeCovariates(const NormalizationType type);
 
-	const std::string& getRowLabel(const size_t i) const;
+	std::string getRowLabel(const size_t i) const;
 
 	void clean() const {
 		touchedY.store(false, std::memory_order_relaxed);
@@ -874,9 +875,33 @@ protected:
     typedef bsccs::unordered_map<IdType,size_t> RowIdMap;
     RowIdMap rowIdMap;
 
+    // Row IDs firstRowId, firstRowId + 1, ...: row i has ID firstRowId + i, and neither rowIdMap nor labels is filled.
+    // A new reader of rowIdMap or labels must call materializeRowIds() first
+    bool consecutiveRowIds = false;
+    IdType firstRowId = 0;
+
+    // Fills rowIdMap and labels for consecutive row IDs, for the loaders that add rows or look rows up through the map
+    void materializeRowIds() {
+        if (!consecutiveRowIds) return;
+        for (size_t i = 0; i < getX().nRows; ++i) {
+            rowIdMap[firstRowId + static_cast<IdType>(i)] = i;
+            labels.push_back(std::to_string(firstRowId + static_cast<IdType>(i)));
+        }
+        consecutiveRowIds = false;
+    }
+
     // Row of a covariate rowId; a rowId that is not among the outcome rowIds is an error (operator[] would
     // silently insert it as row 0)
     size_t mapRowId(IdType rowId) const {
+        if (consecutiveRowIds) { // unsigned: no overflow for any pair of IDs
+            const uint64_t offset = static_cast<uint64_t>(rowId) - static_cast<uint64_t>(firstRowId);
+            if (offset >= static_cast<uint64_t>(getX().nRows)) {
+                std::ostringstream stream;
+                stream << "Covariate rowId " << rowId << " is not among the outcome rowIds";
+                throw std::range_error(stream.str());
+            }
+            return static_cast<size_t>(offset);
+        }
         const auto it = rowIdMap.find(rowId);
         if (it == rowIdMap.end()) {
             std::ostringstream stream;

@@ -414,6 +414,7 @@ namespace bsccs {
 //            hXBetaKnown = true; dXBetaKnown = true;
             detail::resizeAndCopyToDevice(offsExpXBeta, dExpXBeta, queue);
             detail::resizeAndCopyToDevice(denomPid, dDenominator, queue);
+            denomPid2.resize(denomPid.size()); // only the GPU reads it
             detail::resizeAndCopyToDevice(denomPid2, dDenominator2, queue);
             detail::resizeAndCopyToDevice(accDenomPid, dAccDenominator, queue);
             std::vector<int> myHPid;
