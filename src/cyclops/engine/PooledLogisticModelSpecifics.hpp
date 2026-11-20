@@ -208,17 +208,21 @@ public:
         refreshAll();
     }
 
-    // One summary per subject (the sum of its state), for the convergence criteria that compare xBeta between cycles
+    // The linear predictor of each person-interval row, subject by subject, with its offsets (lr's xBeta holds an offset
+    // as a column with coefficient 1), for the convergence criterion that compares it between cycles (Zhang-Oles; the
+    // caller weighs each row by its subject's weight)
     const std::vector<double> getXBeta() {
-        std::vector<double> sum(K, 0.0);
+        std::vector<double> rows(pooled.rows(), 0.0);
         for (size_t i = 0; i < K; ++i) {
-            for (int s = 0; s < S; ++s) sum[i] += state[i * S + s];
+            for (size_t r = pooled.rowStart[i]; r < pooled.rowStart[i + 1]; ++r) {
+                rows[r] = eta(i, r, pooled.intervalOf(i, r), &state[i * S]);
+            }
         }
-        return sum;
+        return rows;
     }
 
     const std::vector<double> getXBetaSave() {
-        if (savedSummary.size() != K) savedSummary.assign(K, 0.0);
+        if (savedSummary.size() != pooled.rows()) savedSummary.assign(pooled.rows(), 0.0);
         return savedSummary;
     }
 
@@ -237,6 +241,16 @@ public:
     }
 
     double getPredictiveLogLikelihood(double* weights) {
+        if (this->legacy) { // the legacy score of "lr" on the rows: y log p, the event rows only
+            double sum = 0.0;
+            forEachRow(weights, [&](size_t i, size_t r, int interval, double w, bool y) {
+                if (!y) return;
+                double loss, d1, d2;
+                rowTerms(eta(i, r, interval, &state[i * S]), y, &loss, &d1, &d2);
+                sum -= w * loss;
+            });
+            return sum;
+        }
         return logLikelihood(weights, nullptr, 0.0);
     }
 
@@ -892,8 +906,15 @@ private:
         return sum + compensation;
     }
 
+    void setLrCostModel(bool on) { lrCostModel = on; }
+
     double costRatio(const std::vector<int>& F, bool conjugateGradient) const {
         if (!supportsSecondOrder()) return std::numeric_limits<double>::quiet_NaN();
+        return lrCostModel ? lrCostRatio(F, conjugateGradient) : ownCostRatio(F, conjugateGradient);
+    }
+
+    // The work of plr itself (the default): a CCD visit of an entry covers its subject's rows in every slot
+    double ownCostRatio(const std::vector<int>& F, bool conjugateGradient) const {
         const double aCycle = 4.0, aRows = 0.75, aCholesky = 0.035, aLinear = 1.0, aRow = 2.0, aAll = 40.0;
         std::vector<int> count(K, 0); // entries of F by subject
         double cycle = 0.0, entries = 0.0;
@@ -916,6 +937,39 @@ private:
         return (cycle > 0.0) ? newton / (aCycle * cycle) : std::numeric_limits<double>::quiet_NaN();
     }
 
+    // lr's cost model (lrNewtonCostRatio) on the expanded person-interval rows, counted without expanding them
+    // (createControl(plrCostModel = "lr")). A row holds a subject's entries of time-independent columns (all its rows, as
+    // lr stores them) and those of time-basis and interaction columns whose basis value is not 0 in its interval
+    double lrCostRatio(const std::vector<int>& F, bool conjugateGradient) const {
+        const double aCycle = 4.0, aRows = 0.75, aCholesky = 0.035, aLinear = 1.0, aRow = 2.0, aAll = 40.0;
+        std::vector<double> count(K * S, 0.0); // entries of F by subject and slot (slot > 0: nonzero values)
+        for (int j : F) {
+            const int s = slotOf[j];
+            for (GenericIterator<RealType> it(hX, j); it; ++it) {
+                if (s == 0 || it.value() != static_cast<RealType>(0)) count[it.index() * S + s] += 1.0;
+            }
+        }
+        double entries = 0.0, rowsSquared = 0.0; // exact: integers below 2^53
+        for (size_t i = 0; i < K; ++i) {
+            for (size_t r = pooled.rowStart[i]; r < pooled.rowStart[i + 1]; ++r) {
+                const int t = pooled.intervalOf(i, r);
+                double c = count[i * S];
+                for (int s = 1; s < S; ++s) {
+                    if (tau(t, s) != 0.0) c += count[i * S + s];
+                }
+                entries += c;
+                rowsSquared += 0.5 * c * c;
+            }
+        }
+        const double rows = static_cast<double>(pooled.rows());
+        const double f = static_cast<double>(F.size());
+        const double fixed = 2.0 * aLinear * entries + aAll * rows;
+        const double newton = conjugateGradient ?
+            45.0 * (2.0 * aLinear * entries + 2.0 * aRow * rows) + fixed :
+            aRows * rowsSquared + aCholesky * f * f * f / 3.0 + fixed;
+        return (entries > 0.0) ? newton / (aCycle * entries) : std::numeric_limits<double>::quiet_NaN();
+    }
+
     std::vector<double> denseColumn(int index) const {
         std::vector<double> x(K, 0.0);
         for (GenericIterator<RealType> it(hX, index); it; ++it) {
@@ -930,6 +984,7 @@ private:
     std::vector<int> slotOf;        // slot of each column: its time-basis column + 1, 0 for none
     std::vector<double> state;      // K x S, by subject
     std::vector<double> savedSummary;
+    bool lrCostModel = false; // createControl(plrCostModel = "lr")
 
     std::vector<size_t> eventStart; // K + 1: the event rows of subject i are eventRow[eventStart[i] ...]
     std::vector<size_t> eventRow;

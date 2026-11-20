@@ -20,6 +20,16 @@
 #include "NewtonSolver.h"
 
 namespace bsccs {
+// D^-1/2 for the Jacobi scaling of a Newton system: SymmetricSolve's relative thresholds then compare each pivot with its
+// own curvature, not with the largest diagonal (a near-zero prior variance puts 1/variance there)
+static Eigen::VectorXd jacobiScale(const Eigen::MatrixXd& H) {
+	Eigen::VectorXd scale(H.rows());
+	for (Eigen::Index i = 0; i < H.rows(); ++i) {
+		scale(i) = (H(i, i) > 0.0 && std::isfinite(H(i, i))) ? 1.0 / std::sqrt(H(i, i)) : 1.0;
+	}
+	return scale;
+}
+
 
 namespace {
 
@@ -88,7 +98,8 @@ struct CyclicCoordinateDescent::NewtonContext {
 	bool dualCertified = false;
 	double dualFloor = 0.0;         // the rounding level of the last duality gap
 	double stopGap = NAN;           // the duality gap of the previous prox-Newton iteration that met its own stop
-	int weightedRows = 0;           // rows with positive weight (all K without weights)
+	double weightedRows = 0.0;      // rows with positive weight (all of lr's rows without weights)
+	double rowwiseEntries = 0.0;    // the entries of the engine's row-wise copy of X_F (plr: by subject)
 };
 
 // At a stop on the gap estimate of an eligible fit: 1 when the duality gap certifies it (<= tau_eff), 0 when the fit
@@ -127,7 +138,7 @@ bool CyclicCoordinateDescent::dualGap(NewtonContext& context, double* gap) {
 	// a gap within (64 + sqrt(n)) eps (|primal| + |dual|) is at the floor a smaller tau_eff cannot reach (n rows)
 	const double scale = std::numeric_limits<double>::epsilon() * (std::abs(primal) + std::abs(dual));
 	*gap = primal - dual + 64.0 * scale;
-	context.dualFloor = (64.0 + std::sqrt(static_cast<double>(std::max(context.weightedRows, 1)))) * scale;
+	context.dualFloor = (64.0 + std::sqrt(std::max(context.weightedRows, 1.0))) * scale;
 	convergenceReport.dualGap = *gap;
 	return std::isfinite(*gap);
 }
@@ -529,11 +540,13 @@ bool CyclicCoordinateDescent::certifyGap(NewtonContext& context, double* gscValu
 		s(i) = gradient[i] + context.precision[i] * hBeta[context.F[i]];
 		H(i, i) += context.precision[i];
 	}
-	const newton::SymmetricSolve solve(H, s);
-	const double lambda2 = s.dot(solve.x);
+	const Eigen::VectorXd jacobi = jacobiScale(H);
+	const newton::SymmetricSolve solve(jacobi.asDiagonal() * H * jacobi.asDiagonal(), jacobi.cwiseProduct(s));
+	const Eigen::VectorXd x = jacobi.cwiseProduct(solve.x);
+	const double lambda2 = s.dot(x);
 	*lambda2Half = 0.5 * lambda2;
 	if (step != nullptr) {
-		*step = -solve.x; // the Newton step (minimum norm when H is singular)
+		*step = -x; // the Newton step (minimum norm when H is singular)
 	}
 	if (solve.method != newton::SolveMethod::CHOLESKY || !(lambda2 >= 0.0)) {
 		return false;
@@ -545,7 +558,7 @@ bool CyclicCoordinateDescent::certifyGap(NewtonContext& context, double* gscValu
 	auto positive = [this](int k) {
 		return !useCrossValidation || static_cast<size_t>(k) >= hWeights.size() || hWeights[k] > 0.0;
 	};
-	const Eigen::VectorXd inverse = solve.inverseDiagonal();
+	const Eigen::VectorXd inverse = solve.inverseDiagonal().cwiseProduct(jacobi.cwiseAbs2());
 	std::vector<double> root(n);
 	for (size_t i = 0; i < n; ++i) {
 		root[i] = std::sqrt(std::max(inverse(i), 0.0));
@@ -626,8 +639,9 @@ bool CyclicCoordinateDescent::newtonDirectionDense(NewtonContext& context, Eigen
 	if (!s.allFinite() || !H.allFinite()) {
 		return false;
 	}
-	const newton::SymmetricSolve solve(H, s);
-	d = -solve.x;
+	const Eigen::VectorXd jacobi = jacobiScale(H);
+	const newton::SymmetricSolve solve(jacobi.asDiagonal() * H * jacobi.asDiagonal(), jacobi.cwiseProduct(s));
+	d = -jacobi.cwiseProduct(solve.x);
 	const double lambda2 = -s.dot(d);
 	convergenceReport.droppedDirections = solve.dropped;
 	if (!(lambda2 >= 0.0) || !d.allFinite()) {
@@ -650,7 +664,7 @@ bool CyclicCoordinateDescent::newtonDirectionDense(NewtonContext& context, Eigen
 					return !useCrossValidation || static_cast<size_t>(k) >= hWeights.size() || hWeights[k] > 0.0;
 				};
 				if (data != nullptr) {
-					const Eigen::VectorXd inverse = solve.inverseDiagonal();
+					const Eigen::VectorXd inverse = solve.inverseDiagonal().cwiseProduct(jacobi.cwiseAbs2());
 					std::vector<double> root(n);
 					for (size_t i = 0; i < n; ++i) {
 						root[i] = std::sqrt(std::max(inverse(i), 0.0));
@@ -742,7 +756,7 @@ bool CyclicCoordinateDescent::newtonDirectionCG(NewtonContext& context, Eigen::V
 		if (convergenceReport.hessianVectorProducts >= price && context.lastPlainSolve >= 0.5 * price) {
 			context.nystromTried = true;
 			// the engines that keep a row-wise copy of X_F (all but logistic regression) hold it alongside
-			const double rowwise = hXI.getModelType() == ModelType::LOGISTIC ? 0.0 : 12.0 * context.entries;
+			const double rowwise = hXI.getModelType() == ModelType::LOGISTIC ? 0.0 : 12.0 * context.rowwiseEntries;
 			std::vector<double> h;
 			if (modelSpecifics.hessianDiagonal(context.F, h)) {
 				buildNystrom(modelSpecifics, context.F, context.precision, context.unpenalized, h, newtonMemoryBudget - rowwise,
@@ -1415,15 +1429,20 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 			context.anyLaplace = context.anyLaplace || lambda > 0.0;
 		}
 	}
-	double weight = 1.0; // tau_eff = tau times the mean positive weight (3.3, D3)
-	context.weightedRows = K;
+	// tau_eff = tau times the mean positive weight (3.3, D3), over the rows logistic regression sees: a plr subject's
+	// weight counts once for each of its person-interval rows, as on lr's expanded rows (setUpColumnRows())
+	setUpColumnRows();
+	double weight = 1.0;
+	context.weightedRows = totalRows;
 	if (!hWeights.empty()) {
 		double sum = 0.0;
-		int count = 0;
-		for (double w : hWeights) {
+		double count = 0.0;
+		for (size_t k = 0; k < hWeights.size(); ++k) {
+			const double w = hWeights[k];
+			const double rows = (k < subjectRows.size()) ? subjectRows[k] : 1.0;
 			if (w > 0.0) {
-				sum += w;
-				++count;
+				sum += w * rows;
+				count += rows;
 			}
 		}
 		context.weightedRows = count;
@@ -1529,12 +1548,14 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		}
 		return W;
 	};
-	// newtonCostRatio(W) is in cycles over W; a CCD cycle covers all of F
+	// newtonCostRatio(W) is in cycles over W; a CCD cycle covers all of F. Entries of the engine's rows (subjects for plr),
+	// or with createControl(plrCostModel = "lr") of lr's (setUpColumnRows(): the same for other models)
 	auto entryCount = [&](const std::vector<int>& columns) {
 		double total = 0.0;
 		for (int j : columns) {
 			const FormatType format = hXI.getColumnType(j);
-			total += (format == DENSE || format == INTERCEPT) ? static_cast<double>(K) : static_cast<double>(hXI.getNumberOfEntries(j));
+			total += lrCostModel ? columnRows[j] : ((format == DENSE || format == INTERCEPT) ? static_cast<double>(K) :
+				static_cast<double>(hXI.getNumberOfEntries(j)));
 		}
 		return total;
 	};
@@ -1550,15 +1571,16 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 	// Memory gate (2.5): H, its factor and workspace of this fit (its threads share them), plus the row-wise copy of X_F. Above
 	// the budget dense Newton is off (Newton-CG takes these fits in a later version): "auto" stays on CCD and
 	// "newton" stops at setup
-	double entries = 0.0;
-	for (int j : context.F) {
-		const FormatType format = hXI.getColumnType(j);
-		entries += (format == DENSE || format == INTERCEPT) ? static_cast<double>(K) :
-			static_cast<double>(hXI.getNumberOfEntries(j));
-	}
+	const double entries = entryCount(context.F);
 	const double width = static_cast<double>(context.F.size());
 	const double bytes = 24.0 * width * width + 12.0 * entries;
 	context.entries = entries;
+	context.rowwiseEntries = 0.0; // the memory the engine itself keeps: its own rows (subjects for plr)
+	for (int j : context.F) {
+		const FormatType format = hXI.getColumnType(j);
+		context.rowwiseEntries += (format == DENSE || format == INTERCEPT) ? static_cast<double>(K) :
+			static_cast<double>(hXI.getNumberOfEntries(j));
+	}
 	const double budget = newtonMemoryBudget;
 
 	// Dense or Newton-CG (2.5): CG when the dense factorization would exceed the memory budget, or when its

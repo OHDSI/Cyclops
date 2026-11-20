@@ -804,6 +804,9 @@ void cyclopsSetModeControl(SEXP inRcppCcdInterface, const List& options) {
 	if (options.containsElementNamed("newtonMemoryBudget")) { // MB
 		modeFinding.newtonMemoryBudget = as<double>(options["newtonMemoryBudget"]) * 1024 * 1024;
 	}
+	if (options.containsElementNamed("plrCostModel")) {
+		modeFinding.lrCostModel = as<std::string>(options["plrCostModel"]) == "lr";
+	}
 }
 
 // Cross-validation options; an option missing from the list keeps its value

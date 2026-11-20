@@ -2,6 +2,7 @@
 #define HYPER_PARAMETER_SEARCH_HPP_
 
 #include <map>
+#include <cmath>
 /*#include <ostream>
 #include <string>
 #include <sstream>
@@ -42,17 +43,24 @@ public:
             best = y_by_x.begin();
         } else {
 //            double improve = (y - best->second.m) / best->second.m;
-            if( y > best->second.m )
+            if( better( y, best->second.m ) )
                 best = y_by_x.find( x );
         }
     }
     StepValue step(); // recommend: do/not next step, the next x value
     //ctor
     // localFit: fit the quadratic to the best point and its two neighbours only, instead of to every point
+    // tie: a score must exceed another by this fraction of its size to count as better (0: any amount). Scores equal
+    // up to rounding, as on the plateau of the null model, then do not decide the search by their last bits, which
+    // differ between equivalent models (pooled logistic regression and lr on its expanded rows)
     UniModalSearch( double stdstep=100, double stop_by_y=.01, double stop_by_x=log(1.5),
-        double firstCut=1.0, bool localFit=false )
+        double firstCut=1.0, bool localFit=false, double tie=0.0 )
         : m_stdstep(stdstep), m_stop_by_y(stop_by_y), m_stop_by_x(stop_by_x), m_first_cut(firstCut),
-          m_local_fit(localFit) {}
+          m_local_fit(localFit), m_tie(tie) {}
+
+    bool better( double y, double than ) const {
+        return y > than && (m_tie == 0.0 || !std::isfinite(than) || y > than + m_tie * std::fabs(than));
+    }
 
     friend std::ostream& operator<< (std::ostream& stream, const UniModalSearch& search);
 
@@ -63,6 +71,7 @@ private:
     const double m_stop_by_y, m_stop_by_x;
     const double m_first_cut;
     const bool m_local_fit;
+    const double m_tie;
     std::map<double,MS> y_by_x;
     std::map<double,MS>::const_iterator best;
 };

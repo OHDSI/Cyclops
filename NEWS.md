@@ -286,6 +286,29 @@ Changes:
    thread: its cycles skip the coordinates of the active set and take the extra intercept steps of
    `adaptiveIntercept` (it made full sweeps without extra intercept steps), so results no longer depend on
    `threads`. A `plr` fit by the super fitter's coordinate descent moved by up to 7e-6 on 2 threads
+47. `plr` fits take the steps of `lr` on its expanded person-interval rows under every fitter, so both select the
+   same variance and reach the same coefficients (to rounding, with equal iterations, on a 400-subject comparison of
+   fitters `"legacy"`, `"default"` and `"super"` with algorithms `"ccd"`, `"newton"` and `"auto"`, fixed and
+   cross-validated Laplace and normal priors; `"auto"` with `createControl(plrCostModel = "lr")`). Before,
+   cross-validated variances differed by up to a factor of 3:
+   - `fitter = "legacy"` scores a `plr` fold by `lr`'s legacy score (the held-out events' `y log p`); it used the
+     full held-out likelihood
+   - `createControl(plrCostModel = "lr")`: `algorithm = "auto"` switches between coordinate descent and Newton by
+     `lr`'s cost model on the person-interval rows. The default, `"plr"`, keeps the cost model of `plr`'s own work,
+     which switches earlier and is faster (cross-validating a CCW censoring model of 25,000 persons on 4 threads:
+     128 s, against 210 s with `"lr"`; `lr` 137 s); its fits agree with `lr`'s to the convergence tolerance
+   - the mean positive weight of the "gap" tolerance and the extra intercept steps of `adaptiveIntercept` count the
+     person-interval rows
+   - exact-duplicate columns (`mergeDuplicates`) merge in `plr` (equal in X and in their time-basis column)
+   - `cvRepetitions = "auto"` counts the person-interval rows of `plr`, and `convergenceType = "zhang"` compares
+     X beta on them
+   - the auto-search's choice between cross-validation scores equal to 1e-12 of their size no longer rests on their
+     last bits, which differ between `plr` and `lr` (and decided the search on the flat scores of the null model)
+   Under `fitter = "legacy"`, a fold with a separated time-basis column still differs: `lr`'s legacy kernels overflow
+   there and restart with a smaller bounding box
+48. Dense Newton steps scale the system by its diagonal before solving it: with a normal prior of tiny variance
+   (about 1e-9 or less, as cross-validation can select) next to unpenalized columns, the solve dropped the unpenalized
+   directions as if singular, and the fit stopped away from its optimum (an intercept of -3.15 instead of -3.32)
 
 Cyclops v3.8.0
 ==============

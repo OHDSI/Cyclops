@@ -591,6 +591,7 @@ protected:
 	// Memory budget of one fit's Newton work (2.5), in bytes: dense H, its factor and workspace, row-wise copies of
 	// columns of X (ModeFindingArguments::newtonMemoryBudget, set by update())
 	double newtonMemoryBudget = 1024.0 * 1024 * 1024;
+	bool lrCostModel = false; // createControl(plrCostModel = "lr"): plr's Newton cost and entries on lr's rows
 	double strongConvexityBound(const NewtonContext& context, const std::vector<double>& gradient) const;
 	bool newtonDirectionDense(NewtonContext& context, Eigen::VectorXd& s, Eigen::VectorXd& d, bool* stop,
 	                          bool* certified, bool* damped);
@@ -648,8 +649,14 @@ protected:
 	int interceptIndex = -1; // in the current findMode(); -1 when off
 	bool interceptIsFree = false; // least squares with a lazy intercept: a step costs O(1), taken after every move
 	double interceptFloor = 0.0; // the tolerance, in standard-error units
+	// The rows logistic regression sees (setUpColumnRows(), once per data): for pooled logistic regression its implicit
+	// person-interval rows, as lr on the expanded rows counts them, so decisions made from these counts (extra
+	// intercept steps; the Newton cost, memory and tolerance) are lr's
+	void setUpColumnRows();
 	std::vector<double> interceptMomentRatio; // sum_i x_ij / sum_i x_ij^2 by column
 	std::vector<double> columnRows; // stored entries by column (K for dense and intercept)
+	std::vector<double> subjectRows; // plr: the rows of each subject (empty otherwise)
+	double totalRows = 0.0; // K, or the person-interval rows of plr
 	struct AdaptiveInterceptState {
 		double gradient = 0.0; // tracked change of the intercept gradient since its last step
 		double hessian = 0.0;  // intercept curvature at its last regular step

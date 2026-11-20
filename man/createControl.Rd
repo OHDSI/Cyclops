@@ -40,6 +40,7 @@ createControl(
   adaptiveIntercept = NULL,
   mergeDuplicates = NULL,
   newtonMemoryBudget = 1024,
+  plrCostModel = "plr",
   doItAll = TRUE,
   syncCV = FALSE
 )
@@ -142,7 +143,7 @@ logistic regression (\code{"lr"}), the grouped models (\code{"cpr"}, \code{"sccs
 \code{"clr"}, \code{"clr_efron"}, \code{"clr_exact"}), \code{"cox"} models on the
 CPU, profile likelihoods and confidence intervals. Bug fixes apply to every fitter,
 except that \code{"legacy"} keeps the earlier cross-validation score of
-\code{"lr"} models (held-out cases only). \code{"cox_counting"} models need another
+\code{"lr"} models (held-out cases only), which \code{"plr"} models take too. \code{"cox_counting"} models need another
 fitter. \code{"super"} runs the code of \code{"default"} and changes how \code{"lr"}
 and \code{"plr"} models are fit through the defaults of \code{convergenceType} and the
 arguments below: cross-validation fold fits that start from each fold's previous
@@ -248,6 +249,12 @@ cross-validation folds or threads that run separate fits may each use it. The de
 of 1024 allows active sets of up to about 6,700 columns. A Laplace fit that the budget
 leaves without any Newton step warns, with the memory it needed in
 \code{fit$convergence$budgetBytes}}
+
+\item{plrCostModel}{String: the cost model by which \code{algorithm = "auto"} prices a Newton step against
+coordinate descent cycles for pooled logistic regression (\code{"plr"}). \code{"plr"} (default) prices the work of
+\code{"plr"} itself, which is faster. \code{"lr"} prices the work of \code{"lr"} on the expanded person-interval
+rows, so that a \code{"plr"} fit takes the steps, and reaches the coefficients and cross-validated variance, of
+\code{"lr"} on those rows (with \code{"plr"}, they agree to the convergence tolerance). Other models ignore it}
 
 \item{doItAll}{Currently unused}
 

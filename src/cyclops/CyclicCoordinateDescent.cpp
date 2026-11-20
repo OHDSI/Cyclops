@@ -49,6 +49,30 @@ double columnFirstOverSecondMoment(const CompressedDataMatrix<RealType>& X, int 
 	return (s2 > 0.0) ? s1 / s2 : 1.0;
 }
 
+// pooled logistic regression: the stored entries and the moment ratio of column j on the expanded person-interval
+// rows, as logistic regression on those rows counts them (x_ij tau_s(t_r) in row r of subject i)
+// (b: its time-basis column, -1 for none)
+template <typename RealType>
+void pooledColumnMoments(const ModelData<RealType>& data, int j, int b, double* rows, double* ratio) {
+	const PooledRows& p = data.getPooledRows();
+	const auto& X = data.getX();
+	const FormatType format = X.getFormatType(j);
+	double count = 0.0, s1 = 0.0, s2 = 0.0;
+	for (GenericIterator<RealType> it(X, j); it; ++it) {
+		const size_t i = it.index();
+		const double x = static_cast<double>(it.value());
+		for (size_t r = p.rowStart[i]; r < p.rowStart[i + 1]; ++r) {
+			const double z = (b < 0) ? x : x * p.basis[static_cast<size_t>(p.intervalOf(i, r)) * p.basisColumns + b];
+			if (z == 0.0 && b >= 0) continue;
+			count += 1.0;
+			s1 += z;
+			s2 += z * z;
+		}
+	}
+	*rows = (b < 0 && (format == DENSE || format == INTERCEPT)) ? static_cast<double>(p.rows()) : count;
+	*ratio = (b < 0 && (format == INDICATOR || format == INTERCEPT)) ? 1.0 : ((s2 > 0.0) ? s1 / s2 : 1.0);
+}
+
 // sum (y - mean(y))^2 over every row; -1 if the outcomes are not available or there are fewer than 2 rows
 double outcomeSumOfSquares(const AbstractModelData& data) {
 	const auto* data64 = dynamic_cast<const ModelData<double>*>(&data);
@@ -770,7 +794,17 @@ double CyclicCoordinateDescent::computeZhangOlesConvergenceCriterion(void) {
 	auto& hXBeta = modelSpecifics.getXBeta();
 	auto& hXBetaSave = modelSpecifics.getXBetaSave();
 
-	if (useCrossValidation) {
+	setUpColumnRows();
+	if (!subjectRows.empty()) { // plr: X beta by person-interval row, each with its subject's weight, as lr's rows
+		size_t row = 0;
+		for (int i = 0; i < K; i++) {
+			const double weight = useCrossValidation ? hWeights[i] : 1.0;
+			for (size_t r = 0; r < static_cast<size_t>(subjectRows[i]); ++r, ++row) {
+				sumAbsDiffs += abs(hXBeta[row] - hXBetaSave[row]) * weight;
+				sumAbsResiduals += abs(hXBeta[row]) * weight;
+			}
+		}
+	} else if (useCrossValidation) {
 		for (int i = 0; i < K; i++) {
 			sumAbsDiffs += abs(hXBeta[i] - hXBetaSave[i]) * hWeights[i];
 			sumAbsResiduals += abs(hXBeta[i]) * hWeights[i];
@@ -830,6 +864,8 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	activeSetEvery = (convergenceType == KKT) ? arguments.activeSetEvery : 0;
 	activeSetThreshold = arguments.activeSetThreshold;
 	newtonMemoryBudget = arguments.newtonMemoryBudget;
+	lrCostModel = arguments.lrCostModel;
+	modelSpecifics.setLrCostModel(lrCostModel);
 	adaptiveIntercept = (convergenceType == KKT) && arguments.adaptiveIntercept; // its floor is a kkt tolerance
 	minIterations = arguments.minIterations;
 
@@ -840,9 +876,9 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	// prior that is exact for the group; the members stay fixed at 0 until the write-back below
 	aliasGroups.clear();
 	priors::JointPriorPtr unmergedPrior = jointPrior;
-	// plr: equal columns of X differ by their time-basis column, which X does not show
-	if (arguments.mergeDuplicates && !arguments.useKktSwindle && !syncCV && !usingGPU && !usingCUDA &&
-			hXI.getModelType() != ModelType::POOLED_LOGISTIC) {
+	// (plr: columns equal in X and in their time-basis column, so equal on the person-interval rows, as lr on the
+	// expanded rows finds them)
+	if (arguments.mergeDuplicates && !arguments.useKktSwindle && !syncCV && !usingGPU && !usingCUDA) {
 		findAliasGroups();
 		if (!aliasGroups.empty()) {
 			std::vector<int> groupSize(J, 1);
@@ -859,7 +895,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 				}
 			}
 			jointPrior = bsccs::make_shared<priors::AliasedJointPrior>(unmergedPrior, groupSize);
-			if (aliasOnRowsInUse && !heldOutRowsUnused) {
+			if (aliasOnRowsInUse && (!heldOutRowsUnused || hXI.getModelType() == ModelType::POOLED_LOGISTIC)) {
 				xBetaKnown = false; // the members differ on the rows of weight 0, which are kept up to date
 			}
 		}
@@ -914,8 +950,8 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	// predictions would otherwise depend on which column comes first; the fit's objective is the same for every split
 	if (!aliasGroups.empty()) {
 		jointPrior = unmergedPrior;
-		if (aliasOnRowsInUse && !heldOutRowsUnused) {
-			xBetaKnown = false;
+		if (aliasOnRowsInUse && (!heldOutRowsUnused || hXI.getModelType() == ModelType::POOLED_LOGISTIC)) {
+			xBetaKnown = false; // (plr keeps every subject up to date)
 		}
 		for (const auto& group : aliasGroups) {
 			double precision = 0.0, lambda = 0.0;
@@ -1003,7 +1039,9 @@ void CyclicCoordinateDescent::findAliasGroups() {
 	size_t rowsInUse = static_cast<size_t>(K);
 	aliasOnRowsInUse = false;
 	const ModelType model = hXI.getModelType();
-	const bool independentRows = model == ModelType::LOGISTIC || model == ModelType::POISSON || model == ModelType::NORMAL;
+	// (plr: a subject's weight is that of each of its person-interval rows, which enter independently)
+	const bool independentRows = model == ModelType::LOGISTIC || model == ModelType::POISSON || model == ModelType::NORMAL ||
+		model == ModelType::POOLED_LOGISTIC;
 	if (useCrossValidation && independentRows && hWeights.size() >= static_cast<size_t>(K)) {
 		inUse.assign(K, 0);
 		rowsInUse = 0;
@@ -1016,6 +1054,21 @@ void CyclicCoordinateDescent::findAliasGroups() {
 	}
 	const bool masked = aliasOnRowsInUse;
 	auto used = [&](int k) { return !masked || inUse[k]; };
+	// plr: the time-basis column each column multiplies (0: none); equal columns of X with different ones differ on the
+	// person-interval rows
+	std::vector<int> slot(J, 0);
+	if (model == ModelType::POOLED_LOGISTIC) {
+		auto slots = [&](const auto& data) {
+			for (const auto& column : data.getPooledRows().timeColumns) {
+				slot[data.getColumnIndex(column.first)] = column.second + 1;
+			}
+		};
+		if (const auto* data64 = dynamic_cast<const ModelData<double>*>(&hXI)) {
+			slots(*data64);
+		} else if (const auto* data32 = dynamic_cast<const ModelData<float>*>(&hXI)) {
+			slots(*data32);
+		}
+	}
 
 	// Hash each column's (format, rows, values) on the rows in use, but only columns that share their format, number of
 	// entries and first and last rows with another (a duplicate must); equal hashes are compared entry by entry
@@ -1139,6 +1192,7 @@ void CyclicCoordinateDescent::findAliasGroups() {
 				std::vector<int> members{columns[a]};
 				for (size_t b = a + 1; b < columns.size(); ++b) {
 					if (!used[b] && X.getFormatType(columns[a]) == X.getFormatType(columns[b]) &&
+							slot[columns[a]] == slot[columns[b]] &&
 							samePrior(columns[a], columns[b]) && same(X, columns[a], columns[b])) { // the cheap test first
 						members.push_back(columns[b]);
 						used[b] = true;
@@ -2561,8 +2615,7 @@ void CyclicCoordinateDescent::setUpAdaptiveIntercept(AlgorithmType algorithmType
 		return;
 	}
 	// plr: the intercept is a subject column without a time-basis column. The moment ratios and rows of work
-	// below count subjects (rows of X), not the person-interval rows, which differ by each subject's number of
-	// rows; they only decide when to take an extra step, which is always a valid coordinate step
+	// count the person-interval rows, as lr on the expanded rows (setUpColumnRows()), so both take the same steps
 	for (int j = 0; j < J; ++j) {
 		if (hXI.getColumnType(j) == INTERCEPT) {
 			if (!fixBeta[j] && !jointPrior->getIsRegularized(j)) {
@@ -2574,21 +2627,52 @@ void CyclicCoordinateDescent::setUpAdaptiveIntercept(AlgorithmType algorithmType
 	if (interceptIndex < 0) {
 		return;
 	}
-	if (interceptMomentRatio.size() != static_cast<size_t>(J)) { // the data do not change
-		interceptMomentRatio.resize(J);
-		columnRows.resize(J);
-		const auto* data64 = dynamic_cast<const ModelData<double>*>(&hXI);
-		const auto* data32 = dynamic_cast<const ModelData<float>*>(&hXI);
-		for (int j = 0; j < J; ++j) {
-			interceptMomentRatio[j] = data64 ? columnFirstOverSecondMoment(data64->getX(), j) :
-				(data32 ? columnFirstOverSecondMoment(data32->getX(), j) : 1.0);
-			const FormatType format = hXI.getColumnType(j);
-			columnRows[j] = (format == DENSE || format == INTERCEPT) ? static_cast<double>(K) :
-				static_cast<double>(hXI.getNumberOfEntries(j));
-		}
-	}
+	setUpColumnRows();
 	interceptState = AdaptiveInterceptState();
 	interceptFloor = epsilon;
+}
+
+void CyclicCoordinateDescent::setUpColumnRows() {
+	if (columnRows.size() == static_cast<size_t>(J)) { // the data do not change
+		return;
+	}
+	interceptMomentRatio.resize(J);
+	columnRows.resize(J);
+	const auto* data64 = dynamic_cast<const ModelData<double>*>(&hXI);
+	const auto* data32 = dynamic_cast<const ModelData<float>*>(&hXI);
+	const bool pooled = hXI.getModelType() == ModelType::POOLED_LOGISTIC && (data64 || data32);
+	std::vector<int> basisColumn(pooled ? J : 0, -1); // each column's time-basis column, -1 for none
+	if (pooled) {
+		const PooledRows& p = data64 ? data64->getPooledRows() : data32->getPooledRows();
+		for (const auto& column : p.timeColumns) {
+			basisColumn[data64 ? data64->getColumnIndex(column.first) : data32->getColumnIndex(column.first)] = column.second;
+		}
+	}
+	for (int j = 0; j < J; ++j) {
+		if (pooled) {
+			if (data64) {
+				pooledColumnMoments(*data64, j, basisColumn[j], &columnRows[j], &interceptMomentRatio[j]);
+			} else {
+				pooledColumnMoments(*data32, j, basisColumn[j], &columnRows[j], &interceptMomentRatio[j]);
+			}
+			continue;
+		}
+		interceptMomentRatio[j] = data64 ? columnFirstOverSecondMoment(data64->getX(), j) :
+			(data32 ? columnFirstOverSecondMoment(data32->getX(), j) : 1.0);
+		const FormatType format = hXI.getColumnType(j);
+		columnRows[j] = (format == DENSE || format == INTERCEPT) ? static_cast<double>(K) :
+			static_cast<double>(hXI.getNumberOfEntries(j));
+	}
+	subjectRows.clear();
+	totalRows = static_cast<double>(K);
+	if (pooled) {
+		const PooledRows& p = data64 ? data64->getPooledRows() : data32->getPooledRows();
+		subjectRows.resize(K);
+		for (size_t i = 0; i < K; ++i) {
+			subjectRows[i] = static_cast<double>(p.rowStart[i + 1] - p.rowStart[i]);
+		}
+		totalRows = static_cast<double>(p.rows());
+	}
 }
 
 void CyclicCoordinateDescent::setUpZeroCertificates(AlgorithmType algorithmType) {
@@ -2708,7 +2792,7 @@ void CyclicCoordinateDescent::trackInterceptGradient(int index, double delta, do
 	const double rate = (s.rate > 0.0) ? s.rate : s.gain / s.cost;
 	if (interceptIsFree ? (delta != 0.0) : (s.hessian > 0.0 &&
 		std::abs(s.gradient) >= interceptFloor * std::sqrt(s.hessian) && // else within the tolerance already
-		s.gradient * s.gradient / (2.0 * s.hessian) >= adaptiveInterceptRatio * rate * 2.0 * static_cast<double>(K))) {
+		s.gradient * s.gradient / (2.0 * s.hessian) >= adaptiveInterceptRatio * rate * 2.0 * totalRows)) {
 		// an extra Newton step on the intercept; its update takes one exp() for logistic regression
 		double interceptDelta = ccdUpdateBeta(interceptIndex);
 		if (trackKkt) {
