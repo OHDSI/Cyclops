@@ -832,6 +832,9 @@ void cyclopsSetCvControl(SEXP inRcppCcdInterface, const List& options) {
 	if (options.containsElementNamed("tolerance")) {
 		cv.foldTolerance = as<double>(options["tolerance"]);
 	}
+	if (options.containsElementNamed("foldsFromDefaults")) {
+		cv.foldsFromDefaults = as<bool>(options["foldsFromDefaults"]);
+	}
 	if (options.containsElementNamed("maxIterations")) {
 		cv.foldMaxIterations = as<int>(options["maxIterations"]);
 	}
@@ -1173,6 +1176,8 @@ List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, cons
 	interface->getArguments().modelName = modelType;
 	interface->getArguments().computeDevice.name = computeDevice;
 	interface->getArguments().fitter = fitter;
+	// fitter "super" shuffles the visiting order of normal-prior logistic fits; "default" keeps the cyclic order of the 3.7 kernels
+	interface->getArguments().modeFinding.shuffleCoordinates = fitter == "super";
 	if (computeMLE) {
 		interface->getArguments().computeMLE = true;
 	}
@@ -1779,5 +1784,6 @@ List cyclopsResolveControl(List control, SEXP modelType, SEXP nCovariates) {
         Named("adaptiveIntercept") = r.adaptiveIntercept,
         Named("fallbackConvergenceType") = r.fallbackConvergenceType,
         Named("fallbackTolerance") = orNull(r.fallbackTolerance),
-        Named("fallbackMaxIterations") = orNull(r.fallbackMaxIterations));
+        Named("fallbackMaxIterations") = orNull(r.fallbackMaxIterations),
+        Named("foldsFromDefaults") = r.foldsFromDefaults);
 }

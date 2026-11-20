@@ -116,3 +116,73 @@ test_that("maxIterations under gap warns with the estimated gap", {
     expect_equal(fit$return_flag, "MAX_ITERATIONS")
     expect_false(fit$convergence$certified)
 })
+
+test_that("a given gap is certified or reported unmet, never stopped on the kkt criterion alone", {
+    # logistic "gap" runs coordinate descent to its kkt stop first; without a one-pass certificate (a ridge with a free
+    # intercept), the fit must still certify the gap given, or report that it did not
+    data <- createCyclopsData(y ~ x, data = data.frame(y = c(0, 1, 0, 1), x = c(.999, .999, 1.001, 1.001)), modelType = "lr")
+    prior <- createPrior("normal", variance = 1e10, exclude = "(Intercept)")
+    fit <- fitCyclopsModel(data, prior, createControl(algorithm = "ccd", convergenceType = "gap", tolerance = 1e-6,
+                                                      maxIterations = 2000, noiseLevel = "silent"),
+                           startingCoefficients = c(-10, 10), warnings = FALSE)
+    expect_true(fit$return_flag != "SUCCESS" || fit$convergence$certified)
+    auto <- fitCyclopsModel(data, prior, createControl(convergenceType = "gap", tolerance = 1e-6, noiseLevel = "silent"),
+                            startingCoefficients = c(-10, 10), warnings = FALSE)
+    expect_equal(auto$return_flag, "SUCCESS")
+    expect_true(auto$convergence$certified)
+
+    # a bound that stays above a tight tolerance is not taken for the rounding floor while the fit has not tightened
+    X <- data.frame(y = c(0, 1, 0, 1), a = c(-1, -1, 1, 1), b = c(-1, -1, 1, 1))
+    twins <- createCyclopsData(y ~ a + b - 1, data = X, modelType = "lr")
+    tight <- fitCyclopsModel(twins, createPrior("normal", variance = 1e6),
+                             createControl(convergenceType = "gap", tolerance = 1e-9, mergeDuplicates = FALSE,
+                                           noiseLevel = "silent"),
+                             startingCoefficients = c(.1, -.1), warnings = FALSE)
+    expect_true(tight$convergence$certified)
+    expect_lte(tight$convergence$gapEstimate, 1e-9)
+})
+
+test_that("active-set settings do not make Newton fits of Cox models depend on threads", {
+    # findModeGap() sweeps every coordinate outside the kkt-guided logistic path, as concurrent (threaded) cycles do
+    problem <- newtonProblem(8)
+    prior <- createPrior("normal", variance = 0.5)
+    fit <- function(threads) newtonFit(problem, prior, algorithm = "newton", convergenceType = "kkt", tolerance = 1e-8,
+                                       activeSetEvery = 10, activeSetThreshold = 0, threads = threads)
+    one <- fit(1)
+    two <- fit(2)
+    expect_identical(coef(two), coef(one))
+    expect_identical(two$iterations, one$iterations)
+})
+
+test_that("logistic \"auto\" with an offset (PatientLevelPrediction's transfer learning) fits the same model as ccd", {
+    # the offset is a covariate turned into Cyclops' offset on the log scale, as PatientLevelPrediction passes the source
+    # model's linear predictor; 1,000 covariates take the active-set cycling and, for the normal prior, the shuffled order
+    set.seed(42)
+    n <- 4000
+    p <- 1000
+    X <- matrix(rbinom(n * p, 1, 0.05), n)
+    offset <- drop(X %*% c(rnorm(50, 0, 0.5), rep(0, p - 50))) - 2
+    y <- rbinom(n, 1, plogis(offset + drop(X %*% c(rep(0, 30), rnorm(30, 0, 0.3), rep(0, p - 60)))))
+    entries <- which(X != 0, arr.ind = TRUE)
+    covariates <- rbind(data.frame(rowId = entries[, 1], covariateId = entries[, 2], covariateValue = 1),
+                        data.frame(rowId = 1:n, covariateId = -1e9, covariateValue = offset))
+    data <- function() {
+        d <- convertToCyclopsData(data.frame(rowId = 1:n, y = y), covariates, modelType = "lr", quiet = TRUE)
+        finalizeSqlCyclopsData(d, useOffsetCovariate = -1e9, offsetAlreadyOnLogScale = TRUE)
+        d
+    }
+    for (type in c("laplace", "normal")) {
+        prior <- createPrior(type, variance = 0.05, exclude = 0)
+        auto <- fitCyclopsModel(data(), prior, createControl(noiseLevel = "silent"))
+        ccd <- fitCyclopsModel(data(), prior, createControl(algorithm = "ccd", convergenceType = "gap", tolerance = 1e-10,
+                                                            maxIterations = 1e5, noiseLevel = "silent"))
+        expect_equal(auto$return_flag, "SUCCESS")
+        expect_equal(coef(auto), coef(ccd), tolerance = 1e-3)
+        expect_identical(coef(auto) != 0, coef(ccd) != 0)
+    }
+    # (the offset is used: without it the coefficients move by about 2)
+    plain <- fitCyclopsModel(convertToCyclopsData(data.frame(rowId = 1:n, y = y), covariates[covariates$covariateId > 0, ],
+                                                  modelType = "lr", quiet = TRUE),
+                             createPrior("normal", variance = 0.05, exclude = 0), createControl(noiseLevel = "silent"))
+    expect_gt(max(abs(coef(plain) - coef(auto))), 0.5)
+})

@@ -453,6 +453,7 @@ protected:
 	bool outcomeScaleKnown = false;
 	void setOutcomeScale();
 
+	bool heldAtZero(int index, double rawDelta) const;
 	void accumulateKkt(int index, double rawDelta, const priors::GradientHessian& gh);
 
 	double getKktCriterion() const;
@@ -585,7 +586,11 @@ protected:
 	                 AlgorithmType algorithmType, int convergenceType);
 	NewtonOutcome newtonIteration(NewtonContext& context);
 	NewtonOutcome proxNewtonIteration(NewtonContext& context);
-	bool proxFitsDense(const std::vector<int>& W); // records a refusal in convergenceReport.budgetBytes
+	// records a refusal in convergenceReport.budgetBytes unless record is false (kkt-guided fits record one only where it
+	// kept them from Newton steps they would have taken)
+	bool proxFitsDense(const std::vector<int>& W, bool record = true);
+	double proxDenseBytes(const std::vector<int>& W) const;
+	void recordBudgetRefusal(double bytes);
 	// Memory budget of one fit's Newton work (2.5), in bytes: dense H, its factor and workspace, row-wise copies of
 	// columns of X (ModeFindingArguments::newtonMemoryBudget, set by update())
 	double newtonMemoryBudget = 1024.0 * 1024 * 1024;
@@ -628,6 +633,21 @@ protected:
 	double activeSetThreshold = 0.0;
 	double activeSetTau = 0.0; // activeSetThreshold times the largest step in the last full sweep
 	double cycleMaxStepSE = 0.0;
+	// Work of the serial cycle, in entries read: a coordinate visit reads its column, a move updates it (a dense column
+	// counts K). Deterministic, so decisions on it do not depend on threads or timing (findModeGap)
+	double cycleWork = 0.0;
+	// Visiting order of the serial cycle. With binary columns every coupling x_j' W x_k is non-negative, the unfavourable
+	// case for cyclic coordinate descent: nested and near-duplicate columns trade the same correction in the same order
+	// every cycle, and at weak normal penalties the error along their contrast shrinks by nearly the same factor each
+	// time. A new order each cycle avoids that (randomly permuted coordinate descent). Used for logistic fits whose
+	// penalized coefficients all have normal priors (their cycles are always serial, so results do not depend on
+	// threads); the intercept stays first. The order of the free coordinates is drawn from a portable generator seeded by
+	// the cycle number.
+	bool shuffleCoordinates = false;
+	static constexpr int shuffleMinCovariates = 1000; // as active-set cycling: only fits with at least this many free coordinates
+	std::vector<int> coordinateOrder;
+	void drawCoordinateOrder(int cycleNumber);
+	std::vector<double> columnWork; // entries per column, set up once (the data do not change)
 	bool inActiveSet(int index) const {
 		if (activeSetThreshold > 0.0) {
 			return lastStepSE[index] >= activeSetTau;
@@ -642,6 +662,15 @@ protected:
 	// the coordinate steps. In sparse models those gains are near zero, so the rule also needs g0 / sqrt(h0)
 	// above the tolerance; without that floor it took a step after almost every coordinate.
 	bool adaptiveIntercept = false;
+	// Logistic regression under "gap" with algorithm "auto" or "ccd": coordinate descent runs as under "kkt" (fitter
+	// "super": active-set cycling, adaptive and lazy intercept steps), and its kkt stop at kktGuidedTolerance triggers a
+	// certificate of the gap (findModeGap); without one at tau, the kkt tolerance tightens
+	bool kktGuided = false;
+	double kktGuidedTolerance = 1e-4; // from ModeFindingArguments: the kkt tolerance that triggers certificates
+	// "gap" from the defaults of "auto" (not given): past the kkt stop, certifying may cost at most this share of the
+	// fit's work; beyond it the fit stops there, as coordinate descent does, with the bound it has
+	bool gapFromDefaults = false;
+	double certificationBudget = 0.1; // from ModeFindingArguments
 	static constexpr double adaptiveInterceptRatio = 0.25;
 	int interceptIndex = -1; // in the current findMode(); -1 when off
 	bool interceptIsFree = false; // least squares with a lazy intercept: a step costs O(1), taken after every move
@@ -655,6 +684,7 @@ protected:
 		double cost = 0.0;     // their rows of work
 		double rate = 0.0;     // gain / cost of the previous cycle
 		long extraSteps = 0;
+		bool boundedExtra = false; // an extra step of this cycle hit the intercept's bound
 	};
 	AdaptiveInterceptState interceptState;
 

@@ -825,13 +825,47 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	const int qnQ = 0;
 
 	initialBound = arguments.initialBound;
-	// Active-set cycling relies on the full sweeps of the kkt criterion; other criteria sweep every cycle
-	// (cross-validation fold fits may use another criterion than the final fit)
-	activeSetEvery = (convergenceType == KKT) ? arguments.activeSetEvery : 0;
+	// "auto" runs the kkt-guided coordinate descent for fits without L1 penalties only: Laplace and elastic-net fits keep the
+	// Newton-first path, which was faster on real PatientLevelPrediction designs (prox-Newton over a small working set);
+	// an explicit "ccd" with "gap" is kkt-guided whatever the priors
+	bool anyL1 = false;
+	for (int j = 0; j < J && !anyL1; ++j) {
+		double precision = 0.0, lambda = 0.0;
+		anyL1 = !fixBeta[j] && jointPrior->getNewtonPenalty(j, &precision, &lambda) && lambda > 0.0;
+	}
+	kktGuided = convergenceType == GAP && (algorthmType == AlgorithmType::CCD || (algorthmType == AlgorithmType::AUTO && !anyL1)) &&
+		hXI.getModelType() == ModelType::LOGISTIC && !usingGPU && !usingCUDA && !syncCV && !profileActive;
+	// Active-set cycling relies on full sweeps for its stop tests: those of the kkt criterion, or those of the kkt-guided
+	// "gap" path (findModeGap(), which decides only after full sweeps; logistic cycles are serial whatever the threads).
+	// Other criteria and models sweep every cycle (cross-validation fold fits may use another criterion than the fit)
+	activeSetEvery = (convergenceType == KKT || kktGuided) ? arguments.activeSetEvery : 0;
 	activeSetThreshold = arguments.activeSetThreshold;
 	newtonMemoryBudget = arguments.newtonMemoryBudget;
-	adaptiveIntercept = (convergenceType == KKT) && arguments.adaptiveIntercept; // its floor is a kkt tolerance
+	// (a negative budget: "gap" given for these fits, e.g. cross-validation folds with their own criterion, certifies)
+	gapFromDefaults = convergenceType == GAP && algorthmType == AlgorithmType::AUTO &&
+		arguments.fallbackConvergenceType >= 0 && arguments.certificationBudget >= 0.0;
+	kktGuidedTolerance = arguments.kktGuidedTolerance;
+	certificationBudget = arguments.certificationBudget;
+	adaptiveIntercept = (convergenceType == KKT || kktGuided) && arguments.adaptiveIntercept; // its floor is a kkt tolerance
 	minIterations = arguments.minIterations;
+	shuffleCoordinates = (arguments.shuffleCoordinates || kktGuided) && hXI.getModelType() == ModelType::LOGISTIC && !usingGPU && !usingCUDA &&
+		!syncCV && algorthmType != AlgorithmType::MM;
+	if (shuffleCoordinates) { // every penalized free coordinate has a normal prior (and there is one), and there are many
+		bool anyNormal = false;
+		int free = 0;
+		for (int j = 0; j < J; ++j) free += fixBeta[j] ? 0 : 1;
+		// (with few free coordinates, e.g. refits on a small support, the cyclic order was as fast or faster: 52 against 112
+		// cycles on a 20-column refit; the shuffled order pays off on wide designs with nested columns)
+		shuffleCoordinates = free >= shuffleMinCovariates;
+		for (int j = 0; j < J && shuffleCoordinates; ++j) {
+			double precision = 0.0, lambda = 0.0;
+			if (fixBeta[j]) continue;
+			if (!jointPrior->getNewtonPenalty(j, &precision, &lambda)) { shuffleCoordinates = false; break; }
+			if (lambda != 0.0) shuffleCoordinates = false;
+			anyNormal = anyNormal || precision > 0.0;
+		}
+		shuffleCoordinates = shuffleCoordinates && anyNormal;
+	}
 
 	int count = 0;
 	bool done = false;
@@ -1657,8 +1691,16 @@ void CyclicCoordinateDescent::findMode(
 		saveXBeta();
 	}
 
-	trackKkt = convergenceType == KKT;
+	trackKkt = convergenceType == KKT || kktGuided;
 	kktConsecutive = 0;
+	if (columnWork.size() != static_cast<size_t>(J)) { // the data do not change
+		columnWork.resize(J);
+		for (int j = 0; j < J; ++j) {
+			const FormatType format = hXI.getColumnType(j);
+			columnWork[j] = (format == DENSE || format == INTERCEPT) ? static_cast<double>(K) :
+				static_cast<double>(hXI.getNumberOfEntries(j));
+		}
+	}
 	nextCycleFull = true;
 	lastCycleFull = true;
 	cyclesSinceFull = 0;
@@ -1670,11 +1712,11 @@ void CyclicCoordinateDescent::findMode(
 		lastStepSE.assign(J, std::numeric_limits<double>::infinity());
 		activeSetTau = 0.0;
 	}
-	setUpAdaptiveIntercept(algorithmType, epsilon);
+	setUpAdaptiveIntercept(algorithmType, kktGuided ? kktGuidedTolerance : epsilon);
 	// fitter = "super": intercept steps move a pending factor, applied to every row once per cycle (switched
 	// off otherwise, which also applies a move left pending by an interrupted fit)
 	const bool lazyIntercept = modelSpecifics.setLazyIntercept(
-		interceptIndex >= 0 && convergenceType == KKT && noiseLevel <= QUIET);
+		interceptIndex >= 0 && (convergenceType == KKT || kktGuided) && noiseLevel <= QUIET);
 	interceptIsFree = lazyIntercept && hXI.getModelType() == ModelType::NORMAL;
 	setOutcomeScale();
 	jointPrior->setOutcomeScale(priorOutcomeScale); // the prior may have been replaced since the last fit
@@ -1815,14 +1857,19 @@ void CyclicCoordinateDescent::findMode(
 	    		}
 	    		hBeta = modelSpecifics.getBeta();
 	    	} else if (threads > 1 && modelSpecifics.supportsConcurrentGradients()) {
-	    		cycleWithConcurrentGradients(log); // always a full sweep
+	    		cycleWork = 0.0;
+	    		cycleWithConcurrentGradients(log); // always a full sweep; its work counted as the serial cycle's
 	    		lastCycleFull = true;
 	    	} else {
 
 	    		// Do a complete cycle in serial
 	    		const bool fullSweep = activeSetEvery == 0 || nextCycleFull;
 	    		cycleMaxStepSE = 0.0;
-	    		for(int index = 0; index < J; index++) {
+	    		cycleWork = 0.0;
+	    		if (shuffleCoordinates) drawCoordinateOrder(iteration);
+	    		const int positions = shuffleCoordinates ? static_cast<int>(coordinateOrder.size()) : J; // (shuffled: free ones)
+	    		for(int position = 0; position < positions; position++) {
+	    			const int index = shuffleCoordinates ? coordinateOrder[position] : position;
 
 	    			if (!fixBeta[index]) {
 						if (!fullSweep && !inActiveSet(index)) {
@@ -1844,6 +1891,7 @@ void CyclicCoordinateDescent::findMode(
 							}
 						}
 						double delta = ccdUpdateBeta(index);
+						cycleWork += columnWork[index];
 						if (useZeroCertificates) {
 							recordZeroCertificate(index, delta);
 						}
@@ -1864,6 +1912,7 @@ void CyclicCoordinateDescent::findMode(
 					//	std::cout << "index: " << index << " delta: " << delta << "\n";
 						if (delta != 0.0) {
 							sufficientStatisticsKnown = false;
+							cycleWork += 0.5 * columnWork[index]; // a move updates the rows it reads, at about half a visit's cost
 							updateSufficientStatistics(delta, index);
 						}
 						if (interceptIndex >= 0) {
@@ -1880,6 +1929,7 @@ void CyclicCoordinateDescent::findMode(
 	    		if (interceptIndex >= 0) { // the reference gain per row of work for the next cycle
 	    			interceptState.rate = (interceptState.cost > 0.0) ? interceptState.gain / interceptState.cost : 0.0;
 	    			interceptState.gain = 0.0;
+	    			interceptState.boundedExtra = false;
 	    			interceptState.cost = 0.0;
 	    		}
 	    	}
@@ -2416,6 +2466,7 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 			updateSufficientStatistics(delta, index);
 		}
 		stayedAtZero[index] = (delta == 0.0 && hBeta[index] == 0.0);
+		cycleWork += (delta != 0.0 ? 1.5 : 1.0) * columnWork[index]; // as the serial cycle counts it
 		if (candidate) {
 			moveRate = 0.99 * moveRate + 0.01 * (delta != 0.0 ? 1.0 : 0.0);
 		}
@@ -2504,9 +2555,17 @@ double CyclicCoordinateDescent::scaledKktResidual(int index, double rawDelta,
 	return (curvature > 0.0 ? size / std::sqrt(curvature) : size) / kktOutcomeScale; // in standard-error units; NaN if undefined
 }
 
+// A coefficient at 0 that its prior keeps there although its gradient is undefined (a column with NaN values: the Laplace
+// step of a NaN gradient is 0): it never moves, as under the objective-change criterion, which never reads its gradient.
+// Any other NaN gradient (a diverged fit, an unpenalized coordinate) leaves the kkt criterion undefined
+bool CyclicCoordinateDescent::heldAtZero(int index, double rawDelta) const {
+	return rawDelta == 0.0 && hBeta[index] == 0.0;
+}
+
 void CyclicCoordinateDescent::accumulateKkt(int index, double rawDelta, const priors::GradientHessian& gh) {
 	const double scaled = scaledKktResidual(index, rawDelta, gh);
 	if (std::isnan(scaled)) {
+		if (heldAtZero(index, rawDelta)) return;
 		kktCycle.undefined = true;
 		return;
 	}
@@ -2523,6 +2582,7 @@ double CyclicCoordinateDescent::computeKktResidual() {
 			const double rawDelta = ccdUpdateBeta(index); // no update: the step and its gradient only
 			const double scaled = scaledKktResidual(index, rawDelta, lastGradientHessian);
 			if (std::isnan(scaled)) {
+				if (heldAtZero(index, rawDelta)) continue;
 				return scaled;
 			}
 			maxScaled = std::max(maxScaled, scaled);
@@ -2533,7 +2593,7 @@ double CyclicCoordinateDescent::computeKktResidual() {
 
 void CyclicCoordinateDescent::setUpAdaptiveIntercept(AlgorithmType algorithmType, double epsilon) {
 	interceptIndex = -1;
-	if (!adaptiveIntercept || algorithmType != AlgorithmType::CCD || usingGPU || usingCUDA || syncCV ||
+	if (!adaptiveIntercept || (algorithmType != AlgorithmType::CCD && !kktGuided) || usingGPU || usingCUDA || syncCV ||
 		(hXI.getModelType() != ModelType::LOGISTIC && hXI.getModelType() != ModelType::NORMAL)) {
 		return;
 	}
@@ -2566,7 +2626,9 @@ void CyclicCoordinateDescent::setUpAdaptiveIntercept(AlgorithmType algorithmType
 }
 
 void CyclicCoordinateDescent::setUpZeroCertificates(AlgorithmType algorithmType) {
-	useZeroCertificates = algorithmType == AlgorithmType::CCD && !usingGPU && !usingCUDA && !syncCV &&
+	// (also on the coordinate-descent cycles of "auto" and "newton": a second-order commit starts a new drift epoch,
+	// which voids every certificate)
+	useZeroCertificates = algorithmType != AlgorithmType::MM && !usingGPU && !usingCUDA && !syncCV &&
 		hXI.getModelType() == ModelType::LOGISTIC;
 	bool certifiable = false; // an indicator column with a Laplace or elastic net prior
 	for (int j = 0; j < J && useZeroCertificates && !certifiable; ++j) {
@@ -2680,6 +2742,9 @@ void CyclicCoordinateDescent::trackInterceptGradient(int index, double delta, do
 	s.gain += 0.5 * hessian * delta * delta;
 	s.cost += (delta != 0.0) ? 2.0 * columnRows[index] : columnRows[index]; // gradient (+ update) rows
 	const double rate = (s.rate > 0.0) ? s.rate : s.gain / s.cost;
+	if (s.boundedExtra) { // an extra step of this cycle was cut short by the bound: none more until the next cycle
+		return;
+	}
 	if (interceptIsFree ? (delta != 0.0) : (s.hessian > 0.0 &&
 		std::abs(s.gradient) >= interceptFloor * std::sqrt(s.hessian) && // else within the tolerance already
 		s.gradient * s.gradient / (2.0 * s.hessian) >= adaptiveInterceptRatio * rate * 2.0 * static_cast<double>(K))) {
@@ -2688,13 +2753,41 @@ void CyclicCoordinateDescent::trackInterceptGradient(int index, double delta, do
 		if (trackKkt) {
 			accumulateKkt(interceptIndex, interceptDelta, lastGradientHessian);
 		}
-		interceptDelta = applyBounds(interceptDelta, interceptIndex);
+		// Extra steps keep within the intercept's bound but do not widen it (its own visit adapts it, once per cycle):
+		// from a saturated start every intercept step is bound-limited, and each widening doubled the bound, several
+		// times a cycle, until the fit ran away (NaN)
+		if (hXI.getModelType() != ModelType::NORMAL && std::abs(interceptDelta) > hDelta[interceptIndex]) {
+			interceptDelta = (interceptDelta < 0.0) ? -hDelta[interceptIndex] : hDelta[interceptIndex];
+			boundLimitedStep = true;
+			s.boundedExtra = true;
+		}
+		cycleWork += columnWork[interceptIndex]; // an extra step reads every row
 		if (interceptDelta != 0.0) {
 			sufficientStatisticsKnown = false;
 			updateSufficientStatistics(interceptDelta, interceptIndex);
 		}
 		s.gradient = 0.0;
 		++s.extraSteps;
+	}
+}
+
+void CyclicCoordinateDescent::drawCoordinateOrder(int cycleNumber) {
+	// the free coordinates only: refits that fix most coefficients (IHT, BAR) would otherwise pay for a permutation of all J
+	coordinateOrder.clear();
+	for (int j = 0; j < J; ++j) if (!fixBeta[j]) coordinateOrder.push_back(j);
+	const int count = static_cast<int>(coordinateOrder.size());
+	const int first = (count > 0 && hXI.getColumnType(coordinateOrder[0]) == INTERCEPT) ? 1 : 0; // the intercept stays first
+	uint64_t state = 0x9E3779B97F4A7C15ULL * (static_cast<uint64_t>(cycleNumber) + 1); // splitmix64: the same on every platform
+	auto next = [&state]() {
+		state += 0x9E3779B97F4A7C15ULL;
+		uint64_t z = state;
+		z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+		z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+		return z ^ (z >> 31);
+	};
+	for (int i = count - 1; i > first; --i) { // Fisher-Yates over positions first..count-1
+		const int k = first + static_cast<int>(next() % static_cast<uint64_t>(i - first + 1));
+		std::swap(coordinateOrder[i], coordinateOrder[k]);
 	}
 }
 

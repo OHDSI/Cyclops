@@ -89,10 +89,11 @@ test_that("The super fitter changes logistic regression and Cox models, and crea
                    "adaptiveIntercept")
     gapFolds <- list(convergenceType = "gap", cvConvergenceType = "gap", cvTolerance = 1E-5, cvMaxIterations = 5000,
                      cvSearchDirection = "down", cvRefine = TRUE, cvNullModelBound = TRUE, cvWarmStart = TRUE,
-                     activeSetEvery = 0, adaptiveIntercept = FALSE)
+                     activeSetEvery = 10, adaptiveIntercept = TRUE) # "gap" decides after full sweeps too
     expect_equal(Cyclops:::.resolveControl(createControl(fitter = "super"), "lr", 5000)[foldNames],
                  c(list(algorithm = "auto"), gapFolds))
-    expect_equal(resolve("lr", 5000, algorithm = "newton")[foldNames], c(list(algorithm = "newton"), gapFolds))
+    expect_equal(resolve("lr", 5000, algorithm = "newton")[foldNames], # "newton" sweeps every coordinate
+                 c(list(algorithm = "newton"), modifyList(gapFolds, list(activeSetEvery = 0, adaptiveIntercept = FALSE))))
     expect_equal(resolve("lr", 5000, algorithm = "auto", convergenceType = "gap")[foldNames],
                  c(list(algorithm = "auto"), gapFolds))
     given <- resolve("lr", 5000, algorithm = "auto", cvConvergenceType = "kkt")
@@ -192,4 +193,27 @@ test_that("The super fitter reaches the optimum of logistic regression", {
     expect_equal(coef(super), coef(tight), tolerance = 1E-3)
     expect_equal(super$log_likelihood + super$log_prior, tight$log_likelihood + tight$log_prior,
                  tolerance = 1E-7)
+})
+
+test_that("a covariate with NaN values held at 0 by a Laplace prior does not make the kkt stop ill-conditioned", {
+    # (FeatureExtraction can give a value covariate NaN in every row; the default criterion never reads its gradient)
+    set.seed(3)
+    n <- 400
+    x <- matrix(rbinom(n * 5, 1, 0.3), n)
+    y <- rbinom(n, 1, plogis(x %*% c(1, -1, 0.5, 0, 0) - 0.5))
+    entries <- which(x != 0, arr.ind = TRUE)
+    covariates <- data.frame(rowId = entries[, 1], covariateId = entries[, 2], covariateValue = 1)
+    withNaN <- rbind(covariates, data.frame(rowId = 1:n, covariateId = 99, covariateValue = NaN))
+    outcomes <- data.frame(rowId = 1:n, y = y)
+    prior <- createPrior("laplace", variance = 0.1, exclude = 0)
+    fit <- function(covariates, ...) fitCyclopsModel(convertToCyclopsData(outcomes, covariates, modelType = "lr", quiet = TRUE),
+                                                     prior, createControl(noiseLevel = "silent", ...), warnings = FALSE)
+    reference <- fit(covariates, algorithm = "ccd", convergenceType = "gap", tolerance = 1e-12)
+    for (control in list(list(), list(algorithm = "ccd", fitter = "super"),
+                         list(algorithm = "ccd", fitter = "super", convergenceType = "kkt", tolerance = 1e-8))) {
+        nan <- do.call(fit, c(list(withNaN), control))
+        expect_equal(nan$return_flag, "SUCCESS")
+        expect_equal(unname(coef(nan)["99"]), 0)
+        expect_equal(coef(nan)[names(coef(reference))], coef(reference), tolerance = 1e-4)
+    }
 })

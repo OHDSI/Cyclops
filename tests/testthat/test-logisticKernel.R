@@ -75,6 +75,17 @@ test_that("Fully saturated starts recover instead of diverging", {
         expect_equal(fit$return_flag, "SUCCESS")
         expect_equal(fit$log_likelihood, optimum$log_likelihood, tolerance = 1E-6)
     }
+    # and under fitter = "super" (adaptive intercept steps) and "auto" (Newton steps), from starts with most rows saturated
+    for (control in list(createControl(fitter = "super", algorithm = "ccd", convergenceType = "kkt", tolerance = 1E-8,
+                                       maxIterations = 3000, noiseLevel = "silent"),
+                         createControl(fitter = "super", maxIterations = 3000, noiseLevel = "silent"))) {
+        for (start in list(c(-800, rep(0, j + 1)), c(100, rep(0, j + 1)), c(-100, rep(0, j + 1)), c(100, rep(0, j), -0.02))) {
+            fit <- fitCyclopsModel(cyclopsData, prior = prior, control = control, startingCoefficients = start,
+                                   forceNewObject = TRUE, warnings = FALSE)
+            expect_equal(fit$return_flag, "SUCCESS")
+            expect_equal(fit$log_likelihood, optimum$log_likelihood, tolerance = 1E-6)
+        }
+    }
 })
 
 test_that("Steps that oscillate without shrinking get a smaller bound", {
