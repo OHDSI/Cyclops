@@ -314,6 +314,13 @@ Changes:
    map and no row labels (converting 3 million `lr` rows: 12.2 s instead of 15.3 s); and the engines no longer allocate the
    censoring weights of the two-way-scan models (Fine-Gray) for other models, or three per-row arrays only the GPU
    engines use (40 bytes per row in every copy)
+50. `plr` fits by coordinate descent (`algorithm = "ccd"`) with a Laplace prior skip the visits to a column of 1s at
+   zero whose step is provably zero, as `lr` fits do (item 43 of 3.8.0), with bounds on the person-interval rows
+   (time-basis interactions of a 0/1 basis included), also on threads. Results are bitwise unchanged on any number of
+   threads. A fixed-variance CCW censoring model of 25,000 persons (72,748 person-intervals, 3,821 columns, 3,445
+   cycles, 1,105,682 skipped visits) took 96.6 s on 1 thread and 78.9 s on 4, and takes 65.0 s and 62.9 s; `"auto"`
+   fits (2.2 s) and `lr` (13.7 s) are unchanged. The cloglog link, single precision, `fitter = "legacy"` and weights
+   other than 0 and 1 keep every visit
 
 Cyclops v3.8.0
 ==============

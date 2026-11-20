@@ -26,7 +26,8 @@
  *
  * Subclass of the logistic ModelSpecifics, which keeps the weights of the subjects (case weights and
  * cross-validation folds); every per-row computation is overridden here, and the optimizations of the logistic
- * engine that read its per-row state (lazy intercept, fold partitions, gradient-drift certificates) are off.
+ * engine that read its per-row state (lazy intercept, fold partitions) are off. Zero certificates
+ * (CyclicCoordinateDescent::certifiedZero()) have drift bounds of their own here (recordDrift()).
  */
 
 #ifndef POOLEDLOGISTICMODELSPECIFICS_HPP_
@@ -91,6 +92,9 @@ public:
         subjectExp.assign(K, 1.0);
         rowExp.assign((B > 0 || !pooled.rowOffset.empty()) ? pooled.rows() : 0, 1.0);
         if (pooled.cloglog) nonEvent.assign(K, 0.0);
+        this->driftTracking = false; // the drift structures are built when tracking is next switched on
+        driftBuilt = false;
+        maxAbsStateSlot.assign(S, 0.0);
         refreshAll();
         rowWiseF.clear();
         rowStartF.clear();
@@ -148,6 +152,10 @@ public:
         }
         *ogradient = gradient;
         *ohessian = hessian;
+        if (this->driftTracking) { // for recordDrift(); concurrent calls write distinct indices
+            hessianVersion[index] = colIndicator[index] ? this->expVersion : -1;
+            hessianValue[index] = hessian;
+        }
     }
 
     // Threads: the gradients of several coordinates at once (each only reads the state) and the Hessian block
@@ -179,16 +187,23 @@ public:
 
     void axpyXBeta(const double beta, const int j) {
         if (beta == 0.0) return;
+        if (this->driftTracking) {
+            trackedAxpyXBeta(beta, j);
+            return;
+        }
         const int s = slotOf[j];
+        double largest = 0.0; // for the running maximum of |state| (zero certificates)
         for (GenericIterator<RealType> it(hX, j); it; ++it) {
             const size_t i = it.index();
             state[i * S + s] += beta * static_cast<double>(it.value());
+            largest = std::max(largest, std::abs(state[i * S + s]));
             if (s == 0) {
                 subjectExp[i] = std::exp(state[i * S] + subjectOffset(i));
             } else {
                 refreshRows(i, s);
             }
         }
+        maxAbsStateSlot[s] = std::max(maxAbsStateSlot[s], largest);
     }
 
     void zeroXBeta() {
@@ -575,8 +590,31 @@ public:
     void setHeldOutRowsUnused(bool unused) { }
     FoldPartitionPtr makeFoldPartition(const std::vector<int>& segmentOfRow, int folds) const { return nullptr; }
     void setFoldPartition(FoldPartitionPtr partition, int fold) { }
-    AbstractModelSpecifics::GradientDrift getGradientDrift() const { return AbstractModelSpecifics::GradientDrift(); }
-    void setDriftTracking(bool on) { }
+
+    // Zero certificates: the drift totals of the logistic engine (ModelSpecifics.h), kept by recordDrift() over the
+    // person-interval rows; the logit link in double precision with 0/1 subject and row weights only
+    AbstractModelSpecifics::GradientDrift getGradientDrift() const {
+        AbstractModelSpecifics::GradientDrift drift = Base::getGradientDrift();
+        drift.valid = driftSupported() && this->binaryWeights && rowWeightsBinary && this->driftTracking;
+        drift.endReadEps = 8.0; // e = E_i R_r, then p = e / (1 + e): 4 eps per reading
+        return drift;
+    }
+
+    void setDriftTracking(bool on) {
+        on = on && driftSupported();
+        if (on && !this->driftTracking) {
+            buildDrift();
+            nonNormal = countNonNormal();
+        }
+        Base::setDriftTracking(on); // a new epoch when switched on
+    }
+
+    // A column of 1s (slot 0, or a time-basis column of 0s and 1s): the rows of its subjects (where the basis is 1)
+    double getCertifiableRows(int index) {
+        if (!driftSupported()) return 0.0;
+        buildDrift();
+        return colIndicator[index] ? colRows[index] : 0.0;
+    }
 
     // Separation over the person-interval rows, as the logistic rule on the expanded rows: d l / d beta_j =
     // sum_r w_r z_r (y_r - p_r), z_r = x_ij tau_s(j)(t_r), is one-signed when every row with z_r != 0 and weight is
@@ -844,7 +882,9 @@ private:
         rowTerms(eta(i, r, t, &state[i * S]), pooled.eventOf(i, r, hY[i]), &loss, d1, d2);
     }
 
-    // R_r of the rows of subject i where tau_s is not 0 (all rows: s < 0), and A_i under cloglog
+    // R_r of the rows of subject i where tau_s is not 0 (all rows: s < 0), and A_i under cloglog; Count: keeps
+    // nonNormal
+    template <bool Count = false>
     void refreshRows(size_t i, int s) {
         const double* st = &state[i * S];
         if (!rowExp.empty()) {
@@ -853,7 +893,13 @@ private:
                 if (s > 0 && tau(t, s) == 0.0) continue;
                 double value = linear(t, st) - st[0];
                 if (!pooled.rowOffset.empty()) value += pooled.rowOffset[r];
-                rowExp[r] = std::exp(value);
+                if (Count) {
+                    const double old = rowExp[r];
+                    rowExp[r] = std::exp(value);
+                    nonNormal += notNormal(rowExp[r]) - notNormal(old);
+                } else {
+                    rowExp[r] = std::exp(value);
+                }
             }
         }
         if (pooled.cloglog) { // A_i
@@ -874,6 +920,192 @@ private:
         for (size_t i = 0; i < K; ++i) {
             subjectExp[i] = std::exp(state[i * S] + subjectOffset(i));
             refreshRows(i, -1);
+        }
+        scanState(); // every E_i and R_r from this state
+        if (this->driftTracking) { // a new epoch
+            nonNormal = countNonNormal();
+            this->restartDrift();
+        }
+    }
+
+    // ---- Zero certificates: drift bounds (see CyclicCoordinateDescent::certifiedZero()) ----
+    //
+    // The logistic engine keeps e = exp(eta) per row and multiplies it by exp(delta x) in an update. Here
+    // e_r = E_i R_r, and an update recomputes E_i = exp(state_i0 + offset_i) (slot 0) or R_r = exp(eta_r - state_i0
+    // - offset_i) (slot s > 0, the rows where tau_s != 0) from the state. The log of the ratio of the computed new
+    // and old values is then delta x tau within kappa, the rounding of the two arguments and of the two exps
+    // (recordDrift()). The arguments' rounding grows with |state|, so kappa uses the largest |state_is| seen since
+    // the last refreshAll() (every stored E_i and R_r was computed from a state since then; a slot-0 update does
+    // not recompute R_r, whose rounding is that of the state_i0 when it was last computed). The bound needs E_i and
+    // R_r to be normal numbers (a relative error): while any is not, every update starts a new epoch. The running
+    // maximum is kept whether tracking or not (a scan of the state in refreshAll(), a comparison per entry in an
+    // update), so that it covers every state since the last refreshAll() when tracking is switched on.
+
+    static long notNormal(double v) {
+        return (v >= std::numeric_limits<double>::min() && v <= std::numeric_limits<double>::max()) ? 0 : 1;
+    }
+
+    bool driftSupported() const {
+        return std::is_same<RealType, double>::value && !this->legacy && !pooled.cloglog;
+    }
+
+    long countNonNormal() const {
+        long count = 0;
+        for (double v : subjectExp) count += notNormal(v);
+        for (double v : rowExp) count += notNormal(v);
+        return count;
+    }
+
+    void scanState() {
+        std::fill(maxAbsStateSlot.begin(), maxAbsStateSlot.end(), 0.0);
+        for (size_t i = 0; i < K; ++i) {
+            for (int s = 0; s < S; ++s) {
+                maxAbsStateSlot[s] = std::max(maxAbsStateSlot[s], std::abs(state[i * S + s]));
+            }
+        }
+    }
+
+    // Once per model (the data do not change), on the first use: not paid by fits without certificates
+    void buildDrift() {
+        if (driftBuilt) return;
+        rowWeightsBinary = true;
+        for (double w : pooled.rowWeight) rowWeightsBinary = rowWeightsBinary && (w == 0.0 || w == 1.0);
+        maxRowOffset = 0.0;
+        for (double o : pooled.rowOffset) maxRowOffset = std::max(maxRowOffset, std::abs(o));
+        maxSubjectOffset = 0.0;
+        for (double o : pooled.subjectOffset) maxSubjectOffset = std::max(maxSubjectOffset, std::abs(o));
+        maxTauSlot.assign(S, 0.0);
+        maxTauSlot[0] = 1.0;
+        std::vector<char> basis01(S, 1); // tau_s in {0, 1}
+        const size_t T = (B > 0) ? pooled.basis.size() / B : 0;
+        for (size_t t = 0; t < T; ++t) {
+            for (int b = 0; b < B; ++b) {
+                const double v = basisValue(static_cast<int>(t), b);
+                maxTauSlot[b + 1] = std::max(maxTauSlot[b + 1], std::abs(v));
+                if (v != 0.0 && v != 1.0) basis01[b + 1] = 0;
+            }
+        }
+        // colRows: the rows whose e an update recomputes, which are also the rows its gradient reads: every row of
+        // the subjects with x != 0 (slot 0; x = 0 leaves E_i as it is), or the rows where tau_s != 0 of every
+        // subject in the column (slot s; R_r is recomputed from the current state_i0 even where x = 0)
+        colRows.assign(J, 0.0);
+        colMaxAbsX.assign(J, 0.0);
+        colIndicator.assign(J, 0);
+        for (size_t j = 0; j < J; ++j) {
+            const int s = slotOf[j];
+            bool ones = true;
+            for (GenericIterator<RealType> it(hX, static_cast<int>(j)); it; ++it) {
+                const size_t i = it.index();
+                const double x = static_cast<double>(it.value());
+                ones = ones && x == 1.0;
+                colMaxAbsX[j] = std::max(colMaxAbsX[j], std::abs(x));
+                if (s == 0 && x == 0.0) continue;
+                for (size_t r = pooled.rowStart[i]; r < pooled.rowStart[i + 1]; ++r) {
+                    if (s == 0 || tau(pooled.intervalOf(i, r), s) != 0.0) colRows[j] += 1.0;
+                }
+            }
+            colIndicator[j] = (ones && basis01[s]) ? 1 : 0;
+        }
+        hessianVersion.assign(J, -1);
+        hessianValue.assign(J, 0.0);
+        driftBuilt = true;
+    }
+
+    // axpyXBeta() while tracking: also the running maximum of |state|, the count of E_i and R_r that are not
+    // normal numbers, and the drift of the update
+    void trackedAxpyXBeta(const double beta, const int j) {
+        const int s = slotOf[j];
+        const long before = nonNormal;
+        double largest = 0.0;
+        for (GenericIterator<RealType> it(hX, j); it; ++it) {
+            const size_t i = it.index();
+            double& v = state[i * S + s];
+            v += beta * static_cast<double>(it.value());
+            largest = std::max(largest, std::abs(v));
+            if (s == 0) {
+                const double old = subjectExp[i];
+                subjectExp[i] = std::exp(v + subjectOffset(i));
+                nonNormal += notNormal(subjectExp[i]) - notNormal(old);
+            } else {
+                refreshRows<true>(i, s);
+            }
+        }
+        maxAbsStateSlot[s] = std::max(maxAbsStateSlot[s], largest);
+        if (before > 0 || nonNormal > 0) {
+            this->restartDrift();
+        } else {
+            recordDrift(beta, j, s);
+        }
+        ++this->expVersion;
+    }
+
+    // The drift of p = e / (1 + e) in an update of column j (slot s) by delta, as the logistic engine bounds it
+    // (ModelSpecifics.hpp, updateXBetaImpl()), with the log of every row's factor within |delta x tau| + kappa:
+    // - kappa: the arguments of exp are sums of at most B + 3 terms, each at most max|tau_q| max|state_q| or an
+    //   offset, so each rounds within (B + 3) eps / 2 of their absolute sum, and an exp within eps (doubled
+    //   throughout for margin);
+    // - a column of 1s (colIndicator) moves every row the way of delta, by at most tanh((|delta| + kappa) / 4) and
+    //   by at most p (1 - p) G, G = exp(|delta| + kappa) - 1, and against it by at most kappa / 4; right after the
+    //   column's gradient (hessianVersion), the rows' sum of p (1 - p) is that gradient's Hessian (0/1 weights);
+    //   0.25 bounds the largest p (1 - p) (no work per row in the gradient)
+    // - another column moves every row by at most tanh((|delta| max|x| max|tau_s| + kappa) / 4), either way.
+    void recordDrift(double delta, int j, int s) {
+        const double eps = std::numeric_limits<double>::epsilon();
+        double kappa;
+        if (s == 0) {
+            const double m = maxAbsStateSlot[0];
+            kappa = eps * (2.0 * m + 2.0 * (m + maxSubjectOffset)) + 4.0 * eps;
+        } else {
+            double sum = maxRowOffset;
+            for (int q = 0; q < S; ++q) sum += maxTauSlot[q] * maxAbsStateSlot[q];
+            kappa = 2.0 * (B + 4) * eps * sum + 4.0 * eps;
+        }
+        kappa *= 1.0 + 1E-12;
+        const double terms = colRows[j];
+        const double ad = std::abs(delta) * (1.0 + 4.0 * eps);
+        double up = 0.0, down = 0.0, maxUp = 0.0, maxDown = 0.0;
+        if (colIndicator[j]) {
+            const bool rises = delta > 0.0;
+            const double growth = std::expm1(ad + kappa) * (1.0 + 4.0 * eps) + 4.0 * eps;
+            const double largestMove = std::min(1.0, std::tanh(0.25 * (ad + kappa)) * (1.0 + 1E-12) + 10.0 * eps);
+            const double wrong = std::min(1.0, 0.25 * kappa * (1.0 + 1E-12) + 10.0 * eps); // against the step
+            double sum = terms * largestMove, largest = largestMove;
+            const double h = hessianValue[j];
+            const bool fromHessian = hessianVersion[j] == this->expVersion && h >= 0.0 &&
+                h <= std::numeric_limits<double>::max();
+            if (fromHessian) {
+                sum = std::min(growth * (h * (1.0 + (terms + 8.0) * eps) + 4.0 * eps * terms) * (1.0 + 1E-12) +
+                               10.0 * eps * terms, sum);
+                largest = std::min(largestMove, 0.25 * growth * (1.0 + 1E-12) + 10.0 * eps);
+            }
+            const double wrongSum = terms * wrong;
+            if (rises) {
+                up = sum; maxUp = largest; down = wrongSum; maxDown = wrong;
+            } else {
+                down = sum; maxDown = largest; up = wrongSum; maxUp = wrong;
+            }
+            if (fromHessian) { // the step's way by the column's Hessian bucket; against it for every column
+                this->recordSidedDrift(AbstractModelSpecifics::GradientDrift::bucketOf(h), rises ? sum : 0.0,
+                                       rises ? 0.0 : sum, rises ? growth : 0.0, rises ? 0.0 : growth);
+                this->recordSidedDrift(0, rises ? 0.0 : wrongSum, rises ? wrongSum : 0.0, 0.0, 0.0);
+            } else {
+                this->recordSidedDrift(0, up, down, 0.0, 0.0);
+            }
+        } else {
+            const double scale = colMaxAbsX[j] * maxTauSlot[s];
+            const double largestMove = std::min(1.0,
+                std::tanh(0.25 * (ad * scale * (1.0 + 4.0 * eps) + kappa)) * (1.0 + 1E-12) + 10.0 * eps);
+            up = down = terms * largestMove;
+            maxUp = maxDown = largestMove;
+            this->recordSidedDrift(0, up, down, 0.0, 0.0);
+        }
+        this->accumulate(this->driftUp, up);
+        this->accumulate(this->driftDown, down);
+        this->accumulate(this->driftMaxUp, maxUp);
+        this->accumulate(this->driftMaxDown, maxDown);
+        ++this->driftUpdates;
+        if (!std::isfinite(this->driftUp + this->driftDown + this->driftMaxUp + this->driftMaxDown)) {
+            this->restartDrift();
         }
     }
 
@@ -1006,6 +1238,20 @@ private:
     bool hasDirection = false;
 
     std::unique_ptr<WorkerPool> pool; // only with more than one thread
+
+    // zero certificates (buildDrift(), trackedAxpyXBeta())
+    bool driftBuilt = false;
+    bool rowWeightsBinary = true;
+    std::vector<double> colRows;      // the rows whose e an update of each column recomputes
+    std::vector<double> colMaxAbsX;   // max |x| per column
+    std::vector<char> colIndicator;   // a column of 1s whose slot's basis is 0 or 1 (certifiable)
+    std::vector<double> maxTauSlot;   // max |tau_s|
+    double maxRowOffset = 0.0;
+    double maxSubjectOffset = 0.0;
+    std::vector<double> maxAbsStateSlot; // max |state_is| since the last refreshAll()
+    long nonNormal = 0;               // E_i and R_r that are not normal numbers (while tracking)
+    std::vector<long> hessianVersion; // per column: expVersion of its last gradient (-1: not certifiable)
+    std::vector<double> hessianValue; // and its Hessian
 
     template <typename Task>
     void runTasks(size_t count, Task task) {

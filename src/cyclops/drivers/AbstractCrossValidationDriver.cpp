@@ -219,6 +219,9 @@ void AbstractCrossValidationDriver::drive(
 	std::vector<std::vector<FoldSolution>>().swap(foldSolutions);
 
 	// Clean up
+	for (const auto& copy : copies) { // CYCLOPS_ZVERIFY: the copies' checked visits count for the fit
+		ccd.addCheckedCertifiedVisits(copy->getCheckedCertifiedVisits());
+	}
 	copies.clear();
 	ccd.setHeldOutRowsUnused(false); // later fits keep every row up to date
 

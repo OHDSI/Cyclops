@@ -377,6 +377,9 @@ public:
 		}
 		driftTracking = on;
 	}
+	double getCertifiableRows(int index) { // an indicator column: its entries
+		return (hX.getFormatType(index) == INDICATOR) ? static_cast<double>(hX.getNumberOfEntries(index)) : 0.0;
+	}
 protected:
 
 	// hasLogisticRows cross-validation fold fits whose weights are all 0 or 1: the gradient sums the

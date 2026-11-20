@@ -21,6 +21,7 @@
 #include <Eigen/Dense>
 #include <deque>
 #include <memory>
+#include <cstdint>
 
 #include "Types.h"
 
@@ -302,6 +303,12 @@ public:
 
 	const ConvergenceReport& getConvergenceReport() const { return convergenceReport; }
 
+	// CYCLOPS_ZVERIFY (debugging): whether the last findMode checked its certified visits, and the visits checked
+	// since this object was created (a cross-validation copy's added at the end of cross-validation)
+	bool getVerifyZeroCertificates() const { return verifyZeroCertificates; }
+	int64_t getCheckedCertifiedVisits() const { return certifiedVisits; }
+	void addCheckedCertifiedVisits(int64_t visits) { certifiedVisits += visits; }
+
 	// Unpenalized coefficients whose likelihood is monotone (separation, Newton plan 2.7 and D5), as indices
 	const std::vector<int>& getDivergentCoefficients() const { return divergentCoefficients; }
 
@@ -472,6 +479,8 @@ protected:
 	void setUpZeroCertificates(AlgorithmType algorithmType);
 
 	bool certifiedZero(int index) const;
+
+	void countCertifiedZero(int index); // a certified visit (CYCLOPS_ZVERIFY: checks its step)
 
 	void recordZeroCertificate(int index, double delta);
 
@@ -667,7 +676,7 @@ protected:
 	};
 	AdaptiveInterceptState interceptState;
 
-	// Certified zero steps (serial cycles): a Laplace coordinate at zero takes a zero step exactly when
+	// Certified zero steps (serial cycles and cycleWithConcurrentGradients()): a Laplace coordinate at zero takes a zero step exactly when
 	// |g| <= lambda. Its gradient g, last computed when it stayed at zero, can since have risen and
 	// fallen by at most what the model's drift bounds say (AbstractModelSpecifics::getGradientDrift());
 	// while g plus the rise stays below lambda and g minus the fall above -lambda, the visit is skipped,
@@ -689,7 +698,9 @@ protected:
 	};
 	bool useZeroCertificates = false;
 	std::vector<ZeroCertificate> zeroCertificates;
-	std::vector<double> certifiedRows; // entries of each indicator column; 0 (never skipped) otherwise
+	std::vector<double> certifiedRows; // getCertifiableRows() of each column; 0: never skipped
+	bool verifyZeroCertificates = false; // CYCLOPS_ZVERIFY
+	int64_t certifiedVisits = 0; // checked under CYCLOPS_ZVERIFY, since this object was created
 	int minIterations = 0; // of the current update(); no convergence (SUCCESS) before this many cycles
 	std::vector<bool> fixBeta;
 

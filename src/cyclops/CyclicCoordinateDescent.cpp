@@ -1888,6 +1888,7 @@ void CyclicCoordinateDescent::findMode(
 						}
 						if (useZeroCertificates) {
 							if (certifiedZero(index)) {
+								countCertifiedZero(index);
 								// the bookkeeping of a zero step; its kkt residual is 0, below every maximum
 								applyBounds(0.0, index);
 								if (activeSetEvery != 0) {
@@ -2441,12 +2442,23 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 	// serial cycle skips (active set), so both take the same steps.
 	// Runs are only worth it when they are long, so the chance that a candidate moves is tracked,
 	// and runs are cut to about twice the expected run length.
+	// With zero certificates, the candidates of the span that certifiedZero() skips (as the serial cycle does)
+	// take the bookkeeping of a zero step in their place in the span, and only the others are in the run. A
+	// certificate depends only on the drift totals, which change only when the state does, so its value when
+	// the span is built is its value at its turn.
 	if (stayedAtZero.size() != static_cast<size_t>(J)) {
 		stayedAtZero.assign(J, false);
 	}
 	const size_t maxRun = 1024;
+	const size_t maxSpan = 8 * maxRun; // certified members included
 	const size_t minRun = 8 * static_cast<size_t>(threads); // enough work per thread
 	std::vector<int> run;
+	struct SpanMember {
+		int index;
+		bool certified;
+		bool candidate; // a candidate before its step (for moveRate)
+	};
+	std::vector<SpanMember> span;
 	std::vector<GradientHessian> gh;
 
 	auto skipped = [this, fullSweep](int j) {
@@ -2494,40 +2506,57 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 		}
 
 		run.clear();
+		span.clear();
 		if (moveRate * minRun < 1.0) { // under one move expected in minRun candidates
 			const size_t cap = (moveRate > 0.0) ?
 				std::min(maxRun, std::max(minRun, static_cast<size_t>(2.0 / moveRate))) : maxRun;
-			for (int j = index; j < J && run.size() < cap && isCandidate(j); ++j) {
-				run.push_back(j);
+			for (int j = index; j < J && run.size() < cap && span.size() < maxSpan && isCandidate(j); ++j) {
+				const bool certified = useZeroCertificates && certifiedZero(j);
+				span.push_back({j, certified, true});
+				if (!certified) {
+					run.push_back(j);
+				}
 			}
 		}
+		if (span.empty()) {
+			span.push_back({index, useZeroCertificates && certifiedZero(index), isCandidate(index)});
+		}
 
-		if (run.size() >= minRun && modelSpecifics.computeGradientsAndHessians(run, gh, useCrossValidation)) {
-			size_t r = 0;
-			for (; r < run.size(); ++r) {
-				priors::GradientHessian g = gh[r];
+		// the span in order, stopping at the first member after which the state changed; the run's gradients
+		// together when it is long enough, else one at a time
+		const bool together = run.size() >= minRun &&
+			modelSpecifics.computeGradientsAndHessians(run, gh, useCrossValidation);
+		size_t r = 0;
+		size_t q = 0;
+		bool changed = false;
+		while (q < span.size() && !changed) {
+			const SpanMember& member = span[q++];
+			if (member.certified) { // as in the serial cycle; not counted in moveRate
+				countCertifiedZero(member.index);
+				changed = finish(member.index, 0.0, false, 0.0);
+				continue;
+			}
+			double delta;
+			if (together) {
+				priors::GradientHessian g = gh[r++];
 				if (g.second < 0.0) { // as in ccdUpdateBeta()
 					g.first = 0.0;
 					g.second = 0.0;
 				}
-				const double delta = jointPrior->getDelta(g, hBeta, run[r], *this);
-				if (trackKkt) {
-					accumulateKkt(run[r], delta, g);
-				}
-				if (finish(run[r], delta, true, g.second)) {
-					break;
-				}
+				lastGradientHessian = g;
+				delta = jointPrior->getDelta(g, hBeta, member.index, *this);
+			} else {
+				delta = ccdUpdateBeta(member.index);
 			}
-			index = run[std::min(r, run.size() - 1)] + 1;
-		} else {
-			const bool candidate = isCandidate(index);
-			const double delta = ccdUpdateBeta(index);
+			if (useZeroCertificates) {
+				recordZeroCertificate(member.index, delta);
+			}
 			if (trackKkt) {
-				accumulateKkt(index, delta, lastGradientHessian);
+				accumulateKkt(member.index, delta, lastGradientHessian);
 			}
-			finish(index, delta, candidate, lastGradientHessian.second);
-			++index;
+			changed = finish(member.index, delta, member.candidate, lastGradientHessian.second);
 		}
+		index = span[q - 1].index + 1;
 	}
 }
 
@@ -2594,6 +2623,7 @@ double CyclicCoordinateDescent::computeKktResidual() {
 	for (int index = 0; index < J; ++index) {
 		if (!fixBeta[index]) {
 			if (useZeroCertificates && certifiedZero(index)) {
+				countCertifiedZero(index);
 				continue; // |g| <= lambda at beta = 0: its residual is exactly 0
 			}
 			const double rawDelta = ccdUpdateBeta(index); // no update: the step and its gradient only
@@ -2676,11 +2706,15 @@ void CyclicCoordinateDescent::setUpColumnRows() {
 }
 
 void CyclicCoordinateDescent::setUpZeroCertificates(AlgorithmType algorithmType) {
+	// CYCLOPS_NOCERT (tests): no certificates; CYCLOPS_ZVERIFY (debugging): every certified visit also computes
+	// its step, and stops with an error unless it is 0
+	verifyZeroCertificates = std::getenv("CYCLOPS_ZVERIFY") != nullptr;
 	useZeroCertificates = algorithmType == AlgorithmType::CCD && !usingGPU && !usingCUDA && !syncCV &&
-		hXI.getModelType() == ModelType::LOGISTIC;
-	bool certifiable = false; // an indicator column with a Laplace or elastic net prior
+		(hXI.getModelType() == ModelType::LOGISTIC || hXI.getModelType() == ModelType::POOLED_LOGISTIC) &&
+		std::getenv("CYCLOPS_NOCERT") == nullptr;
+	bool certifiable = false; // a column the drift bounds cover, with a Laplace or elastic net prior
 	for (int j = 0; j < J && useZeroCertificates && !certifiable; ++j) {
-		certifiable = hXI.getColumnType(j) == INDICATOR && hasZeroKink(j);
+		certifiable = hasZeroKink(j) && modelSpecifics.getCertifiableRows(j) > 0.0;
 	}
 	// the model keeps the drift totals only while certificates can use them (restarted when switched on)
 	modelSpecifics.setDriftTracking(useZeroCertificates && certifiable);
@@ -2691,10 +2725,21 @@ void CyclicCoordinateDescent::setUpZeroCertificates(AlgorithmType algorithmType)
 	}
 	certifiedRows.resize(J);
 	for (int j = 0; j < J; ++j) {
-		certifiedRows[j] = (hXI.getColumnType(j) == INDICATOR) ?
-			static_cast<double>(hXI.getNumberOfEntries(j)) : 0.0;
+		certifiedRows[j] = modelSpecifics.getCertifiableRows(j);
 	}
 	zeroCertificates.assign(J, ZeroCertificate());
+}
+
+void CyclicCoordinateDescent::countCertifiedZero(int index) {
+	if (verifyZeroCertificates) {
+		++certifiedVisits;
+		const double delta = ccdUpdateBeta(index); // no update: the step only
+		if (delta != 0.0) {
+			std::ostringstream stream;
+			stream << "CYCLOPS_ZVERIFY: certified zero step of coordinate " << index << " is " << delta;
+			error->throwError(stream);
+		}
+	}
 }
 
 bool CyclicCoordinateDescent::certifiedZero(int index) const {
@@ -2723,7 +2768,8 @@ bool CyclicCoordinateDescent::certifiedZero(int index) const {
 		// their own drift instead. X <= prod (1 + G) (D + h) - h <= exp(A) D + h (exp(A) - 1), A = the
 		// growth of the larger movers, D = the drift of the smaller, and exp(A) <= 1 / (1 - A) for A < 1;
 		// then the rises are at most A_up (h + X) + D_up, the falls A_down (h + X) + D_down, and either
-		// at most X. Plus the rounding of p in each update since (6 eps per row) and of the Hessian sum.
+		// at most X. Plus the rounding of p in each update since (8 eps per row), of p read at both ends
+		// (endReadEps per row) and of the Hessian sum.
 		const double lowUp = drift.lowUp[c.split] - c.lowUp;
 		const double lowDown = drift.lowDown[c.split] - c.lowDown;
 		const double highUp = (drift.highUp[c.split] - c.highUp) * (1.0 + 4.0 * eps);
@@ -2734,8 +2780,8 @@ bool CyclicCoordinateDescent::certifiedZero(int index) const {
 			// one in each row
 			const double hessian = c.hessian * (1.0 + (rows + 4.0) * eps) + 4.0 * eps * rows;
 			const double expGrowth = 1.0 / (1.0 - growth);
-			// p in each update since (8 eps per row), and p read as (B e) / (1 + B e) at both ends (3 eps each)
-			const double rounding = 8.0 * eps * rows * (drift.updates - c.updates) + 6.0 * eps * rows;
+			// p in each update since (8 eps per row), and p read at both ends (drift.endReadEps per row)
+			const double rounding = 8.0 * eps * rows * (drift.updates - c.updates) + drift.endReadEps * eps * rows;
 			const double all = (expGrowth * (lowUp + lowDown) + hessian * (expGrowth - 1.0)) * (1.0 + 1E-12) + rounding;
 			const double sidedUp = (highUp * (hessian + all) + lowUp) * (1.0 + 1E-12) + rounding;
 			const double sidedDown = (highDown * (hessian + all) + lowDown) * (1.0 + 1E-12) + rounding;

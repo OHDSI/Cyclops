@@ -324,3 +324,64 @@ test_that("plr merges duplicate columns and runs the Zhang-Oles criterion as lr 
                      createControl(algorithm = "ccd", convergenceType = "zhang", noiseLevel = "silent"))
     expect_identical(zhang$plr$iterations, zhang$lr$iterations)
 })
+
+# Zero certificates: 300 subjects with explicit rows and row offsets (offScale), 0/1 columns, a linear and a 0/1 time
+# basis, 16 interactions, a Laplace prior. CYCLOPS_NOCERT (a test hook) switches the certificates off; CYCLOPS_ZVERIFY
+# computes the step of every certified visit, errors unless it is 0, and reports their number as fit$zeroCertificates
+certificateData <- function(offScale, link = "logit", columns = 30) {
+    set.seed(2)
+    n <- 300
+    subjects <- data.frame(rowId = 1:n, entry = sample(1:2, n, TRUE))
+    subjects$exit <- subjects$entry + sample(0:4, n, TRUE)
+    long <- convertToLongOutcome(transform(subjects, y = 0))
+    long$y <- rbinom(nrow(long), 1, 0.15)
+    long$offset <- offScale * rnorm(nrow(long))
+    X <- matrix(rbinom(n * columns, 1, 0.2), n, columns)
+    covariates <- data.frame(rowId = row(X)[X == 1], covariateId = col(X)[X == 1], covariateValue = 1)
+    timeBasis <- rbind(data.frame(interval = 1:6, covariateId = 1000, covariateValue = (1:6) / 6),
+                       data.frame(interval = 1:2, covariateId = 1001, covariateValue = 1))
+    map <- data.frame(covariateId = c(1, 1:15), timeCovariateId = c(1000, rep(1001, 15)),
+                      interactionId = c(2000, 3000 + 1:15))
+    convertToCyclopsData(long, covariates, modelType = "plr", timeBasis = timeBasis, timeEffectMap = map, link = link)
+}
+
+certificateFit <- function(data, threads = 1, nocert = FALSE, weights = NULL, cv = FALSE) {
+    Sys.setenv(CYCLOPS_ZVERIFY = "1")
+    if (nocert) Sys.setenv(CYCLOPS_NOCERT = "1")
+    on.exit(Sys.unsetenv(c("CYCLOPS_ZVERIFY", "CYCLOPS_NOCERT")))
+    fitCyclopsModel(data, prior = createPrior("laplace", variance = 0.05, exclude = c(0, 1000, 1001), useCrossValidation = cv),
+                    weights = weights,
+                    control = createControl(algorithm = "ccd", tolerance = 1e-10, noiseLevel = "silent", threads = threads,
+                                            fold = 3, cvRepetitions = 1, minCVData = 10, seed = 7),
+                    forceNewObject = TRUE)
+}
+
+test_that("plr zero certificates skip only zero steps, on one thread and on several", {
+    # 400 columns: on 2 threads, gradients computed together span certified columns
+    data <- certificateData(offScale = 1, columns = 400)
+    weights <- rep(c(1, 1, 1, 1, 0), 60) # some subjects at weight 0
+    on <- certificateFit(data, weights = weights)
+    off <- certificateFit(data, nocert = TRUE, weights = weights)
+    threaded <- certificateFit(data, threads = 2, weights = weights)
+    expect_gt(on$zeroCertificates, 1000)
+    expect_equal(off$zeroCertificates, 0)
+    expect_identical(coef(on), coef(off))
+    expect_identical(coef(threaded), coef(on))
+    expect_identical(threaded$zeroCertificates, on$zeroCertificates)
+})
+
+test_that("plr zero certificates hold with large row offsets, and are off under the cloglog link", {
+    data <- certificateData(offScale = 30)
+    on <- certificateFit(data)
+    expect_gt(on$zeroCertificates, 1000)
+    expect_identical(coef(on), coef(certificateFit(data, nocert = TRUE)))
+    cloglog <- certificateFit(certificateData(offScale = 1, link = "cloglog"))
+    expect_equal(cloglog$zeroCertificates, 0)
+})
+
+test_that("plr zero certificates count the folds of cross-validation", {
+    data <- certificateData(offScale = 1)
+    on <- certificateFit(data, threads = 2, cv = TRUE)
+    expect_gt(on$zeroCertificates, 1000)
+    expect_identical(coef(on), coef(certificateFit(data, threads = 2, nocert = TRUE, cv = TRUE)))
+})
