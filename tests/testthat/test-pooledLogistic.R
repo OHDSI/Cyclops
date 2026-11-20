@@ -247,3 +247,80 @@ test_that("plr edge cases: separation, an overflowing row offset, timeBasis chec
     expect_warning(convertToCyclopsData(rows[, c("rowId", "y")], covariates, modelType = "lr", link = "cloglog",
                                         quiet = TRUE), "plr models only")
 })
+
+# plr and lr on its expanded rows (columns in the same order, folds by person), with 2 clones per person, an indicator
+# time basis on intervals 2-4 (unpenalized) and interactions of covariates 1-4 with interval 2
+expandedPair <- function(nPersons = 60, p = 12, seed = 11, duplicate = FALSE) {
+    set.seed(seed)
+    n <- 2 * nPersons
+    subjects <- data.frame(rowId = 1:n, subjectId = rep(1:nPersons, each = 2), entry = 1, exit = sample(1:4, n, TRUE))
+    X <- matrix(rbinom(n * p, 1, rep(seq(0.1, 0.5, length.out = p), each = n)), n, p)
+    xc <- rnorm(n)
+    subjects$y <- rbinom(n, 1, plogis(-1 + X[, 1] - 0.8 * X[, 2] + 0.3 * xc))
+    e <- which(X == 1, arr.ind = TRUE)
+    covariates <- rbind(data.frame(rowId = e[, 1], covariateId = e[, 2], covariateValue = 1),
+                        data.frame(rowId = 1:n, covariateId = p + 1, covariateValue = xc))
+    if (duplicate) covariates <- rbind(covariates, transform(covariates[covariates$covariateId == 1, ], covariateId = 50))
+    covariates <- covariates[order(covariates$rowId, covariates$covariateId), ]
+    timeBasis <- data.frame(interval = 2:4, covariateId = 1000 + 2:4, covariateValue = 1)
+    long <- convertToLongOutcome(subjects)
+    long$row <- seq_len(nrow(long))
+    expanded <- merge(covariates, long[, c("rowId", "row", "interval")], by = "rowId")
+    interactions <- expanded[expanded$covariateId %in% 1:4 & expanded$interval == 2, ]
+    map <- data.frame(covariateId = sort(unique(interactions$covariateId)), timeCovariateId = 1002)
+    map$interactionId <- 2000 + map$covariateId
+    interactions$covariateId <- interactions$covariateId + 2000
+    basis <- data.frame(row = long$row[long$interval > 1], covariateId = 1000 + long$interval[long$interval > 1],
+                        covariateValue = 1)
+    lrCovariates <- rbind(expanded[, c("row", "covariateId", "covariateValue")],
+                          interactions[, c("row", "covariateId", "covariateValue")], basis)
+    names(lrCovariates)[1] <- "rowId"
+    list(plr = function() convertToCyclopsData(subjects, covariates, modelType = "plr", timeBasis = timeBasis,
+                                               timeEffectMap = map, quiet = TRUE),
+         lr = function() convertToCyclopsData(data.frame(rowId = long$row, y = long$y,
+                                                         subjectId = subjects$subjectId[long$rowId]),
+                                              lrCovariates[order(lrCovariates$rowId, lrCovariates$covariateId), ],
+                                              modelType = "lr", quiet = TRUE),
+         exclude = c(0, 1002:1004))
+}
+
+fitBoth <- function(pair, prior, control) {
+    lapply(list(plr = pair$plr(), lr = pair$lr()),
+           function(data) fitCyclopsModel(data, prior = prior, control = control, forceNewObject = TRUE))
+}
+
+test_that("plr takes lr's steps on the expanded rows under auto with plrCostModel = \"lr\" and the super fitter's ccd", {
+    pair <- expandedPair()
+    # auto, with lr's cost model on the person-interval rows: the switch to Newton follows lr's
+    auto <- fitBoth(pair, createPrior("normal", variance = 0.5, exclude = pair$exclude),
+                    createControl(plrCostModel = "lr", noiseLevel = "silent"))
+    expect_identical(auto$plr$iterations, auto$lr$iterations)
+    expect_equal(auto$plr$convergence$costRatio, auto$lr$convergence$costRatio, tolerance = 1E-12)
+    expect_equal(unname(coef(auto$plr)), unname(coef(auto$lr)), tolerance = 1E-10)
+    # super, ccd: the extra intercept steps count person-interval rows
+    super <- fitBoth(pair, createPrior("laplace", variance = 0.05, exclude = pair$exclude),
+                     createControl(fitter = "super", algorithm = "ccd", noiseLevel = "silent"))
+    expect_identical(super$plr$iterations, super$lr$iterations)
+    expect_equal(unname(coef(super$plr)), unname(coef(super$lr)), tolerance = 1E-10)
+})
+
+test_that("plr cross-validates as lr on the expanded rows under the legacy fitter, with cvRepetitions = \"auto\"", {
+    # (data without a separated fold: there lr's legacy kernels overflow and restart with a smaller bounding box)
+    pair <- expandedPair(seed = 12)
+    fits <- fitBoth(pair, createPrior("laplace", useCrossValidation = TRUE, exclude = pair$exclude),
+                    createControl(fitter = "legacy", fold = 5, cvRepetitions = "auto", minCVData = 10, seed = 7,
+                                  noiseLevel = "silent"))
+    expect_identical(fits$plr$cvRepetitions, fits$lr$cvRepetitions) # from the person-interval rows
+    expect_equal(fits$plr$variance, fits$lr$variance, tolerance = 1E-10) # lr's legacy score: the held-out events
+})
+
+test_that("plr merges duplicate columns and runs the Zhang-Oles criterion as lr on the expanded rows", {
+    pair <- expandedPair(duplicate = TRUE)
+    merged <- fitBoth(pair, createPrior("laplace", variance = 1, exclude = pair$exclude),
+                      createControl(algorithm = "newton", noiseLevel = "silent"))
+    expect_equal(unname(coef(merged$plr)), unname(coef(merged$lr)), tolerance = 1E-10)
+    expect_equal(unname(coef(merged$plr)[c("1", "50")]), c(coef(merged$lr)[["1"]], 0), tolerance = 1E-10)
+    zhang <- fitBoth(expandedPair(), createPrior("normal", variance = 0.5, exclude = pair$exclude),
+                     createControl(algorithm = "ccd", convergenceType = "zhang", noiseLevel = "silent"))
+    expect_identical(zhang$plr$iterations, zhang$lr$iterations)
+})

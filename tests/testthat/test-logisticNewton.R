@@ -106,3 +106,18 @@ test_that("T8-lr: fold fits under a fold partition match tight coordinate descen
     expect_length(newton, 15)
     expect_equal(newton, ccd, tolerance = 1e-8)
 })
+
+test_that("dense Newton keeps the unpenalized directions next to a normal prior of tiny variance", {
+    set.seed(4)
+    n <- 300
+    g <- rbinom(n, 1, 0.4) # unpenalized
+    x <- matrix(rbinom(n * 3, 1, 0.3), n, 3) # penalized, at about 0 for variance 1e-12
+    y <- rbinom(n, 1, plogis(-1 + g))
+    data <- createCyclopsData(y ~ g + x, modelType = "lr")
+    fit <- fitCyclopsModel(data, prior = createPrior("normal", variance = 1E-12, exclude = c("(Intercept)", "g")),
+                           control = createControl(algorithm = "newton", noiseLevel = "silent"))
+    expect_equal(fit$convergence$droppedDirections, 0)
+    logit <- function(p) log(p / (1 - p))
+    expect_equal(unname(coef(fit)[c("(Intercept)", "g")]),
+                 c(logit(mean(y[g == 0])), logit(mean(y[g == 1])) - logit(mean(y[g == 0]))), tolerance = 1E-6)
+})

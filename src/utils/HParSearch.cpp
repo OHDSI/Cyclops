@@ -76,7 +76,7 @@ StepValue UniModalSearch::step() //recommend: do/not next step, and the next x v
             //we divide here because step with more penalty is safer numerically
         break;
     case 2:
-        if( y_by_x.begin()->second.m > y_by_x.rbegin()->second.m )
+        if( better( y_by_x.begin()->second.m, y_by_x.rbegin()->second.m ) )
             ret.second = y_by_x.begin()->first / m_stdstep;
         else
             ret.second = y_by_x.rbegin()->first * m_stdstep;

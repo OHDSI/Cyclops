@@ -9,6 +9,7 @@
 #include <iomanip>
 #include <numeric>
 #include <math.h>
+#include <cmath>
 #include <cstdlib>
 #include <iterator>
 #include <algorithm>
@@ -60,6 +61,14 @@ void AutoSearchCrossValidationDriver::logResults(const CCDArguments& allArgument
 	}
 	outLog << std::endl;
 	outLog.close();
+}
+
+// Scores equal up to rounding, as on the plateau of the null model, do not decide the search: a point is better by
+// at least 1e-12 of the score. Their last bits differ between equivalent models (pooled logistic regression and lr on
+// its expanded rows sum the same terms in another order), and so did the choice between them (every fitter: there it
+// was rounding, not a result to reproduce)
+static double searchTie(const CCDArguments&) {
+	return 1E-12;
 }
 
 // The search stops after a few points spaced by factors of 10 and returns the maximum of a quadratic that
@@ -114,8 +123,10 @@ void AutoSearchCrossValidationDriver::refineSearch(
 			break;
 		}
 		auto best = byX.begin();
+		const double tie = searchTie(allArguments);
 		for (auto it = byX.begin(); it != byX.end(); ++it) {
-			if (it->second.m > best->second.m) {
+			const double than = best->second.m;
+			if (it->second.m > than && (!std::isfinite(than) || it->second.m > than + tie * std::abs(than))) {
 				best = it;
 			}
 		}
@@ -245,7 +256,8 @@ MaxPoint AutoSearchCrossValidationDriver::doCrossValidationLoop(
 	            // least squares: the cross-validated likelihood is far from quadratic over several decades of
 	            // variance (flat towards no penalty, steep towards the null model), so fit it locally
 	            searcher.reset(new UniModalSearch(10, 0.01, log(1.5), firstCut,
-	                                              modelData.getModelType() == ModelType::NORMAL));
+	                                              modelData.getModelType() == ModelType::NORMAL,
+	                                              searchTie(allArguments)));
 	            int nScored = 0;
 	            for (size_t p = 0; p < triedValues.size(); ++p) {
 	                if (means[p] == means[p]) { // a hyperparameter without any computed fold is left out

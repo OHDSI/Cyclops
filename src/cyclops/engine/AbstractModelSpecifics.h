@@ -280,6 +280,10 @@ public:
 		return std::numeric_limits<double>::quiet_NaN();
 	}
 
+	// createControl(plrCostModel = "lr"): pooled logistic regression prices the work of lr on its expanded rows, so that
+	// "auto" switches between coordinate descent and Newton where lr does (other engines: their own work, unchanged)
+	virtual void setLrCostModel(bool on) {}
+
 	virtual void turnOnSyncCV(int foldToCompute) = 0;
 
 	virtual void turnOffSyncCV() = 0;

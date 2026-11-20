@@ -279,8 +279,9 @@ fitCyclopsModel <- function(cyclopsData,
                 "folds by row do not hold out their rows; use selectorType = \"byPid\"")
     }
 
-    if (control$cvRepetitions == "auto") {
-        control$cvRepetitions <- .getNumberOfRepetitions(getNumberOfRows(cyclopsData))
+    if (control$cvRepetitions == "auto") { # plr: from its person-interval rows, as lr on the expanded rows
+        rows <- if (cyclopsData$modelType == "plr") cyclopsData$numberOfPooledRows else getNumberOfRows(cyclopsData)
+        control$cvRepetitions <- .getNumberOfRepetitions(rows)
     }
 
     folds <- NULL
@@ -898,7 +899,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              \code{"clr"}, \code{"clr_efron"}, \code{"clr_exact"}), \code{"cox"} models on the
 #'                              CPU, profile likelihoods and confidence intervals. Bug fixes apply to every fitter,
 #'                              except that \code{"legacy"} keeps the earlier cross-validation score of
-#'                              \code{"lr"} models (held-out cases only). \code{"cox_counting"} models need another
+#'                              \code{"lr"} models (held-out cases only), which \code{"plr"} models take too. \code{"cox_counting"} models need another
 #'                              fitter. \code{"super"} runs the code of \code{"default"} and changes how \code{"lr"}
 #'                              and \code{"plr"} models are fit through the defaults of \code{convergenceType} and the
 #'                              arguments below: cross-validation fold fits that start from each fold's previous
@@ -991,6 +992,11 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              of 1024 allows active sets of up to about 6,700 columns. A Laplace fit that the budget
 #'                              leaves without any Newton step warns, with the memory it needed in
 #'                              \code{fit$convergence$budgetBytes}
+#' @param plrCostModel          String: the cost model by which \code{algorithm = "auto"} prices a Newton step against
+#'                              coordinate descent cycles for pooled logistic regression (\code{"plr"}). \code{"plr"} (default) prices the work of
+#'                              \code{"plr"} itself, which is faster. \code{"lr"} prices the work of \code{"lr"} on the expanded person-interval
+#'                              rows, so that a \code{"plr"} fit takes the steps, and reaches the coefficients and cross-validated variance, of
+#'                              \code{"lr"} on those rows (with \code{"plr"}, they agree to the convergence tolerance). Other models ignore it
 #' @param doItAll               Currently unused
 #' @param syncCV                Currently unused
 #'
@@ -1041,6 +1047,7 @@ createControl <- function(maxIterations = NULL,
                           adaptiveIntercept = NULL,
                           mergeDuplicates = NULL,
                           newtonMemoryBudget = 1024,
+                          plrCostModel = "plr",
                           doItAll = TRUE,
                           syncCV = FALSE) {
     validCVNames = c("grid", "auto")
@@ -1073,6 +1080,7 @@ createControl <- function(maxIterations = NULL,
     stopifnot(is.null(adaptiveIntercept) || is.logical(adaptiveIntercept))
     stopifnot(is.null(mergeDuplicates) || is.logical(mergeDuplicates))
     stopifnot(is.numeric(newtonMemoryBudget), length(newtonMemoryBudget) == 1, newtonMemoryBudget > 0)
+    stopifnot(length(plrCostModel) == 1, plrCostModel %in% c("plr", "lr"))
 
     structure(list(maxIterations = maxIterations,
                    tolerance = tolerance,
@@ -1110,6 +1118,7 @@ createControl <- function(maxIterations = NULL,
                    adaptiveIntercept = adaptiveIntercept,
                    mergeDuplicates = mergeDuplicates,
                    newtonMemoryBudget = newtonMemoryBudget,
+                   plrCostModel = plrCostModel,
                    doItAll = doItAll,
                    syncCV = syncCV),
               class = "cyclopsControl")
@@ -1475,7 +1484,8 @@ getCrossValidationInfo <- function(object) {
          fallbackTolerance = as.numeric(valueOr(control$fallbackTolerance, 1E-6)),
          fallbackMaxIterations = as.integer(valueOr(control$fallbackMaxIterations, 1000)),
          mergeDuplicates = as.logical(valueOr(control$mergeDuplicates, control$algorithm %in% c("auto", "newton"))),
-         newtonMemoryBudget = as.numeric(valueOr(control$newtonMemoryBudget, 1024)))
+         newtonMemoryBudget = as.numeric(valueOr(control$newtonMemoryBudget, 1024)),
+         plrCostModel = as.character(valueOr(control$plrCostModel, "plr")))
 }
 
 .setControl <- function(cyclopsInterfacePtr, control, cyclopsData = NULL) {
