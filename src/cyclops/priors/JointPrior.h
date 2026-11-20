@@ -9,6 +9,7 @@
 #define JOINTPRIOR_H_
 
 #include <algorithm>
+#include <unordered_set>
 
 #include "Types.h"
 #include "priors/CovariatePrior.h"
@@ -71,7 +72,7 @@ public:
 //  	virtual JointPrior* clone() const = 0; // pure virtual
 
     void addVarianceParameter(const VariancePtr& ptr) {
-        if (std::find(variance.begin(), variance.end(), ptr) == variance.end()) {
+        if (varianceSeen.insert(&ptr.get()).second) { // a hash set: a per-column prior has J of them
             variance.push_back(ptr);
         }
     }
@@ -102,6 +103,7 @@ public:
 protected:
 
     std::vector<VariancePtr> variance;
+    std::unordered_set<const double*> varianceSeen;
 	// std::vector<double> variance;
 	// std::vector<std::vector<int>> varianceMap;
 
@@ -124,9 +126,15 @@ public:
 	}
 
 	const std::string getDescription() const {
+	    // every prior up to a hundred; beyond, the first hundred and the count (a prior per covariate can have
+	    // tens of thousands, and every fit reports its prior)
+	    const size_t shown = 100;
 	    std::ostringstream stream;
-	    for (PriorPtr prior : uniquePriors) {
-	        stream << prior->getDescription() << " ";
+	    for (size_t i = 0; i < uniquePriors.size() && i < shown; ++i) {
+	        stream << uniquePriors[i]->getDescription() << " ";
+	    }
+	    if (uniquePriors.size() > shown) {
+	        stream << "... (" << uniquePriors.size() << " priors in all)";
 	    }
 		return stream.str();
 	}
