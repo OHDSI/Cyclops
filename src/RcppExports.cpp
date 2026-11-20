@@ -131,6 +131,17 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// cyclopsSetLowerBounds
+void cyclopsSetLowerBounds(SEXP inRcppCcdInterface, const std::vector<double>& bounds);
+RcppExport SEXP _Cyclops_cyclopsSetLowerBounds(SEXP inRcppCcdInterfaceSEXP, SEXP boundsSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type inRcppCcdInterface(inRcppCcdInterfaceSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type bounds(boundsSEXP);
+    cyclopsSetLowerBounds(inRcppCcdInterface, bounds);
+    return R_NilValue;
+END_RCPP
+}
 // cyclopsGetFixedBeta
 bool cyclopsGetFixedBeta(SEXP inRcppCcdInterface, const int index);
 RcppExport SEXP _Cyclops_cyclopsGetFixedBeta(SEXP inRcppCcdInterfaceSEXP, SEXP indexSEXP) {
@@ -1224,6 +1235,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsSetStartingBeta", (DL_FUNC) &_Cyclops_cyclopsSetStartingBeta, 2},
     {"_Cyclops_cyclopsSetFixedBeta", (DL_FUNC) &_Cyclops_cyclopsSetFixedBeta, 3},
     {"_Cyclops_cyclopsSetFixedBetas", (DL_FUNC) &_Cyclops_cyclopsSetFixedBetas, 3},
+    {"_Cyclops_cyclopsSetLowerBounds", (DL_FUNC) &_Cyclops_cyclopsSetLowerBounds, 2},
     {"_Cyclops_cyclopsGetFixedBeta", (DL_FUNC) &_Cyclops_cyclopsGetFixedBeta, 2},
     {"_Cyclops_cyclopsGetIsRegularized", (DL_FUNC) &_Cyclops_cyclopsGetIsRegularized, 2},
     {"_Cyclops_cyclopsSetWeights", (DL_FUNC) &_Cyclops_cyclopsSetWeights, 2},

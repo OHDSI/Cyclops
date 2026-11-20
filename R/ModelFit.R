@@ -250,6 +250,8 @@ fitCyclopsModel <- function(cyclopsData,
         .cyclopsSetPrior(cyclopsData$cyclopsInterfacePtr, prior$priorType, prior$variance,
                          as.numeric(prior$laplaceFraction), prior$exclude, graph, neighborhood)
     }
+    # (always: clears the bounds an earlier fit on this interface set)
+    .cyclopsSetLowerBounds(cyclopsData$cyclopsInterfacePtr, .lowerBounds(cyclopsData, prior$lowerBound))
 
     if (control$selectorType == "auto") {
         if (cyclopsData$modelType %in% c("pr", "lr", "plr")) { # plr: a row is a subject
@@ -1152,6 +1154,24 @@ createControl <- function(maxIterations = NULL,
 #' @param laplaceFraction Numeric between 0 and 1: for an \code{"elasticnet"} prior, the fraction of the penalty
 #'                        that is Laplace (\code{alpha} in \code{glmnet}). Required for \code{"elasticnet"} and not
 #'                        allowed for other prior types
+#' @param lowerBound    Numeric: lower bounds on the coefficients, each 0 or negative (\code{-Inf}: none), as
+#'                      \code{lower.limits} in \code{glmnet}. One number bounds every coefficient except the
+#'                      intercept (whether or not it is excluded from the prior); otherwise one bound per covariate,
+#'                      intercept included, in the order of the coefficients. \code{NULL} (the default): no bounds.
+#'                      See the section on lower bounds
+#'
+#' @section Lower bounds:
+#'
+#' With lower bounds the fit is the mode over the coefficients at or above their bounds: a coefficient that would
+#' go below its bound stays at it (a bound of 0 keeps coefficients non-negative). Bounded coefficients need a
+#' \code{"none"}, \code{"normal"}, \code{"laplace"} or \code{"elasticnet"} prior. The fit runs coordinate descent:
+#' \code{algorithm = "auto"} does not take Newton steps when a free coefficient has a bound, and
+#' \code{algorithm = "newton"} is an error. Convergence tests are one-sided at a bound: a coefficient at its bound
+#' is optimal when the gradient of the penalized objective does not point below it. Under the \code{"gap"}
+#' criterion, Laplace logistic fits are certified by the duality gap and fits with a normal part on every free
+#' coefficient by the strong-convexity bound; others stop uncertified, on the \code{"kkt"} test of coordinate descent
+#' (logistic regression) or its estimate of the remaining decrease. The reported
+#' log prior is that of the prior without the bounds. A start below a bound starts at the bound.
 #'
 #' @section Prior types:
 #'
@@ -1185,7 +1205,8 @@ createPrior <- function(priorType,
                         neighborhood = NULL,
                         useCrossValidation = FALSE,
                         forceIntercept = FALSE,
-                        laplaceFraction = NULL) {
+                        laplaceFraction = NULL,
+                        lowerBound = NULL) {
     validNames = c("none", "laplace","normal", "barupdate", "hierarchical", "jeffreys", "elasticnet")
     stopifnot(priorType %in% validNames)
     if (any(priorType == "elasticnet")) {
@@ -1198,6 +1219,14 @@ createPrior <- function(priorType,
         }
     } else if (!is.null(laplaceFraction)) {
         stop("laplaceFraction applies only to elastic net priors")
+    }
+    if (!is.null(lowerBound)) {
+        if (!is.numeric(lowerBound) || length(lowerBound) < 1 || any(is.na(lowerBound) | lowerBound > 0)) {
+            stop("lowerBound must be numeric, with every bound 0 or negative (-Inf for none)")
+        }
+        if (!is.null(graph) || !is.null(neighborhood)) { # (the fit checks the prior of each bounded coefficient)
+            stop("Lower bounds are not available with hierarchical or fused priors")
+        }
     }
     if (!is.null(exclude)) {
         if (!inherits(exclude, "character") &&
@@ -1233,8 +1262,29 @@ createPrior <- function(priorType,
                    graph = graph,
                    neighborhood = neighborhood,
                    useCrossValidation = useCrossValidation, forceIntercept = forceIntercept,
-                   laplaceFraction = laplaceFraction),
+                   laplaceFraction = laplaceFraction, lowerBound = lowerBound),
               class = "cyclopsPrior")
+}
+
+# The lower bounds of createPrior(lowerBound) for the interface: one per coefficient, the offset's included (-Inf), or
+# numeric(0) for none. One number bounds every coefficient except the intercept
+.lowerBounds <- function(cyclopsData, lowerBound) {
+    if (is.null(lowerBound) || all(lowerBound == -Inf)) {
+        return(numeric(0))
+    }
+    count <- getNumberOfCovariates(cyclopsData)
+    if (length(lowerBound) == 1) {
+        lowerBound <- rep(lowerBound, count)
+        if (.cyclopsGetHasIntercept(cyclopsData)) {
+            lowerBound[1] <- -Inf
+        }
+    } else if (length(lowerBound) != count) {
+        stop("lowerBound must be one number or one bound per covariate (", count, ")")
+    }
+    if (.cyclopsGetHasOffset(cyclopsData)) {
+        lowerBound <- c(-Inf, lowerBound)
+    }
+    as.numeric(lowerBound)
 }
 
 # .cyclopsSetCoefficients <- function(object, coefficients) {

@@ -169,12 +169,25 @@ public:
 	virtual void setThreads(int threads) {};
 
 	// The dual objective at a feasible dual point of L1 logistic regression, for the duality-gap certificate (see
-	// LogisticSecondOrder.hpp): F the free columns, lambda their L1 rates, beta their coefficients, intercept the
-	// position in F of the one free unpenalized column (-1: none). False when the engine has no such dual or the
-	// point cannot be formed
+	// LogisticSecondOrder.hpp): F the free columns, lambda their L1 rates, lowerBound their lower bounds (<= 0, -Inf for
+	// none; empty: none), beta their coefficients, intercept the position in F of the one free unpenalized column (-1:
+	// none). False when the engine has no such dual or the point cannot be formed
 	virtual bool dualObjective(const std::vector<int>& F, const std::vector<double>& lambda,
-	                           const std::vector<double>& beta, int intercept, double* dual) {
+	                           const std::vector<double>& lowerBound, const std::vector<double>& beta, int intercept,
+	                           double* dual) {
 		return false;
+	}
+
+	// Parts of that dual for a penalized column with u = X_j' theta, theta = s a: the largest scale s within the column's
+	// constraint given the dot X_j' a (|u| <= lambda, or u <= lambda at a lower bound), and the conjugate of
+	// lambda |beta| restricted to beta >= lowerBound at u: 0, or -lowerBound (-u - lambda) when u < -lambda
+	static double dualScaleLimit(double scale, double dot, double lambda, double lowerBound) {
+		const double size = std::isfinite(lowerBound) ? dot : std::abs(dot);
+		return (lambda > 0.0 && size > 0.0) ? std::min(scale, lambda / size) : scale;
+	}
+
+	static double dualBoundConjugate(double u, double lambda, double lowerBound) {
+		return (std::isfinite(lowerBound) && u < -lambda) ? -lowerBound * (-u - lambda) : 0.0;
 	}
 
 	// threads for the second-order kernels alone (the logistic Hessian block), in cross-validation folds whose

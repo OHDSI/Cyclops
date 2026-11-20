@@ -578,9 +578,10 @@ public:
 
     // The duality-gap certificate of L1 logistic regression (LogisticSecondOrder.hpp) over the person-interval rows:
     // theta_r = s w_r (y_r - q_r), q_r = sigma(eta_r + c) + shift, and X_j'theta = sum_i x_ij sum_r theta_r tau_s(j)(t_r)
-    bool dualObjective(const std::vector<int>& F, const std::vector<double>& lambda, const std::vector<double>& beta,
-                       int intercept, double* dual) {
-        if (!supportsSecondOrder() || lambda.size() != F.size() || beta.size() != F.size()) return false;
+    bool dualObjective(const std::vector<int>& F, const std::vector<double>& lambda, const std::vector<double>& lowerBound,
+                       const std::vector<double>& beta, int intercept, double* dual) {
+        if (!supportsSecondOrder() || lambda.size() != F.size() || beta.size() != F.size() ||
+            (!lowerBound.empty() && lowerBound.size() != F.size())) return false;
         double weightSum = 0.0, positive = 0.0;
         bool finite = true;
         forEachRow(nullptr, [&](size_t i, size_t r, int t, double w, bool y) {
@@ -658,6 +659,10 @@ public:
         });
         if (!feasible) return false;
         double scale = 1.0, thetaO = thetaEta;
+        auto boundOf = [&](size_t p) {
+            return lowerBound.empty() ? -std::numeric_limits<double>::infinity() : lowerBound[p];
+        };
+        std::vector<double> dots(F.size());
         for (size_t p = 0; p < F.size(); ++p) {
             const int s = slotOf[F[p]];
             double dot = 0.0;
@@ -665,10 +670,15 @@ public:
                 dot += static_cast<double>(it.value()) * m[it.index() * S + s];
             }
             if (!std::isfinite(dot)) return false;
-            if (lambda[p] > 0.0 && std::abs(dot) > 0.0) scale = std::min(scale, lambda[p] / std::abs(dot));
+            dots[p] = dot;
+            scale = Base::dualScaleLimit(scale, dot, lambda[p], boundOf(p));
             thetaO -= beta[p] * dot;
         }
         thetaO *= scale;
+        double boundTerms = 0.0; // see LogisticSecondOrder.hpp
+        for (size_t p = 0; p < F.size(); ++p) {
+            if (lambda[p] > 0.0) boundTerms += Base::dualBoundConjugate(scale * dots[p], lambda[p], boundOf(p));
+        }
         double value = 0.0, compensation = 0.0;
         forEachRow(nullptr, [&](size_t i, size_t r, int t, double w, bool y) {
             const double yr = y ? 1.0 : 0.0;
@@ -681,7 +691,7 @@ public:
             value = next;
         });
         if (!feasible) return false;
-        *dual = value + compensation - thetaO;
+        *dual = value + compensation - thetaO - boundTerms;
         return std::isfinite(*dual);
     }
 

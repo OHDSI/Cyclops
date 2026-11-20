@@ -104,6 +104,12 @@ struct PriorOptions {
     /// `kind`/`variance`.
     std::vector<PriorKind> kinds;
     std::vector<double> variances;
+
+    /// Lower bounds on the coefficients, each <= 0 (-Inf: none), as glmnet's
+    /// `lower.limits`: empty for none; one value bounds every estimated
+    /// coefficient except the intercept; otherwise one per estimated coefficient
+    /// (sized as `Model::set_start_values`). Matches `createPrior(lowerBound=)`.
+    std::vector<double> lower_bounds;
 };
 
 /// Mode-finding, cross-validation and runtime controls, resolved: the Python

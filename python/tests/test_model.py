@@ -646,3 +646,61 @@ def test_merge_duplicates_default_follows_the_prior(small):
     model.set_prior(laplace)
     model.fit()
     np.testing.assert_array_equal(model.coefficients, merged)
+
+
+# ---------------------------------------------------------------------------
+# Lower bounds (createPrior(lowerBound=))
+# ---------------------------------------------------------------------------
+
+
+def _bounded_logistic(seed=2, n=500, p=12):
+    rng = np.random.default_rng(seed)
+    X = rng.normal(size=(n, p))
+    beta = np.array([1.0, -1.0, 0.8, -0.5, 0.5, -1.5] + [0.0] * (p - 6))
+    y = (rng.uniform(size=n) < 1.0 / (1.0 + np.exp(-(0.2 + X @ beta)))).astype(float)
+    data = CyclopsData.from_arrays(X, y, "lr", add_intercept=True)
+    return X, y, data
+
+
+def _bounded_fit(data, variance, lower_bound, **control):
+    model = CyclopsModel(data)
+    model.set_prior(Prior("laplace", variance, lower_bound=lower_bound))
+    return model.fit(Control(tolerance=1e-10, **control))
+
+
+def test_lower_bound_zero_keeps_coefficients_non_negative():
+    X, y, data = _bounded_logistic()
+    n = X.shape[0]
+    variance = 2.0 / (n * 0.005) ** 2
+    free = _bounded_fit(data, variance, None)
+    assert (free.coefficients[1:] < 0).sum() >= 3
+
+    result = _bounded_fit(data, variance, 0.0)
+    assert result.return_flag == "SUCCESS"
+    beta = result.coefficients
+    assert np.all(beta[1:] >= 0.0)
+    assert np.all(beta[1:][free.coefficients[1:] < 0] == 0.0)
+    # one-sided optimality: at 0 the gradient of -log likelihood is at least -lambda
+    lam = np.sqrt(2.0 / variance)
+    eta = beta[0] + X @ beta[1:]
+    g = X.T @ (1.0 / (1.0 + np.exp(-eta)) - y)
+    at_zero = beta[1:] == 0.0
+    assert np.all(g[at_zero] >= -lam * (1 + 1e-6))
+    assert np.allclose(g[~at_zero], -lam, rtol=1e-5)
+
+    # one value bounds all but the intercept: the same as the per-coefficient form
+    per_coefficient = _bounded_fit(data, variance, [-np.inf] + [0.0] * X.shape[1])
+    np.testing.assert_allclose(per_coefficient.coefficients, beta, atol=1e-9)
+    # the same answer by plain coordinate descent
+    ccd = _bounded_fit(data, variance, 0.0, algorithm="ccd", convergence="kkt")
+    np.testing.assert_allclose(ccd.coefficients, beta, atol=1e-7)
+
+
+def test_lower_bounds_are_validated():
+    _, _, data = _bounded_logistic()
+    with pytest.raises(ValueError, match="0 or negative"):
+        CyclopsModel(data).set_prior(Prior("laplace", 1.0, lower_bound=0.5))
+    with pytest.raises(CyclopsError, match="one per estimated coefficient"):
+        CyclopsModel(data).set_prior(Prior("laplace", 1.0, lower_bound=[0.0, 0.0]))
+    with pytest.raises(CyclopsError, match="Newton steps are not available"):
+        _bounded_fit(data, 1.0, 0.0, algorithm="newton")

@@ -55,7 +55,8 @@ Suggests:
     cmprsk,
     boot,
     rsample,
-    sandwich
+    sandwich,
+    glmnet
 NeedsCompilation: yes
 RoxygenNote: 7.3.2
 Roxygen: list(markdown = TRUE)

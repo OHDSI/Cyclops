@@ -124,7 +124,8 @@ PYBIND11_MODULE(_cyclops, m) {
         .def_readwrite("exclude", &PriorOptions::exclude)
         .def_readwrite("force_intercept", &PriorOptions::force_intercept)
         .def_readwrite("kinds", &PriorOptions::kinds)
-        .def_readwrite("variances", &PriorOptions::variances);
+        .def_readwrite("variances", &PriorOptions::variances)
+        .def_readwrite("lower_bounds", &PriorOptions::lower_bounds);
 
     py::class_<FitOptions>(m, "FitOptions")
         .def(py::init<>())

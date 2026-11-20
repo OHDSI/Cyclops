@@ -82,7 +82,10 @@ bool ModelSpecifics<BaseModel,RealType>::lrFullGradient(const std::vector<int>& 
 // coefficients, offsets), the problem min_beta_F sum_k w_k (log(1 + e^eta_k) - y_k eta_k) + sum_j lambda_j |beta_j| has
 // the dual  max_theta  -sum_k w_k h(y_k - theta_k / w_k) - theta' o,  h(u) = u log u + (1 - u) log(1 - u),
 // subject to |X_j' theta| <= lambda_j for the penalized columns of F and sum_k theta_k = 0 when an intercept is free
-// (by Fenchel-Young, f(beta) >= that objective - beta_0 sum_k theta_k for any beta). A point from the current state:
+// (by Fenchel-Young, f(beta) >= that objective - beta_0 sum_k theta_k for any beta). A column with a lower bound
+// l_j <= 0 (beta_j >= l_j) has the conjugate of lambda_j |b| over b >= l_j instead: X_j' theta <= lambda_j, and the
+// dual loses -l_j max(0, -X_j' theta - lambda_j) (0 for l_j = 0). A bounded intercept keeps sum_k theta_k = 0, a
+// feasible choice for it. A point from the current state:
 // theta = s w (y - q), q = sigma(eta + c) + r / sum(w): c refits the free intercept alone and the residual r of that
 // refit is shifted out, so sum_k theta_k = 0 whatever the refit reached (without a free intercept c = r = 0); s =
 // min(1, lambda_j / |X_j' theta|) over the penalized columns, so y_k - theta_k / w_k stays in [0, 1]; and theta' o =
@@ -91,12 +94,14 @@ bool ModelSpecifics<BaseModel,RealType>::lrFullGradient(const std::vector<int>& 
 // free intercept is one on every row (weighted or not), the shifted q stays in [0, 1], and every value is finite
 template <class BaseModel, typename RealType>
 bool ModelSpecifics<BaseModel,RealType>::dualObjective(const std::vector<int>& F, const std::vector<double>& lambda,
+                                                        const std::vector<double>& lowerBound,
                                                         const std::vector<double>& beta, int intercept, double* dual) {
 	if (!logisticSecondOrder) {
 		return false;
 	}
 	flushIntercept();
-	if (!lrReady() || lambda.size() != F.size() || beta.size() != F.size() || hXBeta.size() < K) {
+	if (!lrReady() || lambda.size() != F.size() || beta.size() != F.size() || hXBeta.size() < K ||
+			(!lowerBound.empty() && lowerBound.size() != F.size())) {
 		return false;
 	}
 	double weightSum = 0.0, positive = 0.0;
@@ -183,13 +188,22 @@ bool ModelSpecifics<BaseModel,RealType>::dualObjective(const std::vector<int>& F
 	}
 	double s = 1.0;
 	double thetaO = thetaEta; // theta' o with theta = s a, scaled below
+	auto boundOf = [&](size_t i) {
+		return lowerBound.empty() ? -std::numeric_limits<double>::infinity() : lowerBound[i];
+	};
+	std::vector<double> dots(F.size());
 	for (size_t i = 0; i < F.size(); ++i) {
 		const double dot = lrColumnDot(F[i], a, false);
 		if (!std::isfinite(dot)) return false;
-		if (lambda[i] > 0.0 && std::abs(dot) > 0.0) s = std::min(s, lambda[i] / std::abs(dot));
+		dots[i] = dot;
+		s = dualScaleLimit(s, dot, lambda[i], boundOf(i));
 		thetaO -= beta[i] * dot;
 	}
 	thetaO *= s;
+	double boundTerms = 0.0;
+	for (size_t i = 0; i < F.size(); ++i) {
+		if (lambda[i] > 0.0) boundTerms += dualBoundConjugate(s * dots[i], lambda[i], boundOf(i));
+	}
 	double value = 0.0, compensation = 0.0; // compensated (Neumaier)
 	for (size_t k = 0; k < K; ++k) {
 		const double w = static_cast<double>(hKWeight[k]);
@@ -200,7 +214,7 @@ bool ModelSpecifics<BaseModel,RealType>::dualObjective(const std::vector<int>& F
 		grouped::addCompensated(value, compensation,
 			-w * ((u > 0.0 ? u * std::log(u) : 0.0) + (u < 1.0 ? (1.0 - u) * std::log(1.0 - u) : 0.0)));
 	}
-	value += compensation - thetaO;
+	value += compensation - thetaO - boundTerms;
 	*dual = value;
 	return std::isfinite(value);
 }

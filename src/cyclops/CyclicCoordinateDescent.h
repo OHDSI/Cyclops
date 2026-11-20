@@ -108,6 +108,14 @@ public:
 
 	void setFixedBeta(int i, bool value);
 
+	// Lower bounds on the coefficients (glmnet's lower.limits): one per coefficient, each <= 0 (-Inf: none), or empty for
+	// none. The fit then minimizes the penalized objective over beta_j >= lowerBound_j: coordinate steps are projected
+	// onto the bound, and every optimality test is one-sided at it. Newton steps are not taken while any free coefficient
+	// has a bound ("auto" runs coordinate descent, "newton" is an error)
+	void setLowerBounds(const std::vector<double>& bounds);
+
+	const std::vector<double>& getLowerBounds() const { return lowerBound; }
+
 	double getHessianDiagonal(int index);
 
 	double getJerkDiagonal(int index);
@@ -444,6 +452,26 @@ protected:
 
 	double ccdUpdateBeta(int index);
 
+	// The prior's coordinate step projected onto the coefficient's lower bound: with a convex coordinate model, the
+	// minimum over beta >= bound is the unconstrained minimum or the bound
+	double boundedDelta(const priors::GradientHessian& gh, int index) {
+		double delta = jointPrior->getDelta(gh, hBeta, index, *this);
+		if (!lowerBound.empty() && hBeta[index] + delta < lowerBound[index]) { // (NaN stays NaN)
+			delta = lowerBound[index] - hBeta[index];
+		}
+		return delta;
+	}
+
+	bool atLowerBound(int index, double beta) const {
+		return !lowerBound.empty() && beta <= lowerBound[index];
+	}
+
+	bool anyLowerBound() const; // a free coefficient with a finite lower bound
+
+	// The prior's kkt residual (CovariatePrior::getKktResidual()), one-sided at a lower bound: there the residual is the
+	// part of the right derivative of the objective that points below the bound
+	priors::GradientHessian kktResidual(int index, double gradient, double beta) const;
+
 	double scaledKktResidual(int index, double rawDelta, const priors::GradientHessian& gh) const;
 	// Least squares: sqrt(2) sd(y), so that kkt residuals are in standard errors for any units of y, and var(y), the
 	// floor of the objective's scale in computeConvergenceCriterion(); 1 otherwise. Set by setOutcomeScale()
@@ -713,6 +741,7 @@ protected:
 	std::vector<double> certifiedRows; // entries of each indicator column; 0 (never skipped) otherwise
 	int minIterations = 0; // of the current update(); no convergence (SUCCESS) before this many cycles
 	std::vector<bool> fixBeta;
+	std::vector<double> lowerBound; // see setLowerBounds(); empty for none
 
 	int N; // Number of patients
 	int K; // Number of exposure levels

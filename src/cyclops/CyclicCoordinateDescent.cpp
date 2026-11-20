@@ -194,6 +194,7 @@ CyclicCoordinateDescent::CyclicCoordinateDescent(const CyclicCoordinateDescent& 
 	// at the log-odds of the outcome, and fixed coefficients stay fixed
 	startingBeta = copy.startingBeta;
 	fixBeta = copy.fixBeta;
+	lowerBound = copy.lowerBound;
 }
 
 CyclicCoordinateDescent::~CyclicCoordinateDescent(void) {
@@ -521,6 +522,43 @@ void CyclicCoordinateDescent::setFixedBeta(int i, bool value) {
 	fixBeta[i] = value;
 }
 
+void CyclicCoordinateDescent::setLowerBounds(const std::vector<double>& bounds) {
+	if (!bounds.empty() && bounds.size() != static_cast<size_t>(J)) {
+		std::ostringstream stream;
+		stream << "Must provide a lower bound for each coefficient (" << J << " expected, " << bounds.size() << " given)";
+		error->throwError(stream);
+	}
+	bool any = false;
+	for (double bound : bounds) {
+		if (std::isnan(bound) || bound > 0.0) { // a positive bound would make the start at 0 infeasible (as glmnet)
+			std::ostringstream stream;
+			stream << "Lower bounds must be 0 or negative (-Inf for none)";
+			error->throwError(stream);
+		}
+		any = any || std::isfinite(bound);
+	}
+	lowerBound = any ? bounds : std::vector<double>();
+}
+
+bool CyclicCoordinateDescent::anyLowerBound() const {
+	for (size_t j = 0; j < lowerBound.size(); ++j) {
+		if (!fixBeta[j] && std::isfinite(lowerBound[j])) return true;
+	}
+	return false;
+}
+
+priors::GradientHessian CyclicCoordinateDescent::kktResidual(int index, double gradient, double beta) const {
+	if (!atLowerBound(index, beta)) {
+		return jointPrior->getKktResidual(index, gradient, beta);
+	}
+	// At the bound the subdifferential is (-Inf, r], r the right derivative of -log likelihood - log prior: its
+	// minimum-norm element is 0 when r >= 0 and r otherwise (update() checked the prior has a Newton penalty)
+	double precision = 0.0, lambda = 0.0;
+	jointPrior->getNewtonPenalty(index, &precision, &lambda);
+	const double right = gradient + precision * beta + (beta >= 0.0 ? lambda : -lambda);
+	return priors::GradientHessian(std::max(-right, 0.0), precision); // (NaN stays NaN)
+}
+
 void CyclicCoordinateDescent::checkAllLazyFlags(void) {
 	if (!xBetaKnown) {
 		computeXBeta();
@@ -800,6 +838,34 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	// Second-order paths (Newton plan 2.10): an ineligible fit errors when "gap" or "newton" was asked for, and
 	// runs the fitter's previous criterion on CCD when "auto" + "gap" came from the defaults
 	convergenceReport = ConvergenceReport();
+	// Lower bounds (setLowerBounds()): coordinate descent only, on priors whose one-sided kkt residual is known; a start
+	// below a bound (given, or left by an earlier fit) starts at the bound
+	const bool bounded = anyLowerBound();
+	if (bounded) {
+		std::ostringstream stream;
+		if (usingGPU || usingCUDA || syncCV) {
+			stream << "Lower bounds need the CPU, without synchronized cross-validation folds";
+		} else if (algorthmType == AlgorithmType::NEWTON) {
+			stream << "Newton steps are not available with lower bounds; use algorithm \"auto\" or \"ccd\"";
+		} else if (arguments.useKktSwindle) {
+			stream << "The kkt swindle is not available with lower bounds";
+		}
+		for (int j = 0; j < J && stream.tellp() == 0; ++j) {
+			double precision = 0.0, lambda = 0.0;
+			if (!fixBeta[j] && std::isfinite(lowerBound[j]) && !jointPrior->getNewtonPenalty(j, &precision, &lambda)) {
+				stream << "Lower bounds need a normal, Laplace, elastic net or no prior on the bounded coefficients";
+			}
+		}
+		if (stream.tellp() != 0) {
+			error->throwError(stream);
+		}
+		for (int j = 0; j < J; ++j) {
+			if (!fixBeta[j] && hBeta[j] < lowerBound[j]) {
+				hBeta[j] = lowerBound[j];
+				xBetaKnown = false;
+			}
+		}
+	}
 	if (convergenceType == GAP || algorthmType == AlgorithmType::AUTO || algorthmType == AlgorithmType::NEWTON) {
 		std::string reason = secondOrderIneligibility();
 		if (reason.empty() && arguments.useKktSwindle) {
@@ -827,13 +893,13 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	initialBound = arguments.initialBound;
 	// "auto" runs the kkt-guided coordinate descent for fits without L1 penalties only: Laplace and elastic-net fits keep the
 	// Newton-first path, which was faster on real PatientLevelPrediction designs (prox-Newton over a small working set);
-	// an explicit "ccd" with "gap" is kkt-guided whatever the priors
+	// an explicit "ccd" with "gap" is kkt-guided whatever the priors, and so is "auto" under lower bounds (no Newton steps)
 	bool anyL1 = false;
 	for (int j = 0; j < J && !anyL1; ++j) {
 		double precision = 0.0, lambda = 0.0;
 		anyL1 = !fixBeta[j] && jointPrior->getNewtonPenalty(j, &precision, &lambda) && lambda > 0.0;
 	}
-	kktGuided = convergenceType == GAP && (algorthmType == AlgorithmType::CCD || (algorthmType == AlgorithmType::AUTO && !anyL1)) &&
+	kktGuided = convergenceType == GAP && (algorthmType == AlgorithmType::CCD || (algorthmType == AlgorithmType::AUTO && (!anyL1 || bounded))) &&
 		hXI.getModelType() == ModelType::LOGISTIC && !usingGPU && !usingCUDA && !syncCV && !profileActive;
 	// Active-set cycling relies on full sweeps for its stop tests: those of the kkt criterion, or those of the kkt-guided
 	// "gap" path (findModeGap(), which decides only after full sweeps; logistic cycles are serial whatever the threads).
@@ -844,6 +910,9 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	// (a negative budget: "gap" given for these fits, e.g. cross-validation folds with their own criterion, certifies)
 	gapFromDefaults = convergenceType == GAP && algorthmType == AlgorithmType::AUTO &&
 		arguments.fallbackConvergenceType >= 0 && arguments.certificationBudget >= 0.0;
+	if (bounded && algorthmType == AlgorithmType::AUTO) {
+		algorthmType = AlgorithmType::CCD; // no Newton steps: they would need a projected (box-constrained) Newton
+	}
 	kktGuidedTolerance = arguments.kktGuidedTolerance;
 	certificationBudget = arguments.certificationBudget;
 	adaptiveIntercept = (convergenceType == KKT || kktGuided) && arguments.adaptiveIntercept; // its floor is a kkt tolerance
@@ -874,8 +943,9 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	// prior that is exact for the group; the members stay fixed at 0 until the write-back below
 	aliasGroups.clear();
 	priors::JointPriorPtr unmergedPrior = jointPrior;
-	// plr: equal columns of X differ by their time-basis column, which X does not show
-	if (arguments.mergeDuplicates && !arguments.useKktSwindle && !syncCV && !usingGPU && !usingCUDA &&
+	// plr: equal columns of X differ by their time-basis column, which X does not show. Not under lower bounds: a group's
+	// prior and bound would have to combine its members' (and coordinate descent does without the merge)
+	if (arguments.mergeDuplicates && !bounded && !arguments.useKktSwindle && !syncCV && !usingGPU && !usingCUDA &&
 			hXI.getModelType() != ModelType::POOLED_LOGISTIC) {
 		findAliasGroups();
 		if (!aliasGroups.empty()) {
@@ -1261,7 +1331,8 @@ void CyclicCoordinateDescent::findDivergentCoefficients() {
 		separationCache[columns[c]] = static_cast<signed char>(direction[c]);
 	}
 	for (int j : all) {
-		if (separationCache[j] != 0) {
+		// (a coefficient separated towards -Inf stops at its lower bound: not divergent)
+		if (separationCache[j] != 0 && !(separationCache[j] < 0 && !lowerBound.empty() && std::isfinite(lowerBound[j]))) {
 			divergentDirection[j] = separationCache[j];
 			divergentCoefficients.push_back(j);
 		}
@@ -2216,7 +2287,10 @@ double CyclicCoordinateDescent::getNullModelVariance(const ModeFindingArguments&
 	double lambdaMax = 0.0;
 	for (int j = 0; j < J; ++j) {
 		if (kinkFraction[j] > 0.0) {
-			lambdaMax = std::max(lambdaMax, std::abs(getLogLikelihoodGradient(j)) / kinkFraction[j]);
+			const double gradient = getLogLikelihoodGradient(j);
+			// (at a lower bound of 0, only a log likelihood gradient upwards moves it)
+			const double size = atLowerBound(j, 0.0) ? std::max(gradient, 0.0) : std::abs(gradient);
+			lambdaMax = std::max(lambdaMax, size / kinkFraction[j]);
 		}
 	}
 	setHyperprior(0, saved);
@@ -2419,7 +2493,7 @@ void CyclicCoordinateDescent::mmUpdateAllBeta(std::vector<double>& delta,
 
             gh[j].second /= scale;
 
-            delta[j] = jointPrior->getDelta(gh[j], hBeta, j, *this);
+            delta[j] = boundedDelta(gh[j], j); // a separable majorizer: projected coordinate by coordinate
             // TODO this is only correct when joints are independent across dimensions
         } else {
             delta[j] = 0.0;
@@ -2498,7 +2572,7 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 					g.first = 0.0;
 					g.second = 0.0;
 				}
-				const double delta = jointPrior->getDelta(g, hBeta, run[r], *this);
+				const double delta = boundedDelta(g, run[r]);
 				if (trackKkt) {
 					accumulateKkt(run[r], delta, g);
 				}
@@ -2540,12 +2614,12 @@ double CyclicCoordinateDescent::ccdUpdateBeta(int index) {
 	}
 	lastGradientHessian = gh;
 
-	return jointPrior->getDelta(gh, hBeta, index, *this);
+	return boundedDelta(gh, index);
 }
 
 double CyclicCoordinateDescent::scaledKktResidual(int index, double rawDelta,
                                                   const priors::GradientHessian& gh) const {
-	const auto residual = jointPrior->getKktResidual(index, gh.first, hBeta[index]);
+	const auto residual = kktResidual(index, gh.first, hBeta[index]);
 	double size = residual.first;
 	double curvature = gh.second + residual.second;
 	if (std::isnan(size)) { // prior without a residual: its Newton step in units of curvature
@@ -2697,6 +2771,11 @@ bool CyclicCoordinateDescent::certifiedZero(int index) const {
 	}
 	// plus the rounding of the two gradient sums (at most rows terms in [-1, 1], each)
 	const double rounding = 4.0 * eps * rows * rows;
+	if (atLowerBound(index, 0.0)) { // one-sided: the gradient stays at or above -lambda
+		const double low = c.gradient - down - rounding;
+		const double lower = low - std::abs(low) * 1E-9;
+		return std::isfinite(lower) && kktResidual(index, lower, 0.0).first == 0.0;
+	}
 	const double bound = std::max(c.gradient + up + rounding, -(c.gradient - down - rounding)) * (1.0 + 1E-9);
 	return std::isfinite(bound) && jointPrior->getKktResidual(index, bound, 0.0).first == 0.0; // bound <= lambda
 }

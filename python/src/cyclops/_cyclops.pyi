@@ -87,6 +87,7 @@ class PriorOptions:
     force_intercept: bool
     kinds: list[PriorKind]
     variances: list[float]
+    lower_bounds: list[float]
     def __init__(self) -> None: ...
 
 class FitOptions:

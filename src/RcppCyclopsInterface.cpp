@@ -174,6 +174,14 @@ void cyclopsSetFixedBetas(SEXP inRcppCcdInterface, int first, const std::vector<
     }
 }
 
+// [[Rcpp::export(.cyclopsSetLowerBounds)]]
+void cyclopsSetLowerBounds(SEXP inRcppCcdInterface, const std::vector<double>& bounds) {
+    // one per coefficient (the offset's included), or none
+    using namespace bsccs;
+    XPtr<RcppCcdInterface> interface(inRcppCcdInterface);
+    interface->getCcd().setLowerBounds(bounds);
+}
+
 // [[Rcpp::export(.cyclopsGetFixedBeta)]]
 bool cyclopsGetFixedBeta(SEXP inRcppCcdInterface, const int index){
 	using namespace bsccs;

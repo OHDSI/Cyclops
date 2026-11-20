@@ -68,6 +68,12 @@ class Prior:
             penalize it. Matches ``createPrior(forceIntercept=)``.
         kinds, variances: Per-covariate overrides; both must be given, each with
             one entry per covariate in covariate-id order.
+        lower_bound: Lower bounds on the coefficients, each 0 or negative
+            (``-inf``: none), as glmnet's ``lower.limits``. One number bounds every
+            coefficient except the intercept; otherwise one bound per estimated
+            coefficient (as :meth:`CyclopsModel.set_start_values`). Matches
+            ``createPrior(lowerBound=)``; see its documentation for how bounded
+            fits run.
     """
 
     kind: str = "none"
@@ -76,6 +82,7 @@ class Prior:
     force_intercept: bool = False
     kinds: Sequence[str] | None = None
     variances: Sequence[float] | None = None
+    lower_bound: float | Sequence[float] | None = None
 
     def _to_options(self) -> "_cyclops.PriorOptions":
         options = _cyclops.PriorOptions()
@@ -98,6 +105,16 @@ class Prior:
         if self.kinds is not None and self.variances is not None:
             options.kinds = [resolve(PRIOR_KINDS, k, "prior") for k in self.kinds]
             options.variances = [float(v) for v in self.variances]
+
+        if self.lower_bound is not None:
+            bounds = np.atleast_1d(np.asarray(self.lower_bound, dtype=np.float64))
+            invalid = np.isnan(bounds).any() or (bounds > 0).any()
+            if bounds.ndim != 1 or bounds.size == 0 or invalid:
+                raise ValueError(
+                    "lower_bound must be one number or a sequence, every bound 0 "
+                    "or negative (-inf for none)"
+                )
+            options.lower_bounds = [float(b) for b in bounds]
 
         return options
 

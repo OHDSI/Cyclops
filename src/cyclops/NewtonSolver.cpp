@@ -51,6 +51,10 @@ struct CyclicCoordinateDescent::NewtonContext {
 	std::vector<int> F;             // free coordinates (normal, Laplace, elastic net or no priors)
 	std::vector<double> precision;  // quadratic precision: 1 / sigma_j^2, or the elastic net's lambda2 (0 otherwise)
 	std::vector<double> lambda;     // L1 rate: Laplace, or the elastic net's lambda1 (0 otherwise)
+	std::vector<double> lowerBound; // the lower bounds over F (setLowerBounds()), empty without any
+	// Some coefficient of F has a lower bound: coordinate descent only (update() runs it), certified by the duality gap
+	// or R with one-sided residuals; the curvature certificates (gsc, Lambda^2 / 2, prox-Newton's) assume no bounds
+	bool bounded = false;
 	std::vector<int> unpenalized;   // positions in F with precision 0, ascending (F and precision are fixed for the fit)
 	bool anyLaplace = false;        // some L1 rate: prox-Newton
 	bool allNormal = true;
@@ -115,7 +119,7 @@ bool CyclicCoordinateDescent::dualGap(NewtonContext& context, double* gap) {
 	std::vector<double> beta(context.F.size());
 	for (size_t i = 0; i < context.F.size(); ++i) beta[i] = hBeta[context.F[i]];
 	++convergenceReport.dualChecks;
-	if (!modelSpecifics.dualObjective(context.F, context.lambda, beta, context.dualIntercept, &dual)) {
+	if (!modelSpecifics.dualObjective(context.F, context.lambda, context.lowerBound, beta, context.dualIntercept, &dual)) {
 		return false;
 	}
 	double penalty = 0.0;
@@ -921,7 +925,8 @@ bool CyclicCoordinateDescent::newtonDirectionCG(NewtonContext& context, Eigen::V
 // this fit (its threads share them), plus the row-wise copy of X_W for engines that keep one (logistic regression reads its columns)
 // R = s' P^-1 s / 2 >= gap (3.1), from the likelihood gradient over F. With every precision p_j > 0 the objective is
 // strongly convex with modulus P = diag(p) through the prior alone, so for any subgradient s of it, f(beta) - f* <=
-// s' P^-1 s / 2; s is the minimum-norm one, soft-thresholded where an L1 rate applies (elastic net)
+// s' P^-1 s / 2; s is the minimum-norm one, soft-thresholded where an L1 rate applies (elastic net), and one-sided at
+// a lower bound (kktResidual())
 double CyclicCoordinateDescent::strongConvexityBound(const NewtonContext& context,
                                                      const std::vector<double>& gradient) const {
 	double sum = 0.0;
@@ -929,7 +934,8 @@ double CyclicCoordinateDescent::strongConvexityBound(const NewtonContext& contex
 		const double b = hBeta[context.F[i]];
 		const double g = gradient[i] + context.precision[i] * b;
 		const double l = context.lambda[i];
-		const double s = (l == 0.0) ? g : (b != 0.0 ? g + (b > 0.0 ? l : -l) : std::max(std::abs(g) - l, 0.0));
+		const double s = atLowerBound(context.F[i], b) ? std::max(-(g + (b >= 0.0 ? l : -l)), 0.0) :
+			((l == 0.0) ? g : (b != 0.0 ? g + (b > 0.0 ? l : -l) : std::max(std::abs(g) - l, 0.0)));
 		sum += s * s / context.precision[i];
 	}
 	return 0.5 * sum;
@@ -1421,10 +1427,15 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 			context.F.push_back(j);
 			context.precision.push_back(precision);
 			context.lambda.push_back(lambda);
+			context.lowerBound.push_back(lowerBound.empty() ? -std::numeric_limits<double>::infinity() : lowerBound[j]);
+			context.bounded = context.bounded || std::isfinite(context.lowerBound.back());
 			context.allNormal = context.allNormal && precision > 0.0 && lambda == 0.0;
 			context.allStrong = context.allStrong && precision > 0.0;
 			context.anyLaplace = context.anyLaplace || lambda > 0.0;
 		}
+	}
+	if (!context.bounded) {
+		context.lowerBound.clear();
 	}
 	double weight = 1.0; // tau_eff = tau times the mean positive weight (3.3, D3)
 	context.weightedRows = K;
@@ -2026,12 +2037,15 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		}
 
 		// A curvature certificate on the CCD path: once the estimate is within 100 tau_eff and finishing on CCD
-		// costs more than one H (or it is already below tau_eff), with 2^k cycles between failed attempts
-		if ((!kktGuided || legacyCertify) && convergenceType == GAP && context.conjugateGradient && !context.allNormal && cycles >= stopFrom &&
-				gHat <= context.tauEff && !stepsLimited) { // no curvature certificate within the memory budget
+		// costs more than one H (or it is already below tau_eff), with 2^k cycles between failed attempts. None within
+		// the memory budget (Newton-CG) or under lower bounds: the estimate stops the fit, with the duality gap where it
+		// applies (all-normal fits have R, above)
+		const bool noCurvature = context.conjugateGradient || context.bounded;
+		if ((!kktGuided || legacyCertify) && convergenceType == GAP && noCurvature && !context.allNormal &&
+				cycles >= stopFrom && gHat <= context.tauEff && !stepsLimited) {
 			if (stopOnEstimate()) break;
 		}
-		if ((!kktGuided || legacyCertify) && convergenceType == GAP && !context.conjugateGradient && cycles >= stopFrom && cycles >= certifyAfter &&
+		if ((!kktGuided || legacyCertify) && convergenceType == GAP && !noCurvature && cycles >= stopFrom && cycles >= certifyAfter &&
 				!stepsLimited) {
 			const double estimate = context.allNormal ? R : gHat;
 			const double remaining = context.allNormal ?
