@@ -224,54 +224,68 @@ int ModelData<RealType>::loadMultipleX(
 		firstColumnIndex = index;
 	}
 
-	const bool hasCovariateValues = covariateValues.size > 0;
-	const bool useRowMap = rowIdMap.size() > 0;
 	int64_t maxId = covariateIds.id(0);
 
 	size_t i = 0;
 	while (i < n) {
 		const int64_t columnId = covariateIds.id(i);
 		maxId = std::max(maxId, columnId);
-		// the column's entries are [i, end): reserve them once rather than growing the vectors entry by entry
+		// the column's entries are [i, end)
 		size_t end = i + 1;
 		while (end < n && covariateIds.id(end) == columnId) ++end;
+		appendEntries(index, columnId, rowIds, covariateValues, i, end, forceSparse);
+		i = end;
+		index = -1; // new column
+	}
 
-		if (index < 0) { // Create new column if necessary
-		    const auto format =
-		        (hasCovariateValues &&
-		            (!(covariateValues.value(i) == 1.0 || covariateValues.value(i) == 0.0) // not 0 or 1
+	maxCovariateId = maxId;
+
+	touchedX = true;
+	return firstColumnIndex;
+}
+
+template <typename RealType>
+void ModelData<RealType>::appendEntries(int index, const int64_t columnId, const NumberView& rowIds,
+		const NumberView& values, const size_t begin, const size_t end, const bool forceSparse) {
+	const bool hasCovariateValues = values.size > 0;
+	const bool useRowMap = rowIdMap.size() > 0;
+
+	if (index < 0) { // Create new column if necessary
+	    const auto format =
+	        (hasCovariateValues &&
+	            (!(values.value(begin) == 1.0 || values.value(begin) == 0.0) // not 0 or 1
                     || forceSparse)) ?
-		                SPARSE : INDICATOR;
-	        X.push_back(format);
-	        index = getNumberOfColumns() - 1;
-	        X.getColumn(index).add_label(columnId);
-        }
+	                SPARSE : INDICATOR;
+        X.push_back(format);
+        index = getNumberOfColumns() - 1;
+        X.getColumn(index).add_label(columnId);
+	}
 
-		// Append data into CompressedDataColumn
-		CompressedDataColumn<RealType>& column = X.getColumn(index);
-		FormatType format = column.getFormatType();
-		if (format == INDICATOR || format == SPARSE) { // (intercept and dense columns keep no row indices)
-			size_t entries = end - i; // the entries kept: values of 0 are not
-			if (hasCovariateValues) {
-				for (size_t k = i; k < end; ++k) entries -= covariateValues.value(k) == 0.0 ? 1 : 0;
-			}
-			reserveFor(column.getColumnsVector(), entries);
-			if (format == SPARSE) {
-				reserveFor(column.getDataVector(), entries);
-			}
+	// Append data into CompressedDataColumn
+	CompressedDataColumn<RealType>& column = X.getColumn(index);
+	FormatType format = column.getFormatType();
+	if (format == INDICATOR || format == SPARSE) { // (intercept and dense columns keep no row indices)
+		size_t entries = end - begin; // the entries kept: values of 0 are not
+		if (hasCovariateValues) {
+			for (size_t k = begin; k < end; ++k) entries -= values.value(k) == 0.0 ? 1 : 0;
 		}
+		reserveFor(column.getColumnsVector(), entries);
+		if (format == SPARSE) {
+			reserveFor(column.getDataVector(), entries);
+		}
+	}
 
-		for (size_t k = i; k < end; ++k) {
-		    const int64_t rowId = rowIds.id(k);
-		    if (k != i && rowId == rowIds.id(k - 1)) {
-		        std::ostringstream stream;
-		        stream << "Repeated row-column entry at ";
-		        stream << rowId << " - " << columnId;
-		        throw std::range_error(stream.str());
-		    }
-		    const auto mappedRow = (useRowMap) ? mapRowId(rowId) : rowId;
-		    if (hasCovariateValues) {
-		        const double value = covariateValues.value(k);
+	for (size_t k = begin; k < end; ++k) {
+	    const int64_t rowId = rowIds.id(k);
+	    if (k != begin && rowId == rowIds.id(k - 1)) {
+	        std::ostringstream stream;
+	        stream << "Repeated row-column entry at ";
+	        stream << rowId << " - " << columnId;
+	        throw std::range_error(stream.str());
+	    }
+	    const auto mappedRow = (useRowMap) ? mapRowId(rowId) : rowId;
+	    if (hasCovariateValues) {
+	        const double value = values.value(k);
                 if (value != 0.0) {
                     if (format == INDICATOR && value != 1.0) {
                         // Upcast
@@ -284,19 +298,48 @@ int ModelData<RealType>::loadMultipleX(
                     }
                     column.getColumnsVector().push_back(mappedRow);
                 }
-		    } else {
-		        column.getColumnsVector().push_back(mappedRow);
-		    }
-		}
-		i = end;
-		index = -1; // new column
+	    } else {
+	        column.getColumnsVector().push_back(mappedRow);
+	    }
 	}
+}
 
-	maxCovariateId = maxId;
+template <typename RealType>
+int ModelData<RealType>::loadColumns(
+		const int* columnStarts,
+		const size_t columns,
+		const NumberView& columnIds,
+		const NumberView& rowIds,
+		const NumberView& values,
+		const bool forceSparse) {
 
-	touchedX = true;
+	const int firstColumnIndex = getNumberOfColumns();
+	bool first = true;
+	int64_t maxId = maxCovariateId;
+	for (size_t j = 0; j < columns; ++j) {
+		const size_t begin = static_cast<size_t>(columnStarts[j]);
+		const size_t end = static_cast<size_t>(columnStarts[j + 1]);
+		if (begin == end) continue; // no entries: no column, as a covariate without rows in a data frame
+		const int64_t columnId = columnIds.id(j);
+		if (first) { // as loadMultipleX(append = false): the first id must be new
+			if (getColumnIndexByName(columnId) >= 0) {
+				std::ostringstream stream;
+				stream << "Variable " << columnId << " already exists";
+				error->throwError(stream);
+			}
+			maxId = columnId;
+			first = false;
+		}
+		maxId = std::max(maxId, columnId);
+		appendEntries(-1, columnId, rowIds, values, begin, end, forceSparse);
+	}
+	if (!first) {
+		maxCovariateId = maxId;
+		touchedX = true;
+	}
 	return firstColumnIndex;
 }
+
 
 template <typename RealType>
 int ModelData<RealType>::loadX(

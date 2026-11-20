@@ -789,6 +789,46 @@ int cyclopsLoadDataMultipleX(Environment x,
 	return data->loadMultipleX(ids, rows, values, checkCovariateIds, checkCovariateBounds, append, forceSparse);
 }
 
+// Columns of a compressed sparse column matrix (dgCMatrix, lgCMatrix or ngCMatrix slots, read in place): p, the column
+// starts (length columns + 1); i, the 0-based row of each entry (increasing within a column); values, the entries' values
+// (NULL for a pattern matrix); rowIds, the row id of each matrix row; columnIds, the id of each column
+// [[Rcpp::export(".loadCyclopsDataColumns")]]
+int cyclopsLoadDataColumns(Environment x, SEXP p, SEXP i, SEXP values, SEXP rowIds, SEXP columnIds,
+		const bool forceSparse) {
+	using namespace bsccs;
+	XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
+	if (TYPEOF(p) != INTSXP || TYPEOF(i) != INTSXP) {
+		Rcpp::stop("the column starts and row indices must be integer vectors");
+	}
+	const R_xlen_t columns = XLENGTH(p) - 1;
+	const R_xlen_t entries = XLENGTH(i);
+	const R_xlen_t rows = XLENGTH(rowIds);
+	const int* starts = INTEGER_RO(p);
+	if (columns < 0 || XLENGTH(columnIds) != columns || starts[0] != 0 || starts[columns] != entries) {
+		Rcpp::stop("the column starts do not match the row indices or the column ids");
+	}
+	for (R_xlen_t j = 0; j < columns; ++j) {
+		if (starts[j + 1] < starts[j]) Rcpp::stop("the column starts must not decrease");
+	}
+	if (!Rf_isNull(values) && XLENGTH(values) != entries) {
+		Rcpp::stop("Vector length mismatch");
+	}
+	const int* index = INTEGER_RO(i);
+	for (R_xlen_t j = 0; j < columns; ++j) { // rows in range and increasing within each column
+		for (R_xlen_t k = starts[j]; k < starts[j + 1]; ++k) {
+			if (index[k] < 0 || index[k] >= rows || (k > starts[j] && index[k] <= index[k - 1])) {
+				Rcpp::stop("the row indices must be in range and increase within each column");
+			}
+		}
+	}
+	NumberView rowView = numberView(rowIds, "rowId", false);
+	rowView.order = index; // entry k is the row id of matrix row i[k]
+	rowView.orderBase = 0;
+	rowView.size = static_cast<size_t>(entries);
+	return data->loadColumns(starts, static_cast<size_t>(columns), numberView(columnIds, "columnIds", false), rowView,
+	                         numberView(values, "values", true), forceSparse);
+}
+
 // Values of another type than integer, logical or double, converted as the loader's std::vector<double> argument used
 // to convert them (same coercions, same errors)
 // [[Rcpp::export(".asLoaderDoubles")]]

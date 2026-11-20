@@ -55,7 +55,8 @@ struct NumberView {
     const void* data = nullptr;
     size_t size = 0;
     Kind kind = DOUBLE;
-    const int* order = nullptr; // optional: element i is data[order[i] - 1] (1-based, as R's order())
+    const int* order = nullptr; // optional: element i is data[order[i] - orderBase]
+    int orderBase = 1;          // 1: order holds positions, as R's order(); 0: it holds 0-based indices (a matrix's @i)
     NumberView() = default;
     NumberView(const void* data, size_t size, Kind kind, const int* order = nullptr) :
         data(data), size(size), kind(kind), order(order) { }
@@ -74,7 +75,7 @@ struct NumberView {
     }
 
     int64_t id(size_t i) const {
-        if (order != nullptr) i = static_cast<size_t>(order[i] - 1);
+        if (order != nullptr) i = static_cast<size_t>(order[i] - orderBase);
         switch (kind) {
         case INT32: {
             const int v = static_cast<const int*>(data)[i];
@@ -88,7 +89,7 @@ struct NumberView {
     }
 
     double value(size_t i) const {
-        if (order != nullptr) i = static_cast<size_t>(order[i] - 1);
+        if (order != nullptr) i = static_cast<size_t>(order[i] - orderBase);
         switch (kind) {
         case INT32: {
             const int v = static_cast<const int*>(data)[i];
@@ -241,6 +242,19 @@ public:
             const bool checkCovariateIds,
             const bool checkCovariateBounds,
             const bool append,
+            const bool forceSparse
+    ) = 0;
+
+    // Columns of a compressed sparse column matrix (a Matrix dgCMatrix, lgCMatrix or ngCMatrix): column j holds entries
+    // columnStarts[j] .. columnStarts[j + 1] - 1, its id is columnIds.id(j), and rowIds reads each entry's row id (in
+    // increasing order within a column); values is empty for a pattern matrix. Columns without entries are left out, as
+    // a covariate without rows in a data frame. Loads as loadMultipleX() loads the same entries sorted by column and row
+    virtual int loadColumns(
+            const int* columnStarts,
+            const size_t columns,
+            const NumberView& columnIds,
+            const NumberView& rowIds,
+            const NumberView& values,
             const bool forceSparse
     ) = 0;
 
@@ -426,6 +440,15 @@ public:
 		const bool checkCovariateIds,
 		const bool checkCovariateBounds,
 		const bool append,
+		const bool forceSparse
+	);
+
+	int loadColumns(
+		const int* columnStarts,
+		const size_t columns,
+		const NumberView& columnIds,
+		const NumberView& rowIds,
+		const NumberView& values,
 		const bool forceSparse
 	);
 
@@ -950,6 +973,11 @@ protected:
 
     typedef bsccs::unordered_map<IdType,size_t> RowIdMap;
     RowIdMap rowIdMap;
+
+    // Appends entries [begin, end) of rowIds and values to column index, or to a new column with the given id when index
+    // is negative (indicator unless the first value is neither 0 nor 1, or forceSparse); values of 0 are not kept
+    void appendEntries(int index, const int64_t columnId, const NumberView& rowIds, const NumberView& values,
+                       const size_t begin, const size_t end, const bool forceSparse);
 
     // Row of a covariate rowId; a rowId that is not among the outcome rowIds is an error (operator[] would
     // silently insert it as row 0)
