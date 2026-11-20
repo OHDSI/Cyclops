@@ -234,7 +234,9 @@ class Control:
             bool(self.merge_duplicates) if self.merge_duplicates is not None
             else r["algorithm"] == "newton" or (
                 r["algorithm"] == "auto"
-                and not (model_type == "lr" and r["convergence"] == "gap" and not l1_prior)
+                and not (
+                    model_type == "lr" and r["convergence"] == "gap" and not l1_prior
+                )
             )
         )
         options.fallback_convergence = (
@@ -393,7 +395,7 @@ class CyclopsModel:
     def _set_options(self) -> None:
         # logistic "auto" with a Laplace prior keeps the Newton-first path, and with
         # it the default of merging duplicate columns
-        kinds = [self._prior.kind] + list(self._prior.kinds or [])
+        kinds = [self._prior.kind, *(self._prior.kinds or [])]
         l1_prior = any(k.strip().lower() in ("laplace", "l1") for k in kinds)
         self._handle.set_options(
             self._control._to_options(
