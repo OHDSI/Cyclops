@@ -859,14 +859,30 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	const int qnQ = 0;
 
 	initialBound = arguments.initialBound;
-	// Active-set cycling relies on the full sweeps of the kkt criterion; other criteria sweep every cycle
-	// (cross-validation fold fits may use another criterion than the final fit)
-	activeSetEvery = (convergenceType == KKT) ? arguments.activeSetEvery : 0;
+	// "auto" runs the kkt-guided coordinate descent for fits without L1 penalties only: Laplace and elastic-net fits keep the
+	// Newton-first path, which was faster on real PatientLevelPrediction designs (prox-Newton over a small working set);
+	// an explicit "ccd" with "gap" is kkt-guided whatever the priors
+	bool anyL1 = false;
+	for (int j = 0; j < J && !anyL1; ++j) {
+		double precision = 0.0, lambda = 0.0;
+		anyL1 = !fixBeta[j] && jointPrior->getNewtonPenalty(j, &precision, &lambda) && lambda > 0.0;
+	}
+	kktGuided = convergenceType == GAP && (algorthmType == AlgorithmType::CCD || (algorthmType == AlgorithmType::AUTO && !anyL1)) &&
+		hXI.getModelType() == ModelType::LOGISTIC && !usingGPU && !usingCUDA && !syncCV && !profileActive;
+	// Active-set cycling relies on full sweeps for its stop tests: those of the kkt criterion, or those of the kkt-guided
+	// "gap" path (findModeGap(), which decides only after full sweeps; logistic cycles are serial whatever the threads).
+	// Other criteria and models sweep every cycle (cross-validation fold fits may use another criterion than the fit)
+	activeSetEvery = (convergenceType == KKT || kktGuided) ? arguments.activeSetEvery : 0;
 	activeSetThreshold = arguments.activeSetThreshold;
 	newtonMemoryBudget = arguments.newtonMemoryBudget;
 	lrCostModel = arguments.lrCostModel;
 	modelSpecifics.setLrCostModel(lrCostModel);
-	adaptiveIntercept = (convergenceType == KKT) && arguments.adaptiveIntercept; // its floor is a kkt tolerance
+	// (a negative budget: "gap" given for these fits, e.g. cross-validation folds with their own criterion, certifies)
+	gapFromDefaults = convergenceType == GAP && algorthmType == AlgorithmType::AUTO &&
+		arguments.fallbackConvergenceType >= 0 && arguments.certificationBudget >= 0.0;
+	kktGuidedTolerance = arguments.kktGuidedTolerance;
+	certificationBudget = arguments.certificationBudget;
+	adaptiveIntercept = (convergenceType == KKT || kktGuided) && arguments.adaptiveIntercept; // its floor is a kkt tolerance
 	minIterations = arguments.minIterations;
 
 	int count = 0;
@@ -1711,8 +1727,16 @@ void CyclicCoordinateDescent::findMode(
 		saveXBeta();
 	}
 
-	trackKkt = convergenceType == KKT;
+	trackKkt = convergenceType == KKT || kktGuided;
 	kktConsecutive = 0;
+	if (columnWork.size() != static_cast<size_t>(J)) { // the data do not change
+		columnWork.resize(J);
+		for (int j = 0; j < J; ++j) {
+			const FormatType format = hXI.getColumnType(j);
+			columnWork[j] = (format == DENSE || format == INTERCEPT) ? static_cast<double>(K) :
+				static_cast<double>(hXI.getNumberOfEntries(j));
+		}
+	}
 	nextCycleFull = true;
 	lastCycleFull = true;
 	cyclesSinceFull = 0;
@@ -1724,11 +1748,11 @@ void CyclicCoordinateDescent::findMode(
 		lastStepSE.assign(J, std::numeric_limits<double>::infinity());
 		activeSetTau = 0.0;
 	}
-	setUpAdaptiveIntercept(algorithmType, epsilon);
+	setUpAdaptiveIntercept(algorithmType, kktGuided ? kktGuidedTolerance : epsilon);
 	// fitter = "super": intercept steps move a pending factor, applied to every row once per cycle (switched
 	// off otherwise, which also applies a move left pending by an interrupted fit)
 	const bool lazyIntercept = modelSpecifics.setLazyIntercept(
-		interceptIndex >= 0 && convergenceType == KKT && noiseLevel <= QUIET);
+		interceptIndex >= 0 && (convergenceType == KKT || kktGuided) && noiseLevel <= QUIET);
 	interceptIsFree = lazyIntercept && hXI.getModelType() == ModelType::NORMAL;
 	setOutcomeScale();
 	jointPrior->setOutcomeScale(priorOutcomeScale); // the prior may have been replaced since the last fit
@@ -1872,6 +1896,7 @@ void CyclicCoordinateDescent::findMode(
 	    		// the steps of the serial cycle below, with its active set and extra intercept steps
 	    		const bool fullSweep = activeSetEvery == 0 || nextCycleFull;
 	    		cycleMaxStepSE = 0.0;
+	    		cycleWork = 0.0; // the cycle's work, counted as the serial cycle counts it
 	    		cycleWithConcurrentGradients(log, fullSweep);
 	    		finishCycle(fullSweep);
 	    	} else {
@@ -1879,6 +1904,7 @@ void CyclicCoordinateDescent::findMode(
 	    		// Do a complete cycle in serial
 	    		const bool fullSweep = activeSetEvery == 0 || nextCycleFull;
 	    		cycleMaxStepSE = 0.0;
+	    		cycleWork = 0.0;
 	    		for(int index = 0; index < J; index++) {
 
 	    			if (!fixBeta[index]) {
@@ -1902,6 +1928,7 @@ void CyclicCoordinateDescent::findMode(
 							}
 						}
 						double delta = ccdUpdateBeta(index);
+						cycleWork += columnWork[index];
 						if (useZeroCertificates) {
 							recordZeroCertificate(index, delta);
 						}
@@ -1922,6 +1949,7 @@ void CyclicCoordinateDescent::findMode(
 					//	std::cout << "index: " << index << " delta: " << delta << "\n";
 						if (delta != 0.0) {
 							sufficientStatisticsKnown = false;
+							cycleWork += 0.5 * columnWork[index]; // a move updates the rows it reads, at about half a visit's cost
 							updateSufficientStatistics(delta, index);
 						}
 						if (interceptIndex >= 0) {
@@ -2491,6 +2519,7 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 			changed = changed || interceptState.extraSteps != steps;
 		}
 		stayedAtZero[index] = (delta == 0.0 && hBeta[index] == 0.0);
+		cycleWork += (delta != 0.0 ? 1.5 : 1.0) * columnWork[index]; // as the serial cycle counts it
 		if (candidate) {
 			moveRate = 0.99 * moveRate + 0.01 * (delta != 0.0 ? 1.0 : 0.0);
 		}
@@ -2649,7 +2678,7 @@ double CyclicCoordinateDescent::computeKktResidual() {
 
 void CyclicCoordinateDescent::setUpAdaptiveIntercept(AlgorithmType algorithmType, double epsilon) {
 	interceptIndex = -1;
-	if (!adaptiveIntercept || algorithmType != AlgorithmType::CCD || usingGPU || usingCUDA || syncCV ||
+	if (!adaptiveIntercept || (algorithmType != AlgorithmType::CCD && !kktGuided) || usingGPU || usingCUDA || syncCV ||
 		(hXI.getModelType() != ModelType::LOGISTIC && hXI.getModelType() != ModelType::NORMAL &&
 		 hXI.getModelType() != ModelType::POOLED_LOGISTIC)) {
 		return;
@@ -2719,8 +2748,11 @@ void CyclicCoordinateDescent::setUpZeroCertificates(AlgorithmType algorithmType)
 	// CYCLOPS_NOCERT (tests): no certificates; CYCLOPS_ZVERIFY (debugging): every certified visit also computes
 	// its step, and stops with an error unless it is 0
 	verifyZeroCertificates = std::getenv("CYCLOPS_ZVERIFY") != nullptr;
-	useZeroCertificates = algorithmType == AlgorithmType::CCD && !usingGPU && !usingCUDA && !syncCV &&
-		(hXI.getModelType() == ModelType::LOGISTIC || hXI.getModelType() == ModelType::POOLED_LOGISTIC) &&
+	// (also on the coordinate-descent cycles of "auto" and "newton": a second-order commit starts a new drift epoch,
+	// which voids every certificate)
+	useZeroCertificates = !usingGPU && !usingCUDA && !syncCV &&
+		((algorithmType != AlgorithmType::MM && hXI.getModelType() == ModelType::LOGISTIC) ||
+		 (algorithmType == AlgorithmType::CCD && hXI.getModelType() == ModelType::POOLED_LOGISTIC)) &&
 		std::getenv("CYCLOPS_NOCERT") == nullptr;
 	bool certifiable = false; // a column the drift bounds cover, with a Laplace or elastic net prior
 	for (int j = 0; j < J && useZeroCertificates && !certifiable; ++j) {
@@ -2865,6 +2897,7 @@ void CyclicCoordinateDescent::trackInterceptGradient(int index, double delta, do
 			boundLimitedStep = true;
 			s.boundedExtra = true;
 		}
+		cycleWork += columnWork[interceptIndex]; // an extra step reads every row
 		if (interceptDelta != 0.0) {
 			sufficientStatisticsKnown = false;
 			updateSufficientStatistics(interceptDelta, interceptIndex);

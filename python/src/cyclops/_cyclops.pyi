@@ -120,6 +120,7 @@ class FitOptions:
     cv_search_direction: int
     cv_convergence: ConvergenceKind | None
     cv_tolerance: float
+    cv_folds_from_defaults: bool
     cv_max_iterations: int
     cv_min_iterations: int
     cv_warm_start: bool

@@ -144,6 +144,7 @@ struct FitOptions {
     int cv_search_direction = 0;         ///< 0 => BBR rule, 1 => up, -1 => down
     std::optional<ConvergenceKind> cv_convergence;  ///< unset => as the final fit
     double cv_tolerance = -1.0;          ///< <= 0 => as the final fit
+    bool cv_folds_from_defaults = false; ///< "auto" with the default fold criterion: folds stop as CCD's
     int cv_max_iterations = -1;          ///< <= 0 => as the final fit
     int cv_min_iterations = 5;
     bool cv_warm_start = true;           ///< each fold fit starts from its solution at the nearest variance tried

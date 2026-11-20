@@ -373,6 +373,21 @@ Changes:
 58. a covariate whose values are all `NaN` (FeatureExtraction can give a value covariate `NaN` in every row) and that a
    Laplace prior holds at 0 no longer makes the `"kkt"` stop of `fitter = "super"` return `ILLCONDITIONED`: its
    gradient is `NaN`, but a coefficient held at 0 does not move
+59. logistic regression under `algorithm = "auto"` (the default) with a prior that has no L1 part (ridge, per-covariate
+   normal variances) runs the coordinate descent of `fitter = "super"` (active-set cycling, adaptive and lazy intercept
+   steps) and takes Newton steps only once coordinate descent has spent what four of them cost and is projected to need
+   much more, or stalls. Its `"kkt"` stop (1e-4; 3e-3 in cross-validation folds) triggers the `"gap"` certificate: one
+   pass for R, and past it the cheaper of Newton steps and more coordinate descent. When `"gap"` comes from the
+   defaults, certifying past the `"kkt"` stop may cost a tenth of the fit's work (or about a millisecond); beyond that
+   the fit stops there, as coordinate descent does, with `fit$convergence$certificate = "none"` and the bound it has. An
+   explicit `convergenceType = "gap"` certifies as before. Its cross-validation folds (when no fold criterion is given)
+   stop where coordinate descent's do, without a certificate, and it merges duplicate columns only when
+   `mergeDuplicates = TRUE`. Laplace and elastic-net priors keep the Newton-first path of "auto", and its default of
+   merging duplicates; an explicit `algorithm = "ccd"` with `"gap"` runs this coordinate descent whatever the prior
+   (it takes no Newton steps, so it never warns about `newtonMemoryBudget` (43)). The same settings apply under every
+   fitter but `"legacy"`. On 8 real prediction tasks (47,000 to 300,000 persons, 2,200 to 7,400 columns, one thread),
+   ridge fits took 31 s instead of 48 s in total (0.39 to 1.15 times the earlier time per task), with coefficients
+   within 6e-5 of the earlier ones and the same held-out AUC; Laplace fits and their cross-validations were unchanged
 
 Cyclops v3.8.0
 ==============

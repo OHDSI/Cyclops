@@ -126,7 +126,9 @@ class Control:
     active_set_every: int | None = None
     active_set_threshold: float | None = None
     adaptive_intercept: bool | None = None
-    merge_duplicates: bool | None = None  #: None: on under "auto" and "newton"
+    #: None: on under "newton", and under "auto" except for logistic "gap"
+    #: without a Laplace prior (which runs coordinate descent first)
+    merge_duplicates: bool | None = None
 
     # Cross-validation
     cv_search: str = "auto"     #: "auto" (Brent) or "grid"
@@ -191,7 +193,8 @@ class Control:
         return r
 
     def _to_options(
-        self, model_type: str | None = None, n_covariates: int | None = None
+        self, model_type: str | None = None, n_covariates: int | None = None,
+        l1_prior: bool = False,
     ) -> "_cyclops.FitOptions":
         if self.cv_search not in ("auto", "grid"):
             raise ValueError(
@@ -229,7 +232,10 @@ class Control:
         options.do_it_all = bool(self.do_it_all)
         options.merge_duplicates = (
             bool(self.merge_duplicates) if self.merge_duplicates is not None
-            else r["algorithm"] in ("auto", "newton")
+            else r["algorithm"] == "newton" or (
+                r["algorithm"] == "auto"
+                and not (model_type == "lr" and r["convergence"] == "gap" and not l1_prior)
+            )
         )
         options.fallback_convergence = (
             resolve(CONVERGENCE_KINDS, r["fallback_convergence"], "convergence")
@@ -261,6 +267,7 @@ class Control:
             if r["cv_convergence"] is not None else None
         )
         options.cv_tolerance = -1.0 if r["cv_tolerance"] is None else r["cv_tolerance"]
+        options.cv_folds_from_defaults = bool(r["folds_from_defaults"])
         options.cv_max_iterations = (
             -1 if r["cv_max_iterations"] is None else r["cv_max_iterations"]
         )
@@ -356,9 +363,7 @@ class CyclopsModel:
         self._prior = prior or Prior()
         self._control = control or Control()
         self._handle.set_prior(self._prior._to_options())
-        self._handle.set_options(
-            self._control._to_options(data.model_type, data.n_covariates)
-        )
+        self._set_options()
 
     # -- configuration ------------------------------------------------------
 
@@ -377,14 +382,24 @@ class CyclopsModel:
     def set_prior(self, prior: Prior) -> "CyclopsModel":
         self._prior = prior
         self._handle.set_prior(prior._to_options())
+        self._set_options()  # the default of merge_duplicates depends on the prior
         return self
 
     def set_control(self, control: Control) -> "CyclopsModel":
         self._control = control
-        self._handle.set_options(
-            control._to_options(self._data.model_type, self._data.n_covariates)
-        )
+        self._set_options()
         return self
+
+    def _set_options(self) -> None:
+        # logistic "auto" with a Laplace prior keeps the Newton-first path, and with
+        # it the default of merging duplicate columns
+        kinds = [self._prior.kind] + list(self._prior.kinds or [])
+        l1_prior = any(k.strip().lower() in ("laplace", "l1") for k in kinds)
+        self._handle.set_options(
+            self._control._to_options(
+                self._data.model_type, self._data.n_covariates, l1_prior
+            )
+        )
 
     def set_weights(self, weights) -> "CyclopsModel":
         """Row weights in *stored* row order (see :attr:`CyclopsData.row_order`)."""
