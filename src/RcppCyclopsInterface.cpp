@@ -1191,6 +1191,8 @@ List cyclopsInitializeModel(SEXP inModelData, const std::string& modelType, cons
 	interface->getArguments().modelName = modelType;
 	interface->getArguments().computeDevice.name = computeDevice;
 	interface->getArguments().fitter = fitter;
+	// fitter "super" shuffles the visiting order of normal-prior logistic fits; "default" keeps the cyclic order of the 3.7 kernels
+	interface->getArguments().modeFinding.shuffleCoordinates = fitter == "super";
 	if (computeMLE) {
 		interface->getArguments().computeMLE = true;
 	}
