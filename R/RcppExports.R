@@ -420,6 +420,10 @@ getStartTimeVector <- function(object) {
     .Call(`_Cyclops_cyclopsLoadDataMultipleX`, x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append, forceSparse, order)
 }
 
+.loadCyclopsDataColumns <- function(x, p, i, values, rowIds, columnIds, forceSparse) {
+    .Call(`_Cyclops_cyclopsLoadDataColumns`, x, p, i, values, rowIds, columnIds, forceSparse)
+}
+
 .asLoaderDoubles <- function(x) {
     .Call(`_Cyclops_cyclopsAsLoaderDoubles`, x)
 }

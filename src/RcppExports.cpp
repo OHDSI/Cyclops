@@ -1103,6 +1103,23 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cyclopsLoadDataColumns
+int cyclopsLoadDataColumns(Environment x, SEXP p, SEXP i, SEXP values, SEXP rowIds, SEXP columnIds, const bool forceSparse);
+RcppExport SEXP _Cyclops_cyclopsLoadDataColumns(SEXP xSEXP, SEXP pSEXP, SEXP iSEXP, SEXP valuesSEXP, SEXP rowIdsSEXP, SEXP columnIdsSEXP, SEXP forceSparseSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type p(pSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type i(iSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type values(valuesSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type rowIds(rowIdsSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type columnIds(columnIdsSEXP);
+    Rcpp::traits::input_parameter< const bool >::type forceSparse(forceSparseSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsLoadDataColumns(x, p, i, values, rowIds, columnIds, forceSparse));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cyclopsAsLoaderDoubles
 NumericVector cyclopsAsLoaderDoubles(const std::vector<double>& x);
 RcppExport SEXP _Cyclops_cyclopsAsLoaderDoubles(SEXP xSEXP) {
@@ -1299,6 +1316,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsLoadDataSubjectId", (DL_FUNC) &_Cyclops_cyclopsLoadDataSubjectId, 2},
     {"_Cyclops_cyclopsLoadDataPooledRows", (DL_FUNC) &_Cyclops_cyclopsLoadDataPooledRows, 13},
     {"_Cyclops_cyclopsLoadDataMultipleX", (DL_FUNC) &_Cyclops_cyclopsLoadDataMultipleX, 9},
+    {"_Cyclops_cyclopsLoadDataColumns", (DL_FUNC) &_Cyclops_cyclopsLoadDataColumns, 7},
     {"_Cyclops_cyclopsAsLoaderDoubles", (DL_FUNC) &_Cyclops_cyclopsAsLoaderDoubles, 1},
     {"_Cyclops_cyclopsLoadDataX", (DL_FUNC) &_Cyclops_cyclopsLoadDataX, 7},
     {"_Cyclops_cyclopsLoadDataStratTimeEffects", (DL_FUNC) &_Cyclops_cyclopsLoadDataStratTimeEffects, 5},

@@ -188,3 +188,45 @@ test_that("wide Andromeda designs load in time linear in the covariates", {
     expect_equal(getNumberOfCovariates(data), 100001)
     expect_lt(time, 20) # one linear search per covariate took minutes
 })
+
+test_that("sparse matrix covariates give the data of the data frame of their entries", {
+    set.seed(9)
+    n <- 400
+    p <- 30
+    x <- Matrix::rsparsematrix(n, p, density = 0.08, rand.x = function(k) round(rnorm(k), 2))
+    x[, 7] <- 0 # a column without entries: left out, as in a data frame
+    x <- methods::as(x, "CsparseMatrix")
+    x@x[3] <- 0 # an explicit zero: not kept, as a covariateValue of 0
+    rowIds <- sample(1000 + 1:n) # neither 1..n nor sorted: matrix rows follow their outcomes
+    outcomes <- data.frame(rowId = rowIds, y = rbinom(n, 1, 0.3), time = rexp(n) + 0.1, offset = rnorm(n, 0, 0.1))
+    asFrame <- function(m) {
+        frame <- data.frame(rowId = rowIds[m@i + 1], covariateId = rep(seq_len(ncol(m)), diff(m@p)))
+        if (methods::.hasSlot(m, "x")) frame$covariateValue <- as.numeric(m@x)
+        frame
+    }
+    pattern <- methods::as(x != 0, "nsparseMatrix") # ngCMatrix: binary covariates, no values
+    logical <- methods::as(x != 0, "lMatrix")
+    expect_s4_class(pattern, "ngCMatrix")
+    expect_s4_class(logical, "lgCMatrix")
+    for (modelType in c("lr", "pr")) {
+        columns <- c("rowId", "y", if (modelType == "pr") "time" else "offset")
+        o <- outcomes[, columns]
+        for (m in list(x, pattern, logical)) {
+            expect_equal(fingerprint(convertToCyclopsData(o, m, modelType = modelType, quiet = TRUE)),
+                         fingerprint(convertToCyclopsData(o, asFrame(m), modelType = modelType, quiet = TRUE)),
+                         info = paste(modelType, class(m)))
+        }
+    }
+    # column names name the covariates; their ids stay the column numbers
+    named <- x
+    colnames(named) <- paste0("c", seq_len(p))
+    data <- convertToCyclopsData(outcomes[, c("rowId", "y")], named, quiet = TRUE)
+    ids <- getCovariateIds(data)
+    expect_equal(as.numeric(ids), c(0, setdiff(seq_len(p), 7)))
+    expect_equal(data$coefficientNames, c("(Intercept)", paste0("c", setdiff(seq_len(p), 7))))
+    # refused: other models, a row count that differs from the outcomes', other Matrix classes
+    expect_error(convertToCyclopsData(outcomes, x, modelType = "cox", quiet = TRUE), "\"lr\" and \"pr\"")
+    expect_error(convertToCyclopsData(outcomes[-1, c("rowId", "y")], x, quiet = TRUE), "one row per outcome row")
+    expect_error(convertToCyclopsData(outcomes[, c("rowId", "y")], Matrix::Diagonal(n), quiet = TRUE),
+                 "dgCMatrix, lgCMatrix or ngCMatrix")
+})
