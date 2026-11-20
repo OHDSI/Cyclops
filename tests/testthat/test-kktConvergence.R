@@ -80,6 +80,8 @@ test_that("The super fitter changes logistic regression and Cox models, and crea
                       cvTolerance = 3E-3, cvSearchDirection = "down", cvRefine = TRUE, cvNullModelBound = TRUE,
                       cvWarmStart = TRUE, activeSetEvery = 0, adaptiveIntercept = TRUE))
     expect_false(Cyclops:::.resolveControl(createControl(), "lr", 999)$cvNullModelBound)
+    # plr gets lr's settings
+    expect_equal(resolve("plr", 999), lr)
 
     # Under "auto" (the default) and "newton" the final fit uses the "gap" criterion, and super's "kkt" fold settings,
     # which go with its "kkt" fit, do not apply: the fold fits follow the final fit (they ran coordinate descent to

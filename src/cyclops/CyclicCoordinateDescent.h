@@ -635,7 +635,7 @@ protected:
 		return !activeSetCandidate[index] || hBeta[index] != 0.0 || lastStepSE[index] > 0.0;
 	}
 
-	// Adaptive extra intercept steps (logistic regression with an unpenalized intercept column, serial
+	// Adaptive extra intercept steps (logistic and pooled logistic regression with an unpenalized intercept column, serial
 	// cycles, "kkt" convergence): an extra Newton step on the intercept whenever its predicted gain
 	// g0^2 / (2 h0) per row of work (2 K) reaches adaptiveInterceptRatio times the gain per row of work of
 	// the coordinate steps in the previous cycle; g0, the intercept gradient, is tracked to first order from

@@ -2534,9 +2534,13 @@ double CyclicCoordinateDescent::computeKktResidual() {
 void CyclicCoordinateDescent::setUpAdaptiveIntercept(AlgorithmType algorithmType, double epsilon) {
 	interceptIndex = -1;
 	if (!adaptiveIntercept || algorithmType != AlgorithmType::CCD || usingGPU || usingCUDA || syncCV ||
-		(hXI.getModelType() != ModelType::LOGISTIC && hXI.getModelType() != ModelType::NORMAL)) {
+		(hXI.getModelType() != ModelType::LOGISTIC && hXI.getModelType() != ModelType::NORMAL &&
+		 hXI.getModelType() != ModelType::POOLED_LOGISTIC)) {
 		return;
 	}
+	// plr: the intercept is a subject column without a time-basis column. The moment ratios and rows of work
+	// below count subjects (rows of X), not the person-interval rows, which differ by each subject's number of
+	// rows; they only decide when to take an extra step, which is always a valid coordinate step
 	for (int j = 0; j < J; ++j) {
 		if (hXI.getColumnType(j) == INTERCEPT) {
 			if (!fixBeta[j] && !jointPrior->getIsRegularized(j)) {

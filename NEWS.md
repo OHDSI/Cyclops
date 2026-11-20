@@ -272,6 +272,11 @@ Changes:
    correlated designs can need thousands of cycles: a 500,000-person CCW Cox censoring model (1.2·10^8 entries, 1.4 GB
    of prox-Newton work) ran 1,700 cycles in 25 minutes without converging under the 1024 MB default, and converged in
    24 iterations and 105 s with `newtonMemoryBudget = 4096`
+44. `createControl(fitter = "super")` fits pooled logistic regression (`plr`) as it fits `lr`: the `"kkt"` criterion, an
+   auto-search that steps down first, stays at or above the null-model variance and refines its result, per-fold warm
+   starts, active-set cycling and adaptive intercept steps. `plr` fits used the settings of
+   `fitter = "default"`, so a model fit with `plr` and with `lr` on its expanded rows could select different variances
+   under `"super"`
 
 Cyclops v3.8.0
 ==============

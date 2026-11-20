@@ -900,7 +900,7 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              except that \code{"legacy"} keeps the earlier cross-validation score of
 #'                              \code{"lr"} models (held-out cases only). \code{"cox_counting"} models need another
 #'                              fitter. \code{"super"} runs the code of \code{"default"} and changes how \code{"lr"}
-#'                              models are fit through the defaults of \code{convergenceType} and the
+#'                              and \code{"plr"} models are fit through the defaults of \code{convergenceType} and the
 #'                              arguments below: cross-validation fold fits that start from each fold's previous
 #'                              solution, an auto-search that steps down first and refines its result, and, for
 #'                              coordinate descent (\code{algorithm = "ccd"}), the \code{"kkt"} convergence

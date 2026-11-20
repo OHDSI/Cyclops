@@ -114,6 +114,17 @@ test_that("plr cross-validation keeps a person's rows in one fold, as lr on the 
     auto <- createControl(fold = 5, cvRepetitions = 1, minCVData = 10, seed = 7, noiseLevel = "silent")
     expect_equal(fitCyclopsModel(plr, prior = prior, control = auto)$variance,
                  fitCyclopsModel(lr, prior = prior, control = auto)$variance, tolerance = 1E-6)
+    # and the super fitter's search (null-model bound, step down, refine) selects lr's variance
+    super <- createControl(fold = 5, cvRepetitions = 1, minCVData = 10, seed = 7, noiseLevel = "silent",
+                           fitter = "super", startingVariance = 0.01)
+    superPlr <- fitCyclopsModel(plr, prior = prior, control = super)
+    superLr <- fitCyclopsModel(lr, prior = prior, control = super)
+    expect_equal(superPlr$variance, superLr$variance, tolerance = 1E-6)
+    expect_equal(coef(superPlr), coef(superLr), tolerance = 1E-5)
+    # also with coordinate descent, where super uses the "kkt" criterion
+    ccd <- modifyList(super, list(algorithm = "ccd"))
+    expect_equal(fitCyclopsModel(plr, prior = prior, control = ccd)$variance,
+                 fitCyclopsModel(lr, prior = prior, control = ccd)$variance, tolerance = 1E-4)
 })
 
 test_that("plr flags separation in a time-basis column, as lr on the expanded rows", {
@@ -133,6 +144,19 @@ test_that("plr flags separation in a time-basis column, as lr on the expanded ro
                                                                   exclude = c("(Intercept)", "day2", "day3"))))
     expect_equal(fitPlr$divergentCoefficients, "3")
     expect_equal(unname(coef(fitPlr)), unname(coef(fitLr)), tolerance = 1E-6)
+})
+
+test_that("plr takes adaptive intercept steps under the super fitter's coordinate descent", {
+    prior <- createPrior("laplace", variance = 0.5, exclude = 0)
+    fit <- function(adaptive, noise = "silent") {
+        fitCyclopsModel(data$implicit, prior = prior,
+                        control = createControl(fitter = "super", algorithm = "ccd", tolerance = 1E-8,
+                                                convergenceType = "kkt", adaptiveIntercept = adaptive,
+                                                noiseLevel = noise))
+    }
+    steps <- capture.output(adaptive <- fit(TRUE, "noisy"))
+    expect_true(any(grepl("Extra intercept steps", steps)))
+    expect_equal(coef(adaptive), coef(fit(FALSE)), tolerance = 1E-6)
 })
 
 test_that("plr fits with threads equal those without", {
