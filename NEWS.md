@@ -334,6 +334,17 @@ Changes:
    `"auto"` 4.27 / 2.84 / 2.16 / 1.81 s become 4.27 / 2.45 / 1.55 / 1.16 s; `lr` `"auto"` 6.54 / 3.91 / 2.68 / 2.05 s
    become 6.54 / 3.57 / 2.23 / 1.52 s; `lr` `"ccd"` (13.9 s) is unchanged. The cross-validated `plr` model (10
    folds) on 4 threads takes 130.4 s instead of 132.1 s
+52. Fine-Gray (subdistribution hazard) models with counting-process data, weights and censoring distributions per
+   group, without expanding rows: `convertToCyclopsData(..., fineGrayCensoring = )` with an outcome column
+   `fineGrayGroup` for `"cox"` and `"cox_counting"` models. A row with `fineGrayGroup` g > 0 ended with a competing
+   event at its stop time T and stays in the risk set of every later event time t of its stratum, with its weight
+   multiplied by G_g(t-) / G_g(T-), where G_g is the step function of group g in `fineGrayCensoring` (columns
+   `fineGrayGroup`, `time`, `survival`). The partial likelihood, coordinate descent, Newton steps (dense and
+   conjugate-gradient, with the Woodbury preconditioner), `vcov()` (model-based and `type = "robust"`), Schoenfeld
+   residuals, separation checks and cross-validation use one running sum per group in each risk set, so a fit costs
+   O(rows + event times x groups) instead of one extra row per competing event and later event time. All of them
+   equal the `cox_counting` fit on those expanded rows (tests to 1e-8 or better). Survival prediction and
+   `survfit()` are not yet implemented for these models and stop with an error; they need double precision
 
 Cyclops v3.8.0
 ==============

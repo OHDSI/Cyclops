@@ -26,6 +26,9 @@
 survfit.cyclopsFit <- function(formula, type="aalen", ...) {
     cyclopsFit <- formula
 
+    if (isTRUE(cyclopsFit$cyclopsData$fineGray)) {
+        stop("survfit is not yet implemented for Fine-Gray (fineGrayGroup) models")
+    }
     if (type == "aalen" && cyclopsFit$cyclopsData$modelType %in% c("cox", "cox_counting")) {
         # One curve per stratum, concatenated as in survfit.coxph
         curves <- .breslowCurves(cyclopsFit, meanLinearPredictor(cyclopsFit))

@@ -388,6 +388,10 @@ getStartTimeVector <- function(object) {
     invisible(.Call(`_Cyclops_cyclopsLoadDataStartTime`, x, startTime))
 }
 
+.loadCyclopsDataFineGray <- function(x, group, censoringGroup, censoringTime, censoringSurvival) {
+    invisible(.Call(`_Cyclops_cyclopsLoadDataFineGray`, x, group, censoringGroup, censoringTime, censoringSurvival))
+}
+
 .loadCyclopsDataSubjectId <- function(x, subjectId) {
     invisible(.Call(`_Cyclops_cyclopsLoadDataSubjectId`, x, subjectId))
 }

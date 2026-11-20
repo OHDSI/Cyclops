@@ -990,6 +990,20 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// cyclopsLoadDataFineGray
+void cyclopsLoadDataFineGray(Environment x, const std::vector<int>& group, const std::vector<int>& censoringGroup, const std::vector<double>& censoringTime, const std::vector<double>& censoringSurvival);
+RcppExport SEXP _Cyclops_cyclopsLoadDataFineGray(SEXP xSEXP, SEXP groupSEXP, SEXP censoringGroupSEXP, SEXP censoringTimeSEXP, SEXP censoringSurvivalSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int>& >::type group(groupSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int>& >::type censoringGroup(censoringGroupSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type censoringTime(censoringTimeSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type censoringSurvival(censoringSurvivalSEXP);
+    cyclopsLoadDataFineGray(x, group, censoringGroup, censoringTime, censoringSurvival);
+    return R_NilValue;
+END_RCPP
+}
 // cyclopsLoadDataSubjectId
 void cyclopsLoadDataSubjectId(Environment x, const std::vector<double>& subjectId);
 RcppExport SEXP _Cyclops_cyclopsLoadDataSubjectId(SEXP xSEXP, SEXP subjectIdSEXP) {
@@ -1218,6 +1232,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsFinalizeData", (DL_FUNC) &_Cyclops_cyclopsFinalizeData, 7},
     {"_Cyclops_cyclopsLoadDataY", (DL_FUNC) &_Cyclops_cyclopsLoadDataY, 5},
     {"_Cyclops_cyclopsLoadDataStartTime", (DL_FUNC) &_Cyclops_cyclopsLoadDataStartTime, 2},
+    {"_Cyclops_cyclopsLoadDataFineGray", (DL_FUNC) &_Cyclops_cyclopsLoadDataFineGray, 5},
     {"_Cyclops_cyclopsLoadDataSubjectId", (DL_FUNC) &_Cyclops_cyclopsLoadDataSubjectId, 2},
     {"_Cyclops_cyclopsLoadDataPooledRows", (DL_FUNC) &_Cyclops_cyclopsLoadDataPooledRows, 13},
     {"_Cyclops_cyclopsLoadDataMultipleX", (DL_FUNC) &_Cyclops_cyclopsLoadDataMultipleX, 8},

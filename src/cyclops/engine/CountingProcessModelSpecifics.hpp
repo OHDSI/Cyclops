@@ -11,6 +11,14 @@
  * at its entry group (first event time <= stop) and removes it at its exit group (first event
  * time <= start), so the Cox prefix scans over groups return (start, stop] risk-set sums and
  * each evaluation stays O(K + N) for K rows and N event times.
+ *
+ * Fine-Gray rows (ModelData::loadFineGray): a row k with Fine-Gray group g ended with a competing event
+ * at its stop time T_k. It is also at risk at every later event time t_i of its stratum (its "tail": the
+ * groups [tailBegin_k, tailEnd_k), which start at the stratum's first group), with its term
+ * w_k exp(x_k'beta) multiplied by a_k = 1 / G_g(T_k-) and by the group's m_g(i) = G_g(t_i-). Every risk-set
+ * sum is then S(i) = (sum over ordinary rows) + sum_g m_g(i) (sum over tails of group g), kept as one
+ * running sum per group, so an evaluation is O(K + N (1 + groups)) with no expanded rows. Columns use a
+ * scan over all groups (fineGrayGradientAndHessian) instead of the change points of the hazard path.
  */
 
 #ifndef COUNTINGPROCESSMODELSPECIFICS_HPP_
@@ -166,11 +174,37 @@ private:
 
     void computeScanNumerators(int index, bool useWeights);
 
+    void fineGrayGradientAndHessian(int index, double* ogradient, double* ohessian, bool useWeights);
+
+    void computeTailHazards();
+
+    bool participates(int k) const { return hPid[k] < static_cast<int>(N) || hasTail(k); }
+
     std::vector<RealType> denseColumn(int index) const;
 
     std::vector<RealType> riskSetSums(const std::vector<RealType>& x) const;
 
     const RealVector& hStart; // empty: every row is at risk from the time origin
+
+    // Fine-Gray tails (see the header): fineGrayGroup[k] = g > 0 for rows with a non-empty tail in the layout
+    bool hasTails = false;
+    int fineGrayGroups = 0;
+    std::vector<int> fineGrayGroup;
+    std::vector<int> tailBegin;
+    std::vector<int> tailEnd;
+    std::vector<double> tailFactor; // a_k = 1 / G_g(T_k-)
+    std::vector<double> tailMultiplier; // m_g(i) = G_g(t_i-), at (g - 1) * N + i
+    std::vector<RealType> tailDenom; // net change of each group's tail sum, at (g - 1) * (N + 1) + i
+    std::vector<double> tailHazard; // running sums within the stratum of m_g(i) d_i / D_i, at (g - 1) * N + i
+    std::vector<double> tailWork; // scratch for fineGrayGradientAndHessian()
+    bool hasTail(int k) const { return hasTails && fineGrayGroup[k] > 0; }
+    int tailExit(int k) const { // where a tail leaves the running sums: N when it runs to its stratum's end
+        return (tailEnd[k] == groupStratumEnd[tailBegin[k]]) ? static_cast<int>(N) : tailEnd[k];
+    }
+    double multiplier(int g, int i) const { return tailMultiplier[static_cast<size_t>(g - 1) * N + i]; }
+    double tailHazardSum(int k) const { // sum over row k's tail of m_g(i) d_i / D_i
+        return tailHazard[static_cast<size_t>(fineGrayGroup[k] - 1) * N + tailEnd[k] - 1];
+    }
     std::vector<int> hExitPid; // exit group per row; N when the row never leaves
     bool hasExits;
 
@@ -215,6 +249,10 @@ private:
     std::vector<int> soEnterRows;
     std::vector<int> soExitStart;
     std::vector<int> soExitRows;
+    std::vector<int> soTailExitStart; // tails leaving group g (they all enter at their stratum's first group)
+    std::vector<int> soTailExitRows;
+    std::vector<int> soTailEnterStart;
+    std::vector<int> soTailEnterRows;
 
     std::vector<double> soDirection; // z = X_F d
     bool soHasDirection = false;
@@ -247,6 +285,15 @@ void CountingProcessModelSpecifics<RealType>::setPidForAccumulation(const double
     const int none = -1;
     std::vector<int> entry(K, none);
     hExitPid.assign(K, none);
+
+    const bool fineGray = this->modelData.hasFineGray();
+    if (fineGray && !std::is_same<RealType, double>::value) {
+        throw std::logic_error("Fine-Gray rows need double precision");
+    }
+    const std::vector<int>* rowGroup = fineGray ? &this->modelData.getFineGrayGroupRef() : nullptr;
+    fineGrayGroup.assign(fineGray ? K : 0, 0);
+    tailBegin.assign(fineGray ? K : 0, 0);
+    tailEnd.assign(fineGray ? K : 0, 0);
 
     auto included = [weights](size_t k) {
         return weights == nullptr || weights[k] != 0.0;
@@ -283,6 +330,11 @@ void CountingProcessModelSpecifics<RealType>::setPidForAccumulation(const double
                 const auto in = std::lower_bound(groupBegin, groupEnd, hOffs[k], later);
                 const auto out = hStart.empty() ? groupEnd :
                     std::lower_bound(in, groupEnd, hStart[k], later);
+                if (fineGray && (*rowGroup)[k] > 0 && in != groupBegin) { // event times after its stop time
+                    fineGrayGroup[k] = (*rowGroup)[k];
+                    tailBegin[k] = static_cast<int>(first);
+                    tailEnd[k] = static_cast<int>(in - groupTime.begin());
+                }
                 if (in != out) { // at risk at one or more event times
                     entry[k] = in - groupTime.begin();
                     if (out != groupEnd) {
@@ -306,6 +358,30 @@ void CountingProcessModelSpecifics<RealType>::setPidForAccumulation(const double
             groupStratumEnd[g] = stratumEnd;
         }
         stratumStart = stratumEnd;
+    }
+
+    hasTails = false;
+    fineGrayGroups = fineGray ? this->modelData.getNumberOfFineGrayGroups() : 0;
+    if (fineGray) {
+        tailMultiplier.assign(static_cast<size_t>(fineGrayGroups) * N, 1.0);
+        for (int g = 1; g <= fineGrayGroups; ++g) {
+            for (size_t i = 0; i < N; ++i) {
+                tailMultiplier[static_cast<size_t>(g - 1) * N + i] =
+                    this->modelData.fineGraySurvivalBefore(g, static_cast<double>(groupTime[i]));
+            }
+        }
+        tailFactor.assign(K, 0.0);
+        for (size_t k = 0; k < K; ++k) {
+            if (fineGrayGroup[k] > 0) {
+                const double before = this->modelData.fineGraySurvivalBefore(fineGrayGroup[k], static_cast<double>(hOffs[k]));
+                if (!(before > 0.0)) {
+                    throw std::range_error("A Fine-Gray row's censoring survival before its stop time is 0");
+                }
+                tailFactor[k] = 1.0 / before;
+                hasTails = true;
+            }
+        }
+        tailDenom.assign(static_cast<size_t>(fineGrayGroups) * (N + 1), static_cast<RealType>(0));
     }
 
     hasExits = false;
@@ -371,7 +447,7 @@ template <typename RealType>
 bool CountingProcessModelSpecifics<RealType>::computeGradientsAndHessians(const std::vector<int>& indices,
         std::vector<GradientHessian>& gh, bool useWeights) {
 
-    if (!pool || cumHazard.size() != N) {
+    if (!pool || cumHazard.size() != N || hasTails) {
         return false;
     }
     // Each column only reads the model state and writes its own workspace, and the result equals
@@ -460,6 +536,10 @@ template <typename RealType>
 void CountingProcessModelSpecifics<RealType>::computeGradientAndHessian(int index, double* ogradient,
                                                                         double* ohessian, bool useWeights) {
 
+    if (hasTails) {
+        fineGrayGradientAndHessian(index, ogradient, ohessian, useWeights);
+        return;
+    }
     if (cumHazard.size() != N || hX.getNumberOfNonZeroEntries(index) == 0) {
         computeScanNumerators(index, useWeights);
         Base::computeGradientAndHessian(index, ogradient, ohessian, useWeights);
@@ -589,9 +669,75 @@ void CountingProcessModelSpecifics<RealType>::hazardGradientAndHessian(int index
 }
 
 template <typename RealType>
+void CountingProcessModelSpecifics<RealType>::fineGrayGradientAndHessian(int index, double* ogradient,
+        double* ohessian, bool useWeights) {
+
+    // Changes of the column's risk-set numerators S1 (u x) and S2 (u x^2) at each group, for ordinary rows
+    // (block 0) and each group's tails (block g), then one scan over all groups:
+    // gradient = sum_i d_i S1_i / D_i - sum y x, Hessian = sum_i d_i (S2_i / D_i - S1_i^2 / D_i^2)
+    const int unused = static_cast<int>(N);
+    const size_t stride = N + 1;
+    const size_t blocks = static_cast<size_t>(fineGrayGroups) + 1;
+    tailWork.assign(2 * blocks * stride, 0.0);
+    double* change = tailWork.data();
+    double* change2 = tailWork.data() + blocks * stride;
+    for (GenericIterator<RealType> it(hX, index); it; ++it) {
+        const int k = it.index();
+        const double x = static_cast<double>(it.value());
+        const double value = (useWeights ? static_cast<double>(hKWeight[k]) : 1.0) *
+            static_cast<double>(offsExpXBeta[k]) * x;
+        if (hPid[k] < unused) {
+            change[hPid[k]] += value;
+            change2[hPid[k]] += value * x;
+            if (hExitPid[k] < unused) {
+                change[hExitPid[k]] -= value;
+                change2[hExitPid[k]] -= value * x;
+            }
+        }
+        if (hasTail(k)) {
+            const size_t base = static_cast<size_t>(fineGrayGroup[k]) * stride;
+            const double tail = tailFactor[k] * value;
+            change[base + tailBegin[k]] += tail;
+            change[base + tailExit(static_cast<int>(k))] -= tail;
+            change2[base + tailBegin[k]] += tail * x;
+            change2[base + tailExit(static_cast<int>(k))] -= tail * x;
+        }
+    }
+    std::vector<double> run(blocks, 0.0), run2(blocks, 0.0);
+    double gradient = 0.0, hessian = 0.0;
+    for (size_t i = 0; i < N; ++i) {
+        if (static_cast<int>(i) == groupStratumStart[i]) {
+            std::fill(run.begin(), run.end(), 0.0);
+            std::fill(run2.begin(), run2.end(), 0.0);
+        }
+        run[0] += change[i];
+        run2[0] += change2[i];
+        double s1 = run[0], s2 = run2[0];
+        for (size_t g = 1; g < blocks; ++g) {
+            run[g] += change[g * stride + i];
+            run2[g] += change2[g * stride + i];
+            const double m = multiplier(static_cast<int>(g), static_cast<int>(i));
+            s1 += m * run[g];
+            s2 += m * run2[g];
+        }
+        const double d = static_cast<double>(hNWeight[i]);
+        if (d != 0.0) {
+            const double D = static_cast<double>(accDenomPid[i]);
+            gradient += d * s1 / D;
+            hessian += d * (s2 / D - s1 * s1 / (D * D));
+        }
+    }
+    *ogradient = gradient - static_cast<double>(hXjY[index]);
+    *ohessian = hessian;
+}
+
+template <typename RealType>
 void CountingProcessModelSpecifics<RealType>::computeThirdDerivative(int index, double* othird,
                                                                      bool useWeights) {
 
+    if (hasTails) {
+        throw std::logic_error("Third derivatives are not yet implemented for Fine-Gray rows");
+    }
     computeScanNumerators(index, useWeights); // the Cox third derivative scans numerPid
     Base::computeThirdDerivative(index, othird, useWeights);
 }
@@ -640,7 +786,7 @@ void CountingProcessModelSpecifics<RealType>::updateXBetaAndDenominators(RealTyp
     // For sparse columns, only groups [lo, hi) of each stratum holding the column's rows change:
     // from their first entry to their last exit (or the end of the stratum)
     const int unused = static_cast<int>(N);
-    const bool ranged = IteratorType::isSparse && accDenomPid.size() == N + 1 && cumHazard.size() == N;
+    const bool ranged = IteratorType::isSparse && accDenomPid.size() == N + 1 && cumHazard.size() == N && !hasTails;
     int lo = unused;
     int hi = 0;
     int stratumEnd = 0;
@@ -662,6 +808,12 @@ void CountingProcessModelSpecifics<RealType>::updateXBetaAndDenominators(RealTyp
         denomPid[entry] += (newEntry - oldEntry);
         if (exit < unused) {
             denomPid[exit] -= (newEntry - oldEntry);
+        }
+        if (hasTail(k)) {
+            const size_t base = static_cast<size_t>(fineGrayGroup[k] - 1) * (N + 1);
+            const RealType change = static_cast<RealType>(tailFactor[k]) * (newEntry - oldEntry);
+            tailDenom[base + tailBegin[k]] += change;
+            tailDenom[base + tailExit(static_cast<int>(k))] -= change;
         }
 
         if (ranged && entry < unused) {
@@ -705,8 +857,25 @@ void CountingProcessModelSpecifics<RealType>::accumulateAllDenominators() {
     if (accDenomPid.size() != N + 1) {
         accDenomPid.resize(N + 1, static_cast<RealType>(0));
     }
-    for (size_t g = 0; g < N; g = groupStratumEnd[g]) {
-        accumulateDenominators(g, groupStratumEnd[g]);
+    if (!hasTails) {
+        for (size_t g = 0; g < N; g = groupStratumEnd[g]) {
+            accumulateDenominators(g, groupStratumEnd[g]);
+        }
+        return;
+    }
+    // Ordinary rows plus each group's tails times m_g(i)
+    std::vector<double> run(fineGrayGroups + 1, 0.0);
+    for (size_t i = 0; i < N; ++i) {
+        if (static_cast<int>(i) == groupStratumStart[i]) {
+            std::fill(run.begin(), run.end(), 0.0);
+        }
+        run[0] += static_cast<double>(denomPid[i]);
+        double total = run[0];
+        for (int g = 1; g <= fineGrayGroups; ++g) {
+            run[g] += static_cast<double>(tailDenom[static_cast<size_t>(g - 1) * (N + 1) + i]);
+            total += multiplier(g, static_cast<int>(i)) * run[g];
+        }
+        accDenomPid[i] = static_cast<RealType>(total);
     }
 }
 
@@ -722,6 +891,27 @@ void CountingProcessModelSpecifics<RealType>::computeAllHazards() {
     cumHazard2.resize(N);
     for (size_t g = 0; g < N; g = groupStratumEnd[g]) {
         accumulateHazards(g, groupStratumEnd[g]);
+    }
+    computeTailHazards();
+}
+
+template <typename RealType>
+void CountingProcessModelSpecifics<RealType>::computeTailHazards() {
+
+    if (!hasTails) {
+        tailHazard.clear();
+        return;
+    }
+    tailHazard.assign(static_cast<size_t>(fineGrayGroups) * N, 0.0);
+    for (int g = 1; g <= fineGrayGroups; ++g) {
+        double sum = 0.0;
+        for (size_t i = 0; i < N; ++i) {
+            if (static_cast<int>(i) == groupStratumStart[i]) {
+                sum = 0.0;
+            }
+            sum += multiplier(g, static_cast<int>(i)) * static_cast<double>(hNWeight[i]) / static_cast<double>(accDenomPid[i]);
+            tailHazard[static_cast<size_t>(g - 1) * N + i] = sum;
+        }
     }
 }
 
@@ -763,6 +953,18 @@ void CountingProcessModelSpecifics<RealType>::computeRemainingStatistics(bool us
             denomPid[hExitPid[k]] -= value;
         }
     }
+    if (hasTails) {
+        std::fill(tailDenom.begin(), tailDenom.end(), static_cast<RealType>(0));
+        for (size_t k = 0; k < K; ++k) {
+            if (hasTail(static_cast<int>(k))) {
+                const RealType value = static_cast<RealType>(tailFactor[k]) *
+                    (useWeights ? hKWeight[k] * offsExpXBeta[k] : offsExpXBeta[k]);
+                const size_t base = static_cast<size_t>(fineGrayGroup[k] - 1) * (N + 1);
+                tailDenom[base + tailBegin[k]] += value;
+                tailDenom[base + tailExit(static_cast<int>(k))] -= value;
+            }
+        }
+    }
     accumulateAllDenominators();
 
     // Censored rows outside every risk set point to the unused group N; the Cox predictive
@@ -794,16 +996,35 @@ std::vector<RealType> CountingProcessModelSpecifics<RealType>::riskSetSums(
         sums[hPid[k]] += value;
         sums[hExitPid[k]] -= value;
     }
+    std::vector<double> tails; // each group's tails, as in fineGrayGradientAndHessian()
+    if (hasTails) {
+        tails.assign(static_cast<size_t>(fineGrayGroups) * (N + 1), 0.0);
+        for (size_t k = 0; k < K; ++k) {
+            if (hasTail(static_cast<int>(k))) {
+                const double value = tailFactor[k] * static_cast<double>(hKWeight[k] * offsExpXBeta[k] * x[k]);
+                const size_t base = static_cast<size_t>(fineGrayGroup[k] - 1) * (N + 1);
+                tails[base + tailBegin[k]] += value;
+                tails[base + tailExit(static_cast<int>(k))] -= value;
+            }
+        }
+    }
+    std::vector<double> run(hasTails ? fineGrayGroups : 0, 0.0);
 
     RealType total = static_cast<RealType>(0);
     auto reset = accReset.begin();
     for (size_t g = 0; g < N; ++g) {
         if (static_cast<size_t>(*reset) == g) { // new stratum
             total = static_cast<RealType>(0);
+            std::fill(run.begin(), run.end(), 0.0);
             ++reset;
         }
         total += sums[g];
-        sums[g] = total;
+        double withTails = static_cast<double>(total);
+        for (int t = 1; hasTails && t <= fineGrayGroups; ++t) {
+            run[t - 1] += tails[static_cast<size_t>(t - 1) * (N + 1) + g];
+            withTails += multiplier(t, static_cast<int>(g)) * run[t - 1];
+        }
+        sums[g] = hasTails ? static_cast<RealType>(withTails) : total;
     }
     return sums;
 }
@@ -846,30 +1067,47 @@ bool CountingProcessModelSpecifics<RealType>::scoreContributions(int index, std:
     const std::vector<RealType> numer = riskSetSums(x);
     std::vector<double> hazard(N); // running sums within the stratum of d_g / D_g
     std::vector<double> weighted(N); // and of xbar_g d_g / D_g
+    // A row's tail sums m_t(g) d_g / D_g (tailHazardSum()) and m_t(g) xbar_g d_g / D_g over its groups
+    std::vector<double> tailWeighted(static_cast<size_t>(fineGrayGroups) * N);
     for (size_t g = 0; g < N; ++g) {
         const double denom = static_cast<double>(accDenomPid[g]);
         const double increment = static_cast<double>(hNWeight[g]) / denom;
         const bool first = static_cast<int>(g) == groupStratumStart[g];
         hazard[g] = (first ? 0.0 : hazard[g - 1]) + increment;
         weighted[g] = (first ? 0.0 : weighted[g - 1]) + increment * static_cast<double>(numer[g]) / denom;
+        for (int t = 1; t <= fineGrayGroups; ++t) {
+            const size_t at = static_cast<size_t>(t - 1) * N + g;
+            tailWeighted[at] = (first ? 0.0 : tailWeighted[at - 1]) +
+                multiplier(t, static_cast<int>(g)) * increment * static_cast<double>(numer[g]) / denom;
+        }
+    }
+    if (hasTails) {
+        computeTailHazards(); // at the current denominators
     }
 
     const int unused = static_cast<int>(N);
     u.assign(K, 0.0);
     for (size_t k = 0; k < K; ++k) {
         const double w = static_cast<double>(hKWeight[k]);
-        if (hPid[k] >= unused || w == 0.0) { // outside every risk set
+        if (!participates(static_cast<int>(k)) || w == 0.0) { // outside every risk set
             continue;
         }
-        const int entry = hPid[k];
-        const int last = rowEnd(static_cast<int>(k)) - 1;
-        const bool first = entry == groupStratumStart[entry];
-        const double dHazard = hazard[last] - (first ? 0.0 : hazard[entry - 1]);
-        const double dWeighted = weighted[last] - (first ? 0.0 : weighted[entry - 1]);
         const double xk = static_cast<double>(x[k]);
-        double value = -static_cast<double>(offsExpXBeta[k]) * (xk * dHazard - dWeighted);
-        if (hY[k] != static_cast<RealType>(0)) {
-            value += xk - static_cast<double>(numer[entry]) / static_cast<double>(accDenomPid[entry]);
+        double value = 0.0;
+        if (hPid[k] < unused) {
+            const int entry = hPid[k];
+            const int last = rowEnd(static_cast<int>(k)) - 1;
+            const bool first = entry == groupStratumStart[entry];
+            const double dHazard = hazard[last] - (first ? 0.0 : hazard[entry - 1]);
+            const double dWeighted = weighted[last] - (first ? 0.0 : weighted[entry - 1]);
+            value = -static_cast<double>(offsExpXBeta[k]) * (xk * dHazard - dWeighted);
+            if (hY[k] != static_cast<RealType>(0)) {
+                value += xk - static_cast<double>(numer[entry]) / static_cast<double>(accDenomPid[entry]);
+            }
+        }
+        if (hasTail(static_cast<int>(k))) { // tails start at the stratum's first group
+            const double dWeighted = tailWeighted[static_cast<size_t>(fineGrayGroup[k] - 1) * N + tailEnd[k] - 1];
+            value -= static_cast<double>(offsExpXBeta[k]) * tailFactor[k] * (xk * tailHazardSum(static_cast<int>(k)) - dWeighted);
         }
         u[k] = w * value;
     }
@@ -970,7 +1208,8 @@ inline void countingAddCompensated(double& sum, double& compensation, double val
 template <typename RealType>
 bool CountingProcessModelSpecifics<RealType>::secondOrderReady() const {
     return secondOrder && hasLayout && cumHazard.size() == N && accDenomPid.size() == N + 1 &&
-        hKWeight.size() == K && hNWeight.size() >= N && offsExpXBeta.size() >= K;
+        hKWeight.size() == K && hNWeight.size() >= N && offsExpXBeta.size() >= K &&
+        (!hasTails || tailHazard.size() == static_cast<size_t>(fineGrayGroups) * N);
 }
 
 template <typename RealType>
@@ -1048,14 +1287,48 @@ void CountingProcessModelSpecifics<RealType>::prepareGroupLists() {
             }
         }
     }
+    // Tails enter at their stratum's first group and leave at tailEnd
+    soTailEnterStart.assign(N + 1, 0);
+    soTailExitStart.assign(N + 1, 0);
+    for (size_t k = 0; k < K; ++k) {
+        if (hasTail(static_cast<int>(k))) {
+            ++soTailEnterStart[tailBegin[k] + 1];
+            if (tailExit(static_cast<int>(k)) < static_cast<int>(N)) {
+                ++soTailExitStart[tailExit(static_cast<int>(k)) + 1];
+            }
+        }
+    }
+    for (size_t g = 0; g < N; ++g) {
+        soTailEnterStart[g + 1] += soTailEnterStart[g];
+        soTailExitStart[g + 1] += soTailExitStart[g];
+    }
+    soTailEnterRows.resize(soTailEnterStart[N]);
+    soTailExitRows.resize(soTailExitStart[N]);
+    std::vector<int> nextTailEnter(soTailEnterStart.begin(), soTailEnterStart.end() - 1);
+    std::vector<int> nextTailExit(soTailExitStart.begin(), soTailExitStart.end() - 1);
+    for (size_t k = 0; k < K; ++k) {
+        if (hasTail(static_cast<int>(k))) {
+            soTailEnterRows[nextTailEnter[tailBegin[k]]++] = static_cast<int>(k);
+            if (tailExit(static_cast<int>(k)) < static_cast<int>(N)) {
+                soTailExitRows[nextTailExit[tailExit(static_cast<int>(k))]++] = static_cast<int>(k);
+            }
+        }
+    }
     soGroupVersion = layoutVersion;
 }
 
 template <typename RealType>
 double CountingProcessModelSpecifics<RealType>::rowHazard(int k) const {
+    double hazard = 0.0;
     const int entry = hPid[k];
-    const double before = (entry == groupStratumStart[entry]) ? 0.0 : static_cast<double>(cumHazard[entry - 1]);
-    return static_cast<double>(cumHazard[rowEnd(k) - 1]) - before;
+    if (entry < static_cast<int>(N)) {
+        const double before = (entry == groupStratumStart[entry]) ? 0.0 : static_cast<double>(cumHazard[entry - 1]);
+        hazard = static_cast<double>(cumHazard[rowEnd(k) - 1]) - before;
+    }
+    if (hasTail(k)) {
+        hazard += tailFactor[k] * tailHazardSum(k);
+    }
+    return hazard;
 }
 
 template <typename RealType>
@@ -1080,7 +1353,7 @@ bool CountingProcessModelSpecifics<RealType>::fullGradient(const std::vector<int
     const int unused = static_cast<int>(N);
     g.assign(F.size(), 0.0);
     for (size_t k = 0; k < K; ++k) {
-        if (hPid[k] < unused) {
+        if (participates(static_cast<int>(k))) {
             const double r = static_cast<double>(hKWeight[k]) * static_cast<double>(offsExpXBeta[k]) *
                 rowHazard(static_cast<int>(k));
             for (size_t e = soRowStart[k]; e < soRowStart[k + 1]; ++e) {
@@ -1113,7 +1386,7 @@ bool CountingProcessModelSpecifics<RealType>::hessianBlock(const std::vector<int
     // the threads
     std::vector<double> r(K, 0.0);
     for (size_t k = 0; k < K; ++k) {
-        if (hPid[k] < unused) {
+        if (participates(static_cast<int>(k))) {
             r[k] = static_cast<double>(hKWeight[k]) * static_cast<double>(offsExpXBeta[k]) * rowHazard(static_cast<int>(k));
         }
     }
@@ -1121,7 +1394,7 @@ bool CountingProcessModelSpecifics<RealType>::hessianBlock(const std::vector<int
         double* row = H.data() + p;
         for (GenericIterator<RealType> it(hX, F[p]); it; ++it) {
             const int k = it.index();
-            if (hPid[k] >= unused) {
+            if (!participates(k)) {
                 continue;
             }
             const double rp = r[k] * static_cast<double>(it.value());
@@ -1134,7 +1407,7 @@ bool CountingProcessModelSpecifics<RealType>::hessianBlock(const std::vector<int
         pool->run(n, rowS2);
     } else { // the same sums in the same order, from each row's outer product (faster on one thread)
         for (size_t k = 0; k < K; ++k) {
-            if (hPid[k] < unused) {
+            if (participates(static_cast<int>(k))) {
                 for (size_t a = soRowStart[k]; a < soRowStart[k + 1]; ++a) {
                     const double ra = r[k] * soValue[a];
                     double* column = H.data() + soPosition[a];
@@ -1178,10 +1451,22 @@ bool CountingProcessModelSpecifics<RealType>::hessianBlock(const std::vector<int
             countingAddCompensated(run[soPosition[e]], compensation[soPosition[e]], u * soValue[e]);
         }
     };
+    // Each Fine-Gray group's tails: S1_g = (ordinary rows) + sum_t m_t(g) (tails of group t)
+    std::vector<double> tailRun(static_cast<size_t>(hasTails ? fineGrayGroups : 0) * n, 0.0);
+    std::vector<double> tailCompensation(tailRun.size(), 0.0);
+    auto scatterTail = [&](int k, double sign) {
+        const double u = sign * tailFactor[k] * static_cast<double>(hKWeight[k]) * static_cast<double>(offsExpXBeta[k]);
+        const size_t base = static_cast<size_t>(fineGrayGroup[k] - 1) * n;
+        for (size_t e = soRowStart[k]; e < soRowStart[k + 1]; ++e) {
+            countingAddCompensated(tailRun[base + soPosition[e]], tailCompensation[base + soPosition[e]], u * soValue[e]);
+        }
+    };
     for (size_t g = 0; g < N; ++g) {
         if (static_cast<int>(g) == groupStratumStart[g]) {
             std::fill(run.begin(), run.end(), 0.0);
             std::fill(compensation.begin(), compensation.end(), 0.0);
+            std::fill(tailRun.begin(), tailRun.end(), 0.0);
+            std::fill(tailCompensation.begin(), tailCompensation.end(), 0.0);
         }
         for (int i = soEnterStart[g]; i < soEnterStart[g + 1]; ++i) {
             scatter(soEnterRows[i], 1.0);
@@ -1189,11 +1474,24 @@ bool CountingProcessModelSpecifics<RealType>::hessianBlock(const std::vector<int
         for (int i = soExitStart[g]; i < soExitStart[g + 1]; ++i) {
             scatter(soExitRows[i], -1.0);
         }
+        if (hasTails) {
+            for (int i = soTailEnterStart[g]; i < soTailEnterStart[g + 1]; ++i) {
+                scatterTail(soTailEnterRows[i], 1.0);
+            }
+            for (int i = soTailExitStart[g]; i < soTailExitStart[g + 1]; ++i) {
+                scatterTail(soTailExitRows[i], -1.0);
+            }
+        }
         const double d = static_cast<double>(hNWeight[g]);
         if (d != 0.0) {
             const double scale = std::sqrt(d) / static_cast<double>(accDenomPid[g]);
             for (size_t p = 0; p < n; ++p) {
-                A(p, filled) = (run[p] + compensation[p]) * scale;
+                double s1 = run[p] + compensation[p];
+                for (int t = 1; hasTails && t <= fineGrayGroups; ++t) {
+                    const size_t at = static_cast<size_t>(t - 1) * n + p;
+                    s1 += multiplier(t, static_cast<int>(g)) * (tailRun[at] + tailCompensation[at]);
+                }
+                A(p, filled) = s1 * scale;
             }
             if (++filled == chunk) {
                 subtract(filled);
@@ -1224,33 +1522,61 @@ bool CountingProcessModelSpecifics<RealType>::hessianVector(const std::vector<in
     std::vector<double> z;
     productXv(v, z);
 
-    // M_g = risk-set sum of u z; Q = running sum of d_g M_g / D_g^2 within each stratum
+    // M_g = risk-set sum of u z; Q = running sum of d_g M_g / D_g^2 within each stratum (and, for the tails of
+    // Fine-Gray group t, of m_t(g) d_g M_g / D_g^2)
     std::vector<double> M(N + 1, 0.0);
+    const size_t groups = hasTails ? static_cast<size_t>(fineGrayGroups) : 0;
+    std::vector<double> tailM(groups * (N + 1), 0.0);
     for (size_t k = 0; k < K; ++k) {
         if (hPid[k] < unused) {
             const double t = static_cast<double>(hKWeight[k]) * static_cast<double>(offsExpXBeta[k]) * z[k];
             M[hPid[k]] += t;
             M[hExitPid[k]] -= t; // group N is unused
         }
+        if (hasTail(static_cast<int>(k))) {
+            const double t = tailFactor[k] * static_cast<double>(hKWeight[k]) * static_cast<double>(offsExpXBeta[k]) * z[k];
+            const size_t base = static_cast<size_t>(fineGrayGroup[k] - 1) * (N + 1);
+            tailM[base + tailBegin[k]] += t;
+            tailM[base + tailExit(static_cast<int>(k))] -= t;
+        }
     }
     std::vector<double> Q(N);
+    std::vector<double> tailQ(groups * N);
+    std::vector<double> tailRun(groups, 0.0), tailRunCompensation(groups, 0.0), tq(groups, 0.0), tqCompensation(groups, 0.0);
     double run = 0.0, runCompensation = 0.0, q = 0.0, qCompensation = 0.0;
     for (size_t g = 0; g < N; ++g) {
         if (static_cast<int>(g) == groupStratumStart[g]) {
             run = runCompensation = q = qCompensation = 0.0;
+            std::fill(tailRun.begin(), tailRun.end(), 0.0);
+            std::fill(tailRunCompensation.begin(), tailRunCompensation.end(), 0.0);
+            std::fill(tq.begin(), tq.end(), 0.0);
+            std::fill(tqCompensation.begin(), tqCompensation.end(), 0.0);
         }
         countingAddCompensated(run, runCompensation, M[g]);
+        double sum = run + runCompensation;
+        for (size_t t = 0; t < groups; ++t) {
+            countingAddCompensated(tailRun[t], tailRunCompensation[t], tailM[t * (N + 1) + g]);
+            sum += multiplier(static_cast<int>(t) + 1, static_cast<int>(g)) * (tailRun[t] + tailRunCompensation[t]);
+        }
         const double D = static_cast<double>(accDenomPid[g]);
-        countingAddCompensated(q, qCompensation, static_cast<double>(hNWeight[g]) * (run + runCompensation) / (D * D));
+        const double increment = static_cast<double>(hNWeight[g]) * sum / (D * D);
+        countingAddCompensated(q, qCompensation, increment);
         Q[g] = q + qCompensation;
+        for (size_t t = 0; t < groups; ++t) {
+            countingAddCompensated(tq[t], tqCompensation[t], multiplier(static_cast<int>(t) + 1, static_cast<int>(g)) * increment);
+            tailQ[t * N + g] = tq[t] + tqCompensation[t];
+        }
     }
 
     Hv.assign(F.size(), 0.0);
     for (size_t k = 0; k < K; ++k) {
-        if (hPid[k] < unused) {
+        if (participates(static_cast<int>(k))) {
             const int entry = hPid[k];
-            const double segment = Q[rowEnd(static_cast<int>(k)) - 1] -
-                ((entry == groupStratumStart[entry]) ? 0.0 : Q[entry - 1]);
+            double segment = (entry < unused) ? Q[rowEnd(static_cast<int>(k)) - 1] -
+                ((entry == groupStratumStart[entry]) ? 0.0 : Q[entry - 1]) : 0.0;
+            if (hasTail(static_cast<int>(k))) {
+                segment += tailFactor[k] * tailQ[static_cast<size_t>(fineGrayGroup[k] - 1) * N + tailEnd[k] - 1];
+            }
             const double r = static_cast<double>(hKWeight[k]) * static_cast<double>(offsExpXBeta[k]) *
                 (z[k] * rowHazard(static_cast<int>(k)) - segment);
             for (size_t e = soRowStart[k]; e < soRowStart[k + 1]; ++e) {
@@ -1290,32 +1616,52 @@ double CountingProcessModelSpecifics<RealType>::trialLogLikelihood(double t) {
 
     // log D_g(t), each stratum shifted by its largest x'beta + t z
     std::vector<double> shift(N, -std::numeric_limits<double>::infinity());
+    auto stratum = [this, unused](size_t k) { // the first group of row k's stratum
+        return hPid[k] < unused ? groupStratumStart[hPid[k]] : tailBegin[k];
+    };
     for (size_t k = 0; k < K; ++k) {
-        if (hPid[k] < unused) {
-            const int s = groupStratumStart[hPid[k]];
+        if (participates(static_cast<int>(k))) {
+            const int s = stratum(k);
             shift[s] = std::max(shift[s], static_cast<double>(hXBeta[k]) + t * soDirection[k]);
         }
     }
     std::vector<double> E(N + 1, 0.0);
+    const size_t groups = hasTails ? static_cast<size_t>(fineGrayGroups) : 0;
+    std::vector<double> tailE(groups * (N + 1), 0.0);
     for (size_t k = 0; k < K; ++k) {
-        if (hPid[k] < unused) {
+        if (participates(static_cast<int>(k))) {
             const double eta = static_cast<double>(hXBeta[k]) + t * soDirection[k];
-            const double value = static_cast<double>(hKWeight[k]) * std::exp(eta - shift[groupStratumStart[hPid[k]]]);
-            E[hPid[k]] += value;
-            E[hExitPid[k]] -= value; // group N is unused
+            const double value = static_cast<double>(hKWeight[k]) * std::exp(eta - shift[stratum(k)]);
+            if (hPid[k] < unused) {
+                E[hPid[k]] += value;
+                E[hExitPid[k]] -= value; // group N is unused
+            }
+            if (hasTail(static_cast<int>(k))) {
+                const size_t base = static_cast<size_t>(fineGrayGroup[k] - 1) * (N + 1);
+                tailE[base + tailBegin[k]] += tailFactor[k] * value;
+                tailE[base + tailExit(static_cast<int>(k))] -= tailFactor[k] * value;
+            }
         }
     }
     double denominator = 0.0, denominatorCompensation = 0.0;
     double run = 0.0, runCompensation = 0.0;
+    std::vector<double> tailRun(groups, 0.0), tailCompensation(groups, 0.0);
     for (size_t g = 0; g < N; ++g) {
         if (static_cast<int>(g) == groupStratumStart[g]) {
             run = runCompensation = 0.0;
+            std::fill(tailRun.begin(), tailRun.end(), 0.0);
+            std::fill(tailCompensation.begin(), tailCompensation.end(), 0.0);
         }
         countingAddCompensated(run, runCompensation, E[g]);
+        double sum = run + runCompensation;
+        for (size_t s = 0; s < groups; ++s) {
+            countingAddCompensated(tailRun[s], tailCompensation[s], tailE[s * (N + 1) + g]);
+            sum += multiplier(static_cast<int>(s) + 1, static_cast<int>(g)) * (tailRun[s] + tailCompensation[s]);
+        }
         const double d = static_cast<double>(hNWeight[g]);
         if (d != 0.0) {
             countingAddCompensated(denominator, denominatorCompensation,
-                d * (shift[groupStratumStart[g]] + std::log(run + runCompensation)));
+                d * (shift[groupStratumStart[g]] + std::log(sum)));
         }
     }
     return (numerator + numeratorCompensation) - (denominator + denominatorCompensation);
@@ -1344,7 +1690,7 @@ double CountingProcessModelSpecifics<RealType>::directionMaxAbs() const {
     const int unused = static_cast<int>(N);
     double largest = 0.0;
     for (size_t k = 0; k < K; ++k) {
-        if (hPid[k] < unused) { // rows outside every risk set do not enter the likelihood's sums
+        if (hPid[k] < unused || hasTail(static_cast<int>(k))) { // rows outside every risk set do not enter the likelihood's sums
             largest = std::max(largest, std::abs(soDirection[k]));
         }
     }
@@ -1391,6 +1737,10 @@ bool CountingProcessModelSpecifics<RealType>::separationDirections(const std::ve
             ++atRisk[hPid[k]];
             --atRisk[hExitPid[k]]; // group N is unused
         }
+        if (hasTail(static_cast<int>(k))) { // a Fine-Gray tail is at risk too (with a positive multiplier)
+            ++atRisk[tailBegin[k]];
+            --atRisk[tailExit(static_cast<int>(k))];
+        }
     }
     for (size_t g = 0, count = 0; g < N; ++g) {
         if (static_cast<int>(g) == groupStratumStart[g]) {
@@ -1431,6 +1781,12 @@ bool CountingProcessModelSpecifics<RealType>::separationDirections(const std::ve
                         --delta[hExitPid[k]];
                         touched.push_back(hExitPid[k]);
                     }
+                }
+                if (hasTail(k) && it.value() != static_cast<RealType>(0)) {
+                    ++delta[tailBegin[k]];
+                    --delta[tailExit(k)];
+                    touched.push_back(tailBegin[k]);
+                    touched.push_back(tailExit(k));
                 }
             }
             double lowest = 0.0, highest = 0.0, scale = 0.0;
@@ -1473,6 +1829,12 @@ bool CountingProcessModelSpecifics<RealType>::separationDirections(const std::ve
                 changes.push_back({hPid[k], x, true});
                 if (hExitPid[k] < unused) {
                     changes.push_back({hExitPid[k], x, false});
+                }
+            }
+            if (hasTail(k) && x != 0.0) {
+                changes.push_back({tailBegin[k], x, true});
+                if (tailExit(k) < unused) {
+                    changes.push_back({tailExit(k), x, false});
                 }
             }
         }
@@ -1527,7 +1889,9 @@ bool CountingProcessModelSpecifics<RealType>::hessianDiagonal(const std::vector<
     h.assign(F.size(), 0.0);
     for (size_t p = 0; p < F.size(); ++p) {
         double gradient = 0.0;
-        if (hX.getNumberOfNonZeroEntries(F[p]) > 0) {
+        if (hasTails) {
+            fineGrayGradientAndHessian(F[p], &gradient, &h[p], true);
+        } else if (hX.getNumberOfNonZeroEntries(F[p]) > 0) {
             dispatchHazardGradientAndHessian(F[p], workspace, &gradient, &h[p], true); // weights are 1 without any
         }
     }
@@ -1546,7 +1910,7 @@ bool CountingProcessModelSpecifics<RealType>::woodburyParts(const std::vector<in
     const size_t n = F.size();
     S2.assign(n * n, 0.0);
     for (size_t k = 0; k < K; ++k) { // as hessianBlock()
-        if (hPid[k] < unused) {
+        if (participates(static_cast<int>(k))) {
             const double r = static_cast<double>(hKWeight[k]) * static_cast<double>(offsExpXBeta[k]) *
                 rowHazard(static_cast<int>(k));
             for (size_t a = soRowStart[k]; a < soRowStart[k + 1]; ++a) {
@@ -1585,10 +1949,21 @@ bool CountingProcessModelSpecifics<RealType>::woodburyParts(const std::vector<in
             countingAddCompensated(run[soPosition[e]], compensation[soPosition[e]], u * soValue[e]);
         }
     };
+    std::vector<double> tailRun(static_cast<size_t>(hasTails ? fineGrayGroups : 0) * n, 0.0);
+    std::vector<double> tailCompensation(tailRun.size(), 0.0);
+    auto scatterTail = [&](int k, double sign) {
+        const double u = sign * tailFactor[k] * static_cast<double>(hKWeight[k]) * static_cast<double>(offsExpXBeta[k]);
+        const size_t base = static_cast<size_t>(fineGrayGroup[k] - 1) * n;
+        for (size_t e = soRowStart[k]; e < soRowStart[k + 1]; ++e) {
+            countingAddCompensated(tailRun[base + soPosition[e]], tailCompensation[base + soPosition[e]], u * soValue[e]);
+        }
+    };
     for (size_t g = 0; g < N; ++g) { // the rows of A, as in hessianBlock(), summed into their bins
         if (static_cast<int>(g) == groupStratumStart[g]) {
             std::fill(run.begin(), run.end(), 0.0);
             std::fill(compensation.begin(), compensation.end(), 0.0);
+            std::fill(tailRun.begin(), tailRun.end(), 0.0);
+            std::fill(tailCompensation.begin(), tailCompensation.end(), 0.0);
         }
         for (int i = soEnterStart[g]; i < soEnterStart[g + 1]; ++i) {
             scatter(soEnterRows[i], 1.0);
@@ -1596,11 +1971,24 @@ bool CountingProcessModelSpecifics<RealType>::woodburyParts(const std::vector<in
         for (int i = soExitStart[g]; i < soExitStart[g + 1]; ++i) {
             scatter(soExitRows[i], -1.0);
         }
+        if (hasTails) {
+            for (int i = soTailEnterStart[g]; i < soTailEnterStart[g + 1]; ++i) {
+                scatterTail(soTailEnterRows[i], 1.0);
+            }
+            for (int i = soTailExitStart[g]; i < soTailExitStart[g + 1]; ++i) {
+                scatterTail(soTailExitRows[i], -1.0);
+            }
+        }
         const double d = static_cast<double>(hNWeight[g]);
         if (d != 0.0) {
             const double scale = std::sqrt(d) / static_cast<double>(accDenomPid[g]) / std::sqrt(static_cast<double>(count[bin[g]]));
             for (size_t p = 0; p < n; ++p) {
-                B[bin[g] + p * bins] += (run[p] + compensation[p]) * scale;
+                double s1 = run[p] + compensation[p];
+                for (int t = 1; hasTails && t <= fineGrayGroups; ++t) {
+                    const size_t at = static_cast<size_t>(t - 1) * n + p;
+                    s1 += multiplier(t, static_cast<int>(g)) * (tailRun[at] + tailCompensation[at]);
+                }
+                B[bin[g] + p * bins] += s1 * scale;
             }
         }
     }
