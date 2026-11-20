@@ -47,6 +47,18 @@ inline T runningMax(T lw, T w) {
 #endif
 }
 
+// sum + a * b rounded as `sum += a * b` compiles in a loop over a GenericIterator: one fused multiply-add on arm64,
+// where compilers contract it, but where clang splits it again when it vectorizes a loop of ordered sums (as it
+// may once the loop holds one column format), and separate operations elsewhere
+template <typename T>
+inline T addProduct(T sum, T a, T b) {
+#if defined(__aarch64__)
+    return std::fma(a, b, sum);
+#else
+    return sum + a * b;
+#endif
+}
+
 	    template <typename RealType>
 	    const std::string DenseIterator<RealType>::name = "Den";
 
@@ -592,37 +604,45 @@ void ModelSpecifics<BaseModel, RealType>::computeXjY(bool useCrossValidation) {
 		}
 		return;
 	}
-	for (size_t j = 0; j < J; ++j) {
-		hXjY[j] = 0;
-
-		GenericIterator<RealType> it(hX, j);
-
+	// One loop per column format, summed in a local: hXjY[j] may alias hY, so a sum kept in hXjY[j] was stored and
+	// reloaded for every entry (3x slower). The same terms in the same order, rounded the same way (addProduct())
+	auto columnSum = [&](auto it) {
+		RealType sum = static_cast<RealType>(0);
 		if (useCrossValidation) {
 			for (; it; ++it) {
-                const int k = it.index();
+				const int k = it.index();
 				if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
 					// Do not precompute
-					hXjY[j] += it.value() * hY[k] * hKWeight[k]; // TODO Remove
+					sum = addProduct<RealType>(sum, it.value() * hY[k], hKWeight[k]); // TODO Remove
 				} else if (BaseModel::isSurvivalModel) {
-				    // ESK: Modified for suvival data
-                    hXjY[j] += it.value() * BaseModel::observationCount(hY[k]) * hKWeight[k];
+					// ESK: Modified for suvival data
+					sum = addProduct<RealType>(sum, it.value() * BaseModel::observationCount(hY[k]), hKWeight[k]);
 				} else {
-					hXjY[j] += it.value() * hY[k] * hKWeight[k];
+					sum = addProduct<RealType>(sum, it.value() * hY[k], hKWeight[k]);
 				}
 			}
 		} else {
 			for (; it; ++it) {
-                const int k = it.index();
+				const int k = it.index();
 				if (BaseModel::exactTies && hNWeight[BaseModel::getGroup(hPid, k)] > 1) {
 					// Do not precompute
-                    hXjY[j] += it.value() * hY[k];
+					sum = addProduct<RealType>(sum, it.value(), hY[k]);
 				} else if (BaseModel::isSurvivalModel) {
-                    // ESK: Modified for survival data
-                    hXjY[j] += it.value() * BaseModel::observationCount(hY[k]);
+					// ESK: Modified for survival data
+					sum = addProduct<RealType>(sum, it.value(), BaseModel::observationCount(hY[k]));
 				} else {
-				    hXjY[j] += it.value() * hY[k];
-                }
+					sum = addProduct<RealType>(sum, it.value(), hY[k]);
+				}
 			}
+		}
+		return sum;
+	};
+	for (size_t j = 0; j < J; ++j) {
+		switch (hX.getFormatType(j)) {
+			case INDICATOR : hXjY[j] = columnSum(IndicatorIterator<RealType>(hX, j)); break;
+			case SPARSE : hXjY[j] = columnSum(SparseIterator<RealType>(hX, j)); break;
+			case DENSE : hXjY[j] = columnSum(DenseIterator<RealType>(hX, j)); break;
+			case INTERCEPT : hXjY[j] = columnSum(InterceptIterator<RealType>(hX, j)); break;
 		}
 #ifdef DEBUG_COX
 		cerr << "j: " << j << " = " << hXjY[j]<< endl;
