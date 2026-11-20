@@ -627,6 +627,53 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// runStarts
+SEXP runStarts(SEXP x, SEXP order);
+RcppExport SEXP _Cyclops_runStarts(SEXP xSEXP, SEXP orderSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type order(orderSEXP);
+    rcpp_result_gen = Rcpp::wrap(runStarts(x, order));
+    return rcpp_result_gen;
+END_RCPP
+}
+// anyIdOverflow
+bool anyIdOverflow(SEXP x);
+RcppExport SEXP _Cyclops_anyIdOverflow(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(anyIdOverflow(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// allIn
+LogicalVector allIn(SEXP x, SEXP table);
+RcppExport SEXP _Cyclops_allIn(SEXP xSEXP, SEXP tableSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type table(tableSEXP);
+    rcpp_result_gen = Rcpp::wrap(allIn(x, table));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sortOrder
+SEXP sortOrder(SEXP first, SEXP second);
+RcppExport SEXP _Cyclops_sortOrder(SEXP firstSEXP, SEXP secondSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type first(firstSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type second(secondSEXP);
+    rcpp_result_gen = Rcpp::wrap(sortOrder(first, second));
+    return rcpp_result_gen;
+END_RCPP
+}
 // isRcppPtrNull
 bool isRcppPtrNull(SEXP x);
 RcppExport SEXP _Cyclops_isRcppPtrNull(SEXP xSEXP) {
@@ -1038,20 +1085,32 @@ BEGIN_RCPP
 END_RCPP
 }
 // cyclopsLoadDataMultipleX
-int cyclopsLoadDataMultipleX(Environment x, const std::vector<double>& covariateId, const std::vector<double>& rowId, const std::vector<double>& covariateValue, const bool checkCovariateIds, const bool checkCovariateBounds, const bool append, const bool forceSparse);
-RcppExport SEXP _Cyclops_cyclopsLoadDataMultipleX(SEXP xSEXP, SEXP covariateIdSEXP, SEXP rowIdSEXP, SEXP covariateValueSEXP, SEXP checkCovariateIdsSEXP, SEXP checkCovariateBoundsSEXP, SEXP appendSEXP, SEXP forceSparseSEXP) {
+int cyclopsLoadDataMultipleX(Environment x, SEXP covariateId, SEXP rowId, SEXP covariateValue, const bool checkCovariateIds, const bool checkCovariateBounds, const bool append, const bool forceSparse, SEXP order);
+RcppExport SEXP _Cyclops_cyclopsLoadDataMultipleX(SEXP xSEXP, SEXP covariateIdSEXP, SEXP rowIdSEXP, SEXP covariateValueSEXP, SEXP checkCovariateIdsSEXP, SEXP checkCovariateBoundsSEXP, SEXP appendSEXP, SEXP forceSparseSEXP, SEXP orderSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Environment >::type x(xSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type covariateId(covariateIdSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type rowId(rowIdSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type covariateValue(covariateValueSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type covariateId(covariateIdSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type rowId(rowIdSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type covariateValue(covariateValueSEXP);
     Rcpp::traits::input_parameter< const bool >::type checkCovariateIds(checkCovariateIdsSEXP);
     Rcpp::traits::input_parameter< const bool >::type checkCovariateBounds(checkCovariateBoundsSEXP);
     Rcpp::traits::input_parameter< const bool >::type append(appendSEXP);
     Rcpp::traits::input_parameter< const bool >::type forceSparse(forceSparseSEXP);
-    rcpp_result_gen = Rcpp::wrap(cyclopsLoadDataMultipleX(x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append, forceSparse));
+    Rcpp::traits::input_parameter< SEXP >::type order(orderSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsLoadDataMultipleX(x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append, forceSparse, order));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cyclopsAsLoaderDoubles
+NumericVector cyclopsAsLoaderDoubles(const std::vector<double>& x);
+RcppExport SEXP _Cyclops_cyclopsAsLoaderDoubles(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(cyclopsAsLoaderDoubles(x));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1201,6 +1260,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_getDefaultGPUDevice", (DL_FUNC) &_Cyclops_getDefaultGPUDevice, 0},
     {"_Cyclops_isSorted", (DL_FUNC) &_Cyclops_isSorted, 3},
     {"_Cyclops_isSortedVectorList", (DL_FUNC) &_Cyclops_isSortedVectorList, 2},
+    {"_Cyclops_runStarts", (DL_FUNC) &_Cyclops_runStarts, 2},
+    {"_Cyclops_anyIdOverflow", (DL_FUNC) &_Cyclops_anyIdOverflow, 1},
+    {"_Cyclops_allIn", (DL_FUNC) &_Cyclops_allIn, 2},
+    {"_Cyclops_sortOrder", (DL_FUNC) &_Cyclops_sortOrder, 2},
     {"_Cyclops_isRcppPtrNull", (DL_FUNC) &_Cyclops_isRcppPtrNull, 1},
     {"_Cyclops_cyclopsGetNumberOfStrata", (DL_FUNC) &_Cyclops_cyclopsGetNumberOfStrata, 1},
     {"_Cyclops_cyclopsGetCovariateIds", (DL_FUNC) &_Cyclops_cyclopsGetCovariateIds, 1},
@@ -1235,7 +1298,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_Cyclops_cyclopsLoadDataFineGray", (DL_FUNC) &_Cyclops_cyclopsLoadDataFineGray, 5},
     {"_Cyclops_cyclopsLoadDataSubjectId", (DL_FUNC) &_Cyclops_cyclopsLoadDataSubjectId, 2},
     {"_Cyclops_cyclopsLoadDataPooledRows", (DL_FUNC) &_Cyclops_cyclopsLoadDataPooledRows, 13},
-    {"_Cyclops_cyclopsLoadDataMultipleX", (DL_FUNC) &_Cyclops_cyclopsLoadDataMultipleX, 8},
+    {"_Cyclops_cyclopsLoadDataMultipleX", (DL_FUNC) &_Cyclops_cyclopsLoadDataMultipleX, 9},
+    {"_Cyclops_cyclopsAsLoaderDoubles", (DL_FUNC) &_Cyclops_cyclopsAsLoaderDoubles, 1},
     {"_Cyclops_cyclopsLoadDataX", (DL_FUNC) &_Cyclops_cyclopsLoadDataX, 7},
     {"_Cyclops_cyclopsLoadDataStratTimeEffects", (DL_FUNC) &_Cyclops_cyclopsLoadDataStratTimeEffects, 5},
     {"_Cyclops_cyclopsAppendSqlData", (DL_FUNC) &_Cyclops_cyclopsAppendSqlData, 8},

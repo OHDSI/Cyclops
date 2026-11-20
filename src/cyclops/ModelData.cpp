@@ -193,6 +193,21 @@ void ModelData<RealType>::loadSubjectId(const std::vector<IdType>& oSubjectId) {
     }
 }
 
+namespace {
+
+// Room for extra more entries: exactly for a new vector, else at least doubling (a column appended to batch by batch
+// is not copied once per batch)
+template <typename Vector>
+void reserveFor(Vector& vector, size_t extra) {
+	const size_t needed = vector.size() + extra;
+	if (vector.capacity() < needed) {
+		const size_t doubled = vector.capacity() <= vector.max_size() / 2 ? 2 * vector.capacity() : vector.max_size();
+		vector.reserve(vector.empty() ? needed : std::max(needed, doubled));
+	}
+}
+
+} // namespace
+
 template <typename RealType>
 void ModelData<RealType>::loadFineGray(const std::vector<int>& group, const std::vector<int>& censoringGroup,
         const std::vector<double>& censoringTime, const std::vector<double>& censoringSurvival) {
@@ -265,101 +280,100 @@ double ModelData<RealType>::fineGraySurvivalBefore(int group, double t) const {
 
 template <typename RealType>
 int ModelData<RealType>::loadMultipleX(
-		const std::vector<int64_t>& covariateIds,
-		const std::vector<int64_t>& rowIds,
-		const std::vector<double>& covariateValues,
+		const NumberView& covariateIds,
+		const NumberView& rowIds,
+		const NumberView& covariateValues,
 		const bool checkCovariateIds,
 		const bool checkCovariateBounds,
 		const bool append,
 		const bool forceSparse) {
 
-	if (covariateIds.empty()) { // no covariates (an intercept-only design): nothing to load; read below as the first id
+	const size_t n = covariateIds.size;
+	if (n == 0) { // no covariates (an intercept-only design): nothing to load; read below as the first id
 		return getNumberOfColumns();
 	}
 
-	auto columnIdItr = std::begin(covariateIds);
-	const auto columnIdEnd = std::end(covariateIds);
-	auto rowIdItr = std::begin(rowIds);
-	auto covariateValueItr = std::begin(covariateValues);
-
 	int firstColumnIndex = getNumberOfColumns();
 
-	auto previousColumnId = *columnIdItr;
-
-	auto index = getColumnIndexByName(previousColumnId);
+	auto index = getColumnIndexByName(covariateIds.id(0));
 	if (index >= 0) {
 		if (!append) {
             std::ostringstream stream;
-            stream << "Variable " << previousColumnId << " already exists";
+            stream << "Variable " << covariateIds.id(0) << " already exists";
             error->throwError(stream);
 		}
 		firstColumnIndex = index;
-	} else {
-		--previousColumnId; // not found
 	}
 
-	const bool hasCovariateValues = covariateValues.size() > 0;
+	const bool hasCovariateValues = covariateValues.size > 0;
 	const bool useRowMap = consecutiveRowIds || rowIdMap.size() > 0;
+	int64_t maxId = covariateIds.id(0);
 
-// 	std::function<size_t(IdType)>
-//     xform = [this](IdType id) {
-//         return rowIdMap[id];
-//     };
-
-
-	while (columnIdItr != columnIdEnd) {
+	size_t i = 0;
+	while (i < n) {
+		const int64_t columnId = covariateIds.id(i);
+		maxId = std::max(maxId, columnId);
+		// the column's entries are [i, end): reserve them once rather than growing the vectors entry by entry
+		size_t end = i + 1;
+		while (end < n && covariateIds.id(end) == columnId) ++end;
 
 		if (index < 0) { // Create new column if necessary
 		    const auto format =
 		        (hasCovariateValues &&
-		            (!(*covariateValueItr == 1.0 || *covariateValueItr == 0.0) // not 0 or 1
+		            (!(covariateValues.value(i) == 1.0 || covariateValues.value(i) == 0.0) // not 0 or 1
                     || forceSparse)) ?
 		                SPARSE : INDICATOR;
 	        X.push_back(format);
 	        index = getNumberOfColumns() - 1;
-	        X.getColumn(index).add_label(*columnIdItr);
+	        X.getColumn(index).add_label(columnId);
         }
 
 		// Append data into CompressedDataColumn
 		CompressedDataColumn<RealType>& column = X.getColumn(index);
 		FormatType format = column.getFormatType();
+		if (format == INDICATOR || format == SPARSE) { // (intercept and dense columns keep no row indices)
+			size_t entries = end - i; // the entries kept: values of 0 are not
+			if (hasCovariateValues) {
+				for (size_t k = i; k < end; ++k) entries -= covariateValues.value(k) == 0.0 ? 1 : 0;
+			}
+			reserveFor(column.getColumnsVector(), entries);
+			if (format == SPARSE) {
+				reserveFor(column.getDataVector(), entries);
+			}
+		}
 
-		// Grab whole column worth of data
-		const auto columnId = *columnIdItr;
-		const auto columnStart = rowIdItr;
-
-		while (columnIdItr != columnIdEnd && *columnIdItr == columnId) {
-		    if (rowIdItr != columnStart && *rowIdItr == *(rowIdItr - 1)) {
+		for (size_t k = i; k < end; ++k) {
+		    const int64_t rowId = rowIds.id(k);
+		    if (k != i && rowId == rowIds.id(k - 1)) {
 		        std::ostringstream stream;
 		        stream << "Repeated row-column entry at ";
-		        stream << *rowIdItr << " - " << *columnIdItr;
+		        stream << rowId << " - " << columnId;
 		        throw std::range_error(stream.str());
 		    }
-		    const auto mappedRow = (useRowMap) ? mapRowId(*rowIdItr) : *rowIdItr;
+		    const auto mappedRow = (useRowMap) ? mapRowId(rowId) : rowId;
 		    if (hasCovariateValues) {
-                if (*covariateValueItr != 0.0) {
-                    if (format == INDICATOR && *covariateValueItr != 1.0) {
+		        const double value = covariateValues.value(k);
+                if (value != 0.0) {
+                    if (format == INDICATOR && value != 1.0) {
                         // Upcast
                         column.convertColumnToSparse();
                         format = SPARSE;
+                        reserveFor(column.getDataVector(), column.getColumnsVector().capacity() - column.getDataVector().size());
                     }
                     if (format == SPARSE) {
-                        column.getDataVector().push_back(*covariateValueItr);
+                        column.getDataVector().push_back(value);
                     }
                     column.getColumnsVector().push_back(mappedRow);
                 }
-		        ++covariateValueItr;
 		    } else {
 		        column.getColumnsVector().push_back(mappedRow);
 		    }
-
-			++columnIdItr;
-			++rowIdItr;
 		}
+		i = end;
 		index = -1; // new column
 	}
 
-	maxCovariateId = *max_element(covariateIds.begin(), covariateIds.end());
+	maxCovariateId = maxId;
 
 	touchedX = true;
 	return firstColumnIndex;

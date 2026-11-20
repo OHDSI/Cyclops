@@ -221,6 +221,7 @@ convertToCyclopsData.data.frame <- function(outcomes,
         covariates$stratumId <- 0
     }
 
+    covariateOrder <- NULL # lr and pr: the permutation that sorts the covariates, if they were not sorted
     if (modelType == "lr" | modelType == "pr") {
         if (!isSorted(outcomes, c("rowId"))) {
             if (!quiet)
@@ -230,7 +231,11 @@ convertToCyclopsData.data.frame <- function(outcomes,
         if (!isSorted(covariates, c("covariateId", "rowId"))) {
             if (!quiet)
                 writeLines("Sorting covariates by covariateId and rowId")
-            covariates <- covariates[order(covariates$covariateId, covariates$rowId),]
+            # the permutation only, read through when loading (a sorted copy of the covariates and order()'s work
+            # took about 40 bytes per covariate value); order() and a sorted copy where .sortOrder() does not decide
+            covariateOrder <- .sortOrder(covariates$covariateId, covariates$rowId)
+            if (is.null(covariateOrder))
+                covariates <- covariates[order(covariates$covariateId, covariates$rowId),]
         }
     }
 
@@ -301,7 +306,12 @@ convertToCyclopsData.data.frame <- function(outcomes,
         }
     }
 
-    if (checkRowIds) {
+    # (.allIn() decides most cases without match()'s vectors as long as the covariates; NA: not decided there)
+    if (checkRowIds && !isTRUE(.allIn(covariates$rowId, outcomes$rowId))) {
+        if (!is.null(covariateOrder)) { # sorted, as before
+            covariates <- covariates[covariateOrder, ]
+            covariateOrder <- NULL
+        }
         mapping <- match(covariates$rowId,outcomes$rowId)
         if (any(is.na(mapping))) {
             if (!quiet)
@@ -339,12 +349,23 @@ convertToCyclopsData.data.frame <- function(outcomes,
         loadNewSqlCyclopsDataX(dataPtr, 0, NULL, NULL, name = "(Intercept)")
     }
 
-    covarNames <- unique(covariates$covariateId)
+    # the covariates are sorted by covariateId first, so its distinct values are the starts of its runs (no hash table
+    # as long as the covariates); unique() if they are not
+    starts <- .runStarts(covariates$covariateId, covariateOrder)
+    covarNames <- if (is.null(starts)) {
+        unique(if (is.null(covariateOrder)) covariates$covariateId else covariates$covariateId[covariateOrder])
+    } else if (is.null(covariateOrder)) {
+        covariates$covariateId[starts]
+    } else {
+        covariates$covariateId[covariateOrder[starts]]
+    }
+    rm(starts)
     loadNewSqlCyclopsDataMultipleX(object = dataPtr,
                                    covariateId = covariates$covariateId,
                                    rowId = covariates$rowId,
                                    covariateValue = covariates$covariateValue,
-                                   name = covarNames)
+                                   name = covarNames,
+                                   order = covariateOrder)
 
     if (modelType == "cox_time" && !is.null(timeEffectMap)) {
         if (!all(timeEffectMap$covariateId %in% covarNames)) stop("Invalid covariateId for time effects.")
