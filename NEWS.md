@@ -277,6 +277,11 @@ Changes:
    starts, active-set cycling and adaptive intercept steps. `plr` fits used the settings of
    `fitter = "default"`, so a model fit with `plr` and with `lr` on its expanded rows could select different variances
    under `"super"`
+45. The prox-Newton Hessian block of `plr` adds its pairs of columns in the order and cache tiles of `lr`'s (densest
+   columns first), and a Newton iteration keeps the per-person layouts of both its free set and its working set
+   instead of rebuilding them. Cross-validating a CCW censoring model of 25,000 persons (72,748 person-intervals,
+   3,821 columns) took 218 s on 4 threads and 466 s on 1, and takes 128 s and 402 s (`lr` on the expanded rows:
+   126 s and 395 s); the Hessian is the same up to rounding
 
 Cyclops v3.8.0
 ==============

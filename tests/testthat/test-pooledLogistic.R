@@ -177,6 +177,47 @@ test_that("plr fits with threads equal those without", {
     expect_identical(coef(fit4), coef(fit(1)))
 })
 
+test_that("plr gradient and Hessian block equal lr's on the expanded rows, in cache tiles and on threads", {
+    set.seed(6) # 300 columns of increasing density: the Hessian block reorders them and runs two tiles on one thread
+    n <- 150
+    p <- 300
+    X <- matrix(rbinom(n * p, 1, rep(seq(0.02, 0.5, length.out = p), each = n)), n, p)
+    entries <- which(X == 1, arr.ind = TRUE)
+    covariates <- data.frame(rowId = entries[, 1], covariateId = entries[, 2], covariateValue = 1)
+    subjects <- data.frame(rowId = 1:n, entry = 1, exit = sample(1:3, n, TRUE), y = rbinom(n, 1, 0.4))
+    timeBasis <- data.frame(interval = 2:3, covariateId = c(1002, 1003), covariateValue = 1)
+    long <- convertToLongOutcome(subjects)
+    long$row <- seq_len(nrow(long))
+    expanded <- merge(covariates, long[, c("rowId", "row", "interval")], by = "rowId")
+    interactions <- expanded[expanded$covariateId %in% 1:20 & expanded$interval == 2, ]
+    interacting <- sort(unique(interactions$covariateId)) # the interactions with rows in interval 2
+    map <- data.frame(covariateId = interacting, timeCovariateId = 1002, interactionId = 2000 + interacting)
+    plr <- convertToCyclopsData(subjects, covariates, modelType = "plr", timeBasis = timeBasis, timeEffectMap = map)
+    interactions$covariateId <- interactions$covariateId + 2000
+    basis <- data.frame(row = long$row[long$interval > 1], covariateId = 1000 + long$interval[long$interval > 1],
+                        covariateValue = 1)
+    lrCovariates <- rbind(expanded[, c("row", "covariateId", "covariateValue")],
+                          interactions[, c("row", "covariateId", "covariateValue")], basis)
+    names(lrCovariates)[1] <- "rowId"
+    lr <- convertToCyclopsData(data.frame(rowId = long$row, y = long$y), lrCovariates[order(lrCovariates$rowId), ],
+                               modelType = "lr")
+    secondOrderAt <- function(data, threads) { # at the same coefficients, by covariate id
+        ids <- as.numeric(getCovariateIds(data))
+        set.seed(7)
+        beta <- setNames(rnorm(length(ids), 0, 0.1), ids)[order(ids)]
+        fitCyclopsModel(data, startingCoefficients = unname(beta[as.character(ids)]),
+                        fixedCoefficients = rep(TRUE, length(ids)), control = createControl(threads = threads))
+        so <- Cyclops:::.cyclopsSecondOrder(data$cyclopsInterfacePtr, NULL, rep(0, length(ids)), 0, 1)
+        o <- order(ids)
+        list(gradient = so$gradient[o], hessian = so$hessian[o, o])
+    }
+    one <- secondOrderAt(plr, 1)
+    expected <- secondOrderAt(lr, 1)
+    expect_equal(one$gradient, expected$gradient, tolerance = 1E-10)
+    expect_equal(one$hessian, expected$hessian, tolerance = 1E-10)
+    expect_identical(secondOrderAt(plr, 3)$hessian, one$hessian)
+})
+
 test_that("plr edge cases: separation, an overflowing row offset, timeBasis checks, arguments of other models", {
     set.seed(3)
     rows <- data.frame(rowId = rep(1:30, each = 2), interval = rep(1:2, 30))
