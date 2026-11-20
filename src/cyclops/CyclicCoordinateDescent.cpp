@@ -2569,6 +2569,7 @@ void CyclicCoordinateDescent::finishCycle(bool fullSweep) {
 	if (interceptIndex >= 0) { // the reference gain per row of work for the next cycle
 		interceptState.rate = (interceptState.cost > 0.0) ? interceptState.gain / interceptState.cost : 0.0;
 		interceptState.gain = 0.0;
+		interceptState.boundedExtra = false;
 		interceptState.cost = 0.0;
 	}
 }
@@ -2609,9 +2610,17 @@ double CyclicCoordinateDescent::scaledKktResidual(int index, double rawDelta,
 	return (curvature > 0.0 ? size / std::sqrt(curvature) : size) / kktOutcomeScale; // in standard-error units; NaN if undefined
 }
 
+// A coefficient at 0 that its prior keeps there although its gradient is undefined (a column with NaN values: the Laplace
+// step of a NaN gradient is 0): it never moves, as under the objective-change criterion, which never reads its gradient.
+// Any other NaN gradient (a diverged fit, an unpenalized coordinate) leaves the kkt criterion undefined
+bool CyclicCoordinateDescent::heldAtZero(int index, double rawDelta) const {
+	return rawDelta == 0.0 && hBeta[index] == 0.0;
+}
+
 void CyclicCoordinateDescent::accumulateKkt(int index, double rawDelta, const priors::GradientHessian& gh) {
 	const double scaled = scaledKktResidual(index, rawDelta, gh);
 	if (std::isnan(scaled)) {
+		if (heldAtZero(index, rawDelta)) return;
 		kktCycle.undefined = true;
 		return;
 	}
@@ -2629,6 +2638,7 @@ double CyclicCoordinateDescent::computeKktResidual() {
 			const double rawDelta = ccdUpdateBeta(index); // no update: the step and its gradient only
 			const double scaled = scaledKktResidual(index, rawDelta, lastGradientHessian);
 			if (std::isnan(scaled)) {
+				if (heldAtZero(index, rawDelta)) continue;
 				return scaled;
 			}
 			maxScaled = std::max(maxScaled, scaled);
@@ -2836,6 +2846,9 @@ void CyclicCoordinateDescent::trackInterceptGradient(int index, double delta, do
 	s.gain += 0.5 * hessian * delta * delta;
 	s.cost += (delta != 0.0) ? 2.0 * columnRows[index] : columnRows[index]; // gradient (+ update) rows
 	const double rate = (s.rate > 0.0) ? s.rate : s.gain / s.cost;
+	if (s.boundedExtra) { // an extra step of this cycle was cut short by the bound: none more until the next cycle
+		return;
+	}
 	if (interceptIsFree ? (delta != 0.0) : (s.hessian > 0.0 &&
 		std::abs(s.gradient) >= interceptFloor * std::sqrt(s.hessian) && // else within the tolerance already
 		s.gradient * s.gradient / (2.0 * s.hessian) >= adaptiveInterceptRatio * rate * 2.0 * totalRows)) {
@@ -2844,7 +2857,14 @@ void CyclicCoordinateDescent::trackInterceptGradient(int index, double delta, do
 		if (trackKkt) {
 			accumulateKkt(interceptIndex, interceptDelta, lastGradientHessian);
 		}
-		interceptDelta = applyBounds(interceptDelta, interceptIndex);
+		// Extra steps keep within the intercept's bound but do not widen it (its own visit adapts it, once per cycle):
+		// from a saturated start every intercept step is bound-limited, and each widening doubled the bound, several
+		// times a cycle, until the fit ran away (NaN)
+		if (hXI.getModelType() != ModelType::NORMAL && std::abs(interceptDelta) > hDelta[interceptIndex]) {
+			interceptDelta = (interceptDelta < 0.0) ? -hDelta[interceptIndex] : hDelta[interceptIndex];
+			boundLimitedStep = true;
+			s.boundedExtra = true;
+		}
 		if (interceptDelta != 0.0) {
 			sufficientStatisticsKnown = false;
 			updateSufficientStatistics(interceptDelta, interceptIndex);

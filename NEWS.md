@@ -367,6 +367,12 @@ Changes:
    took 0.094 s instead of 0.032 s, and 0.25 s instead of 0.064 s under `"auto"`. `fit$prior_info` (and `print(fit)`)
    lists at most the first 100 priors of a fit, then their number: listing every prior took about 6 ms per fit with
    18,933 covariates
+57. extra adaptive intercept steps (`fitter = "super"`) keep within the intercept's step bound without widening it: from a
+   start with most rows saturated (an intercept of -800 or 100), each bounded step doubled the bound, several times a
+   cycle, and the fit diverged to `NaN`
+58. a covariate whose values are all `NaN` (FeatureExtraction can give a value covariate `NaN` in every row) and that a
+   Laplace prior holds at 0 no longer makes the `"kkt"` stop of `fitter = "super"` return `ILLCONDITIONED`: its
+   gradient is `NaN`, but a coefficient held at 0 does not move
 
 Cyclops v3.8.0
 ==============
