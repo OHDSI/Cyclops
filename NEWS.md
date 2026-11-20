@@ -319,14 +319,14 @@ Changes:
    (12,000 columns, 300 non-zeros per row), fold fits at weak penalties took 1.9-2.9 times fewer seconds, and a whole
    ridge cross-validation 1.7 times fewer, with the same selected variance. Results do not depend on threads; the default
    fitter keeps the cyclic order (as `"legacy"`)
-49. `createPrior(lowerBound = )` bounds coefficients from below, as `lower.limits` in `glmnet` (each bound 0 or
+51. `createPrior(lowerBound = )` bounds coefficients from below, as `lower.limits` in `glmnet` (each bound 0 or
    negative; one number bounds every coefficient except the intercept, or give one per covariate). The fit is the
    mode over the coefficients at or above their bounds, for `"none"`, `"normal"`, `"laplace"` and `"elasticnet"`
    priors: coordinate steps stop at the bound, and every optimality test is one-sided there (the `"kkt"` criterion,
    the zero certificates and active-set cycling of `fitter = "super"`, the strong-convexity bound R and the duality gap
    of L1 logistic regression, whose dual gains the conjugate of each bound). Bounded fits take no Newton steps:
    `algorithm = "auto"` runs coordinate descent (for logistic regression under `"gap"`, the coordinate descent of
-   47 with its certificates), and `"newton"` is an error. Laplace and elastic-net logistic fits agree with
+   49 with its certificates), and `"newton"` is an error. Laplace and elastic-net logistic fits agree with
    `glmnet(lower.limits = , standardize = FALSE)` to its accuracy. In Python: `Prior(lower_bound = )`
 
 

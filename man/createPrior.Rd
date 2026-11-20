@@ -58,8 +58,9 @@ go below its bound stays at it (a bound of 0 keeps coefficients non-negative). B
 is optimal when the gradient of the penalized objective does not point below it. Under the \code{"gap"}
 criterion, Laplace logistic fits are certified by the duality gap and fits with a normal part on every free
 coefficient by the strong-convexity bound; others stop uncertified, on the \code{"kkt"} test of coordinate descent
-(logistic regression) or its estimate of the remaining decrease. The reported
-log prior is that of the prior without the bounds. A start below a bound starts at the bound.
+(logistic regression) or its estimate of the remaining decrease; so do fits whose unpenalized coefficient (the
+intercept) has a bound. The reported log prior is that of the prior without the bounds. A start below a bound starts
+at the bound; a coefficient fixed by \code{fixedCoefficients} keeps its value whatever its bound.
 }
 
 \section{Prior types}{

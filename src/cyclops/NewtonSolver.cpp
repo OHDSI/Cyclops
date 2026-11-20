@@ -1460,6 +1460,10 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		int unpenalized = 0;
 		for (size_t i = 0; i < context.F.size() && eligible; ++i) {
 			eligible = context.precision[i] == 0.0;
+			// (the dual point refits the unpenalized column as free: with its bound active the gap could not close)
+			if (context.lambda[i] == 0.0 && context.bounded && std::isfinite(context.lowerBound[i])) {
+				eligible = false;
+			}
 			if (context.lambda[i] == 0.0) {
 				++unpenalized;
 				context.dualIntercept = static_cast<int>(i);
@@ -1613,7 +1617,7 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 		newtonCost = context.conjugateGradient ? cgRatio : costRatio;
 		convergenceReport.costRatio = newtonCost;
 	};
-	if (!kktGuided) prepareNewton();
+	if (!kktGuided && !context.bounded) prepareNewton(); // (bounded fits take no Newton steps: no cost, no budget refusal)
 
 	const int warmStart = context.anyLaplace ? 10 : 3; // 2.4 step 2: 10 when Laplace coordinates screen
 	const int stopFrom = 3; // stop tests start after 3 cycles even when Newton waits for the longer warm start
@@ -1948,7 +1952,7 @@ void CyclicCoordinateDescent::findModeGap(const std::function<void()>& cycle, in
 				}
 				if (!std::isfinite(std::min(ccdCycles, newtonCycles)) && !gapFromDefaults) {
 					legacyCertify = true; // a given "gap" is certified, by the curvature certificates below
-					prepareNewton();
+					if (!context.bounded) prepareNewton();
 					certifyAfter = cycles;
 				} else if (!std::isfinite(std::min(ccdCycles, newtonCycles)) || !affordable(std::min(ccdCycles, newtonCycles))) {
 					finish(SUCCESS, "none", std::isfinite(bound) ? bound : estimate); // the kkt stop, with the bound in hand

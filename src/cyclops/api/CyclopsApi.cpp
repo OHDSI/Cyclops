@@ -661,15 +661,19 @@ void Model::Impl::applyPrior() {
     // value bounds all but the intercept; the offset column is never bounded
     const std::size_t estimated = length - betaOffset();
     std::vector<double> bounds;
+    if (!prior.lower_bounds.empty() && prior.lower_bounds.size() != 1 && prior.lower_bounds.size() != estimated) {
+        std::ostringstream stream;
+        stream << "lower_bounds must be one value or one per estimated coefficient ("
+               << estimated << " expected, " << prior.lower_bounds.size() << " given)";
+        throw CyclopsError(stream.str());
+    }
+    if (std::any_of(prior.lower_bounds.begin(), prior.lower_bounds.end(),
+                    [](double b) { return std::isnan(b) || b > 0.0; })) { // before the intercept's bound is dropped
+        throw CyclopsError("Lower bounds must be 0 or negative (-inf for none)");
+    }
     const bool anyBound = std::any_of(prior.lower_bounds.begin(), prior.lower_bounds.end(),
                                       [](double b) { return !(b == -std::numeric_limits<double>::infinity()); });
     if (anyBound) {
-        if (prior.lower_bounds.size() != 1 && prior.lower_bounds.size() != estimated) {
-            std::ostringstream stream;
-            stream << "lower_bounds must be one value or one per estimated coefficient ("
-                   << estimated << " expected, " << prior.lower_bounds.size() << " given)";
-            throw CyclopsError(stream.str());
-        }
         bounds.assign(length, -std::numeric_limits<double>::infinity());
         for (std::size_t i = 0; i < estimated; ++i) {
             bounds[betaOffset() + i] = prior.lower_bounds.size() == 1 ? prior.lower_bounds[0] : prior.lower_bounds[i];

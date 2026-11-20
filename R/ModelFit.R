@@ -1170,8 +1170,9 @@ createControl <- function(maxIterations = NULL,
 #' is optimal when the gradient of the penalized objective does not point below it. Under the \code{"gap"}
 #' criterion, Laplace logistic fits are certified by the duality gap and fits with a normal part on every free
 #' coefficient by the strong-convexity bound; others stop uncertified, on the \code{"kkt"} test of coordinate descent
-#' (logistic regression) or its estimate of the remaining decrease. The reported
-#' log prior is that of the prior without the bounds. A start below a bound starts at the bound.
+#' (logistic regression) or its estimate of the remaining decrease; so do fits whose unpenalized coefficient (the
+#' intercept) has a bound. The reported log prior is that of the prior without the bounds. A start below a bound starts
+#' at the bound; a coefficient fixed by \code{fixedCoefficients} keeps its value whatever its bound.
 #'
 #' @section Prior types:
 #'
@@ -1269,17 +1270,21 @@ createPrior <- function(priorType,
 # The lower bounds of createPrior(lowerBound) for the interface: one per coefficient, the offset's included (-Inf), or
 # numeric(0) for none. One number bounds every coefficient except the intercept
 .lowerBounds <- function(cyclopsData, lowerBound) {
-    if (is.null(lowerBound) || all(lowerBound == -Inf)) {
+    if (is.null(lowerBound)) {
         return(numeric(0))
     }
     count <- getNumberOfCovariates(cyclopsData)
+    if (length(lowerBound) != 1 && length(lowerBound) != count) {
+        stop("lowerBound must be one number or one bound per covariate (", count, ")")
+    }
+    if (all(lowerBound == -Inf)) {
+        return(numeric(0))
+    }
     if (length(lowerBound) == 1) {
         lowerBound <- rep(lowerBound, count)
         if (.cyclopsGetHasIntercept(cyclopsData)) {
             lowerBound[1] <- -Inf
         }
-    } else if (length(lowerBound) != count) {
-        stop("lowerBound must be one number or one bound per covariate (", count, ")")
     }
     if (.cyclopsGetHasOffset(cyclopsData)) {
         lowerBound <- c(-Inf, lowerBound)

@@ -845,6 +845,8 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 		std::ostringstream stream;
 		if (usingGPU || usingCUDA || syncCV) {
 			stream << "Lower bounds need the CPU, without synchronized cross-validation folds";
+		} else if (algorthmType == AlgorithmType::MM && convergenceType == GAP) { // (MM keeps no step decreases to estimate from)
+			stream << "The \"gap\" criterion with lower bounds needs coordinate descent (algorithm \"auto\" or \"ccd\")";
 		} else if (algorthmType == AlgorithmType::NEWTON) {
 			stream << "Newton steps are not available with lower bounds; use algorithm \"auto\" or \"ccd\"";
 		} else if (arguments.useKktSwindle) {
@@ -859,13 +861,17 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 		if (stream.tellp() != 0) {
 			error->throwError(stream);
 		}
-		for (int j = 0; j < J; ++j) {
+	}
+	// (fixed coefficients keep their value, whatever their bound: profiles fix a coefficient on both sides of its estimate)
+	auto projectOntoBounds = [this, bounded]() {
+		for (int j = 0; j < J && bounded; ++j) {
 			if (!fixBeta[j] && hBeta[j] < lowerBound[j]) {
 				hBeta[j] = lowerBound[j];
 				xBetaKnown = false;
 			}
 		}
-	}
+	};
+	projectOntoBounds();
 	if (convergenceType == GAP || algorthmType == AlgorithmType::AUTO || algorthmType == AlgorithmType::NEWTON) {
 		std::string reason = secondOrderIneligibility();
 		if (reason.empty() && arguments.useKktSwindle) {
@@ -1003,6 +1009,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	        // Reset beta and shrink bounding box
 	        initialBound /= 10.0;
             resetBeta();
+            projectOntoBounds(); // (the start may be below a bound)
 	    } else {
 	        done = true;
 	    }
@@ -1584,8 +1591,11 @@ bool CyclicCoordinateDescent::performCheckConvergence(int convergenceType,
             illconditioned = true;
         } else {
             conv = computeConvergenceCriterion(thisObjFunc, *lastObjFunc);
+            // (under lower bounds, a first cycle that moves nothing because every coefficient is optimal where it
+            // started, typically at its bound, is the optimum: its one-sided kkt residual is exactly 0)
             if (conv == 0.0 && iteration == 1 && convergenceType != ONE_STEP &&
-                !std::all_of(std::begin(fixBeta), std::end(fixBeta), [](bool fixed) { return fixed; })
+                !std::all_of(std::begin(fixBeta), std::end(fixBeta), [](bool fixed) { return fixed; }) &&
+                !(anyLowerBound() && computeKktResidual() == 0.0)
             ) {
                 std::ostringstream stream;
                 stream << "\nWarning: BLR gradient is ill-conditioned\n"
@@ -1897,6 +1907,9 @@ void CyclicCoordinateDescent::findMode(
                     if (delta != 0.0) {
                         sufficientStatisticsKnown = false;
                         hBeta[index] += delta;
+                        if (!lowerBound.empty() && hBeta[index] < lowerBound[index]) {
+                            hBeta[index] = lowerBound[index]; // (rounding; X beta is recomputed below)
+                        }
 
                         // std::cerr << " : " << index << " " << hBeta[index] << " " << delta;
 
@@ -2935,6 +2948,9 @@ void CyclicCoordinateDescent::updateXBeta(double delta, int index) {
 	// Update beta
 	double realDelta = static_cast<double>(delta);
 	hBeta[index] += delta;
+	if (!lowerBound.empty() && hBeta[index] < lowerBound[index]) {
+		hBeta[index] = lowerBound[index]; // beta + (bound - beta) can round below the bound (by an ulp of beta)
+	}
 
 	// Delegate
 	modelSpecifics.updateXBeta(realDelta, index, useCrossValidation);

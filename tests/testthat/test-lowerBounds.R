@@ -176,13 +176,48 @@ test_that("glmnet lower.limits agree (standardize = FALSE)", {
     }
 })
 
+test_that("a bounded intercept, and a start that is already the bounded optimum", {
+    sim <- simulateBounded(seed = 9)
+    variance <- 2 / (sim$n * 0.005)^2
+    sim$y[] <- rbinom(sim$n, 1, 0.1) # an intercept that wants to be negative, bounded at 0
+    sim$data <- createCyclopsData(sim$y ~ sim$x, modelType = "lr")
+    bounds <- c(0, rep(0, sim$p))
+    for (control in list(list(algorithm = "ccd", convergenceType = "gap", tolerance = 1e-10), list())) {
+        fit <- do.call(boundedFit, c(list(sim, createPrior("laplace", variance = variance, lowerBound = bounds)), control))
+        expect_equal(fit$return_flag, "SUCCESS")
+        expect_true(all(coef(fit) >= 0))
+        expect_equal(coef(fit)[[1]], 0)
+        expect_lt(boundedKktResidual(sim, fit, variance, 0)[["residual"]], 1e-5)
+    }
+
+    # every coefficient optimal at its start (0, its bound): the first cycle moves nothing, which is convergence
+    set.seed(12)
+    n <- 300
+    x <- matrix(rnorm(n * 3), n, 3)
+    time <- rexp(n, exp(-drop(x %*% c(1, 0.8, 0.6)))) # every effect negative
+    data <- createCyclopsData(Surv(time, rep(1, n)) ~ x, modelType = "cox")
+    for (convergenceType in c("gradient", "lange")) {
+        fit <- fitCyclopsModel(data, prior = createPrior("none", lowerBound = 0), warnings = FALSE,
+                               control = createControl(algorithm = "ccd", convergenceType = convergenceType,
+                                                       noiseLevel = "silent"))
+        expect_equal(fit$return_flag, "SUCCESS")
+        expect_equal(unname(coef(fit)), c(0, 0, 0))
+    }
+})
+
 test_that("lower bounds are validated", {
     sim <- simulateBounded(seed = 2)
     expect_error(createPrior("laplace", lowerBound = 0.5), "0 or negative")
     expect_error(createPrior("laplace", lowerBound = NA), "0 or negative")
     expect_error(boundedFit(sim, createPrior("laplace", lowerBound = c(0, 0))), "one bound per covariate")
+    expect_error(boundedFit(sim, createPrior("laplace", lowerBound = c(-Inf, -Inf))), "one bound per covariate")
     expect_error(boundedFit(sim, createPrior("laplace", lowerBound = 0), algorithm = "newton"),
                  "Newton steps are not available with lower bounds")
     expect_error(boundedFit(sim, createPrior("laplace", lowerBound = 0), useKKTSwindle = TRUE),
                  "kkt swindle")
+    expect_error(fitCyclopsModel(sim$data, prior = createPrior("laplace", lowerBound = 0), warnings = FALSE,
+                                 control = structure(utils::modifyList(createControl(noiseLevel = "silent"),
+                                                                       list(algorithm = "mm", convergenceType = "gap")),
+                                                     class = "cyclopsControl")),
+                 "needs coordinate descent")
 })
