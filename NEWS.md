@@ -361,6 +361,12 @@ Changes:
    its entries; the data equal those of that data frame. With 26 million binary values (100,000 rows, 20,000 columns),
    converting took 0.08 GB beyond the matrix and 0.3 s, against 0.28 GB and 0.7 s through a data frame of the entries
    (1.25 GB and 3.6 s before item 54)
+56. a prior with one variance per covariate (`createPrior(priorType = c(...), variance = c(...))`) is set up in time
+   linear in the number of covariates; it was quadratic, in `fitCyclopsModel()` and again for each fit that merges
+   duplicate columns (`mergeDuplicates`, the default under `algorithm = "auto"`). With 18,933 covariates a LASSO fit
+   took 0.094 s instead of 0.032 s, and 0.25 s instead of 0.064 s under `"auto"`. `fit$prior_info` (and `print(fit)`)
+   lists at most the first 100 priors of a fit, then their number: listing every prior took about 6 ms per fit with
+   18,933 covariates
 
 Cyclops v3.8.0
 ==============
