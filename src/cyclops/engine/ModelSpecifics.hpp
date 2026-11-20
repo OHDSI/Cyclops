@@ -523,13 +523,13 @@ void ModelSpecifics<BaseModel,RealType>::setWeights(double* inWeights, double *c
     }
 
     //ESK: Compute hNtoK indices manually and create censoring weights hYWeight is isTwoWayScan
-    if (hYWeight.size() != K) {
-        hYWeight.resize(K);
-    }
-	if (hYWeightDouble.size() != K) {
-		hYWeightDouble.resize(K);
-	}
-    if (BaseModel::isTwoWayScan) {
+    if (BaseModel::isTwoWayScan) { // the censoring weights: only the two-way scans read them
+        if (hYWeight.size() != K) {
+            hYWeight.resize(K);
+        }
+        if (hYWeightDouble.size() != K) {
+            hYWeightDouble.resize(K);
+        }
         hNtoK.resize(N + 1);
         int n = 0;
         for (size_t k = 0; k < K;) {
@@ -3362,11 +3362,8 @@ void ModelSpecifics<BaseModel,RealType>::initialize(
     // 	denomPid = numerPid + alignedLength; // Nested in denomPid allocation
     // 	numerPid2 = numerPid + 2 * alignedLength;
     denomPid.resize(alignedLength);
-    denomPid2.resize(alignedLength);
     numerPid.resize(alignedLength);
     numerPid2.resize(alignedLength);
-    numerPid3.resize(alignedLength);
-    numerPid4.resize(alignedLength);
 
     deviceInitialization();
 

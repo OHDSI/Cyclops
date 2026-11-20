@@ -47,6 +47,24 @@
 
 namespace bsccs {
 
+namespace logistic {
+// task(i, thread) for i < count, on the pool when there is one (else on this thread, in order). The logistic
+// second-order kernels use it only for loops whose results do not depend on the threads: elementwise loops (each
+// output written by one task) and the terms of a sum that the calling thread then adds in the serial order
+template <typename Task>
+inline void runTasks(WorkerPool* pool, size_t count, Task task) {
+	if (pool) {
+		pool->run(count, task);
+	} else {
+		for (size_t i = 0; i < count; ++i) task(i, 0);
+	}
+}
+constexpr size_t rowBlock = 8192;   // rows per task
+constexpr size_t columnBlock = 16;  // columns per task
+constexpr size_t termWindow = size_t(1) << 19; // an ordered reduction keeps at most this many rows' terms at once
+} // namespace logistic
+
+
 template <typename RealType>
 class Storage {
 public:
@@ -377,6 +395,9 @@ public:
 		}
 		driftTracking = on;
 	}
+	double getCertifiableRows(int index) { // an indicator column: its entries
+		return (hX.getFormatType(index) == INDICATOR) ? static_cast<double>(hX.getNumberOfEntries(index)) : 0.0;
+	}
 protected:
 
 	// hasLogisticRows cross-validation fold fits whose weights are all 0 or 1: the gradient sums the
@@ -695,6 +716,8 @@ private:
 	double lrDirectionMaxAbs() const;
 	double lrNewtonCostRatio(const std::vector<int>& F, bool conjugateGradient, bool preconditioned);
 	std::vector<double> lrDirection;   // X_F d by row
+	std::vector<double> lrTerm;        // trial log-likelihood terms of a window of rows (with threads)
+	std::vector<uint8_t> lrUse;
 	double lrColumnDot(int j, const std::vector<double>& a, bool squared) const;
 	void lrColumnAxpy(int j, double a, std::vector<double>& y) const;
 	void lrRowWeights(bool curvature, std::vector<double>& a) const;

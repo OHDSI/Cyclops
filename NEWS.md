@@ -309,7 +309,32 @@ Changes:
 48. Dense Newton steps scale the system by its diagonal before solving it: with a normal prior of tiny variance
    (about 1e-9 or less, as cross-validation can select) next to unpenalized columns, the solve dropped the unpenalized
    directions as if singular, and the fit stopped away from its optimum (an intercept of -3.15 instead of -3.32)
-49. Fine-Gray (subdistribution hazard) models with counting-process data, weights and censoring distributions per
+49. Less memory per data object and per cross-validation or bootstrap copy, with the same results and speed: outcomes
+   whose row IDs are consecutive (as `lr` data built from sorted tables, such as CCW's expanded rows) keep no row-ID
+   map and no row labels (converting 3 million `lr` rows: 12.2 s instead of 15.3 s); and the engines no longer allocate the
+   censoring weights of the two-way-scan models (Fine-Gray) for other models, or three per-row arrays only the GPU
+   engines use (40 bytes per row in every copy)
+50. `plr` fits by coordinate descent (`algorithm = "ccd"`) with a Laplace prior skip the visits to a column of 1s at
+   zero whose step is provably zero, as `lr` fits do (item 43 of 3.8.0), with bounds on the person-interval rows
+   (time-basis interactions of a 0/1 basis included), also on threads. Results are bitwise unchanged on any number of
+   threads. A fixed-variance CCW censoring model of 25,000 persons (72,748 person-intervals, 3,821 columns, 3,445
+   cycles, 1,105,682 skipped visits) took 96.6 s on 1 thread and 78.9 s on 4, and takes 65.0 s and 62.9 s; `"auto"`
+   fits (2.2 s) and `lr` (13.7 s) are unchanged. The cloglog link, single precision, `fitter = "legacy"` and weights
+   other than 0 and 1 keep every visit
+51. Threads within one `lr` or `plr` fit (`createControl(threads = )`): a `plr` column of at least 4,096 subjects
+   computes its coordinate-descent gradient and update on up to 4 threads, and the passes of Newton steps over rows
+   and subjects (`lr`: row weights, the full gradient, the Hessian block's transposition, trial log likelihoods and
+   steps; `plr`: the subjects' layout of the columns, the full gradient, the direction, log likelihoods, refreshes)
+   run on the fit's threads. Terms are computed on the threads and added in the serial order, so results are
+   bitwise identical on any number of threads and on one thread unchanged. A worker pool run wakes and waits for
+   only the threads it uses. The ordered sums keep the terms of at most 524,288 rows at a time. Cross-validation
+   folds, and bootstrap replicates on copies of the fit, keep coordinate descent on one thread.
+   Fixed-variance CCW censoring models (25,000 persons, 72,748 person-intervals, 3,821 columns; medians of 3 runs,
+   1 / 2 / 4 / 8 threads): `plr` `"ccd"` 66.0 / 63.8 / 63.9 / 64.8 s become 64.0 / 42.8 / 30.3 / 29.1 s; `plr`
+   `"auto"` 4.27 / 2.84 / 2.16 / 1.81 s become 4.27 / 2.45 / 1.55 / 1.16 s; `lr` `"auto"` 6.54 / 3.91 / 2.68 / 2.05 s
+   become 6.54 / 3.57 / 2.23 / 1.52 s; `lr` `"ccd"` (13.9 s) is unchanged. The cross-validated `plr` model (10
+   folds) on 4 threads takes 130.4 s instead of 132.1 s
+52. Fine-Gray (subdistribution hazard) models with counting-process data, weights and censoring distributions per
    group, without expanding rows: `convertToCyclopsData(..., fineGrayCensoring = )` with an outcome column
    `fineGrayGroup` for `"cox"` and `"cox_counting"` models. A row with `fineGrayGroup` g > 0 ended with a competing
    event at its stop time T and stays in the risk set of every later event time t of its stratum, with its weight
