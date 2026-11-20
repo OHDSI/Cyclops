@@ -76,6 +76,8 @@ predict.cyclopsFit <- function(object, newOutcomes, newCovariates, times = NULL,
         isCox <- modelType == "cox" || modelType == "cox_counting"
         if (isCox && is.null(times))
             stop("Specify `times` to predict survival for Cox models")
+        if (isCox && isTRUE(object$cyclopsData$fineGray))
+            stop("Survival prediction is not yet implemented for Fine-Gray (fineGrayGroup) models")
         if (modelType == "cpr" || modelType == "clr")
             stop("Prediction for conditional models not implemented")
 

@@ -622,6 +622,16 @@ void cyclopsLoadDataStartTime(Environment x,
     data->loadStartTime(startTime);
 }
 
+// [[Rcpp::export(".loadCyclopsDataFineGray")]]
+void cyclopsLoadDataFineGray(Environment x, const std::vector<int>& group, const std::vector<int>& censoringGroup,
+                             const std::vector<double>& censoringTime, const std::vector<double>& censoringSurvival) {
+
+    using namespace bsccs;
+    XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
+
+    data->loadFineGray(group, censoringGroup, censoringTime, censoringSurvival);
+}
+
 // [[Rcpp::export(".loadCyclopsDataSubjectId")]]
 void cyclopsLoadDataSubjectId(Environment x,
                               const std::vector<double>& subjectId) {

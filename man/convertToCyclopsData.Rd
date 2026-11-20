@@ -18,7 +18,8 @@ convertToCyclopsData(
   quiet = FALSE,
   floatingPoint = 64,
   timeBasis = NULL,
-  link = "logit"
+  link = "logit",
+  fineGrayCensoring = NULL
 )
 
 \method{convertToCyclopsData}{data.frame}(
@@ -33,7 +34,8 @@ convertToCyclopsData(
   quiet = FALSE,
   floatingPoint = 64,
   timeBasis = NULL,
-  link = "logit"
+  link = "logit",
+  fineGrayCensoring = NULL
 )
 
 \method{convertToCyclopsData}{tbl_dbi}(
@@ -48,7 +50,8 @@ convertToCyclopsData(
   quiet = FALSE,
   floatingPoint = 64,
   timeBasis = NULL,
-  link = "logit"
+  link = "logit",
+  fineGrayCensoring = NULL
 )
 }
 \arguments{
@@ -82,6 +85,19 @@ whose value in a person-interval row is its value at the row's interval (0 where
 (complementary log-log, a grouped-time proportional hazards model). Cloglog fits run on
 coordinate descent, so with correlated time-basis columns they need a tighter \code{tolerance}
 in \code{\link{createControl}} (e.g. 1e-10); their \code{vcov()} is the observed information}
+
+\item{fineGrayCensoring}{For \code{"cox"} and \code{"cox_counting"} models with an outcome column
+\code{fineGrayGroup}, the censoring distributions of a Fine-Gray (subdistribution hazard)
+model: a data frame with columns \code{fineGrayGroup} (positive integer), \code{time} and
+\code{survival}, the right-continuous step function G_g of each group (G_g(t) is the
+\code{survival} of the group's last \code{time} at or before t, and 1 before its first). A row
+with \code{fineGrayGroup} g > 0 ended with a competing event at its stop time T (it needs
+\code{y = 0}); it stays in the risk set of every later event time t of its stratum, with its
+weight multiplied by G_g(t-) / G_g(T-). Rows with \code{fineGrayGroup = 0} are ordinary rows.
+This gives the weighted Fine-Gray partial likelihood without expanding rows; it equals the
+Cox model fitted to rows in which every competing-event row is followed by one row per
+later event time with those weights. A group with no rows in \code{fineGrayCensoring} has
+G_g = 1. Needs \code{floatingPoint = 64}.}
 }
 \value{
 An object of type cyclopsData
@@ -100,6 +116,8 @@ These columns are expected in the outcome object:
 \verb{startTime}    \tab(real) \tab (optional) For \code{"cox_counting"} models, the start of the \code{(startTime, time]} \cr
 \tab        \tab (or \code{(startTime, endTime]}) risk interval of each row; rows without it are at risk \cr
 \tab        \tab from time 0 \cr
+\verb{fineGrayGroup}    \tab(integer) \tab (optional) For \code{"cox"} and \code{"cox_counting"} models, the censoring \cr
+\tab        \tab group of a row that ended with a competing event (0 otherwise); see \code{fineGrayCensoring} \cr
 \verb{subjectId}    \tab(integer) \tab (optional) For any model, rows with the same subject stay in one cross-validation fold \cr
 \tab        \tab and are resampled together by \code{\link{runBootstrap}} (\code{selectorType = "bySubject"}) \cr
 \verb{offset} \tab(real) \tab (optional) For \code{"lr"} models, an offset added to the linear predictor (log-odds \cr

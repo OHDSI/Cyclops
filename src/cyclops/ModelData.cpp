@@ -183,6 +183,76 @@ void ModelData<RealType>::loadSubjectId(const std::vector<IdType>& oSubjectId) {
 }
 
 template <typename RealType>
+void ModelData<RealType>::loadFineGray(const std::vector<int>& group, const std::vector<int>& censoringGroup,
+        const std::vector<double>& censoringTime, const std::vector<double>& censoringSurvival) {
+
+    if (group.size() != y.size()) {
+        std::ostringstream stream;
+        stream << "Mismatched Fine-Gray group dimensions";
+        error->throwError(stream);
+    }
+    if (censoringTime.size() != censoringGroup.size() || censoringSurvival.size() != censoringGroup.size()) {
+        std::ostringstream stream;
+        stream << "Mismatched Fine-Gray censoring distribution dimensions";
+        error->throwError(stream);
+    }
+    int groups = 0;
+    for (size_t k = 0; k < group.size(); ++k) {
+        if (group[k] < 0) {
+            std::ostringstream stream;
+            stream << "Fine-Gray groups must be non-negative";
+            error->throwError(stream);
+        }
+        if (group[k] > 0 && y[k] != static_cast<RealType>(0)) {
+            std::ostringstream stream;
+            stream << "A Fine-Gray row (a competing event) cannot have an outcome event";
+            error->throwError(stream);
+        }
+        groups = std::max(groups, group[k]);
+    }
+    for (size_t i = 0; i < censoringGroup.size(); ++i) {
+        if (censoringGroup[i] < 1) {
+            std::ostringstream stream;
+            stream << "Fine-Gray censoring groups must be positive";
+            error->throwError(stream);
+        }
+        if (!(censoringSurvival[i] >= 0.0 && censoringSurvival[i] <= 1.0)) {
+            std::ostringstream stream;
+            stream << "Fine-Gray censoring survival must lie in [0, 1]";
+            error->throwError(stream);
+        }
+        groups = std::max(groups, censoringGroup[i]);
+    }
+
+    std::vector<std::vector<std::pair<double, double>>> steps(groups);
+    for (size_t i = 0; i < censoringGroup.size(); ++i) {
+        steps[censoringGroup[i] - 1].push_back(std::make_pair(censoringTime[i], censoringSurvival[i]));
+    }
+    fineGrayTimes.assign(groups, std::vector<double>());
+    fineGraySurvival.assign(groups, std::vector<double>());
+    for (int g = 0; g < groups; ++g) {
+        std::sort(steps[g].begin(), steps[g].end());
+        for (size_t i = 0; i < steps[g].size(); ++i) {
+            if (i > 0 && steps[g][i].first == steps[g][i - 1].first) {
+                std::ostringstream stream;
+                stream << "Fine-Gray censoring times must be distinct within a group";
+                error->throwError(stream);
+            }
+            fineGrayTimes[g].push_back(steps[g][i].first);
+            fineGraySurvival[g].push_back(steps[g][i].second);
+        }
+    }
+    fineGrayGroup.assign(group.begin(), group.end());
+}
+
+template <typename RealType>
+double ModelData<RealType>::fineGraySurvivalBefore(int group, double t) const {
+    const std::vector<double>& times = fineGrayTimes[group - 1];
+    const size_t before = std::lower_bound(times.begin(), times.end(), t) - times.begin(); // times < t
+    return (before == 0) ? 1.0 : fineGraySurvival[group - 1][before - 1];
+}
+
+template <typename RealType>
 int ModelData<RealType>::loadMultipleX(
 		const std::vector<int64_t>& covariateIds,
 		const std::vector<int64_t>& rowIds,

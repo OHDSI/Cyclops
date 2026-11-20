@@ -51,6 +51,18 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #' @param timeBasis     For \code{"plr"} models, an optional data frame with columns \code{interval}, \code{covariateId}
 #'                      and \code{covariateValue}: the time basis, one covariate (with a coefficient) per basis column,
 #'                      whose value in a person-interval row is its value at the row's interval (0 where not given)
+#' @param fineGrayCensoring For \code{"cox"} and \code{"cox_counting"} models with an outcome column
+#'                      \code{fineGrayGroup}, the censoring distributions of a Fine-Gray (subdistribution hazard)
+#'                      model: a data frame with columns \code{fineGrayGroup} (positive integer), \code{time} and
+#'                      \code{survival}, the right-continuous step function G_g of each group (G_g(t) is the
+#'                      \code{survival} of the group's last \code{time} at or before t, and 1 before its first). A row
+#'                      with \code{fineGrayGroup} g > 0 ended with a competing event at its stop time T (it needs
+#'                      \code{y = 0}); it stays in the risk set of every later event time t of its stratum, with its
+#'                      weight multiplied by G_g(t-) / G_g(T-). Rows with \code{fineGrayGroup = 0} are ordinary rows.
+#'                      This gives the weighted Fine-Gray partial likelihood without expanding rows; it equals the
+#'                      Cox model fitted to rows in which every competing-event row is followed by one row per
+#'                      later event time with those weights. A group with no rows in \code{fineGrayCensoring} has
+#'                      G_g = 1. Needs \code{floatingPoint = 64}.
 #' @param link          For \code{"plr"} models, the link: \code{"logit"} (pooled logistic regression) or \code{"cloglog"}
 #'                      (complementary log-log, a grouped-time proportional hazards model). Cloglog fits run on
 #'                      coordinate descent, so with correlated time-basis columns they need a tighter \code{tolerance}
@@ -67,6 +79,8 @@ isSorted <- function(data, columnNames, ascending = rep(TRUE, length(columnNames
 #'   \verb{startTime}    \tab(real) \tab (optional) For \code{"cox_counting"} models, the start of the \code{(startTime, time]} \cr
 #'                  \tab        \tab (or \code{(startTime, endTime]}) risk interval of each row; rows without it are at risk \cr
 #'                  \tab        \tab from time 0 \cr
+#'   \verb{fineGrayGroup}    \tab(integer) \tab (optional) For \code{"cox"} and \code{"cox_counting"} models, the censoring \cr
+#'                  \tab        \tab group of a row that ended with a competing event (0 otherwise); see \code{fineGrayCensoring} \cr
 #'   \verb{subjectId}    \tab(integer) \tab (optional) For any model, rows with the same subject stay in one cross-validation fold \cr
 #'                  \tab        \tab and are resampled together by \code{\link{runBootstrap}} (\code{selectorType = "bySubject"}) \cr
 #'   \verb{offset} \tab(real) \tab (optional) For \code{"lr"} models, an offset added to the linear predictor (log-odds \cr
@@ -139,7 +153,8 @@ convertToCyclopsData <- function(outcomes,
                                  quiet = FALSE,
                                  floatingPoint = 64,
                                  timeBasis = NULL,
-                                 link = "logit") {
+                                 link = "logit",
+                                 fineGrayCensoring = NULL) {
     UseMethod("convertToCyclopsData")
 }
 
@@ -171,7 +186,8 @@ convertToCyclopsData.data.frame <- function(outcomes,
                                             quiet = FALSE,
                                             floatingPoint = 64,
                                             timeBasis = NULL,
-                                            link = "logit") {
+                                            link = "logit",
+                                            fineGrayCensoring = NULL) {
     if (!is.null(checkSorting))
         warning("The 'checkSorting' argument has been deprecated. Sorting is now always checked")
 
@@ -313,6 +329,8 @@ convertToCyclopsData.data.frame <- function(outcomes,
         dataPtr$stratumIds <- unique(outcomes$stratumId)
     }
 
+    .loadFineGray(dataPtr, outcomes, modelType, fineGrayCensoring, floatingPoint)
+
     if ("subjectId" %in% colnames(outcomes)) {
         .loadCyclopsDataSubjectId(dataPtr, bit64::as.integer64(outcomes$subjectId))
     }
@@ -394,7 +412,8 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
                                          quiet = FALSE,
                                          floatingPoint = 64,
                                          timeBasis = NULL,
-                                         link = "logit") {
+                                         link = "logit",
+                                         fineGrayCensoring = NULL) {
     if (!is.null(checkSorting))
         warning("The 'checkSorting' argument has been deprecated. Sorting is now always checked")
 
@@ -529,6 +548,8 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         dataPtr$stratumIds <- unique(outcomes$stratumId)
     }
 
+    .loadFineGray(dataPtr, outcomes, modelType, fineGrayCensoring, floatingPoint)
+
     if ("subjectId" %in% colnames(outcomes)) {
         .loadCyclopsDataSubjectId(dataPtr, bit64::as.integer64(outcomes$subjectId))
     }
@@ -614,4 +635,39 @@ convertToCyclopsData.tbl_dbi <- function(outcomes,
         stop("The offset column of the outcomes must be finite (", sum(!is.finite(outcomes$offset)),
              " rows are NA, NaN or infinite)", call. = FALSE)
     }
+}
+
+# Loads the Fine-Gray rows (outcome column fineGrayGroup) and censoring distributions (fineGrayCensoring) of a
+# "cox" or "cox_counting" model, in the order the outcomes were loaded.
+.loadFineGray <- function(dataPtr, outcomes, modelType, fineGrayCensoring, floatingPoint) {
+    hasGroups <- "fineGrayGroup" %in% colnames(outcomes)
+    if (!hasGroups) {
+        if (!is.null(fineGrayCensoring)) {
+            stop("fineGrayCensoring needs an outcome column fineGrayGroup", call. = FALSE)
+        }
+        return(invisible(NULL))
+    }
+    if (!(modelType %in% c("cox", "cox_counting"))) {
+        stop("Fine-Gray rows (fineGrayGroup) need modelType = \"cox\" or \"cox_counting\"", call. = FALSE)
+    }
+    if (floatingPoint != 64) {
+        stop("Fine-Gray rows (fineGrayGroup) need floatingPoint = 64", call. = FALSE)
+    }
+    group <- outcomes$fineGrayGroup
+    if (anyNA(group) || any(group < 0) || any(group != round(group))) {
+        stop("fineGrayGroup must be non-negative integers", call. = FALSE)
+    }
+    if (any(group > 0 & outcomes$y != 0)) {
+        stop("A row with fineGrayGroup > 0 (a competing event) must have y = 0", call. = FALSE)
+    }
+    if (is.null(fineGrayCensoring)) {
+        fineGrayCensoring <- data.frame(fineGrayGroup = integer(0), time = numeric(0), survival = numeric(0))
+    }
+    if (!is.data.frame(fineGrayCensoring) || !all(c("fineGrayGroup", "time", "survival") %in% colnames(fineGrayCensoring))) {
+        stop("fineGrayCensoring must be a data frame with columns fineGrayGroup, time and survival", call. = FALSE)
+    }
+    .loadCyclopsDataFineGray(dataPtr, as.integer(group), as.integer(fineGrayCensoring$fineGrayGroup),
+                             as.numeric(fineGrayCensoring$time), as.numeric(fineGrayCensoring$survival))
+    dataPtr$fineGray <- any(group > 0)
+    return(invisible(NULL))
 }

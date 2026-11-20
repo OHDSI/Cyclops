@@ -309,6 +309,17 @@ Changes:
 48. Dense Newton steps scale the system by its diagonal before solving it: with a normal prior of tiny variance
    (about 1e-9 or less, as cross-validation can select) next to unpenalized columns, the solve dropped the unpenalized
    directions as if singular, and the fit stopped away from its optimum (an intercept of -3.15 instead of -3.32)
+49. Fine-Gray (subdistribution hazard) models with counting-process data, weights and censoring distributions per
+   group, without expanding rows: `convertToCyclopsData(..., fineGrayCensoring = )` with an outcome column
+   `fineGrayGroup` for `"cox"` and `"cox_counting"` models. A row with `fineGrayGroup` g > 0 ended with a competing
+   event at its stop time T and stays in the risk set of every later event time t of its stratum, with its weight
+   multiplied by G_g(t-) / G_g(T-), where G_g is the step function of group g in `fineGrayCensoring` (columns
+   `fineGrayGroup`, `time`, `survival`). The partial likelihood, coordinate descent, Newton steps (dense and
+   conjugate-gradient, with the Woodbury preconditioner), `vcov()` (model-based and `type = "robust"`), Schoenfeld
+   residuals, separation checks and cross-validation use one running sum per group in each risk set, so a fit costs
+   O(rows + event times x groups) instead of one extra row per competing event and later event time. All of them
+   equal the `cox_counting` fit on those expanded rows (tests to 1e-8 or better). Survival prediction and
+   `survfit()` are not yet implemented for these models and stop with an error; they need double precision
 
 Cyclops v3.8.0
 ==============

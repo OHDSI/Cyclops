@@ -145,6 +145,11 @@ public:
 
     virtual void loadSubjectId(const std::vector<IdType>& subjectId) = 0;
 
+    // Fine-Gray rows of Cox models (see ModelData::loadFineGray)
+    virtual void loadFineGray(const std::vector<int>& group, const std::vector<int>& censoringGroup,
+                              const std::vector<double>& censoringTime,
+                              const std::vector<double>& censoringSurvival) = 0;
+
     virtual const IntVector& getSubjectIndexVectorRef() const = 0;
 
     virtual int loadX(
@@ -327,6 +332,23 @@ public:
 	void loadStartTime(const std::vector<double>& startTime);
 
 	void loadSubjectId(const std::vector<IdType>& subjectId);
+
+	// Fine-Gray rows of Cox models: a row with group[k] = g > 0 ended with a competing event at its stop time
+	// T_k and stays in the risk set of every later event time t of its stratum, with its weight multiplied
+	// by G_g(t-) / G_g(T_k-), where G_g is the right-continuous step function with values
+	// censoringSurvival at censoringTime (rows of censoringGroup g; 1 before the first). Groups without
+	// entries have G_g = 1.
+	void loadFineGray(const std::vector<int>& group, const std::vector<int>& censoringGroup,
+	                  const std::vector<double>& censoringTime, const std::vector<double>& censoringSurvival);
+
+	bool hasFineGray() const { return !fineGrayGroup.empty(); }
+
+	const IntVector& getFineGrayGroupRef() const { return fineGrayGroup; }
+
+	// G_g(t-): the value of group g's step function at its last time before t (1 if none)
+	double fineGraySurvivalBefore(int group, double t) const;
+
+	int getNumberOfFineGrayGroups() const { return static_cast<int>(fineGrayTimes.size()); }
 
 	const IntVector& getSubjectIndexVectorRef() const {
 		return subjectIndex;
@@ -848,6 +870,9 @@ protected:
 	RealVector offs; // TODO Rename to 'time'
 	RealVector startTime; // counting-process entry times; empty when all rows start at the origin
 	IntVector subjectIndex; // subject of each row for cross-validation folds; empty: one subject per row
+	IntVector fineGrayGroup; // censoring group of each Fine-Gray row (0: none); empty: no Fine-Gray rows
+	std::vector<std::vector<double>> fineGrayTimes; // per group g - 1: increasing jump times of G_g
+	std::vector<std::vector<double>> fineGraySurvival; // and G_g after each
 	IntVector nevents; // TODO Where are these used?
 	std::string conditionId;
 	std::vector<std::string> labels; // TODO Change back to 'long'
