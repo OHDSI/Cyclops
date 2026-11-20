@@ -299,6 +299,15 @@ Changes:
    fitter but `"legacy"`. On 8 real prediction tasks (47,000 to 300,000 persons, 2,200 to 7,400 columns, one thread),
    ridge fits took 31 s instead of 48 s in total (0.39 to 1.15 times the earlier time per task), with coefficients
    within 6e-5 of the earlier ones and the same held-out AUC; Laplace fits and their cross-validations were unchanged
+48. under `fitter = "super"` (and the `"gap"` criterion of `algorithm = "auto"`), logistic fits whose penalized coefficients all
+   have normal priors (ridge, per-covariate variances), with at least 1,000 free covariates, visit the coordinates in a new
+   seeded order each cycle (smaller fits, such as refits on a selected support, keep the cyclic order). With binary
+   covariates every coupling between columns is non-negative, the unfavourable case for the cyclic order, and nested or
+   near-duplicate columns (concept rollups, overlapping time windows) at weak penalties then shrink the error along their
+   contrast by nearly the same factor every cycle. On a simulated claims design shaped like a 85,000-person training set
+   (12,000 columns, 300 non-zeros per row), fold fits at weak penalties took 1.9-2.9 times fewer seconds, and a whole
+   ridge cross-validation 1.7 times fewer, with the same selected variance. Results do not depend on threads; the default
+   fitter keeps the cyclic order (as `"legacy"`)
 
 Cyclops v3.8.0
 ==============
