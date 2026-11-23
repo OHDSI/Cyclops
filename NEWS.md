@@ -387,8 +387,9 @@ Changes:
    (it takes no Newton steps, so it never warns about `newtonMemoryBudget` (43)). The same settings apply under every
    fitter but `"legacy"`. On 8 real prediction tasks (47,000 to 300,000 persons, 2,200 to 7,400 columns, one thread),
    ridge fits took 31 s instead of 48 s in total (0.39 to 1.15 times the earlier time per task), with coefficients
-   within 6e-5 of the earlier ones and the same held-out AUC; Laplace fits and their cross-validations were unchanged
-60. under `fitter = "super"` (and the `"gap"` criterion of `algorithm = "auto"`), logistic fits whose penalized coefficients all
+   within 6e-5 of the earlier ones and the same held-out AUC; Laplace fits and their cross-validations were unchanged. `plr` takes the same path,
+   so it still takes lr's steps on its expanded rows (with `plrCostModel = "lr"`; item 47)
+60. under `fitter = "super"` (and the `"gap"` criterion of `algorithm = "auto"`), logistic (and `plr`) fits whose penalized coefficients all
    have normal priors (ridge, per-covariate variances), with at least 1,000 free covariates, visit the coordinates in a new
    seeded order each cycle (smaller fits, such as refits on a selected support, keep the cyclic order). With binary
    covariates every coupling between columns is non-negative, the unfavourable case for the cyclic order, and nested or

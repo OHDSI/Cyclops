@@ -315,7 +315,7 @@ fitCyclopsModel <- function(cyclopsData,
     # for priors without one (as the C++ side decides)
     hasL1 <- any(prior$priorType == "laplace") ||
         (any(prior$priorType == "elasticnet") && any(as.numeric(prior$laplaceFraction) > 0))
-    if (is.null(control$mergeDuplicates) && identical(cyclopsData$modelType, "lr") &&
+    if (is.null(control$mergeDuplicates) && cyclopsData$modelType %in% c("lr", "plr") &&
         (is.null(control$algorithm) || identical(control$algorithm, "auto")) && hasL1) {
         control$mergeDuplicates <- TRUE
     }
@@ -1502,7 +1502,7 @@ getCrossValidationInfo <- function(object) {
 # takes Newton steps only where they pay; its face solves handle the singular faces of duplicates)
 .mergeDuplicatesDefault <- function(control, modelType) {
     control$algorithm == "newton" ||
-        (control$algorithm == "auto" && !(identical(modelType, "lr") && identical(control$convergenceType, "gap")))
+        (control$algorithm == "auto" && !(modelType %in% c("lr", "plr") && identical(control$convergenceType, "gap")))
 }
 .modeControlOptions <- function(control, modelType = NULL) {
     valueOr <- function(value, default) if (is.null(value)) default else value

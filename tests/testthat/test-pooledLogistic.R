@@ -304,6 +304,19 @@ test_that("plr takes lr's steps on the expanded rows under auto with plrCostMode
     expect_equal(unname(coef(super$plr)), unname(coef(super$lr)), tolerance = 1E-10)
 })
 
+test_that("plr takes lr's steps on its expanded rows under auto with a normal prior, shuffled, on any number of threads", {
+    # (995 binary columns: with the time basis and interactions the fit has more than 1,000 free coordinates, so its
+    # coordinate descent visits them in a shuffled order)
+    pair <- expandedPair(nPersons = 150, p = 995)
+    prior <- createPrior("normal", variance = 0.5, exclude = pair$exclude)
+    fits <- fitBoth(pair, prior, createControl(plrCostModel = "lr", noiseLevel = "silent"))
+    expect_identical(fits$plr$iterations, fits$lr$iterations)
+    expect_equal(unname(coef(fits$plr)), unname(coef(fits$lr)), tolerance = 1E-10)
+    threaded <- fitCyclopsModel(pair$plr(), prior = prior, forceNewObject = TRUE,
+                                control = createControl(plrCostModel = "lr", threads = 2, noiseLevel = "silent"))
+    expect_identical(coef(threaded), coef(fits$plr))
+})
+
 test_that("plr cross-validates as lr on the expanded rows under the legacy fitter, with cvRepetitions = \"auto\"", {
     # (data without a separated fold: there lr's legacy kernels overflow and restart with a smaller bounding box)
     pair <- expandedPair(seed = 12)

@@ -868,7 +868,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 		anyL1 = !fixBeta[j] && jointPrior->getNewtonPenalty(j, &precision, &lambda) && lambda > 0.0;
 	}
 	kktGuided = convergenceType == GAP && (algorthmType == AlgorithmType::CCD || (algorthmType == AlgorithmType::AUTO && !anyL1)) &&
-		hXI.getModelType() == ModelType::LOGISTIC && !usingGPU && !usingCUDA && !syncCV && !profileActive;
+		(hXI.getModelType() == ModelType::LOGISTIC || hXI.getModelType() == ModelType::POOLED_LOGISTIC) && !usingGPU && !usingCUDA && !syncCV && !profileActive;
 	// Active-set cycling relies on full sweeps for its stop tests: those of the kkt criterion, or those of the kkt-guided
 	// "gap" path (findModeGap(), which decides only after full sweeps; logistic cycles are serial whatever the threads).
 	// Other criteria and models sweep every cycle (cross-validation fold fits may use another criterion than the fit)
@@ -884,7 +884,7 @@ void CyclicCoordinateDescent::update(const ModeFindingArguments& arguments) {
 	certificationBudget = arguments.certificationBudget;
 	adaptiveIntercept = (convergenceType == KKT || kktGuided) && arguments.adaptiveIntercept; // its floor is a kkt tolerance
 	minIterations = arguments.minIterations;
-	shuffleCoordinates = (arguments.shuffleCoordinates || kktGuided) && hXI.getModelType() == ModelType::LOGISTIC && !usingGPU && !usingCUDA &&
+	shuffleCoordinates = (arguments.shuffleCoordinates || kktGuided) && (hXI.getModelType() == ModelType::LOGISTIC || hXI.getModelType() == ModelType::POOLED_LOGISTIC) && !usingGPU && !usingCUDA &&
 		!syncCV && algorthmType != AlgorithmType::MM;
 	if (shuffleCoordinates) { // every penalized free coordinate has a normal prior (and there is one), and there are many
 		bool anyNormal = false;
@@ -1747,13 +1747,17 @@ void CyclicCoordinateDescent::findMode(
 
 	trackKkt = convergenceType == KKT || kktGuided;
 	kktConsecutive = 0;
-	if (columnWork.size() != static_cast<size_t>(J)) { // the data do not change
+	// (the data do not change; plrCostModel = "lr" counts lr's entries on the person-interval rows, setUpColumnRows(), so
+	// plr's kkt-guided decisions are lr's on its expanded rows)
+	if (columnWork.size() != static_cast<size_t>(J) || columnWorkLrCost != lrCostModel) {
+		if (lrCostModel) setUpColumnRows();
 		columnWork.resize(J);
 		for (int j = 0; j < J; ++j) {
 			const FormatType format = hXI.getColumnType(j);
-			columnWork[j] = (format == DENSE || format == INTERCEPT) ? static_cast<double>(K) :
-				static_cast<double>(hXI.getNumberOfEntries(j));
+			columnWork[j] = lrCostModel ? columnRows[j] : ((format == DENSE || format == INTERCEPT) ? static_cast<double>(K) :
+				static_cast<double>(hXI.getNumberOfEntries(j)));
 		}
+		columnWorkLrCost = lrCostModel;
 	}
 	nextCycleFull = true;
 	lastCycleFull = true;
@@ -1915,6 +1919,7 @@ void CyclicCoordinateDescent::findMode(
 	    		const bool fullSweep = activeSetEvery == 0 || nextCycleFull;
 	    		cycleMaxStepSE = 0.0;
 	    		cycleWork = 0.0; // the cycle's work, counted as the serial cycle counts it
+	    		if (shuffleCoordinates) drawCoordinateOrder(iteration); // the serial cycle's order
 	    		cycleWithConcurrentGradients(log, fullSweep);
 	    		finishCycle(fullSweep);
 	    	} else {
@@ -2504,6 +2509,7 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 	std::vector<int> run;
 	struct SpanMember {
 		int index;
+		int position; // in the visiting order
 		bool certified;
 		bool candidate; // a candidate before its step (for moveRate)
 	};
@@ -2548,10 +2554,14 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 		return changed;
 	};
 
-	for (int index = 0; index < J; ) {
+	// the visiting order: the shuffled one when the serial cycle shuffles (its free coordinates), else 0 .. J - 1
+	const int positions = shuffleCoordinates ? static_cast<int>(coordinateOrder.size()) : J;
+	auto at = [this](int position) { return shuffleCoordinates ? coordinateOrder[position] : position; };
+	for (int position = 0; position < positions; ) {
+		const int index = at(position);
 		if (skipped(index)) {
 			log(index);
-			++index;
+			++position;
 			continue;
 		}
 
@@ -2560,16 +2570,17 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 		if (moveRate * minRun < 1.0) { // under one move expected in minRun candidates
 			const size_t cap = (moveRate > 0.0) ?
 				std::min(maxRun, std::max(minRun, static_cast<size_t>(2.0 / moveRate))) : maxRun;
-			for (int j = index; j < J && run.size() < cap && span.size() < maxSpan && isCandidate(j); ++j) {
+			for (int p = position; p < positions && run.size() < cap && span.size() < maxSpan && isCandidate(at(p)); ++p) {
+				const int j = at(p);
 				const bool certified = useZeroCertificates && certifiedZero(j);
-				span.push_back({j, certified, true});
+				span.push_back({j, p, certified, true});
 				if (!certified) {
 					run.push_back(j);
 				}
 			}
 		}
 		if (span.empty()) {
-			span.push_back({index, useZeroCertificates && certifiedZero(index), isCandidate(index)});
+			span.push_back({index, position, useZeroCertificates && certifiedZero(index), isCandidate(index)});
 		}
 
 		// the span in order, stopping at the first member after which the state changed; the run's gradients
@@ -2606,7 +2617,7 @@ void CyclicCoordinateDescent::cycleWithConcurrentGradients(const std::function<v
 			}
 			changed = finish(member.index, delta, member.candidate, lastGradientHessian.second);
 		}
-		index = span[q - 1].index + 1;
+		position = span[q - 1].position + 1;
 	}
 }
 

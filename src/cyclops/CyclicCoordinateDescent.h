@@ -660,6 +660,7 @@ protected:
 	std::vector<int> coordinateOrder;
 	void drawCoordinateOrder(int cycleNumber);
 	std::vector<double> columnWork; // entries per column, set up once (the data do not change)
+	bool columnWorkLrCost = false;  // columnWork counts lr's entries (plrCostModel = "lr")
 	bool inActiveSet(int index) const {
 		if (activeSetThreshold > 0.0) {
 			return lastStepSE[index] >= activeSetTau;
