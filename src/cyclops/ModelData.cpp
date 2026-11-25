@@ -421,6 +421,850 @@ int ModelData<RealType>::loadColumns(
 	return firstColumnIndex;
 }
 
+namespace {
+
+struct NoValueTag {};
+struct BoolTag {};
+
+template <typename ValueT>
+inline double readScalar(const void* data, size_t k) {
+	return static_cast<double>(static_cast<const ValueT*>(data)[k]);
+}
+
+template <>
+inline double readScalar<NoValueTag>(const void*, size_t) {
+	return 1.0;
+}
+
+template <>
+inline double readScalar<BoolTag>(const void* data, size_t k) {
+	return static_cast<const uint8_t*>(data)[k] != 0 ? 1.0 : 0.0;
+}
+
+template <typename RealType, typename ValueT>
+void copyStridedValues(std::vector<RealType>& dst, const void* data, size_t n, ptrdiff_t byteStride) {
+	dst.resize(n);
+	if (n == 0) return;
+	if (byteStride == static_cast<ptrdiff_t>(sizeof(ValueT))) {
+		const auto* src = static_cast<const ValueT*>(data);
+		if (std::is_same<RealType, ValueT>::value) {
+			std::memcpy(dst.data(), src, n * sizeof(RealType));
+		} else {
+			for (size_t i = 0; i < n; ++i) {
+				dst[i] = static_cast<RealType>(src[i]);
+			}
+		}
+		return;
+	}
+	const auto* base = static_cast<const char*>(data);
+	for (size_t i = 0; i < n; ++i) {
+		ValueT v;
+		std::memcpy(&v, base + static_cast<ptrdiff_t>(i) * byteStride, sizeof(ValueT));
+		dst[i] = static_cast<RealType>(v);
+	}
+}
+
+template <typename RealType>
+void copyStridedBoolValues(std::vector<RealType>& dst, const void* data, size_t n, ptrdiff_t byteStride) {
+	dst.resize(n);
+	if (n == 0) return;
+	const auto* base = static_cast<const char*>(data);
+	for (size_t i = 0; i < n; ++i) {
+		const uint8_t b = *reinterpret_cast<const uint8_t*>(base + static_cast<ptrdiff_t>(i) * byteStride);
+		dst[i] = b != 0 ? static_cast<RealType>(1) : static_cast<RealType>(0);
+	}
+}
+
+template <typename RealType>
+void copyPositionalValues(std::vector<RealType>& dst, const PositionalValueView& view, ptrdiff_t byteStride) {
+	switch (view.kind) {
+	case PositionalValueView::FLOAT64:
+		copyStridedValues<RealType, double>(dst, view.data, view.size, byteStride);
+		break;
+	case PositionalValueView::FLOAT32:
+		copyStridedValues<RealType, float>(dst, view.data, view.size, byteStride);
+		break;
+	case PositionalValueView::BOOL:
+		copyStridedBoolValues<RealType>(dst, view.data, view.size, byteStride);
+		break;
+	case PositionalValueView::INT8:
+		copyStridedValues<RealType, int8_t>(dst, view.data, view.size, byteStride);
+		break;
+	case PositionalValueView::UINT8:
+		copyStridedValues<RealType, uint8_t>(dst, view.data, view.size, byteStride);
+		break;
+	case PositionalValueView::INT32:
+		copyStridedValues<RealType, int32_t>(dst, view.data, view.size, byteStride);
+		break;
+	case PositionalValueView::INT64:
+		copyStridedValues<RealType, int64_t>(dst, view.data, view.size, byteStride);
+		break;
+	case PositionalValueView::NONE:
+		dst.clear();
+		break;
+	}
+}
+
+inline void copyAndValidateRowSlice(
+		IntVector& dst,
+		const int32_t* src,
+		size_t begin,
+		size_t len,
+		size_t nRows,
+		int64_t colId,
+		const loggers::ErrorHandlerPtr& error) {
+	static_assert(sizeof(int) == sizeof(int32_t), "Cyclops row indices require 32-bit int");
+	dst.resize(len);
+	if (len == 0) return;
+	std::memcpy(dst.data(), src + begin, len * sizeof(int));
+	const int nRowsInt = static_cast<int>(nRows);
+	const int* out = dst.data();
+	for (size_t i = 0; i < len; ++i) {
+		const int r = out[i];
+		if (r < 0 || r >= nRowsInt) {
+			std::ostringstream stream;
+			stream << "Row index out of range";
+			error->throwError(stream);
+		}
+		if (i > 0) {
+			const int prev = out[i - 1];
+			if (r == prev) {
+				std::ostringstream stream;
+				stream << "Repeated row-column entry at " << r << " - " << colId;
+				error->throwError(stream);
+			}
+			if (r < prev) {
+				std::ostringstream stream;
+				stream << "row_indices must be sorted in ascending order within each column";
+				error->throwError(stream);
+			}
+		}
+	}
+}
+
+inline void copyAndValidateRowSlice(
+		IntVector& dst,
+		const int64_t* src,
+		size_t begin,
+		size_t len,
+		size_t nRows,
+		int64_t colId,
+		const loggers::ErrorHandlerPtr& error) {
+	dst.resize(len);
+	int* out = dst.data();
+	const int64_t nRows64 = static_cast<int64_t>(nRows);
+	int64_t prev = -1;
+	for (size_t t = 0; t < len; ++t) {
+		const int64_t r = src[begin + t];
+		if (r < 0 || r >= nRows64) {
+			std::ostringstream stream;
+			stream << "Row index out of range";
+			error->throwError(stream);
+		}
+		if (t > 0) {
+			if (r == prev) {
+				std::ostringstream stream;
+				stream << "Repeated row-column entry at " << r << " - " << colId;
+				error->throwError(stream);
+			}
+			if (r < prev) {
+				std::ostringstream stream;
+				stream << "row_indices must be sorted in ascending order within each column";
+				error->throwError(stream);
+			}
+		}
+		prev = r;
+		out[t] = static_cast<int>(r);
+	}
+}
+
+template <typename RealType, typename ValueT>
+struct SliceCopier {
+	static void copy(std::vector<RealType>& dst, const void* src, size_t begin, size_t len) {
+		dst.resize(len);
+		if (len == 0) return;
+		const auto* typed = static_cast<const ValueT*>(src) + begin;
+		if (std::is_same<RealType, ValueT>::value) {
+			std::memcpy(dst.data(), typed, len * sizeof(RealType));
+		} else {
+			RealType* out = dst.data();
+			for (size_t t = 0; t < len; ++t) {
+				out[t] = static_cast<RealType>(typed[t]);
+			}
+		}
+	}
+};
+
+template <typename RealType>
+struct SliceCopier<RealType, BoolTag> {
+	static void copy(std::vector<RealType>& dst, const void* src, size_t begin, size_t len) {
+		dst.resize(len);
+		const auto* bytes = static_cast<const uint8_t*>(src) + begin;
+		RealType* out = dst.data();
+		for (size_t t = 0; t < len; ++t) {
+			out[t] = bytes[t] != 0 ? static_cast<RealType>(1) : static_cast<RealType>(0);
+		}
+	}
+};
+
+template <typename RealType>
+struct SliceCopier<RealType, NoValueTag> {
+	static void copy(std::vector<RealType>& dst, const void*, size_t, size_t len) {
+		dst.assign(len, static_cast<RealType>(1));
+	}
+};
+
+template <typename RealType, typename IndexT, typename ValueT>
+void loadPositionalCSCImpl(
+		CompressedDataMatrix<RealType>& X,
+		const PositionalIndexView& indptr,
+		const IndexT* rowIndices,
+		const size_t nnz,
+		const void* valuesData,
+		const PositionalIndexView& covariateIds,
+		const size_t nRows,
+		const bool forceSparse,
+		const uint8_t* isIndicator,
+		const loggers::ErrorHandlerPtr& error,
+		int64_t& maxCovariateId,
+		std::atomic<bool>& touchedX) {
+
+	const size_t nCols = covariateIds.size;
+	if (nCols == 0) return;
+
+	const bool hasValues = !std::is_same<ValueT, NoValueTag>::value;
+	const bool isBoolValues = std::is_same<ValueT, BoolTag>::value;
+	const int64_t nRows64 = static_cast<int64_t>(nRows);
+
+	struct PendingColumn {
+		IntVectorPtr cols;
+		std::shared_ptr<std::vector<RealType>> vals;
+		FormatType format;
+		int64_t id;
+	};
+	std::vector<PendingColumn> pending;
+	pending.reserve(nCols);
+
+	auto validatePrivateRows = [&](const IntVector& cols, const int64_t colId) {
+		const int nRowsInt = static_cast<int>(nRows);
+		for (size_t i = 0; i < cols.size(); ++i) {
+			const int r = cols[i];
+			if (r < 0 || r >= nRowsInt) {
+				std::ostringstream stream;
+				stream << "Row index out of range";
+				error->throwError(stream);
+			}
+			if (i > 0) {
+				const int prev = cols[i - 1];
+				if (r == prev) {
+					std::ostringstream stream;
+					stream << "Repeated row-column entry at " << r << " - " << colId;
+					error->throwError(stream);
+				}
+				if (r < prev) {
+					std::ostringstream stream;
+					stream << "row_indices must be sorted in ascending order within each column";
+					error->throwError(stream);
+				}
+			}
+		}
+	};
+
+	const int64_t nnzSigned = static_cast<int64_t>(nnz);
+	int64_t prevEnd = 0;
+
+	for (size_t j = 0; j < nCols; ++j) {
+		// Snapshot indptr bounds into locals so concurrent mutation cannot underflow or read OOB.
+		const int64_t beginRaw = indptr.at(j);
+		const int64_t endRaw = indptr.at(j + 1);
+		if (beginRaw < 0 || endRaw < beginRaw || endRaw > nnzSigned || beginRaw != prevEnd) {
+			std::ostringstream stream;
+			stream << "indptr was modified concurrently during load";
+			error->throwError(stream);
+		}
+		prevEnd = endRaw;
+		const size_t begin = static_cast<size_t>(beginRaw);
+		const size_t end = static_cast<size_t>(endRaw);
+		const size_t len = end - begin;
+		const int64_t colId = covariateIds.at(j);
+
+		if (len == 0) {
+			if (forceSparse) {
+				pending.push_back({make_shared<IntVector>(), make_shared<std::vector<RealType>>(), SPARSE, colId});
+			} else {
+				pending.push_back({make_shared<IntVector>(), nullptr, INDICATOR, colId});
+			}
+			continue;
+		}
+
+		// Known-indicator fast path: pure pattern matrix or caller-certified indicator column
+		if (!forceSparse && (!hasValues || (isIndicator != nullptr && isIndicator[j] != 0))) {
+			auto cols = make_shared<IntVector>();
+			copyAndValidateRowSlice(*cols, rowIndices, begin, len, nRows, colId, error);
+			pending.push_back({std::move(cols), nullptr, INDICATOR, colId});
+			continue;
+		}
+
+		if (!hasValues) { // forceSparse with pattern matrix -> SPARSE of 1.0s
+			auto cols = make_shared<IntVector>();
+			copyAndValidateRowSlice(*cols, rowIndices, begin, len, nRows, colId, error);
+			auto vals = make_shared<std::vector<RealType>>(len, static_cast<RealType>(1));
+			pending.push_back({std::move(cols), std::move(vals), SPARSE, colId});
+			continue;
+		}
+
+		// Single pass over rows + values on the column slice: validate row indices
+		// while counting kept entries and detecting non-binary values.
+		size_t kept = 0;
+		bool allOne = !forceSparse;
+		for (size_t k = begin; k < end; ++k) {
+			const int64_t r = static_cast<int64_t>(rowIndices[k]);
+			if (r < 0 || r >= nRows64) {
+				std::ostringstream stream;
+				stream << "Row index out of range";
+				error->throwError(stream);
+			}
+			if (k > begin) {
+				const int64_t prev = static_cast<int64_t>(rowIndices[k - 1]);
+				if (r == prev) {
+					std::ostringstream stream;
+					stream << "Repeated row-column entry at " << r << " - " << colId;
+					error->throwError(stream);
+				}
+				if (r < prev) {
+					std::ostringstream stream;
+					stream << "row_indices must be sorted in ascending order within each column";
+					error->throwError(stream);
+				}
+			}
+			const double v = readScalar<ValueT>(valuesData, k);
+			if (v != 0.0) {
+				++kept;
+				if (!isBoolValues && allOne && v != 1.0) {
+					allOne = false;
+				}
+			}
+		}
+
+		if (allOne) {
+			auto cols = make_shared<IntVector>();
+			if (kept == len) {
+				copyAndValidateRowSlice(*cols, rowIndices, begin, len, nRows, colId, error);
+			} else {
+				cols->reserve(kept);
+				for (size_t k = begin; k < end; ++k) {
+					if (readScalar<ValueT>(valuesData, k) != 0.0) {
+						const int64_t r = static_cast<int64_t>(rowIndices[k]);
+						if (r < 0 || r >= nRows64) {
+							std::ostringstream stream;
+							stream << "Row index out of range";
+							error->throwError(stream);
+						}
+						cols->push_back(static_cast<int>(r));
+					}
+				}
+				validatePrivateRows(*cols, colId);
+			}
+			pending.push_back({std::move(cols), nullptr, INDICATOR, colId});
+		} else {
+			auto cols = make_shared<IntVector>();
+			auto vals = make_shared<std::vector<RealType>>();
+			if (kept == len) {
+				copyAndValidateRowSlice(*cols, rowIndices, begin, len, nRows, colId, error);
+				SliceCopier<RealType, ValueT>::copy(*vals, valuesData, begin, len);
+			} else {
+				cols->reserve(kept);
+				vals->reserve(kept);
+				for (size_t k = begin; k < end; ++k) {
+					const double v = readScalar<ValueT>(valuesData, k);
+					if (v != 0.0) {
+						const int64_t r = static_cast<int64_t>(rowIndices[k]);
+						if (r < 0 || r >= nRows64) {
+							std::ostringstream stream;
+							stream << "Row index out of range";
+							error->throwError(stream);
+						}
+						cols->push_back(static_cast<int>(r));
+						vals->push_back(static_cast<RealType>(v));
+					}
+				}
+				validatePrivateRows(*cols, colId);
+			}
+			pending.push_back({std::move(cols), std::move(vals), SPARSE, colId});
+		}
+	}
+
+	// Commit all validated columns atomically.
+	const bool hadCols = X.getNumberOfColumns() > 0;
+	int64_t maxId = maxCovariateId;
+	X.reserveColumns(X.getNumberOfColumns() + nCols);
+	for (size_t j = 0; j < nCols; ++j) {
+		auto& col = pending[j];
+		maxId = (hadCols || j > 0) ? std::max(maxId, col.id) : col.id;
+		X.push_back(std::move(col.cols), std::move(col.vals), col.format);
+		X.getColumn(X.getNumberOfColumns() - 1).add_label(col.id);
+	}
+
+	maxCovariateId = maxId;
+	touchedX = true;
+}
+
+template <typename RealType, typename IndexT>
+void dispatchPositionalCSCByValue(
+		CompressedDataMatrix<RealType>& X,
+		const PositionalIndexView& indptr,
+		const IndexT* rowIndices,
+		const size_t nnz,
+		const PositionalValueView& values,
+		const PositionalIndexView& covariateIds,
+		const size_t nRows,
+		const bool forceSparse,
+		const uint8_t* isIndicator,
+		const loggers::ErrorHandlerPtr& error,
+		int64_t& maxCovariateId,
+		std::atomic<bool>& touchedX) {
+
+	if (values.kind == PositionalValueView::NONE || values.size == 0) {
+		loadPositionalCSCImpl<RealType, IndexT, NoValueTag>(
+			X, indptr, rowIndices, nnz, nullptr, covariateIds, nRows, forceSparse, isIndicator,
+			error, maxCovariateId, touchedX);
+		return;
+	}
+	switch (values.kind) {
+	case PositionalValueView::FLOAT64:
+		loadPositionalCSCImpl<RealType, IndexT, double>(
+			X, indptr, rowIndices, nnz, values.data, covariateIds, nRows, forceSparse, isIndicator,
+			error, maxCovariateId, touchedX);
+		break;
+	case PositionalValueView::FLOAT32:
+		loadPositionalCSCImpl<RealType, IndexT, float>(
+			X, indptr, rowIndices, nnz, values.data, covariateIds, nRows, forceSparse, isIndicator,
+			error, maxCovariateId, touchedX);
+		break;
+	case PositionalValueView::BOOL:
+		loadPositionalCSCImpl<RealType, IndexT, BoolTag>(
+			X, indptr, rowIndices, nnz, values.data, covariateIds, nRows, forceSparse, isIndicator,
+			error, maxCovariateId, touchedX);
+		break;
+	case PositionalValueView::INT8:
+		loadPositionalCSCImpl<RealType, IndexT, int8_t>(
+			X, indptr, rowIndices, nnz, values.data, covariateIds, nRows, forceSparse, isIndicator,
+			error, maxCovariateId, touchedX);
+		break;
+	case PositionalValueView::UINT8:
+		loadPositionalCSCImpl<RealType, IndexT, uint8_t>(
+			X, indptr, rowIndices, nnz, values.data, covariateIds, nRows, forceSparse, isIndicator,
+			error, maxCovariateId, touchedX);
+		break;
+	case PositionalValueView::INT32:
+		loadPositionalCSCImpl<RealType, IndexT, int32_t>(
+			X, indptr, rowIndices, nnz, values.data, covariateIds, nRows, forceSparse, isIndicator,
+			error, maxCovariateId, touchedX);
+		break;
+	case PositionalValueView::INT64:
+		loadPositionalCSCImpl<RealType, IndexT, int64_t>(
+			X, indptr, rowIndices, nnz, values.data, covariateIds, nRows, forceSparse, isIndicator,
+			error, maxCovariateId, touchedX);
+		break;
+	case PositionalValueView::NONE:
+		break;
+	}
+}
+
+template <typename RealType, typename IndexT, typename ValueT>
+void loadPositionalCSRImpl(
+		CompressedDataMatrix<RealType>& X,
+		const PositionalIndexView& indptr,
+		const IndexT* colIndices,
+		const size_t nnz,
+		const void* valuesData,
+		const PositionalIndexView& covariateIds,
+		const PositionalIndexView* rowOrder,
+		const size_t nRows,
+		const bool forceSparse,
+		const uint8_t* isIndicator,
+		const loggers::ErrorHandlerPtr& error,
+		int64_t& maxCovariateId,
+		std::atomic<bool>& touchedX) {
+
+	const size_t nCols = covariateIds.size;
+	const size_t nCsrRows = indptr.size - 1;
+	const int64_t nnzSigned = static_cast<int64_t>(nnz);
+	const bool hasValues = !std::is_same<ValueT, NoValueTag>::value;
+	const bool isBoolValues = std::is_same<ValueT, BoolTag>::value;
+
+	std::vector<size_t> colNnz(nCols, 0);
+	std::vector<uint8_t> colSparse(nCols, forceSparse ? 1 : 0);
+	std::vector<int> lastSeenRow(nCols, -1);
+
+	// Snapshot indicator flags so concurrent mutation cannot diverge Pass 1 vs Pass 2.
+	std::vector<uint8_t> indicatorMask;
+	if (!forceSparse && hasValues && isIndicator != nullptr) {
+		indicatorMask.assign(isIndicator, isIndicator + nCols);
+	}
+	const uint8_t* maskPtr = indicatorMask.empty() ? nullptr : indicatorMask.data();
+
+	auto throwConcurrent = [&]() {
+		std::ostringstream stream;
+		stream << "Input buffer was modified concurrently during load";
+		error->throwError(stream);
+	};
+
+	// Pass 1: validate column indices and duplicate (row, col) entries atomically before mutating X,
+	// while computing exact per-column entry counts and INDICATOR vs SPARSE formats.
+	for (size_t r = 0; r < nRows; ++r) {
+		const int64_t srcRaw = (rowOrder != nullptr) ? rowOrder->at(r) : static_cast<int64_t>(r);
+		if (srcRaw < 0 || static_cast<uint64_t>(srcRaw) >= static_cast<uint64_t>(nCsrRows)) {
+			throwConcurrent();
+		}
+		const size_t src = static_cast<size_t>(srcRaw);
+		const int64_t beginRaw = indptr.at(src);
+		const int64_t endRaw = indptr.at(src + 1);
+		if (beginRaw < 0 || endRaw < beginRaw || endRaw > nnzSigned) {
+			throwConcurrent();
+		}
+		const size_t begin = static_cast<size_t>(beginRaw);
+		const size_t end = static_cast<size_t>(endRaw);
+		const int rInt = static_cast<int>(r);
+		for (size_t k = begin; k < end; ++k) {
+			const int64_t colRaw = static_cast<int64_t>(colIndices[k]);
+			if (colRaw < 0 || static_cast<uint64_t>(colRaw) >= static_cast<uint64_t>(nCols)) {
+				std::ostringstream stream;
+				stream << "Column index out of range";
+				error->throwError(stream);
+			}
+			const size_t col = static_cast<size_t>(colRaw);
+			if (lastSeenRow[col] == rInt) {
+				std::ostringstream stream;
+				stream << "Repeated row-column entry at " << r << " - " << covariateIds.at(col);
+				error->throwError(stream);
+			}
+			lastSeenRow[col] = rInt;
+
+			if (!hasValues || (maskPtr != nullptr && maskPtr[col] != 0)) {
+				++colNnz[col];
+			} else {
+				const double v = readScalar<ValueT>(valuesData, k);
+				if (v != 0.0) {
+					++colNnz[col];
+					if (!isBoolValues && !colSparse[col] && v != 1.0) {
+						colSparse[col] = 1;
+					}
+				}
+			}
+		}
+	}
+
+	if (nCols == 0) return;
+
+	lastSeenRow.clear();
+	lastSeenRow.shrink_to_fit();
+
+	// Allocate all columns locally before mutating X (strong exception safety on bad_alloc or concurrent change).
+	std::vector<IntVectorPtr> colRows(nCols);
+	std::vector<std::shared_ptr<std::vector<RealType>>> colVals(nCols);
+	std::vector<int*> rowWrite(nCols, nullptr);
+	std::vector<int*> rowEnd(nCols, nullptr);
+	std::vector<RealType*> valWrite(nCols, nullptr);
+	std::vector<RealType*> valEnd(nCols, nullptr);
+
+	for (size_t j = 0; j < nCols; ++j) {
+		colRows[j] = make_shared<IntVector>(colNnz[j]);
+		rowWrite[j] = colRows[j]->data();
+		rowEnd[j] = rowWrite[j] + colNnz[j];
+		if (colSparse[j]) {
+			colVals[j] = make_shared<std::vector<RealType>>(colNnz[j]);
+			valWrite[j] = colVals[j]->data();
+			valEnd[j] = valWrite[j] + colNnz[j];
+		}
+	}
+
+	// Pass 2: scatter rows r = 0..nRows-1 directly into pre-sized local columns in ascending row order,
+	// with defensive bounds checks against concurrent mutation of input buffers.
+	for (size_t r = 0; r < nRows; ++r) {
+		const int64_t srcRaw = (rowOrder != nullptr) ? rowOrder->at(r) : static_cast<int64_t>(r);
+		if (srcRaw < 0 || static_cast<uint64_t>(srcRaw) >= static_cast<uint64_t>(nCsrRows)) {
+			throwConcurrent();
+		}
+		const size_t src = static_cast<size_t>(srcRaw);
+		const int64_t beginRaw = indptr.at(src);
+		const int64_t endRaw = indptr.at(src + 1);
+		if (beginRaw < 0 || endRaw < beginRaw || endRaw > nnzSigned) {
+			throwConcurrent();
+		}
+		const size_t begin = static_cast<size_t>(beginRaw);
+		const size_t end = static_cast<size_t>(endRaw);
+		const int rInt = static_cast<int>(r);
+		for (size_t k = begin; k < end; ++k) {
+			const int64_t colRaw = static_cast<int64_t>(colIndices[k]);
+			if (colRaw < 0 || static_cast<uint64_t>(colRaw) >= static_cast<uint64_t>(nCols)) {
+				throwConcurrent();
+			}
+			const size_t col = static_cast<size_t>(colRaw);
+			if (!hasValues) {
+				if (rowWrite[col] >= rowEnd[col]) throwConcurrent();
+				*(rowWrite[col]++) = rInt;
+				if (valWrite[col] != nullptr) {
+					if (valWrite[col] >= valEnd[col]) throwConcurrent();
+					*(valWrite[col]++) = static_cast<RealType>(1);
+				}
+			} else if (maskPtr != nullptr && maskPtr[col] != 0) {
+				if (rowWrite[col] >= rowEnd[col]) throwConcurrent();
+				*(rowWrite[col]++) = rInt;
+			} else {
+				const double v = readScalar<ValueT>(valuesData, k);
+				if (v != 0.0) {
+					if (rowWrite[col] >= rowEnd[col]) throwConcurrent();
+					*(rowWrite[col]++) = rInt;
+					if (valWrite[col] != nullptr) {
+						if (valWrite[col] >= valEnd[col]) throwConcurrent();
+						*(valWrite[col]++) = static_cast<RealType>(v);
+					}
+				}
+			}
+		}
+	}
+
+	// Verify exact fill count (catches concurrent drops or row-order divergence).
+	for (size_t j = 0; j < nCols; ++j) {
+		if (rowWrite[j] != rowEnd[j] || valWrite[j] != valEnd[j]) {
+			throwConcurrent();
+		}
+	}
+
+	// Commit all columns atomically to X.
+	const bool hadCols = X.getNumberOfColumns() > 0;
+	int64_t maxId = maxCovariateId;
+	X.reserveColumns(X.getNumberOfColumns() + nCols);
+	for (size_t j = 0; j < nCols; ++j) {
+		const int64_t colId = covariateIds.at(j);
+		maxId = (hadCols || j > 0) ? std::max(maxId, colId) : colId;
+		X.push_back(std::move(colRows[j]), std::move(colVals[j]), colSparse[j] ? SPARSE : INDICATOR);
+		X.getColumn(X.getNumberOfColumns() - 1).add_label(colId);
+	}
+
+	maxCovariateId = maxId;
+	touchedX = true;
+}
+
+template <typename RealType, typename IndexT>
+void dispatchPositionalCSRByValue(
+		CompressedDataMatrix<RealType>& X,
+		const PositionalIndexView& indptr,
+		const IndexT* colIndices,
+		const size_t nnz,
+		const PositionalValueView& values,
+		const PositionalIndexView& covariateIds,
+		const PositionalIndexView* rowOrder,
+		const size_t nRows,
+		const bool forceSparse,
+		const uint8_t* isIndicator,
+		const loggers::ErrorHandlerPtr& error,
+		int64_t& maxCovariateId,
+		std::atomic<bool>& touchedX) {
+
+	if (values.kind == PositionalValueView::NONE || values.size == 0) {
+		loadPositionalCSRImpl<RealType, IndexT, NoValueTag>(
+			X, indptr, colIndices, nnz, nullptr, covariateIds, rowOrder, nRows, forceSparse, isIndicator,
+			error, maxCovariateId, touchedX);
+		return;
+	}
+	switch (values.kind) {
+	case PositionalValueView::FLOAT64:
+		loadPositionalCSRImpl<RealType, IndexT, double>(
+			X, indptr, colIndices, nnz, values.data, covariateIds, rowOrder, nRows, forceSparse, isIndicator,
+			error, maxCovariateId, touchedX);
+		break;
+	case PositionalValueView::FLOAT32:
+		loadPositionalCSRImpl<RealType, IndexT, float>(
+			X, indptr, colIndices, nnz, values.data, covariateIds, rowOrder, nRows, forceSparse, isIndicator,
+			error, maxCovariateId, touchedX);
+		break;
+	case PositionalValueView::BOOL:
+		loadPositionalCSRImpl<RealType, IndexT, BoolTag>(
+			X, indptr, colIndices, nnz, values.data, covariateIds, rowOrder, nRows, forceSparse, isIndicator,
+			error, maxCovariateId, touchedX);
+		break;
+	case PositionalValueView::INT8:
+		loadPositionalCSRImpl<RealType, IndexT, int8_t>(
+			X, indptr, colIndices, nnz, values.data, covariateIds, rowOrder, nRows, forceSparse, isIndicator,
+			error, maxCovariateId, touchedX);
+		break;
+	case PositionalValueView::UINT8:
+		loadPositionalCSRImpl<RealType, IndexT, uint8_t>(
+			X, indptr, colIndices, nnz, values.data, covariateIds, rowOrder, nRows, forceSparse, isIndicator,
+			error, maxCovariateId, touchedX);
+		break;
+	case PositionalValueView::INT32:
+		loadPositionalCSRImpl<RealType, IndexT, int32_t>(
+			X, indptr, colIndices, nnz, values.data, covariateIds, rowOrder, nRows, forceSparse, isIndicator,
+			error, maxCovariateId, touchedX);
+		break;
+	case PositionalValueView::INT64:
+		loadPositionalCSRImpl<RealType, IndexT, int64_t>(
+			X, indptr, colIndices, nnz, values.data, covariateIds, rowOrder, nRows, forceSparse, isIndicator,
+			error, maxCovariateId, touchedX);
+		break;
+	case PositionalValueView::NONE:
+		break;
+	}
+}
+
+inline ptrdiff_t naturalStride(PositionalValueView::Kind kind) {
+	switch (kind) {
+	case PositionalValueView::FLOAT64: return sizeof(double);
+	case PositionalValueView::FLOAT32: return sizeof(float);
+	case PositionalValueView::BOOL:    return sizeof(uint8_t);
+	case PositionalValueView::INT8:    return sizeof(int8_t);
+	case PositionalValueView::UINT8:   return sizeof(uint8_t);
+	case PositionalValueView::INT32:   return sizeof(int32_t);
+	case PositionalValueView::INT64:   return sizeof(int64_t);
+	case PositionalValueView::NONE:    return 0;
+	}
+	return 0;
+}
+
+} // namespace
+
+template <typename RealType>
+void ModelData<RealType>::loadYPositional(
+		const PositionalValueView& oY,
+		const PositionalValueView& oTime,
+		const PositionalIndexView& oStratumId,
+		const PositionalIndexView& oRowId) {
+
+	const bool previouslyLoaded = y.size() > 0;
+	const size_t n = oY.size;
+	const bool hasTime = (oTime.kind != PositionalValueView::NONE && oTime.size > 0);
+
+	if (   (oStratumId.size > 0 && oStratumId.size != n)
+		|| (oRowId.size > 0 && oRowId.size != n)
+		|| (hasTime && oTime.size != n)
+		|| (previouslyLoaded && y.size() != n)
+	) {
+		std::ostringstream stream;
+		stream << "Mismatched outcome column dimensions";
+		error->throwError(stream);
+	}
+	if (previouslyLoaded && (oStratumId.size > 0 || oRowId.size > 0)) {
+		std::ostringstream stream;
+		stream << "Strata or row IDs are already loaded";
+		error->throwError(stream);
+	}
+
+	copyPositionalValues(y, oY, naturalStride(oY.kind));
+	if (hasTime) {
+		copyPositionalValues(offs, oTime, naturalStride(oTime.kind));
+	}
+	touchedY = true;
+
+	if (!previouslyLoaded) {
+		const bool processStrata = oStratumId.size > 0;
+		if (processStrata) {
+			pid.reserve(n);
+			for (size_t i = 0; i < n; ++i) {
+				const IdType cInStratum = oStratumId.at(i);
+				if (i == 0) {
+					lastStratumMap.first = cInStratum;
+					lastStratumMap.second = 0;
+					nPatients++;
+				} else if (cInStratum != lastStratumMap.first) {
+					lastStratumMap.first = cInStratum;
+					lastStratumMap.second++;
+					nPatients++;
+				}
+				pid.push_back(lastStratumMap.second);
+			}
+		} else {
+			nPatients = n;
+		}
+
+		bool consecutive = oRowId.size > 0;
+		for (size_t i = 1; i < oRowId.size && consecutive; ++i) {
+			const IdType prev = oRowId.at(i - 1);
+			consecutive = (prev < std::numeric_limits<IdType>::max()) && (oRowId.at(i) == prev + 1);
+		}
+		consecutiveRowIds = consecutive;
+		firstRowId = consecutive ? oRowId.at(0) : 0;
+
+		if (oRowId.size > 0 && !consecutive) {
+			rowIdMap.reserve(oRowId.size);
+			labels.reserve(oRowId.size);
+			for (size_t i = 0; i < oRowId.size; ++i) {
+				const IdType currentRowId = oRowId.at(i);
+				rowIdMap[currentRowId] = i;
+				labels.push_back(std::to_string(currentRowId));
+			}
+		}
+
+		getX().nRows = n;
+	}
+}
+
+template <typename RealType>
+void ModelData<RealType>::loadDenseColumn(
+		const IdType covariateId,
+		const PositionalValueView& values,
+		const ptrdiff_t byteStride,
+		const bool checkExisting) {
+
+	if (checkExisting && getColumnIndexByName(covariateId) >= 0) {
+		std::ostringstream stream;
+		stream << "Variable " << covariateId << " already exists";
+		error->throwError(stream);
+	}
+	const bool hadCols = X.getNumberOfColumns() > 0;
+	auto colData = make_shared<RealVector>();
+	copyPositionalValues(*colData, values, byteStride);
+	X.push_back(nullptr, colData, DENSE);
+	X.getColumn(getNumberOfColumns() - 1).add_label(covariateId);
+	maxCovariateId = hadCols ? std::max(maxCovariateId, covariateId) : covariateId;
+	touchedX = true;
+}
+
+template <typename RealType>
+void ModelData<RealType>::loadPositionalCSC(
+		const PositionalIndexView& indptr,
+		const PositionalIndexView& rowIndices,
+		const PositionalValueView& values,
+		const PositionalIndexView& covariateIds,
+		const bool forceSparse,
+		const uint8_t* isIndicator) {
+
+	const size_t nRows = getNumberOfRows();
+	if (rowIndices.kind == PositionalIndexView::INT32) {
+		dispatchPositionalCSCByValue(
+			X, indptr, static_cast<const int32_t*>(rowIndices.data), rowIndices.size, values,
+			covariateIds, nRows, forceSparse, isIndicator, error, maxCovariateId, touchedX);
+	} else {
+		dispatchPositionalCSCByValue(
+			X, indptr, static_cast<const int64_t*>(rowIndices.data), rowIndices.size, values,
+			covariateIds, nRows, forceSparse, isIndicator, error, maxCovariateId, touchedX);
+	}
+}
+
+template <typename RealType>
+void ModelData<RealType>::loadPositionalCSR(
+		const PositionalIndexView& indptr,
+		const PositionalIndexView& colIndices,
+		const PositionalValueView& values,
+		const PositionalIndexView& covariateIds,
+		const PositionalIndexView* rowOrder,
+		const bool forceSparse,
+		const uint8_t* isIndicator) {
+
+	const size_t nRows = getNumberOfRows();
+	if (colIndices.kind == PositionalIndexView::INT32) {
+		dispatchPositionalCSRByValue(
+			X, indptr, static_cast<const int32_t*>(colIndices.data), colIndices.size, values,
+			covariateIds, rowOrder, nRows, forceSparse, isIndicator, error, maxCovariateId, touchedX);
+	} else {
+		dispatchPositionalCSRByValue(
+			X, indptr, static_cast<const int64_t*>(colIndices.data), colIndices.size, values,
+			covariateIds, rowOrder, nRows, forceSparse, isIndicator, error, maxCovariateId, touchedX);
+	}
+}
+
 
 template <typename RealType>
 int ModelData<RealType>::loadX(

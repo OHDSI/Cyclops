@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 
 import numpy as np
+import numpy.typing as npt
 import scipy.sparse as sp
 
 from cyclops import _cyclops
@@ -53,24 +54,115 @@ _UNSTRATIFIED = frozenset({"lr", "pr", "ls"})
 _TIME_IS_OFFSET = frozenset({"sccs"})
 
 
-def _as_1d(values, name: str, dtype=np.float64) -> np.ndarray:
-    array = np.ascontiguousarray(values, dtype=dtype)
+_NATIVE_VALUE_DTYPES = frozenset(
+    {
+        np.dtype(np.float64),
+        np.dtype(np.float32),
+        np.dtype(np.bool_),
+        np.dtype(np.int8),
+        np.dtype(np.uint8),
+        np.dtype(np.int32),
+        np.dtype(np.int64),
+    }
+)
+_NATIVE_INT_DTYPES = (np.dtype(np.int32), np.dtype(np.int64))
+_INT64_MAX = np.iinfo(np.int64).max
+# Exact float64 bounds of int64: [-2^63, 2^63). float64(2^63 - 1) rounds up to 2^63.
+# Use np.float64 scalars so float16 comparisons promote up instead of overflowing.
+_INT64_MIN_FLOAT = np.float64(-9223372036854775808.0)
+_INT64_MAX_EXCL_FLOAT = np.float64(9223372036854775808.0)
+
+
+def _as_1d_values(values, name: str, *, allow_strided: bool = False) -> np.ndarray:
+    """Return a 1-D numeric array, avoiding copies for C++-native dtypes."""
+    array = np.asarray(values)
     if array.ndim != 1:
         raise ValueError(f"{name} must be one-dimensional, got shape {array.shape}")
-    return array
+    if array.size > 0 and array.dtype.kind not in ("f", "i", "u", "b", "O"):
+        raise TypeError(f"{name} must have a numeric dtype, got {array.dtype}")
+    if array.dtype in _NATIVE_VALUE_DTYPES and (
+        allow_strided or array.flags.c_contiguous
+    ):
+        return array
+    return np.ascontiguousarray(array, dtype=np.float64)
+
+
+def _as_1d_indices(
+    values, name: str, *, allow_whole_floats: bool = True
+) -> np.ndarray:
+    """Return a 1-D contiguous int32/int64 array without widening int32."""
+    array = np.asarray(values)
+    if array.ndim != 1:
+        raise ValueError(f"{name} must be one-dimensional, got shape {array.shape}")
+    if array.size == 0:
+        return np.empty(0, dtype=np.int64)
+    kind = array.dtype.kind
+    if kind in ("i", "u"):
+        if kind == "u" and array.dtype.itemsize >= 8 and bool(
+            np.any(array > _INT64_MAX)
+        ):
+            raise OverflowError(
+                f"{name} contains uint64 values exceeding int64 range"
+            )
+        if array.dtype in _NATIVE_INT_DTYPES and array.flags.c_contiguous:
+            return array
+        return np.ascontiguousarray(array, dtype=np.int64)
+    if allow_whole_floats and kind == "f":
+        if not bool(np.all(np.isfinite(array))):
+            raise ValueError(f"{name} must contain finite integer values")
+        if not bool(np.all(array == np.trunc(array))):
+            raise ValueError(f"{name} must contain whole-number values")
+        if bool(np.any((array < _INT64_MIN_FLOAT) | (array >= _INT64_MAX_EXCL_FLOAT))):
+            raise OverflowError(f"{name} values exceed int64 range")
+        return np.ascontiguousarray(array, dtype=np.int64)
+    if allow_whole_floats and kind == "O":
+        converted: list[int] = []
+        for item in array:
+            if isinstance(item, bool):
+                raise TypeError(f"{name} must have an integer dtype, got bool")
+            if isinstance(item, (int, np.integer)):
+                val = int(item)
+            elif isinstance(item, (float, np.floating)):
+                fval = float(item)
+                if not np.isfinite(fval) or fval != np.trunc(fval):
+                    raise ValueError(f"{name} must contain whole-number values")
+                val = int(fval)
+            else:
+                raise TypeError(f"{name} must have an integer dtype, got object")
+            if val < -(2**63) or val > _INT64_MAX:
+                raise OverflowError(f"{name} values exceed int64 range")
+            converted.append(val)
+        return np.asarray(converted, dtype=np.int64)
+    raise TypeError(f"{name} must have an integer dtype, got {array.dtype}")
+
+
+def _clashing_reserved_ids(ids: np.ndarray) -> list[int]:
+    if ids.size == 0:
+        return []
+    candidates = (
+        (-1, INTERCEPT_ID)
+        if ids.dtype == np.dtype(np.int32)
+        else sorted(_RESERVED_IDS)
+    )
+    scalar = ids.dtype.type
+    return [r for r in candidates if bool(np.any(ids == scalar(r)))]
 
 
 def as_matrix(X):
-    """Coerce ``X`` to a 2-D NumPy array or a SciPy sparse matrix.
+    """Coerce ``X`` to a 2-D NumPy array or a 2-D SciPy sparse matrix/array.
 
-    Sparse input passes through untouched (converted to CSC only at load time),
-    dense array-likes — lists included — become ndarrays, and a 1-D input is
-    treated as a single column.
+    Sparse input passes through untouched (converted only when required at load
+    time), dense array-likes — lists included — become ndarrays, and a 1-D input
+    is treated as a single column.
 
     Callers that need ``X.shape`` before handing it on must go through here
     first: an array-like such as a list of lists has no ``.shape``.
     """
     if sp.issparse(X):
+        if X.ndim == 1:
+            return X.reshape(-1, 1)
+        if X.ndim != 2:
+            raise ValueError(f"X must be two-dimensional, got shape {X.shape}")
         return X
     matrix = np.asarray(X)
     if matrix.ndim == 1:
@@ -148,31 +240,38 @@ class CyclopsData:
         add_intercept: bool = False,
         offset_already_log: bool = False,
         force_sparse: bool = False,
+        is_indicator: npt.ArrayLike | None = None,
         precision: str = "fp64",
         silent: bool = True,
     ) -> "CyclopsData":
         """Build a finalized container from arrays, sorting rows as required.
 
-        ``X`` may be a NumPy array or any SciPy sparse matrix; sparse input is
-        converted to CSC and passed through without densification.
+        ``X`` may be a NumPy array or any SciPy sparse matrix/array; CSC and CSR
+        inputs are read directly without densification, and CSR inputs apply row
+        sorting in C++ without transposing to CSC or copying ``X[order]``.
+
+        When ``is_indicator`` is provided (a 1-D boolean mask of length
+        ``X.shape[1]``, for sparse inputs only), columns marked ``True`` are
+        loaded directly as binary ``indicator`` columns without scanning their
+        values (assuming ``force_sparse=False``). Callers setting
+        ``is_indicator[j] = True`` guarantee that every stored entry in column
+        ``j`` is ``1`` with no explicit zeros.
 
         The applied row permutation is available as :attr:`row_order`.
         """
         model_type = model_type.strip().lower()
-        y = _as_1d(y, "y")
+        y = _as_1d_values(y, "y")
 
         matrix = as_matrix(X)
-        if sp.issparse(matrix):
-            matrix = matrix.tocsc(copy=False)
 
         if matrix.shape[0] != y.shape[0]:
             raise ValueError(
                 f"X has {matrix.shape[0]} rows but y has {y.shape[0]} elements"
             )
 
-        time = None if time is None else _as_1d(time, "time")
-        strata = None if strata is None else _as_1d(strata, "strata", dtype=np.int64)
-        offset = None if offset is None else _as_1d(offset, "offset")
+        time = None if time is None else _as_1d_values(time, "time")
+        strata = None if strata is None else _as_1d_indices(strata, "strata")
+        offset = None if offset is None else _as_1d_values(offset, "offset")
         for name, array in (("time", time), ("strata", strata), ("offset", offset)):
             if array is not None and array.shape[0] != y.shape[0]:
                 raise ValueError(f"{name} must have one element per row of X")
@@ -197,17 +296,21 @@ class CyclopsData:
             # The survival kernels index risk sets through the stratum vector, so
             # an unstratified fit still needs a single all-zero stratum. R does
             # the same (`outcomes$stratumId <- 0` in NewDataConversion.R).
-            strata = np.zeros(y.shape[0], dtype=np.int64)
+            strata = np.zeros(y.shape[0], dtype=np.int32)
 
         order = _row_order(model_type, y, time, strata)
+        sparse_row_order = None
         if order is not None:
             y = y[order]
-            matrix = matrix[order]
-            if sp.issparse(matrix):
-                matrix = matrix.tocsc(copy=False)
             time = None if time is None else time[order]
             strata = None if strata is None else strata[order]
             offset = None if offset is None else offset[order]
+            if sp.issparse(matrix):
+                # Keep sparse inputs unpermuted and let add_covariates handle format
+                # conversion (including BSR/DIA zero stripping) and C++ row_order.
+                sparse_row_order = order
+            else:
+                matrix = matrix[order]
 
         self = cls.create(model_type, precision=precision, silent=silent)
         self._row_order = order
@@ -218,12 +321,12 @@ class CyclopsData:
             # 1-based so that id 0 stays free for the intercept.
             ids = np.arange(1, n_features + 1, dtype=np.int64)
         else:
-            ids = np.ascontiguousarray(covariate_ids, dtype=np.int64)
+            ids = _as_1d_indices(covariate_ids, "covariate_ids")
             if ids.shape != (n_features,):
                 raise ValueError(
                     f"covariate_ids must have {n_features} elements, got {ids.shape[0]}"
                 )
-        clashing = sorted(_RESERVED_IDS.intersection(ids.tolist()))
+        clashing = _clashing_reserved_ids(ids)
         if clashing:
             raise ValueError(
                 f"covariate ids {clashing} are reserved by Cyclops for the "
@@ -236,7 +339,13 @@ class CyclopsData:
             # it once every other column is in place.
             self.add_dense_covariate(_OFFSET_LOAD_ID, offset)
 
-        self.add_covariates(matrix, covariate_ids=ids, force_sparse=force_sparse)
+        self.add_covariates(
+            matrix,
+            covariate_ids=ids,
+            force_sparse=force_sparse,
+            is_indicator=is_indicator,
+            row_order=sparse_row_order,
+        )
 
         if add_intercept:
             self.add_intercept()
@@ -251,24 +360,17 @@ class CyclopsData:
     def set_outcome(self, y, *, time=None, strata=None, row_ids=None) -> None:
         """Load the outcome; establishes the row count and strata.
 
-        ``ModelData::loadY`` walks ``row_id`` to build the stratum vector, so
-        strata are silently ignored unless row identifiers are present. When
-        ``strata`` is given and ``row_ids`` is not, positional identifiers are
-        substituted. Row identifiers also give every row a text label, which
-        costs one small string per row — hence they are not supplied
-        unconditionally. Covariate matrices are always read by position: row
-        ``k`` of a matrix belongs to ``y[k]``, whatever its row identifier.
+        Covariate matrices are always read by position: row ``k`` of a matrix
+        belongs to ``y[k]``, whatever its row identifier.
         """
-        y = _as_1d(y, "y")
-        strata = None if strata is None else _as_1d(strata, "strata", dtype=np.int64)
-        if strata is not None and row_ids is None:
-            row_ids = np.arange(y.shape[0], dtype=np.int64)
+        y = _as_1d_values(y, "y")
+        strata = None if strata is None else _as_1d_indices(strata, "strata")
 
         self._handle.set_outcome(
             y,
-            [] if time is None else _as_1d(time, "time"),
-            [] if strata is None else strata,
-            [] if row_ids is None else _as_1d(row_ids, "row_ids", dtype=np.int64),
+            None if time is None else _as_1d_values(time, "time"),
+            strata,
+            None if row_ids is None else _as_1d_indices(row_ids, "row_ids"),
         )
 
     def add_covariates(
@@ -277,36 +379,174 @@ class CyclopsData:
         *,
         covariate_ids: Sequence[int] | None = None,
         force_sparse: bool = False,
+        is_indicator: npt.ArrayLike | None = None,
+        row_order: npt.ArrayLike | None = None,
     ) -> None:
-        """Append covariate columns from a dense or sparse matrix."""
+        """Append covariate columns from a dense or sparse matrix.
+
+        When ``is_indicator`` is provided (sparse inputs only), columns marked
+        ``True`` skip scanning ``values`` and must contain only nonzero ``1``
+        entries (no explicit zeros) unless ``force_sparse=True``.
+        """
         if sp.issparse(X):
+            if X.ndim == 1:
+                X = X.reshape(-1, 1)
+            elif X.ndim != 2:
+                raise ValueError(f"X must be two-dimensional, got shape {X.shape}")
+
+            order_arr = (
+                None
+                if row_order is None
+                else _as_1d_indices(row_order, "row_order", allow_whole_floats=False)
+            )
+            if order_arr is None and self.n_rows > 0 and X.shape[0] != self.n_rows:
+                raise ValueError(
+                    f"X has {X.shape[0]} rows but outcome has {self.n_rows} rows"
+                )
+
+            strip_padded_zeros = is_indicator is not None and X.format in ("bsr", "dia")
+            if order_arr is not None or X.format == "csr":
+                csr = X if X.format == "csr" else X.tocsr()
+                if strip_padded_zeros:
+                    csr.eliminate_zeros()
+                ids = self._resolve_ids(covariate_ids, csr.shape[1])
+                self._handle.add_covariates_csr(
+                    csr.indptr,
+                    csr.indices,
+                    csr.data,
+                    ids,
+                    row_order=order_arr,
+                    force_sparse=force_sparse,
+                    is_indicator=is_indicator,
+                )
+                return
+
             csc = X.tocsc(copy=False)
-            csc.sort_indices()
-            n_features = csc.shape[1]
-            ids = self._resolve_ids(covariate_ids, n_features)
+            if strip_padded_zeros:
+                csc.eliminate_zeros()
+            if not csc.has_sorted_indices:
+                csc = csc.copy()
+                csc.sort_indices()
+            ids = self._resolve_ids(covariate_ids, csc.shape[1])
             self._handle.add_covariates_csc(
-                np.asarray(csc.indptr, dtype=np.int64),
-                np.asarray(csc.indices, dtype=np.int64),
-                np.asarray(csc.data, dtype=np.float64),
+                csc.indptr,
+                csc.indices,
+                csc.data,
                 ids,
-                force_sparse,
+                force_sparse=force_sparse,
+                is_indicator=is_indicator,
             )
             return
 
-        dense = np.asarray(X, dtype=np.float64)
+        if is_indicator is not None:
+            raise ValueError("is_indicator is only supported for sparse inputs")
+
+        dense = np.asarray(X)
+        if dense.size > 0 and dense.dtype.kind not in ("f", "i", "u", "b", "O"):
+            raise TypeError(f"X must have a numeric dtype, got {dense.dtype}")
+        if dense.dtype not in _NATIVE_VALUE_DTYPES:
+            dense = np.asarray(dense, dtype=np.float64)
         if dense.ndim == 1:
             dense = dense.reshape(-1, 1)
+        if dense.ndim != 2:
+            raise ValueError(f"X must be two-dimensional, got shape {dense.shape}")
+        if row_order is not None:
+            order_arr = _as_1d_indices(row_order, "row_order", allow_whole_floats=False)
+            if self.n_rows > 0 and order_arr.shape[0] != self.n_rows:
+                raise ValueError(
+                    "row_order must have length equal to the number of outcome rows"
+                )
+            if order_arr.size > 0 and (
+                bool(np.any(order_arr < 0)) or bool(np.any(order_arr >= dense.shape[0]))
+            ):
+                raise ValueError("row_order index out of range")
+            dense = dense[order_arr]
         ids = self._resolve_ids(covariate_ids, dense.shape[1])
         # A fully dense column is stored as DENSE; going through CSC would drop
         # structural zeros and change the storage format (and hence nothing
         # numerically, but it would waste an index vector per column).
         for column, covariate_id in enumerate(ids):
-            self.add_dense_covariate(covariate_id, dense[:, column])
+            self.add_dense_covariate(int(covariate_id), dense[:, column])
+
+    def add_covariates_csc(
+        self,
+        indptr,
+        row_indices,
+        values=None,
+        *,
+        covariate_ids: Sequence[int] | None = None,
+        force_sparse: bool = False,
+        is_indicator: npt.ArrayLike | None = None,
+    ) -> None:
+        """Append covariates directly from CSC buffers without building a SciPy matrix.
+
+        Pass ``values=None`` for pure binary 0/1 indicator columns, or supply a
+        boolean ``is_indicator`` mask of length ``n_columns`` to skip scanning
+        ``values`` for binary columns in a mixed batch (callers guarantee that
+        flagged columns contain only ``1`` entries with no explicit zeros).
+        """
+        indptr_arr = _as_1d_indices(indptr, "indptr", allow_whole_floats=False)
+        n_features = max(int(indptr_arr.shape[0]) - 1, 0)
+        ids = self._resolve_ids(covariate_ids, n_features)
+        self._handle.add_covariates_csc(
+            indptr_arr,
+            row_indices,
+            values,
+            ids,
+            force_sparse=force_sparse,
+            is_indicator=is_indicator,
+        )
+
+    def add_covariates_csr(
+        self,
+        indptr,
+        col_indices,
+        values=None,
+        *,
+        covariate_ids: Sequence[int] | None = None,
+        n_covariates: int | None = None,
+        row_order: npt.ArrayLike | None = None,
+        force_sparse: bool = False,
+        is_indicator: npt.ArrayLike | None = None,
+    ) -> None:
+        """Append covariates directly from CSR buffers with optional row permutation.
+
+        ``row_order`` maps each outcome row ``r`` to CSR row ``row_order[r]``,
+        avoiding CSR-to-CSC transposition and per-column sorting for survival and
+        stratified models or row-subsetted cross-validation folds.
+
+        When ``is_indicator`` is provided, flagged columns skip scanning
+        ``values`` (when ``force_sparse=False``) and must contain only ``1``
+        entries with no explicit zeros.
+        """
+        if n_covariates is not None and int(n_covariates) < 0:
+            raise ValueError("n_covariates must be non-negative")
+        if covariate_ids is None:
+            if n_covariates is None:
+                raise ValueError(
+                    "Pass either `covariate_ids` or `n_covariates` for CSR input"
+                )
+            ids = self._resolve_ids(None, int(n_covariates))
+        else:
+            ids_arr = _as_1d_indices(covariate_ids, "covariate_ids")
+            expected = (
+                int(ids_arr.shape[0]) if n_covariates is None else int(n_covariates)
+            )
+            ids = self._resolve_ids(ids_arr, expected)
+        self._handle.add_covariates_csr(
+            indptr,
+            col_indices,
+            values,
+            ids,
+            row_order=row_order,
+            force_sparse=force_sparse,
+            is_indicator=is_indicator,
+        )
 
     def add_dense_covariate(self, covariate_id: int, values) -> None:
         """Append one fully dense column."""
         self._handle.add_dense_covariate(
-            int(covariate_id), _as_1d(values, "values")
+            int(covariate_id), _as_1d_values(values, "values", allow_strided=True)
         )
 
     def add_intercept(self) -> None:
@@ -434,7 +674,7 @@ class CyclopsData:
         if covariate_ids is None:
             start = self.n_covariates + 1
             return np.arange(start, start + n_features, dtype=np.int64)
-        ids = np.ascontiguousarray(covariate_ids, dtype=np.int64)
+        ids = _as_1d_indices(covariate_ids, "covariate_ids")
         if ids.shape != (n_features,):
             raise ValueError(
                 f"covariate_ids must have {n_features} elements, got {ids.shape[0]}"
