@@ -207,6 +207,22 @@ listGPUDevices <- function() {
     .Call(`_Cyclops_isSortedVectorList`, vectorList, ascending)
 }
 
+.runStarts <- function(x, order = NULL) {
+    .Call(`_Cyclops_runStarts`, x, order)
+}
+
+.anyIdOverflow <- function(x) {
+    .Call(`_Cyclops_anyIdOverflow`, x)
+}
+
+.allIn <- function(x, table) {
+    .Call(`_Cyclops_allIn`, x, table)
+}
+
+.sortOrder <- function(first, second) {
+    .Call(`_Cyclops_sortOrder`, first, second)
+}
+
 .isRcppPtrNull <- function(x) {
     .Call(`_Cyclops_isRcppPtrNull`, x)
 }
@@ -400,8 +416,16 @@ getStartTimeVector <- function(object) {
     invisible(.Call(`_Cyclops_cyclopsLoadDataPooledRows`, x, implicitRows, rowsPerSubject, interval, event, rowWeight, rowOffset, subjectOffset, basis, intervals, timeCovariateId, timeBasisColumn, cloglog))
 }
 
-.loadCyclopsDataMultipleX <- function(x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append, forceSparse) {
-    .Call(`_Cyclops_cyclopsLoadDataMultipleX`, x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append, forceSparse)
+.loadCyclopsDataMultipleX <- function(x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append, forceSparse, order) {
+    .Call(`_Cyclops_cyclopsLoadDataMultipleX`, x, covariateId, rowId, covariateValue, checkCovariateIds, checkCovariateBounds, append, forceSparse, order)
+}
+
+.loadCyclopsDataColumns <- function(x, p, i, values, rowIds, columnIds, forceSparse) {
+    .Call(`_Cyclops_cyclopsLoadDataColumns`, x, p, i, values, rowIds, columnIds, forceSparse)
+}
+
+.asLoaderDoubles <- function(x) {
+    .Call(`_Cyclops_cyclopsAsLoaderDoubles`, x)
 }
 
 .loadCyclopsDataX <- function(x, bitCovariateId, rowId, covariateValue, replace, append, forceSparse) {

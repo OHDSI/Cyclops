@@ -57,7 +57,8 @@ convertToCyclopsData(
 \arguments{
 \item{outcomes}{A data frame or ffdf object containing the outcomes with predefined columns (see below).}
 
-\item{covariates}{A data frame or ffdf object containing the covariates with predefined columns (see below).}
+\item{covariates}{A data frame or ffdf object containing the covariates with predefined columns (see below),
+or, for \code{"lr"} and \code{"pr"} models with data-frame outcomes, a sparse matrix (see below).}
 
 \item{modelType}{Cyclops model type. Current supported types are "pr", "cpr", lr", "clr", "cox", "cox_counting"
 or "plr" (pooled logistic regression; see Details)}
@@ -133,6 +134,14 @@ These columns are expected in the covariates object:
 \verb{covariateId}    \tab(integer) \tab A numeric identifier of a covariate  \cr
 \verb{covariateValue}    \tab(real) \tab The value of the specified covariate \cr
 }
+
+For \code{"lr"} and \code{"pr"} models the covariates can instead be a sparse matrix from the \pkg{Matrix}
+package (a \code{dgCMatrix}, \code{lgCMatrix} or \code{ngCMatrix}) with one row per row of \code{outcomes}:
+row \code{r} holds the covariates of \code{outcomes$rowId[r]}, and column \code{j} is the covariate with
+\code{covariateId} \code{j}, named by \code{colnames()} if the matrix has them. The matrix is read in place,
+without a data frame of its entries; columns without non-zero entries are left out, as covariates without rows
+in a data frame are. The data equal those of the data frame with \code{rowId = outcomes$rowId[x@i + 1]},
+\code{covariateId} the column number and \code{covariateValue = x@x}.
 
 These columns are expected in the timeEffectMap object:
 \tabular{lll}{

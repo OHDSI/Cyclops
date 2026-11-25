@@ -724,23 +724,126 @@ void cyclopsLoadDataPooledRows(Environment x,
     data->getPooledRows() = std::move(pooled);
 }
 
+namespace {
+
+// An R vector as a NumberView, without a copy (read-only data pointers): integer (or logical), integer64 or double;
+// NULL is empty. Ids (asValues false) of an integer64 vector are its int64 values. Values (asValues true) of any double
+// vector, integer64 included, are its doubles, as the conversion to std::vector<double> used to read them
+// (with order, an integer permutation of 1..length(x): x is read as x[order], still without a copy)
+bsccs::NumberView numberView(SEXP x, const char* what, bool asValues, SEXP order = R_NilValue) {
+	using bsccs::NumberView;
+	if (Rf_isNull(x)) {
+		return NumberView(nullptr, 0, NumberView::DOUBLE);
+	}
+	const int* index = Rf_isNull(order) ? nullptr : INTEGER_RO(order);
+	const size_t n = static_cast<size_t>(XLENGTH(x));
+	switch (TYPEOF(x)) {
+	case INTSXP:
+		return NumberView(INTEGER_RO(x), n, NumberView::INT32, index);
+	case LGLSXP:
+		return NumberView(LOGICAL_RO(x), n, NumberView::INT32, index);
+	case REALSXP:
+		return NumberView(REAL_RO(x), n, !asValues && Rf_inherits(x, "integer64") ? NumberView::INT64 : NumberView::DOUBLE,
+		                  index);
+	default:
+		Rcpp::stop(std::string(what) + " must be numeric");
+	}
+}
+
+// order: NULL, or an integer vector of positions 1..n (each read as an index)
+void checkOrder(SEXP order, R_xlen_t n) {
+	if (Rf_isNull(order)) return;
+	if (TYPEOF(order) != INTSXP || XLENGTH(order) != n) {
+		Rcpp::stop("order must be an integer permutation as long as the covariates");
+	}
+	const int* index = INTEGER_RO(order);
+	std::vector<bool> seen(static_cast<size_t>(n), false);
+	for (R_xlen_t i = 0; i < n; ++i) {
+		if (index[i] < 1 || index[i] > n || seen[static_cast<size_t>(index[i] - 1)]) {
+			Rcpp::stop("order must be an integer permutation as long as the covariates");
+		}
+		seen[static_cast<size_t>(index[i] - 1)] = true;
+	}
+}
+
+void checkLengths(SEXP covariateId, SEXP rowId, SEXP covariateValue) {
+	if (Rf_xlength(rowId) != Rf_xlength(covariateId) ||
+			(!Rf_isNull(covariateValue) && Rf_xlength(covariateValue) > 0 && Rf_xlength(covariateValue) != Rf_xlength(covariateId))) {
+		Rcpp::stop("Vector length mismatch");
+	}
+}
+
+} // namespace
+
+// covariateId and rowId: integer, integer64 or double vectors, read in place (no copies of the data); order: NULL, or
+// the permutation that sorts them (read as covariateId[order] etc.)
 // [[Rcpp::export(".loadCyclopsDataMultipleX")]]
 int cyclopsLoadDataMultipleX(Environment x,
-		const std::vector<double>& covariateId,
-		const std::vector<double>& rowId,
-		const std::vector<double>& covariateValue,
+		SEXP covariateId,
+		SEXP rowId,
+		SEXP covariateValue,
 		const bool checkCovariateIds,
 		const bool checkCovariateBounds,
 		const bool append,
-		const bool forceSparse) {
+		const bool forceSparse,
+		SEXP order) {
 
 	using namespace bsccs;
 	XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
+	checkLengths(covariateId, rowId, covariateValue);
+	checkOrder(order, XLENGTH(covariateId));
+	const NumberView ids = numberView(covariateId, "covariateId", false, order);
+	const NumberView rows = numberView(rowId, "rowId", false, order);
+	const NumberView values = numberView(covariateValue, "covariateValue", true,
+	                                     Rf_xlength(covariateValue) > 0 ? order : R_NilValue);
+	return data->loadMultipleX(ids, rows, values, checkCovariateIds, checkCovariateBounds, append, forceSparse);
+}
 
-	return data->loadMultipleX(reinterpret_cast<const std::vector<int64_t>&>(covariateId),
-                               reinterpret_cast<const std::vector<int64_t>&>(rowId),
-                               covariateValue, checkCovariateIds,
-                               checkCovariateBounds, append, forceSparse);
+// Columns of a compressed sparse column matrix (dgCMatrix, lgCMatrix or ngCMatrix slots, read in place): p, the column
+// starts (length columns + 1); i, the 0-based row of each entry (increasing within a column); values, the entries' values
+// (NULL for a pattern matrix); rowIds, the row id of each matrix row; columnIds, the id of each column
+// [[Rcpp::export(".loadCyclopsDataColumns")]]
+int cyclopsLoadDataColumns(Environment x, SEXP p, SEXP i, SEXP values, SEXP rowIds, SEXP columnIds,
+		const bool forceSparse) {
+	using namespace bsccs;
+	XPtr<AbstractModelData> data = parseEnvironmentForPtr(x);
+	if (TYPEOF(p) != INTSXP || TYPEOF(i) != INTSXP) {
+		Rcpp::stop("the column starts and row indices must be integer vectors");
+	}
+	const R_xlen_t columns = XLENGTH(p) - 1;
+	const R_xlen_t entries = XLENGTH(i);
+	const R_xlen_t rows = XLENGTH(rowIds);
+	const int* starts = INTEGER_RO(p);
+	if (columns < 0 || XLENGTH(columnIds) != columns || starts[0] != 0 || starts[columns] != entries) {
+		Rcpp::stop("the column starts do not match the row indices or the column ids");
+	}
+	for (R_xlen_t j = 0; j < columns; ++j) {
+		if (starts[j + 1] < starts[j]) Rcpp::stop("the column starts must not decrease");
+	}
+	if (!Rf_isNull(values) && XLENGTH(values) != entries) {
+		Rcpp::stop("Vector length mismatch");
+	}
+	const int* index = INTEGER_RO(i);
+	for (R_xlen_t j = 0; j < columns; ++j) { // rows in range and increasing within each column
+		for (R_xlen_t k = starts[j]; k < starts[j + 1]; ++k) {
+			if (index[k] < 0 || index[k] >= rows || (k > starts[j] && index[k] <= index[k - 1])) {
+				Rcpp::stop("the row indices must be in range and increase within each column");
+			}
+		}
+	}
+	NumberView rowView = numberView(rowIds, "rowId", false);
+	rowView.order = index; // entry k is the row id of matrix row i[k]
+	rowView.orderBase = 0;
+	rowView.size = static_cast<size_t>(entries);
+	return data->loadColumns(starts, static_cast<size_t>(columns), numberView(columnIds, "columnIds", false), rowView,
+	                         numberView(values, "values", true), forceSparse);
+}
+
+// Values of another type than integer, logical or double, converted as the loader's std::vector<double> argument used
+// to convert them (same coercions, same errors)
+// [[Rcpp::export(".asLoaderDoubles")]]
+NumericVector cyclopsAsLoaderDoubles(const std::vector<double>& x) {
+	return NumericVector(x.begin(), x.end());
 }
 
 // [[Rcpp::export(".loadCyclopsDataX")]]
