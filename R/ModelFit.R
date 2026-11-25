@@ -310,6 +310,16 @@ fitCyclopsModel <- function(cyclopsData,
     # rows without a fold (-1) must have weight 0 (checked below); they take the fold of their stratum or subject
     control$cvFoldOfRow <- if (is.null(folds)) integer(0) else ifelse(is.na(folds$index), -1L, folds$index - 1L)
 
+    # logistic "auto" with an L1 part in its prior (Laplace, or an elastic net with laplaceFraction > 0) keeps the
+    # Newton-first path, and with it the default of merging duplicate columns; "auto" runs coordinate descent first only
+    # for priors without one (as the C++ side decides)
+    hasL1 <- any(prior$priorType == "laplace") ||
+        (any(prior$priorType == "elasticnet") && any(as.numeric(prior$laplaceFraction) > 0))
+    if (is.null(control$mergeDuplicates) && cyclopsData$modelType %in% c("lr", "plr") &&
+        (is.null(control$algorithm) || identical(control$algorithm, "auto")) && hasL1) {
+        control$mergeDuplicates <- TRUE
+    }
+    givenControl <- control # as given: a retry below resolves its own (the defaults filled in depend on the criterion)
     control <- .setControl(cyclopsData$cyclopsInterfacePtr, control, cyclopsData)
     threads <- control$threads
 
@@ -493,6 +503,8 @@ fitCyclopsModel <- function(cyclopsData,
             warning("BLR convergence criterion failed; coefficient may be infinite")
         }
 
+        cvRepetitions <- control$cvRepetitions
+        control <- givenControl
         control$convergenceType <- "lange"
         if (prior$useCrossValidation) {
             # Refit only the final model at the selected variance; fold fits already fell back to "lange"
@@ -512,7 +524,7 @@ fitCyclopsModel <- function(cyclopsData,
             fit$cross_validation <- cvFit$cross_validation
             fit$cv_failed_folds <- cvFit$cv_failed_folds
             fit$cvPredictions <- cvFit$cvPredictions
-            fit$cvRepetitions <- control$cvRepetitions
+            fit$cvRepetitions <- cvRepetitions
             return(fit)
         }
         return(fitCyclopsModel(cyclopsData = cyclopsData,
@@ -843,7 +855,13 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              optimum of the log posterior is below \code{tolerance}; it needs a model with
 #'                              second-order kernels (so far \code{"cox"}, \code{"cox_counting"}, \code{"cpr"}, \code{"sccs"},
 #'                              \code{"clr"}, \code{"lr"} and \code{"plr"} with the logit link, in double precision on the CPU) and normal, Laplace or no priors; with Laplace priors the stop is an
-#'                              estimate rather than a certified bound
+#'                              estimate rather than a certified bound. For logistic regression, coordinate descent
+#'                              under \code{"gap"} (\code{"ccd"}, and \code{"auto"} with a prior that has no L1 part)
+#'                              runs as under \code{"kkt"} with \code{fitter = "super"}, and its \code{"kkt"} stop
+#'                              (1e-4; 3e-3 in cross-validation folds of \code{"auto"}) triggers the certificate. When \code{"gap"} comes from the defaults of \code{"auto"}, certifying
+#'                              past that stop may cost a tenth of the fit's work (or about a millisecond); beyond
+#'                              it the fit stops there, as coordinate descent does, with
+#'                              \code{fit$convergence$certificate = "none"} and the bound it has
 #' @param cvType						String: name of cross validation search.
 #' 													Option \code{"auto"} selects an auto-search following BBR.
 #' 													Option \code{"grid"} selects a grid-search cross validation
@@ -879,8 +897,11 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #' @param initialBound          Numeric: Starting trust-region size
 #' @param maxBoundCount         Numeric: Maximum number of tries to decrease initial trust-region size
 #' @param algorithm             String: name of fitting algorithm to employ: \code{"ccd"} (cyclic coordinate
-#'                              descent), \code{"mm"}, \code{"auto"} (coordinate descent that switches to dense
-#'                              Newton steps when an operation count says they are cheaper, and back on failure) or
+#'                              descent), \code{"mm"}, \code{"auto"} (coordinate descent that switches to Newton
+#'                              steps when they are projected to be cheaper, and back on failure; for logistic
+#'                              regression under \code{"gap"} with a prior that has no L1 part, such as ridge, only
+#'                              once coordinate descent has spent what four of them cost and is projected to need
+#'                              much more, or stalls) or
 #'                              \code{"newton"} (Newton steps after three coordinate-descent cycles). \code{NULL}
 #'                              (default) means \code{"auto"} for \code{"cox"}, \code{"cox_counting"}, \code{"cpr"},
 #'                              \code{"sccs"}, \code{"clr"}, \code{"lr"} and \code{"plr"} and \code{"ccd"} otherwise, under \code{fitter = "legacy"},
@@ -952,25 +973,25 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              \code{NULL} (default) means \code{TRUE} for logistic regression and least squares
 #'                              with \code{fitter = "super"}, and otherwise \code{TRUE} with
 #'                              \code{resetCoefficients = FALSE} except under \code{fitter = "legacy"}
-#' @param activeSetEvery        Integer: active-set cycling, which needs \code{convergenceType = "kkt"} or
-#'                              \code{cvConvergenceType = "kkt"}. Cycles between full sweeps skip coordinates
+#' @param activeSetEvery        Integer: active-set cycling, which needs \code{convergenceType} or
+#'                              \code{cvConvergenceType} \code{"kkt"} or \code{"gap"}. Cycles between full sweeps skip coordinates
 #'                              that did not move, with a full sweep at least every \code{activeSetEvery}
 #'                              cycles; 0 turns it off. \code{NULL} (default) means 10 with at least 1000
-#'                              covariates for logistic regression with \code{fitter = "super"} and for least
-#'                              squares other than under \code{fitter = "legacy"}, and 0 otherwise
+#'                              covariates for logistic regression with \code{fitter = "super"} or \code{"gap"}
+#'                              and for least squares other than under \code{fitter = "legacy"}, and 0 otherwise
 #' @param activeSetThreshold    Numeric: with active-set cycling, cycles between full sweeps also skip
 #'                              coordinates whose last step, in standard-error units, was below this fraction of
 #'                              the largest step of the last full sweep; with 0, they skip only coordinates with
 #'                              a Laplace prior that are 0 and did not move. \code{NULL} (default) means 0.01
 #' @param adaptiveIntercept     Logical: for logistic regression and least squares with an unpenalized intercept,
-#'                              which needs \code{convergenceType = "kkt"} or \code{cvConvergenceType = "kkt"}:
+#'                              which needs \code{convergenceType} or \code{cvConvergenceType} \code{"kkt"} or \code{"gap"}:
 #'                              take an extra Newton step on the intercept during a cycle whenever its predicted
 #'                              gain per row of work reaches a quarter of that of the coordinate steps in the
 #'                              previous cycle and its gradient, in standard-error units, exceeds the tolerance
 #'                              (for least squares, after every coordinate step that moves, as such a step costs
 #'                              no work over the rows). With many covariates the intercept otherwise lags behind
 #'                              them. \code{NULL} (default) means \code{TRUE} for logistic regression with
-#'                              \code{fitter = "super"} and for least squares other than under
+#'                              \code{fitter = "super"} or \code{"gap"} and for least squares other than under
 #'                              \code{fitter = "legacy"}, and \code{FALSE} otherwise
 #' @param mergeDuplicates       Logical: fit each group of exactly duplicated columns (same rows and values, same
 #'                              prior) as one coefficient. A normal prior's coefficients are reported as the equal
@@ -980,8 +1001,9 @@ print.cyclopsFit <- function(x, show.call=TRUE ,...) {
 #'                              the rows with positive weight: columns that differ only on rows of weight 0 (such as a
 #'                              cross-validation fold's held-out rows) are duplicates for that fit, and their total is
 #'                              reported as an equal split whatever the prior.
-#'                              \code{NULL} (default) means \code{TRUE} with \code{algorithm = "auto"} or
-#'                              \code{"newton"} and \code{FALSE} otherwise
+#'                              \code{NULL} (default) means \code{TRUE} with \code{algorithm = "newton"}, and with
+#'                              \code{"auto"} except for logistic regression under \code{"gap"} with a prior that has no
+#'                              L1 part (which runs coordinate descent first), and \code{FALSE} otherwise
 #' @param newtonMemoryBudget    Numeric: memory budget, in MB (\eqn{2^{20}} bytes), of the dense working matrices of the
 #'                              Newton and prox-Newton steps of \code{algorithm = "auto"} or \code{"newton"}: 24 bytes per entry of
 #'                              the active-set Hessian (\eqn{24 |W|^2}: the matrix, its factor and workspace), plus the
@@ -1310,6 +1332,7 @@ getCrossValidationInfo <- function(object) {
          nullModelBound = control$cvNullModelBound,
          convergenceType = valueOr(control$cvConvergenceType, ""),
          tolerance = valueOr(control$cvTolerance, -1),
+         foldsFromDefaults = isTRUE(control$foldsFromDefaults),
          maxIterations = as.integer(valueOr(control$cvMaxIterations, -1)),
          minIterations = as.integer(control$cvMinIterations),
          warmStart = control$cvWarmStart,
@@ -1474,8 +1497,14 @@ getCrossValidationInfo <- function(object) {
     data.frame(rowId = rowId, fold = fold, prediction = prediction)
 }
 
-# Mode-finding options of a resolved control
-.modeControlOptions <- function(control) {
+# Mode-finding options of a resolved control. Exact duplicates are merged by default where Newton steps carry the fit
+# ("newton", and "auto" for models other than logistic regression, whose "gap" runs coordinate descent first and
+# takes Newton steps only where they pay; its face solves handle the singular faces of duplicates)
+.mergeDuplicatesDefault <- function(control, modelType) {
+    control$algorithm == "newton" ||
+        (control$algorithm == "auto" && !(modelType %in% c("lr", "plr") && identical(control$convergenceType, "gap")))
+}
+.modeControlOptions <- function(control, modelType = NULL) {
     valueOr <- function(value, default) if (is.null(value)) default else value
     list(activeSetEvery = as.integer(control$activeSetEvery),
          activeSetThreshold = as.numeric(control$activeSetThreshold),
@@ -1483,7 +1512,7 @@ getCrossValidationInfo <- function(object) {
          fallbackConvergenceType = valueOr(control$fallbackConvergenceType, ""),
          fallbackTolerance = as.numeric(valueOr(control$fallbackTolerance, 1E-6)),
          fallbackMaxIterations = as.integer(valueOr(control$fallbackMaxIterations, 1000)),
-         mergeDuplicates = as.logical(valueOr(control$mergeDuplicates, control$algorithm %in% c("auto", "newton"))),
+         mergeDuplicates = as.logical(valueOr(control$mergeDuplicates, .mergeDuplicatesDefault(control, modelType))),
          newtonMemoryBudget = as.numeric(valueOr(control$newtonMemoryBudget, 1024)),
          plrCostModel = as.character(valueOr(control$plrCostModel, "plr")))
 }
@@ -1509,7 +1538,8 @@ getCrossValidationInfo <- function(object) {
                            control$algorithm, control$doItAll, control$syncCV
                           )
         .cyclopsSetCvControl(cyclopsInterfacePtr, .cvControlOptions(control))
-        .cyclopsSetModeControl(cyclopsInterfacePtr, .modeControlOptions(control))
+        .cyclopsSetModeControl(cyclopsInterfacePtr,
+                               .modeControlOptions(control, if (is.null(cyclopsData)) NULL else cyclopsData$modelType))
         return(control)
     }
 

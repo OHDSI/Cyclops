@@ -619,3 +619,30 @@ def test_control_option_spellings_and_fitters():
     assert options.convergence == _cyclops.ConvergenceKind.KKT
     with pytest.raises(ValueError, match="R only"):
         Control(fitter="legacy")._to_options("lr", 10)
+
+
+def test_merge_duplicates_default_follows_the_prior(small):
+    """Logistic "auto" with a Laplace prior keeps the Newton-first path and merges
+    duplicate columns by default, as in R; without an L1 prior it runs coordinate
+    descent first and does not."""
+    control = Control()
+    assert control._to_options("lr", 100, l1_prior=True).merge_duplicates
+    assert not control._to_options("lr", 100, l1_prior=False).merge_duplicates
+    assert Control(algorithm="newton")._to_options("lr", 100).merge_duplicates
+
+    X = np.column_stack([small.X, small.X[:, 0]])  # an exact duplicate column
+    data = CyclopsData.from_arrays(X, small.y, "lr", add_intercept=True)
+    laplace = Prior("laplace", 0.1)
+
+    def coefficients(prior, **kwargs):
+        model = CyclopsModel(data, prior=prior, control=Control(**kwargs))
+        model.fit()
+        return model.coefficients
+
+    merged = coefficients(laplace, merge_duplicates=True)
+    np.testing.assert_array_equal(coefficients(laplace), merged)
+    # the default is resolved again when the prior changes
+    model = CyclopsModel(data, prior=Prior("normal", 0.1))
+    model.set_prior(laplace)
+    model.fit()
+    np.testing.assert_array_equal(model.coefficients, merged)

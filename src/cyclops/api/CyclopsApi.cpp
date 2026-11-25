@@ -684,6 +684,7 @@ void Model::Impl::applyOptions() {
     auto& arguments = interface->getArguments();
 
     arguments.fitter = options.fitter;
+    arguments.modeFinding.shuffleCoordinates = options.fitter == "super";
     arguments.modeFinding.maxIterations = options.max_iterations;
     arguments.modeFinding.tolerance = options.tolerance;
     arguments.modeFinding.convergenceType = toConvergenceType(options.convergence);
@@ -720,6 +721,7 @@ void Model::Impl::applyOptions() {
     arguments.crossValidation.foldConvergenceType = options.cv_convergence
         ? toConvergenceType(*options.cv_convergence) : -1;
     arguments.crossValidation.foldTolerance = options.cv_tolerance;
+    arguments.crossValidation.foldsFromDefaults = options.cv_folds_from_defaults;
     arguments.crossValidation.foldMaxIterations = options.cv_max_iterations;
     arguments.crossValidation.foldMinIterations = options.cv_min_iterations;
     arguments.crossValidation.refineSearch = options.cv_refine;
