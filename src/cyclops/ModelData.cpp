@@ -1044,15 +1044,14 @@ size_t ModelData<RealType>::getNumberOfStrata() const {
 
     if (nStrata == 0) {
         if (pid.empty()) {
-            nStrata = nRows;
-        } else {
-            nStrata = 1;
-            int cLabel = pid[0];
-            for (size_t i = 1; i < pid.size(); ++i) {
-                if (cLabel != pid[i]) {
-                    cLabel = pid[i];
-                    nStrata++;
-                }
+            return (nStrata = nRows);
+        }
+        nStrata = 1;
+        int cLabel = pid[0];
+        for (size_t i = 1; i < pid.size(); ++i) {
+            if (cLabel != pid[i]) {
+                cLabel = pid[i];
+                nStrata++;
             }
         }
     }

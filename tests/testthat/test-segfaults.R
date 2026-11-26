@@ -19,6 +19,9 @@ test_that("sumByStratum and getNumberOfStrata do not segfault on unstratified co
 
     s2 <- reduce(dataPtr, 2, groupBy = "stratum", power = 2)
     expect_equal(as.numeric(s2[, 1]), c(0, 6.25, 2.25, 0, 0, 9.0))
+
+    s0 <- reduce(dataPtr, 2, groupBy = "stratum", power = 0)
+    expect_equal(as.numeric(s0[, 1]), c(0, 1, 1, 0, 0, 1))
 })
 
 test_that("median and q95 normalization handle empty sparse columns without segfault", {
@@ -59,4 +62,22 @@ test_that("cox_raw handles tied event times and zero weights without heap overfl
     w <- c(0, 1, 1, 0, 1, 1, 1)
     weightedFit <- fitCyclopsModel(rawData, prior = createPrior("normal", variance = 2.0), control = ctrl, weights = w)
     expect_equal(weightedFit$return_flag, "SUCCESS")
+
+    # All-zero weights must not read past weights[K]
+    zeroFit <- fitCyclopsModel(rawData, prior = createPrior("normal", variance = 2.0), control = ctrl, weights = rep(0, nrow(test)))
+    expect_true(is.list(zeroFit))
+
+    # Unstratified convertToCyclopsData with cox_raw (leaves pid empty -> hPidInternal.size() < K)
+    outcomes <- data.frame(rowId = seq_len(nrow(test)), y = test$event, time = test$length)
+    covariates <- data.frame(
+        rowId = c(2, 5, 6, 7, 3, 4, 5),
+        covariateId = c(1, 1, 1, 1, 2, 2, 2),
+        covariateValue = c(2, 1, 1, 1, 1, 1, 1)
+    )
+    rawConv <- convertToCyclopsData(
+        outcomes, covariates, modelType = "cox_raw", addIntercept = FALSE, quiet = TRUE
+    )
+    convFit <- fitCyclopsModel(rawConv, prior = createPrior("normal", variance = 2.0), control = ctrl)
+    expect_equal(convFit$return_flag, "SUCCESS")
+    expect_equal(as.numeric(coef(convFit)), as.numeric(coef(tiedFit)), tolerance = 1e-8)
 })
