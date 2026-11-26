@@ -803,7 +803,7 @@ public:
 	const static bool exactTies = false;
 
 	int getGroup(const int* groups, int k) {
-		return k; // No ties
+		return groups[k];
 	}
 
 	const static bool hasResetableAccumulators = true;
