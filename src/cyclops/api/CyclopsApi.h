@@ -63,6 +63,28 @@ enum class Precision { Fp64, Fp32 };
 
 enum class ColumnFormat { Dense, Sparse, Indicator, Intercept };
 
+/// Element type of a non-owning index buffer passed across the facade.
+enum class IndexType { Int32, Int64 };
+
+/// Element type of a non-owning value buffer passed across the facade.
+enum class ValueType { None, Float64, Float32, Bool, Int8, UInt8, Int32, Int64 };
+
+/// Non-owning contiguous 1-D view of integer indices or identifiers.
+/// Direct C++ callers must supply naturally aligned storage for `type`.
+struct IndexView {
+    const void* data = nullptr;
+    std::size_t size = 0;
+    IndexType type = IndexType::Int64;
+};
+
+/// Non-owning 1-D view of covariate or outcome values.
+/// Direct C++ callers must supply naturally aligned storage for `type`.
+struct ValueView {
+    const void* data = nullptr;
+    std::size_t size = 0;
+    ValueType type = ValueType::None;
+};
+
 /// Sentinel accepted by `ModelData::set_offset_covariate` meaning "promote the
 /// outcome `time` vector to an offset covariate".
 constexpr std::int64_t kUseTimeAsOffset = -1;
@@ -237,12 +259,18 @@ public:
     /// @param y            outcome, length = number of rows
     /// @param time         survival/exposure time; empty when unused
     /// @param stratum_id   stratum per row, ascending and grouped; empty ⇒ unstratified
-    /// @param row_id       external row identifiers (the row labels; strata are read only with them), distinct;
+    /// @param row_id       optional external row identifiers (row labels), distinct;
     ///                     empty ⇒ 0..n-1. `add_*` calls always address rows by position
     void set_outcome(const std::vector<double>& y,
                      const std::vector<double>& time = {},
                      const std::vector<std::int64_t>& stratum_id = {},
                      const std::vector<std::int64_t>& row_id = {});
+
+    /// Non-owning view overload of `set_outcome`, reading host buffers in place.
+    void set_outcome(ValueView y,
+                     ValueView time = {},
+                     IndexView stratum_id = {},
+                     IndexView row_id = {});
 
     /// Append covariates supplied in compressed-sparse-column layout.
     ///
@@ -260,9 +288,50 @@ public:
                             const std::vector<std::int64_t>& covariate_ids,
                             bool force_sparse = false);
 
+    /// Non-owning view overload of `add_covariates_csc`, reading int32/int64
+    /// indices and typed values directly from host buffers.
+    ///
+    /// @param is_indicator  optional length-`n_columns` byte mask (`!= 0` means
+    ///                      column `j` is a binary 0/1 indicator whose stored
+    ///                      entries are all 1 with no explicit zeros, skipping
+    ///                      any scan of `values` when `!force_sparse`)
+    void add_covariates_csc(IndexView indptr,
+                            IndexView row_indices,
+                            ValueView values,
+                            IndexView covariate_ids,
+                            bool force_sparse = false,
+                            const std::uint8_t* is_indicator = nullptr,
+                            std::size_t is_indicator_size = 0);
+
+    /// Append covariates supplied in compressed-sparse-row layout.
+    ///
+    /// @param indptr         length = n_csr_rows + 1 (as in scipy.sparse.csr_matrix)
+    /// @param col_indices    length = nnz, column index in [0, n_columns)
+    /// @param values         length = nnz, or empty/None for a pure indicator matrix
+    /// @param covariate_ids  length = n_columns; ids must be unique and unused
+    /// @param row_order      optional length-`row_count()` row index map: output
+    ///                       row `r` reads CSR row `row_order[r]` (supports row
+    ///                       permutations such as Cox time sorting and row subsets)
+    /// @param force_sparse   store 0/1 columns as SPARSE rather than INDICATOR
+    /// @param is_indicator   optional length-`n_columns` byte mask skipping value
+    ///                       scans for known-binary columns when `!force_sparse`
+    void add_covariates_csr(IndexView indptr,
+                            IndexView col_indices,
+                            ValueView values,
+                            IndexView covariate_ids,
+                            std::optional<IndexView> row_order = std::nullopt,
+                            bool force_sparse = false,
+                            const std::uint8_t* is_indicator = nullptr,
+                            std::size_t is_indicator_size = 0);
+
     /// Append a single fully dense covariate (length = number of rows).
     void add_dense_covariate(std::int64_t covariate_id,
                              const std::vector<double>& values);
+
+    /// Non-owning view overload of `add_dense_covariate` supporting strided buffers.
+    void add_dense_covariate(std::int64_t covariate_id,
+                             ValueView values,
+                             std::ptrdiff_t byte_stride);
 
     /// Prepend an intercept column (label 0 by convention).
     void add_intercept();
@@ -351,15 +420,18 @@ public:
 
     /// Row weights; length = number of rows. Zero excludes a row.
     void set_weights(const std::vector<double>& weights);
+    void set_weights(const double* weights, std::size_t size);
 
     /// Fine-Gray subject-specific censoring weights; each in [0, 1].
     void set_censor_weights(const std::vector<double>& weights);
+    void set_censor_weights(const double* weights, std::size_t size);
 
     /// Starting coefficients, one per *estimated* coefficient — that is, one per
     /// covariate excluding any offset column, matching `coefficients()`. When
     /// not called, `fit()` applies the same intercept warm start as
     /// `fitCyclopsModel()`.
     void set_start_values(const std::vector<double>& beta);
+    void set_start_values(const double* beta, std::size_t size);
 
     /// Hold coefficients at their starting value. Sized as `set_start_values`.
     void set_fixed(const std::vector<bool>& fixed);

@@ -14,6 +14,7 @@
 #include <stdexcept>
 
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 #include <map>
@@ -119,6 +120,28 @@ private:
         std::memcpy(&v, &bits, sizeof(double));
         return v;
     }
+};
+
+// Read-only typed views for positional (0-based) loading from host buffers (e.g. NumPy arrays)
+// without R NA sentinel conversions.
+struct PositionalIndexView {
+    enum Kind { INT32, INT64 };
+    const void* data = nullptr;
+    size_t size = 0;
+    Kind kind = INT64;
+
+    int64_t at(size_t i) const {
+        return (kind == INT32)
+            ? static_cast<int64_t>(static_cast<const int32_t*>(data)[i])
+            : static_cast<const int64_t*>(data)[i];
+    }
+};
+
+struct PositionalValueView {
+    enum Kind { NONE, FLOAT64, FLOAT32, BOOL, INT8, UINT8, INT32, INT64 };
+    const void* data = nullptr;
+    size_t size = 0;
+    Kind kind = NONE;
 };
 
 class AbstractModelData {
@@ -262,6 +285,47 @@ public:
             const NumberView& rowIds,
             const NumberView& values,
             const bool forceSparse
+    ) = 0;
+
+    // Positional (0-based) loaders reading directly from host buffers without intermediate copies.
+    virtual void loadYPositional(
+            const PositionalValueView& y,
+            const PositionalValueView& time,
+            const PositionalIndexView& stratumId,
+            const PositionalIndexView& rowId
+    ) = 0;
+
+    virtual void loadDenseColumn(
+            const IdType covariateId,
+            const PositionalValueView& values,
+            const ptrdiff_t byteStride,
+            const bool checkExisting = true
+    ) = 0;
+
+    // Caller validates dimensions, indptr monotonicity and covariateId uniqueness; row bounds, duplicates and
+    // ascending order are validated internally before mutating X. Empty columns are preserved (as INDICATOR unless
+    // forceSparse). When isIndicator != nullptr, entries with isIndicator[j] != 0 and !forceSparse skip scanning
+    // values and load directly into INDICATOR storage.
+    virtual void loadPositionalCSC(
+            const PositionalIndexView& indptr,
+            const PositionalIndexView& rowIndices,
+            const PositionalValueView& values,
+            const PositionalIndexView& covariateIds,
+            const bool forceSparse,
+            const uint8_t* isIndicator
+    ) = 0;
+
+    // Two-pass CSR loader: validates colIndices and duplicate (row, col) entries atomically before mutating X,
+    // then scatters output rows r = 0..nRows-1 (reading input row rowOrder[r] if rowOrder != nullptr) directly into
+    // pre-sized columns in ascending row order without transposition or per-column sorting.
+    virtual void loadPositionalCSR(
+            const PositionalIndexView& indptr,
+            const PositionalIndexView& colIndices,
+            const PositionalValueView& values,
+            const PositionalIndexView& covariateIds,
+            const PositionalIndexView* rowOrder,
+            const bool forceSparse,
+            const uint8_t* isIndicator
     ) = 0;
 
     virtual std::vector<std::string> loadStratTimeEffects(
@@ -473,6 +537,39 @@ public:
 		const NumberView& rowIds,
 		const NumberView& values,
 		const bool forceSparse
+	);
+
+	void loadYPositional(
+		const PositionalValueView& y,
+		const PositionalValueView& time,
+		const PositionalIndexView& stratumId,
+		const PositionalIndexView& rowId
+	);
+
+	void loadDenseColumn(
+		const IdType covariateId,
+		const PositionalValueView& values,
+		const ptrdiff_t byteStride,
+		const bool checkExisting = true
+	);
+
+	void loadPositionalCSC(
+		const PositionalIndexView& indptr,
+		const PositionalIndexView& rowIndices,
+		const PositionalValueView& values,
+		const PositionalIndexView& covariateIds,
+		const bool forceSparse,
+		const uint8_t* isIndicator
+	);
+
+	void loadPositionalCSR(
+		const PositionalIndexView& indptr,
+		const PositionalIndexView& colIndices,
+		const PositionalValueView& values,
+		const PositionalIndexView& covariateIds,
+		const PositionalIndexView* rowOrder,
+		const bool forceSparse,
+		const uint8_t* isIndicator
 	);
 
 	std::vector<std::string> loadStratTimeEffects(
@@ -979,7 +1076,7 @@ protected:
 	std::vector<std::string> labels; // TODO Change back to 'long'
 
 	int nTypes;
-	int64_t maxCovariateId;
+	int64_t maxCovariateId = 0;
 	unordered_map<IdType, IdType> timeEffectCovariateIdMap; // (timeEffectCovariateName, index)
 
 private:

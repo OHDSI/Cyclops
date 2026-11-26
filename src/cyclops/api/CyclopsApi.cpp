@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <numeric>
 #include <sstream>
 #include <unordered_set>
@@ -271,9 +272,6 @@ struct ModelData::Impl {
     std::shared_ptr<BufferedLogger> logger;
     std::shared_ptr<ThrowingErrorHandler> error;
     std::unique_ptr<bsccs::AbstractModelData> data;
-    /// The outcome's row ids when set_outcome() was given them, else empty. The core reads the rows of a sparse
-    /// covariate as these ids; Python passes positions, which add_covariates_csc() translates.
-    std::vector<std::int64_t> rowIds;
 
     void requireOutcome() const {
         if (data->getNumberOfRows() == 0) {
@@ -287,6 +285,93 @@ struct ModelData::Impl {
         }
     }
 };
+
+namespace {
+
+inline std::int64_t readIndex(const IndexView& view, std::size_t i) {
+    return (view.type == IndexType::Int32)
+        ? static_cast<std::int64_t>(static_cast<const std::int32_t*>(view.data)[i])
+        : static_cast<const std::int64_t*>(view.data)[i];
+}
+
+bsccs::PositionalIndexView toPositionalIndex(const IndexView& view) {
+    bsccs::PositionalIndexView out;
+    out.data = view.data;
+    out.size = view.size;
+    out.kind = (view.type == IndexType::Int32)
+        ? bsccs::PositionalIndexView::INT32
+        : bsccs::PositionalIndexView::INT64;
+    return out;
+}
+
+bsccs::PositionalValueView toPositionalValue(const ValueView& view) {
+    bsccs::PositionalValueView out;
+    out.data = view.data;
+    out.size = view.size;
+    switch (view.type) {
+        case ValueType::None:    out.kind = bsccs::PositionalValueView::NONE;    break;
+        case ValueType::Float64: out.kind = bsccs::PositionalValueView::FLOAT64; break;
+        case ValueType::Float32: out.kind = bsccs::PositionalValueView::FLOAT32; break;
+        case ValueType::Bool:    out.kind = bsccs::PositionalValueView::BOOL;    break;
+        case ValueType::Int8:    out.kind = bsccs::PositionalValueView::INT8;    break;
+        case ValueType::UInt8:   out.kind = bsccs::PositionalValueView::UINT8;   break;
+        case ValueType::Int32:   out.kind = bsccs::PositionalValueView::INT32;   break;
+        case ValueType::Int64:   out.kind = bsccs::PositionalValueView::INT64;   break;
+    }
+    return out;
+}
+
+void checkDistinctRowIds(const IndexView& row_id) {
+    if (row_id.size <= 1) return;
+    bool strictlyIncreasing = true;
+    std::int64_t prev = readIndex(row_id, 0);
+    for (std::size_t i = 1; i < row_id.size; ++i) {
+        const std::int64_t curr = readIndex(row_id, i);
+        if (curr <= prev) {
+            strictlyIncreasing = false;
+            break;
+        }
+        prev = curr;
+    }
+    if (strictlyIncreasing) return;
+
+    std::unordered_set<std::int64_t> seen;
+    seen.reserve(row_id.size);
+    for (std::size_t i = 0; i < row_id.size; ++i) {
+        if (!seen.insert(readIndex(row_id, i)).second) {
+            throw CyclopsError("Row ids must be distinct");
+        }
+    }
+}
+
+inline void requireNonNull(const IndexView& view, const char* name) {
+    if (view.size > 0 && view.data == nullptr) {
+        throw CyclopsError(std::string(name) + " data pointer must not be null");
+    }
+}
+
+inline void requireNonNull(const ValueView& view, const char* name) {
+    if (view.type != ValueType::None && view.size > 0 && view.data == nullptr) {
+        throw CyclopsError(std::string(name) + " data pointer must not be null");
+    }
+}
+
+void checkDistinctCovariateIds(const ModelData& self, const IndexView& covariate_ids) {
+    const auto existing = self.covariate_ids();
+    std::unordered_set<std::int64_t> ids;
+    ids.reserve(existing.size() + covariate_ids.size);
+    ids.insert(existing.begin(), existing.end());
+    for (std::size_t j = 0; j < covariate_ids.size; ++j) {
+        const std::int64_t id = readIndex(covariate_ids, j);
+        if (!ids.insert(id).second) {
+            std::ostringstream stream;
+            stream << "Variable " << id << " already exists";
+            throw CyclopsError(stream.str());
+        }
+    }
+}
+
+}  // namespace
 
 ModelData::ModelData() : impl_(new Impl()) {}
 ModelData::~ModelData() = default;
@@ -313,17 +398,45 @@ void ModelData::set_outcome(const std::vector<double>& y,
                             const std::vector<double>& time,
                             const std::vector<std::int64_t>& stratum_id,
                             const std::vector<std::int64_t>& row_id) {
+    set_outcome(
+        ValueView{y.data(), y.size(), ValueType::Float64},
+        time.empty() ? ValueView{} : ValueView{time.data(), time.size(), ValueType::Float64},
+        IndexView{stratum_id.data(), stratum_id.size(), IndexType::Int64},
+        IndexView{row_id.data(), row_id.size(), IndexType::Int64});
+}
+
+void ModelData::set_outcome(ValueView y,
+                            ValueView time,
+                            IndexView stratum_id,
+                            IndexView row_id) {
     impl_->requireMutable();
-    if (y.empty()) {
+    requireNonNull(y, "y");
+    requireNonNull(time, "time");
+    requireNonNull(stratum_id, "stratum_id");
+    requireNonNull(row_id, "row_id");
+    if (y.size == 0 || y.type == ValueType::None) {
         throw CyclopsError("Outcome vector is empty");
     }
-    if (std::unordered_set<std::int64_t>(row_id.begin(), row_id.end()).size() != row_id.size()) {
-        throw CyclopsError("Row ids must be distinct"); // the core keeps one row per id
+    if (y.size > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+        throw CyclopsError("Row count exceeds maximum supported size");
     }
-    impl_->data->loadY(stratum_id, row_id, y, time);
-    if (!row_id.empty()) {
-        impl_->rowIds = row_id;
+    const bool has_time = (time.type != ValueType::None && time.size > 0);
+    const std::size_t existing_rows = impl_->data->getNumberOfRows();
+    if ((stratum_id.size > 0 && stratum_id.size != y.size) ||
+        (row_id.size > 0 && row_id.size != y.size) ||
+        (has_time && time.size != y.size) ||
+        (existing_rows > 0 && existing_rows != y.size)) {
+        throw CyclopsError("Mismatched outcome column dimensions");
     }
+    if (existing_rows > 0 && (stratum_id.size > 0 || row_id.size > 0)) {
+        throw CyclopsError("Strata or row IDs are already loaded");
+    }
+    checkDistinctRowIds(row_id);
+    impl_->data->loadYPositional(
+        toPositionalValue(y),
+        has_time ? toPositionalValue(time) : bsccs::PositionalValueView{},
+        toPositionalIndex(stratum_id),
+        toPositionalIndex(row_id));
 }
 
 void ModelData::add_covariates_csc(const std::vector<std::int64_t>& indptr,
@@ -331,101 +444,172 @@ void ModelData::add_covariates_csc(const std::vector<std::int64_t>& indptr,
                                    const std::vector<double>& values,
                                    const std::vector<std::int64_t>& covariate_ids,
                                    bool force_sparse) {
+    add_covariates_csc(
+        IndexView{indptr.data(), indptr.size(), IndexType::Int64},
+        IndexView{row_indices.data(), row_indices.size(), IndexType::Int64},
+        values.empty() ? ValueView{} : ValueView{values.data(), values.size(), ValueType::Float64},
+        IndexView{covariate_ids.data(), covariate_ids.size(), IndexType::Int64},
+        force_sparse,
+        nullptr,
+        0);
+}
+
+void ModelData::add_covariates_csc(IndexView indptr,
+                                   IndexView row_indices,
+                                   ValueView values,
+                                   IndexView covariate_ids,
+                                   bool force_sparse,
+                                   const std::uint8_t* is_indicator,
+                                   std::size_t is_indicator_size) {
     impl_->requireMutable();
     impl_->requireOutcome();
+    requireNonNull(indptr, "indptr");
+    requireNonNull(row_indices, "row_indices");
+    requireNonNull(values, "values");
+    requireNonNull(covariate_ids, "covariate_ids");
+    if (is_indicator == nullptr && is_indicator_size > 0) {
+        throw CyclopsError("is_indicator data pointer must not be null");
+    }
 
-    if (indptr.empty() || indptr.size() != covariate_ids.size() + 1) {
+    const std::size_t n_cols = covariate_ids.size;
+    if (indptr.size == 0 || indptr.size != n_cols + 1) {
         throw CyclopsError("indptr must have length equal to the number of "
                            "covariate ids plus one");
     }
-    if (indptr.front() != 0) {
+    if (readIndex(indptr, 0) != 0) {
         throw CyclopsError("indptr must start at 0");
     }
-    const auto nnz = static_cast<std::int64_t>(row_indices.size());
-    if (indptr.back() != nnz) {
+    const auto nnz = static_cast<std::int64_t>(row_indices.size);
+    if (readIndex(indptr, n_cols) != nnz) {
         throw CyclopsError("indptr must end at the number of stored entries");
     }
-    const bool hasValues = !values.empty();
-    if (hasValues && values.size() != row_indices.size()) {
+    const bool has_values = (values.type != ValueType::None && values.size > 0);
+    if (has_values && values.size != row_indices.size) {
         throw CyclopsError("values and row_indices must have the same length");
     }
-
-    const auto rows = static_cast<std::int64_t>(impl_->data->getNumberOfRows());
-    for (const auto row : row_indices) {
-        if (row < 0 || row >= rows) {
-            throw CyclopsError("Row index out of range");
-        }
+    if (is_indicator != nullptr && is_indicator_size != n_cols) {
+        throw CyclopsError("is_indicator must have length equal to the number of "
+                           "covariate ids");
     }
-    for (std::size_t column = 0; column < covariate_ids.size(); ++column) {
-        if (indptr[column + 1] < indptr[column]) {
+
+    for (std::size_t col = 0; col < n_cols; ++col) {
+        if (readIndex(indptr, col + 1) < readIndex(indptr, col)) {
             throw CyclopsError("indptr must be non-decreasing");
         }
-        for (auto k = indptr[column] + 1; k < indptr[column + 1]; ++k) { // as loadX() checks, on consecutive entries
-            if (row_indices[k] == row_indices[k - 1]) {
-                std::ostringstream stream;
-                stream << "Repeated row-column entry at " << row_indices[k] << " - " << covariate_ids[column];
-                throw CyclopsError(stream.str());
+    }
+
+    // Validate covariate ids atomically before loading any column.
+    checkDistinctCovariateIds(*this, covariate_ids);
+
+    // loadPositionalCSC validates all row bounds, duplicates and ascending order
+    // on private column buffers before committing any column to X.
+    impl_->data->loadPositionalCSC(
+        toPositionalIndex(indptr),
+        toPositionalIndex(row_indices),
+        has_values ? toPositionalValue(values) : bsccs::PositionalValueView{},
+        toPositionalIndex(covariate_ids),
+        force_sparse,
+        is_indicator);
+}
+
+void ModelData::add_covariates_csr(IndexView indptr,
+                                   IndexView col_indices,
+                                   ValueView values,
+                                   IndexView covariate_ids,
+                                   std::optional<IndexView> row_order,
+                                   bool force_sparse,
+                                   const std::uint8_t* is_indicator,
+                                   std::size_t is_indicator_size) {
+    impl_->requireMutable();
+    impl_->requireOutcome();
+    requireNonNull(indptr, "indptr");
+    requireNonNull(col_indices, "col_indices");
+    requireNonNull(values, "values");
+    requireNonNull(covariate_ids, "covariate_ids");
+    if (is_indicator == nullptr && is_indicator_size > 0) {
+        throw CyclopsError("is_indicator data pointer must not be null");
+    }
+
+    const std::size_t n_cols = covariate_ids.size;
+    const std::size_t n_outcome_rows = impl_->data->getNumberOfRows();
+    if (indptr.size == 0) {
+        throw CyclopsError("indptr must have length equal to the number of CSR rows plus one");
+    }
+    const std::size_t n_csr_rows = indptr.size - 1;
+    if (readIndex(indptr, 0) != 0) {
+        throw CyclopsError("indptr must start at 0");
+    }
+    const auto nnz = static_cast<std::int64_t>(col_indices.size);
+    if (readIndex(indptr, n_csr_rows) != nnz) {
+        throw CyclopsError("indptr must end at the number of stored entries");
+    }
+    const bool has_values = (values.type != ValueType::None && values.size > 0);
+    if (has_values && values.size != col_indices.size) {
+        throw CyclopsError("values and col_indices must have the same length");
+    }
+    if (is_indicator != nullptr && is_indicator_size != n_cols) {
+        throw CyclopsError("is_indicator must have length equal to the number of "
+                           "covariate ids");
+    }
+
+    // Validate indptr monotonicity across all CSR rows so every [begin, end) is inside [0, nnz].
+    for (std::size_t r = 0; r < n_csr_rows; ++r) {
+        if (readIndex(indptr, r + 1) < readIndex(indptr, r)) {
+            throw CyclopsError("indptr must be non-decreasing");
+        }
+    }
+
+    bsccs::PositionalIndexView orderView;
+    const bsccs::PositionalIndexView* orderPtr = nullptr;
+    if (row_order.has_value()) {
+        requireNonNull(*row_order, "row_order");
+        if (row_order->size != n_outcome_rows) {
+            throw CyclopsError(
+                "row_order must have length equal to the number of outcome rows");
+        }
+        for (std::size_t r = 0; r < n_outcome_rows; ++r) {
+            const std::int64_t src = readIndex(*row_order, r);
+            if (src < 0 || static_cast<std::uint64_t>(src) >= n_csr_rows) {
+                throw CyclopsError("row_order index out of range");
             }
         }
+        orderView = toPositionalIndex(*row_order);
+        orderPtr = &orderView;
+    } else if (n_csr_rows != n_outcome_rows) {
+        throw CyclopsError("CSR matrix row count must match outcome row count");
     }
 
-    // Covariate ids must be new and distinct. They are checked here once, with a hash set: loadX() would otherwise search
-    // all existing columns for every column (quadratic in the number of columns). The ids, indptr and repeated rows are
-    // validated before the first column is loaded, so such a batch is rejected whole and leaves the data unchanged.
-    const auto existing = this->covariate_ids(); // the parameter covariate_ids hides the member function
-    std::unordered_set<std::int64_t> ids;
-    ids.reserve(existing.size() + covariate_ids.size());
-    ids.insert(existing.begin(), existing.end());
-    for (const auto id : covariate_ids) {
-        if (!ids.insert(id).second) {
-            std::ostringstream stream;
-            stream << "Variable " << id << " already exists";
-            throw CyclopsError(stream.str());
-        }
-    }
+    checkDistinctCovariateIds(*this, covariate_ids);
 
-    std::vector<std::int64_t> columnRows;
-    std::vector<double> columnValues;
-
-    for (std::size_t column = 0; column < covariate_ids.size(); ++column) {
-        const auto begin = indptr[column];
-        const auto end = indptr[column + 1];
-
-        columnRows.assign(row_indices.begin() + begin, row_indices.begin() + end);
-        if (hasValues) {
-            columnValues.assign(values.begin() + begin, values.begin() + end);
-        } else {
-            columnValues.assign(columnRows.size(), 1.0);
-        }
-
-        if (columnRows.empty()) {
-            // loadX() reads an empty (rows, values) pair as an intercept column.
-            // A single explicit zero yields the intended all-zero indicator
-            // column instead, because the loaders drop zero entries.
-            columnRows.assign(1, 0);
-            columnValues.assign(1, 0.0);
-        }
-        if (!impl_->rowIds.empty()) { // positions to the outcome's row ids, which the core maps back to positions
-            for (auto& row : columnRows) {
-                row = impl_->rowIds[static_cast<std::size_t>(row)];
-            }
-        }
-
-        impl_->data->loadX(covariate_ids[column], columnRows, columnValues,
-                           /*reload=*/false, /*append=*/false, force_sparse, /*checkExisting=*/false);
-    }
+    impl_->data->loadPositionalCSR(
+        toPositionalIndex(indptr),
+        toPositionalIndex(col_indices),
+        has_values ? toPositionalValue(values) : bsccs::PositionalValueView{},
+        toPositionalIndex(covariate_ids),
+        orderPtr,
+        force_sparse,
+        is_indicator);
 }
 
 void ModelData::add_dense_covariate(std::int64_t covariate_id,
                                     const std::vector<double>& values) {
+    add_dense_covariate(
+        covariate_id,
+        ValueView{values.data(), values.size(), ValueType::Float64},
+        static_cast<std::ptrdiff_t>(sizeof(double)));
+}
+
+void ModelData::add_dense_covariate(std::int64_t covariate_id,
+                                    ValueView values,
+                                    std::ptrdiff_t byte_stride) {
     impl_->requireMutable();
     impl_->requireOutcome();
-    if (values.size() != impl_->data->getNumberOfRows()) {
+    requireNonNull(values, "values");
+    if (values.type == ValueType::None || values.size != impl_->data->getNumberOfRows()) {
         throw CyclopsError("A dense covariate must supply one value per row");
     }
-    // An empty row-id vector with values present selects DENSE storage.
-    impl_->data->loadX(covariate_id, /*rowId=*/{}, values,
-                       /*reload=*/false, /*append=*/false, /*forceSparse=*/false);
+    impl_->data->loadDenseColumn(
+        covariate_id, toPositionalValue(values), byte_stride, /*checkExisting=*/true);
 }
 
 void ModelData::add_intercept() {
@@ -877,44 +1061,67 @@ void Model::set_options(const FitOptions& options) {
 }
 
 void Model::set_weights(const std::vector<double>& weights) {
-    if (weights.size() != impl_->raw().getNumberOfRows()) {
+    set_weights(weights.data(), weights.size());
+}
+
+void Model::set_weights(const double* weights, std::size_t size) {
+    if (size > 0 && weights == nullptr) {
+        throw CyclopsError("weights data pointer must not be null");
+    }
+    if (size != impl_->raw().getNumberOfRows()) {
         throw CyclopsError("Must provide a weight for each data row");
     }
-    if (std::any_of(weights.begin(), weights.end(),
-                    [](double w) { return w < 0.0; })) {
-        throw CyclopsError("Only non-negative weights are allowed");
+    std::vector<double> copy(weights, weights + size);
+    for (double w : copy) {
+        if (!(w >= 0.0)) {
+            throw CyclopsError("Only non-negative weights are allowed");
+        }
     }
-    std::vector<double> copy(weights);
     impl_->ccd().setWeights(copy.data());
 }
 
 void Model::set_censor_weights(const std::vector<double>& weights) {
-    if (weights.size() != impl_->raw().getNumberOfRows()) {
+    set_censor_weights(weights.data(), weights.size());
+}
+
+void Model::set_censor_weights(const double* weights, std::size_t size) {
+    if (size > 0 && weights == nullptr) {
+        throw CyclopsError("weights data pointer must not be null");
+    }
+    if (size != impl_->raw().getNumberOfRows()) {
         throw CyclopsError("Must provide a censoring weight for each data row");
     }
-    if (std::any_of(weights.begin(), weights.end(),
-                    [](double w) { return w < 0.0 || w > 1.0; })) {
-        throw CyclopsError("Censoring weights must lie in [0, 1]");
+    std::vector<double> copy(weights, weights + size);
+    for (double w : copy) {
+        if (!(w >= 0.0 && w <= 1.0)) {
+            throw CyclopsError("Censoring weights must lie in [0, 1]");
+        }
     }
-    std::vector<double> copy(weights);
     impl_->ccd().setCensorWeights(copy.data());
 }
 
 void Model::set_start_values(const std::vector<double>& beta) {
+    set_start_values(beta.data(), beta.size());
+}
+
+void Model::set_start_values(const double* beta, std::size_t size) {
+    if (size > 0 && beta == nullptr) {
+        throw CyclopsError("beta data pointer must not be null");
+    }
     // Sized like coefficients() and FitResult: the offset column is never the
     // caller's to set, since its coefficient is fixed at 1.
     const std::size_t expected =
         impl_->raw().getNumberOfCovariates() - impl_->betaOffset();
-    if (beta.size() != expected) {
+    if (size != expected) {
         std::ostringstream stream;
         stream << "Must provide a starting value for each estimated coefficient ("
-               << expected << " expected, " << beta.size() << " given)";
+               << expected << " expected, " << size << " given)";
         throw CyclopsError(stream.str());
     }
     std::vector<double> full;
-    full.reserve(beta.size() + impl_->betaOffset());
+    full.reserve(size + impl_->betaOffset());
     if (impl_->betaOffset() == 1) full.push_back(1.0);
-    full.insert(full.end(), beta.begin(), beta.end());
+    full.insert(full.end(), beta, beta + size);
 
     impl_->ccd().setBeta(full);
     impl_->ccd().setStartingBeta(full);

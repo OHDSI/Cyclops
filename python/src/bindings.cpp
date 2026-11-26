@@ -15,8 +15,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <limits>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "cyclops/api/CyclopsApi.h"
@@ -38,6 +43,278 @@ py::array_t<T> toArray(const std::vector<T>& values) {
         std::copy(values.begin(), values.end(), array.mutable_data());
     }
     return array;
+}
+
+/// Non-owning 1-D integer index view backed by a pinned py::array (kept alive
+/// on the caller's stack while the GIL is released).
+struct BorrowedIndices {
+    py::array owner;
+    IndexView view;
+    bool provided = false;
+};
+
+/// Non-owning 1-D typed value view backed by a pinned py::array.
+struct BorrowedValues {
+    py::array owner;
+    ValueView view;
+    std::ptrdiff_t byte_stride = 0;
+    bool provided = false;
+};
+
+/// Non-owning 1-D boolean mask view backed by a pinned py::array.
+struct BorrowedMask {
+    py::array owner;
+    const std::uint8_t* data = nullptr;
+    std::size_t size = 0;
+    bool provided = false;
+};
+
+/// Non-owning 1-D contiguous double buffer backed by a pinned py::array.
+struct BorrowedDoubles {
+    py::array owner;
+    const double* data = nullptr;
+    std::size_t size = 0;
+};
+
+inline bool isAligned(const void* ptr, std::ptrdiff_t stride, std::size_t align, std::size_t n) {
+    if (n == 0 || align <= 1) return true;
+    if ((reinterpret_cast<std::uintptr_t>(ptr) % align) != 0) return false;
+    if (n > 1) {
+        const std::size_t abs_stride = (stride < 0)
+            ? static_cast<std::size_t>(0) - static_cast<std::size_t>(stride)
+            : static_cast<std::size_t>(stride);
+        if ((abs_stride % align) != 0) return false;
+    }
+    return true;
+}
+
+inline std::size_t valueAlign(ValueType vt) {
+    switch (vt) {
+        case ValueType::Float64: return alignof(double);
+        case ValueType::Float32: return alignof(float);
+        case ValueType::Int32:   return alignof(std::int32_t);
+        case ValueType::Int64:   return alignof(std::int64_t);
+        case ValueType::Bool:
+        case ValueType::Int8:
+        case ValueType::UInt8:
+        case ValueType::None:    return 1;
+    }
+    return 1;
+}
+
+std::optional<ValueType> matchNativeValueType(const py::dtype& dt) {
+    if (dt.equal(py::dtype::of<double>())) return ValueType::Float64;
+    if (dt.equal(py::dtype::of<float>())) return ValueType::Float32;
+    if (dt.equal(py::dtype::of<bool>())) return ValueType::Bool;
+    if (dt.equal(py::dtype::of<std::int8_t>())) return ValueType::Int8;
+    if (dt.equal(py::dtype::of<std::uint8_t>())) return ValueType::UInt8;
+    if (dt.equal(py::dtype::of<std::int32_t>())) return ValueType::Int32;
+    if (dt.equal(py::dtype::of<std::int64_t>())) return ValueType::Int64;
+    return std::nullopt;
+}
+
+/// Converts any Python array-like to a py::array while preserving exceptions
+/// raised by `__array__()` (unlike `py::array::ensure`, which clears PyErr).
+py::array ensureArray(py::handle obj, const char* name, bool& was_ndarray) {
+    if (py::isinstance<py::array>(obj)) {
+        was_ndarray = true;
+        return py::reinterpret_borrow<py::array>(obj);
+    }
+    was_ndarray = false;
+    py::object result = py::module_::import("numpy").attr("asarray")(obj);
+    if (!py::isinstance<py::array>(result)) {
+        throw py::type_error(std::string(name) + " must be an array-like");
+    }
+    return py::reinterpret_borrow<py::array>(result);
+}
+
+/// Always produces a freshly allocated, properly aligned, C-contiguous 1-D array of T.
+template <typename T>
+py::array_t<T> copyAlignedContiguous(const py::array& arr) {
+    const auto n = static_cast<std::size_t>(arr.size());
+    if ((arr.flags() & py::array::c_style) && arr.dtype().equal(py::dtype::of<T>())) {
+        py::array_t<T> out(static_cast<py::ssize_t>(n));
+        if (n > 0) {
+            std::memcpy(out.mutable_data(), arr.data(), n * sizeof(T));
+        }
+        return out;
+    }
+    py::object copied = py::module_::import("numpy").attr("array")(
+        arr,
+        py::arg("dtype") = py::dtype::of<T>(),
+        py::arg("order") = "C",
+        py::arg("copy") = true);
+    return py::reinterpret_borrow<py::array_t<T>>(copied);
+}
+
+void checkUint64InInt64Range(const py::array& arr, const char* name) {
+    const auto n = static_cast<std::size_t>(arr.size());
+    if (n == 0) return;
+    py::array_t<std::uint64_t> owned;
+    const std::uint64_t* ptr = nullptr;
+    if ((arr.flags() & py::array::c_style) &&
+        arr.dtype().equal(py::dtype::of<std::uint64_t>()) &&
+        isAligned(arr.data(), arr.strides(0), alignof(std::uint64_t), n)) {
+        ptr = static_cast<const std::uint64_t*>(arr.data());
+    } else {
+        owned = copyAlignedContiguous<std::uint64_t>(arr);
+        ptr = owned.data();
+    }
+    constexpr auto kMaxInt64 = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
+    for (std::size_t i = 0; i < n; ++i) {
+        if (ptr[i] > kMaxInt64) {
+            const std::string msg =
+                std::string(name) + " contains uint64 values exceeding int64 range";
+            PyErr_SetString(PyExc_OverflowError, msg.c_str());
+            throw py::error_already_set();
+        }
+    }
+}
+
+BorrowedIndices asIndexView(py::handle obj, const char* name, bool allow_none = false) {
+    if (obj.is_none()) {
+        if (allow_none) return {};
+        throw py::type_error(std::string(name) + " must not be None");
+    }
+
+    bool was_ndarray = false;
+    py::array arr = ensureArray(obj, name, was_ndarray);
+    if (arr.ndim() != 1) {
+        throw py::value_error(std::string(name) + " must be one-dimensional");
+    }
+    const auto n = static_cast<std::size_t>(arr.size());
+    const char kind = arr.dtype().kind();
+    if (n == 0) {
+        if (was_ndarray && kind != 'i' && kind != 'u') {
+            throw py::type_error(std::string(name) + " must have an integer dtype");
+        }
+        return {std::move(arr), IndexView{nullptr, 0, IndexType::Int64}, true};
+    }
+    if (kind != 'i' && kind != 'u') {
+        throw py::type_error(std::string(name) + " must have an integer dtype");
+    }
+    if (kind == 'u' && arr.dtype().itemsize() >= 8) {
+        checkUint64InInt64Range(arr, name);
+    }
+    if (arr.flags() & py::array::c_style) {
+        if (arr.dtype().equal(py::dtype::of<std::int32_t>()) &&
+            isAligned(arr.data(), arr.strides(0), alignof(std::int32_t), n)) {
+            const void* ptr = arr.data();
+            return {std::move(arr), IndexView{ptr, n, IndexType::Int32}, true};
+        }
+        if (arr.dtype().equal(py::dtype::of<std::int64_t>()) &&
+            isAligned(arr.data(), arr.strides(0), alignof(std::int64_t), n)) {
+            const void* ptr = arr.data();
+            return {std::move(arr), IndexView{ptr, n, IndexType::Int64}, true};
+        }
+    }
+    auto coerced = copyAlignedContiguous<std::int64_t>(arr);
+    const void* ptr = coerced.data();
+    return {std::move(coerced), IndexView{ptr, n, IndexType::Int64}, true};
+}
+
+BorrowedValues asValueView(py::handle obj,
+                           const char* name,
+                           bool allow_none = true,
+                           bool allow_strided = false) {
+    if (obj.is_none()) {
+        if (allow_none) return {};
+        throw py::type_error(std::string(name) + " must not be None");
+    }
+
+    bool was_ndarray = false;
+    py::array arr = ensureArray(obj, name, was_ndarray);
+    if (arr.ndim() != 1) {
+        throw py::value_error(std::string(name) + " must be one-dimensional");
+    }
+    const auto n = static_cast<std::size_t>(arr.size());
+    const char kind = arr.dtype().kind();
+    if (n == 0) {
+        if (was_ndarray && kind != 'f' && kind != 'i' && kind != 'u' && kind != 'b') {
+            throw py::type_error(std::string(name) + " must have a numeric dtype");
+        }
+        return {std::move(arr), ValueView{nullptr, 0, ValueType::None}, 0, true};
+    }
+
+    const auto native = matchNativeValueType(arr.dtype());
+    if (native.has_value() &&
+        (allow_strided || (arr.flags() & py::array::c_style)) &&
+        isAligned(arr.data(), arr.strides(0), valueAlign(*native), n)) {
+        const void* ptr = arr.data();
+        const auto stride = static_cast<std::ptrdiff_t>(arr.strides(0));
+        return {std::move(arr), ValueView{ptr, n, *native}, stride, true};
+    }
+
+    if (kind != 'f' && kind != 'i' && kind != 'u' && kind != 'b') {
+        throw py::type_error(std::string(name) + " must have a numeric dtype");
+    }
+    auto coerced = copyAlignedContiguous<double>(arr);
+    const void* ptr = coerced.data();
+    return {std::move(coerced),
+            ValueView{ptr, n, ValueType::Float64},
+            static_cast<std::ptrdiff_t>(sizeof(double)),
+            true};
+}
+
+BorrowedMask asBoolMask(py::handle obj, const char* name) {
+    static_assert(sizeof(bool) == 1, "expected 1-byte bool");
+    static const std::uint8_t kEmptySentinel = 0;
+
+    if (obj.is_none()) {
+        return {};
+    }
+    bool was_ndarray = false;
+    py::array arr = ensureArray(obj, name, was_ndarray);
+    if (arr.ndim() != 1) {
+        throw py::value_error(std::string(name) + " must be one-dimensional");
+    }
+    const auto n = static_cast<std::size_t>(arr.size());
+    const char kind = arr.dtype().kind();
+    if (n == 0) {
+        if (was_ndarray && kind != 'b') {
+            throw py::type_error(std::string(name) + " must have a boolean dtype");
+        }
+        return {std::move(arr), &kEmptySentinel, 0, true};
+    }
+    if (kind != 'b') {
+        throw py::type_error(std::string(name) + " must have a boolean dtype");
+    }
+    if (!(arr.flags() & py::array::c_style) || !arr.dtype().equal(py::dtype::of<bool>())) {
+        arr = copyAlignedContiguous<bool>(arr);
+    }
+    const auto* ptr = static_cast<const std::uint8_t*>(arr.data());
+    return {std::move(arr), ptr, n, true};
+}
+
+BorrowedDoubles asDoubleBuffer(py::handle obj, const char* name) {
+    if (obj.is_none()) {
+        throw py::type_error(std::string(name) + " must not be None");
+    }
+    bool was_ndarray = false;
+    py::array arr = ensureArray(obj, name, was_ndarray);
+    if (arr.ndim() != 1) {
+        throw py::value_error(std::string(name) + " must be one-dimensional");
+    }
+    const auto n = static_cast<std::size_t>(arr.size());
+    const char kind = arr.dtype().kind();
+    if (n == 0) {
+        if (was_ndarray && kind != 'f' && kind != 'i' && kind != 'u' && kind != 'b') {
+            throw py::type_error(std::string(name) + " must have a numeric dtype");
+        }
+        return {std::move(arr), nullptr, 0};
+    }
+    if (kind != 'f' && kind != 'i' && kind != 'u' && kind != 'b') {
+        throw py::type_error(std::string(name) + " must have a numeric dtype");
+    }
+    if ((arr.flags() & py::array::c_style) &&
+        arr.dtype().equal(py::dtype::of<double>()) &&
+        isAligned(arr.data(), arr.strides(0), alignof(double), n)) {
+        const auto* ptr = static_cast<const double*>(arr.data());
+        return {std::move(arr), ptr, n};
+    }
+    auto coerced = copyAlignedContiguous<double>(arr);
+    const auto* ptr = coerced.data();
+    return {std::move(coerced), ptr, n};
 }
 
 }  // namespace
@@ -216,19 +493,65 @@ PYBIND11_MODULE(_cyclops, m) {
                     py::arg("kind"),
                     py::arg("precision") = Precision::Fp64,
                     py::arg("silent") = true)
-        .def("set_outcome", &ModelData::set_outcome,
+        .def("set_outcome",
+             [](ModelData& self, py::object y, py::object time,
+                py::object stratum_id, py::object row_id) {
+                 auto yBuf = asValueView(y, "y", /*allow_none=*/false);
+                 auto timeBuf = asValueView(time, "time", /*allow_none=*/true);
+                 auto strataBuf = asIndexView(stratum_id, "stratum_id", /*allow_none=*/true);
+                 auto rowBuf = asIndexView(row_id, "row_id", /*allow_none=*/true);
+                 py::gil_scoped_release release;
+                 self.set_outcome(yBuf.view, timeBuf.view, strataBuf.view, rowBuf.view);
+             },
              py::arg("y"),
-             py::arg("time") = std::vector<double>{},
-             py::arg("stratum_id") = std::vector<std::int64_t>{},
-             py::arg("row_id") = std::vector<std::int64_t>{},
-             py::call_guard<py::gil_scoped_release>())
-        .def("add_covariates_csc", &ModelData::add_covariates_csc,
+             py::arg("time") = py::none(),
+             py::arg("stratum_id") = py::none(),
+             py::arg("row_id") = py::none())
+        .def("add_covariates_csc",
+             [](ModelData& self, py::object indptr, py::object row_indices,
+                py::object values, py::object covariate_ids,
+                bool force_sparse, py::object is_indicator) {
+                 auto indptrBuf = asIndexView(indptr, "indptr");
+                 auto rowBuf = asIndexView(row_indices, "row_indices");
+                 auto valBuf = asValueView(values, "values", /*allow_none=*/true);
+                 auto idBuf = asIndexView(covariate_ids, "covariate_ids");
+                 auto maskBuf = asBoolMask(is_indicator, "is_indicator");
+                 py::gil_scoped_release release;
+                 self.add_covariates_csc(
+                     indptrBuf.view, rowBuf.view, valBuf.view, idBuf.view,
+                     force_sparse, maskBuf.data, maskBuf.size);
+             },
              py::arg("indptr"), py::arg("row_indices"), py::arg("values"),
              py::arg("covariate_ids"), py::arg("force_sparse") = false,
-             py::call_guard<py::gil_scoped_release>())
-        .def("add_dense_covariate", &ModelData::add_dense_covariate,
-             py::arg("covariate_id"), py::arg("values"),
-             py::call_guard<py::gil_scoped_release>())
+             py::arg("is_indicator") = py::none())
+        .def("add_covariates_csr",
+             [](ModelData& self, py::object indptr, py::object col_indices,
+                py::object values, py::object covariate_ids,
+                py::object row_order, bool force_sparse, py::object is_indicator) {
+                 auto indptrBuf = asIndexView(indptr, "indptr");
+                 auto colBuf = asIndexView(col_indices, "col_indices");
+                 auto valBuf = asValueView(values, "values", /*allow_none=*/true);
+                 auto idBuf = asIndexView(covariate_ids, "covariate_ids");
+                 auto orderBuf = asIndexView(row_order, "row_order", /*allow_none=*/true);
+                 auto maskBuf = asBoolMask(is_indicator, "is_indicator");
+                 std::optional<IndexView> orderOpt;
+                 if (orderBuf.provided) orderOpt = orderBuf.view;
+                 py::gil_scoped_release release;
+                 self.add_covariates_csr(
+                     indptrBuf.view, colBuf.view, valBuf.view, idBuf.view,
+                     orderOpt, force_sparse, maskBuf.data, maskBuf.size);
+             },
+             py::arg("indptr"), py::arg("col_indices"), py::arg("values"),
+             py::arg("covariate_ids"), py::arg("row_order") = py::none(),
+             py::arg("force_sparse") = false, py::arg("is_indicator") = py::none())
+        .def("add_dense_covariate",
+             [](ModelData& self, std::int64_t covariate_id, py::object values) {
+                 auto valBuf = asValueView(
+                     values, "values", /*allow_none=*/false, /*allow_strided=*/true);
+                 py::gil_scoped_release release;
+                 self.add_dense_covariate(covariate_id, valBuf.view, valBuf.byte_stride);
+             },
+             py::arg("covariate_id"), py::arg("values"))
         .def("add_intercept", &ModelData::add_intercept)
         .def("set_offset_covariate", &ModelData::set_offset_covariate,
              py::arg("covariate_id"), py::arg("already_on_log_scale") = false)
@@ -277,9 +600,27 @@ PYBIND11_MODULE(_cyclops, m) {
                     py::keep_alive<0, 1>())
         .def("set_prior", &Model::set_prior, py::arg("prior"))
         .def("set_options", &Model::set_options, py::arg("options"))
-        .def("set_weights", &Model::set_weights, py::arg("weights"))
-        .def("set_censor_weights", &Model::set_censor_weights, py::arg("weights"))
-        .def("set_start_values", &Model::set_start_values, py::arg("beta"))
+        .def("set_weights",
+             [](Model& self, py::object weights) {
+                 auto buf = asDoubleBuffer(weights, "weights");
+                 py::gil_scoped_release release;
+                 self.set_weights(buf.data, buf.size);
+             },
+             py::arg("weights"))
+        .def("set_censor_weights",
+             [](Model& self, py::object weights) {
+                 auto buf = asDoubleBuffer(weights, "weights");
+                 py::gil_scoped_release release;
+                 self.set_censor_weights(buf.data, buf.size);
+             },
+             py::arg("weights"))
+        .def("set_start_values",
+             [](Model& self, py::object beta) {
+                 auto buf = asDoubleBuffer(beta, "beta");
+                 py::gil_scoped_release release;
+                 self.set_start_values(buf.data, buf.size);
+             },
+             py::arg("beta"))
         .def("set_fixed", &Model::set_fixed, py::arg("fixed"))
         .def("fit", &Model::fit, py::call_guard<py::gil_scoped_release>())
         .def("predict",

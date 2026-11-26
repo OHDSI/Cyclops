@@ -427,6 +427,10 @@ public:
 	    nCols++;
 	}
 
+	void reserveColumns(size_t capacity) {
+	    allColumns.reserve(capacity);
+	}
+
 	size_t nRows;
 	size_t nCols;
 	size_t nEntries;
