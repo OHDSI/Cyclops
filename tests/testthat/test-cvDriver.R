@@ -156,3 +156,48 @@ test_that("The auto-search does not evaluate variances below the null-model vari
     unbounded <- search(cvNullModelBound = FALSE)
     expect_lt(unbounded$tried[1], nullVariance)
 })
+
+test_that("Cox cross-validation with threads > folds (setSecondOrderThreads) and fp32 threads are bit-exact", {
+    skip_on_cran() # threads
+    set.seed(141)
+    K <- 2500
+    p <- 80 # n >= 32 exercises parallel colRangeS2 inside CV folds when threads > fold
+    X <- matrix(rbinom(K * p, 1, 0.15), K, p)
+    X[, 71:80] <- matrix(rnorm(K * 10), K, 10)
+    eta <- drop(X[, c(1:5, 71:73)] %*% c(0.4, -0.35, 0.3, -0.25, 0.2, 0.3, -0.25, 0.2))
+    tObs <- ceiling(rexp(K, 0.05 * exp(eta)))
+    y <- rbinom(K, 1, 0.65)
+    nz <- which(X != 0, arr.ind = TRUE)
+    covDf <- data.frame(rowId = nz[, 1], covariateId = nz[, 2], covariateValue = X[nz])
+    covDf <- covDf[order(covDf$rowId, covDf$covariateId), ]
+    outDf <- data.frame(rowId = seq_len(K), y = y, time = tObs)
+
+    cd64 <- convertToCyclopsData(outDf, covDf, modelType = "cox", floatingPoint = 64, quiet = TRUE)
+    for (priorType in c("laplace", "normal")) {
+        prior <- createPrior(priorType, useCrossValidation = TRUE)
+        f1 <- fitCyclopsModel(cd64, prior = prior, forceNewObject = TRUE, warnings = FALSE,
+                              control = createControl(cvType = "auto", fold = 3, seed = 7, startingVariance = 0.05,
+                                                      convergenceType = "gap", tolerance = 1e-6,
+                                                      threads = 1, noiseLevel = "silent"))
+        f3 <- fitCyclopsModel(cd64, prior = prior, forceNewObject = TRUE, warnings = FALSE,
+                              control = createControl(cvType = "auto", fold = 3, seed = 7, startingVariance = 0.05,
+                                                      convergenceType = "gap", tolerance = 1e-6,
+                                                      threads = 3, noiseLevel = "silent"))
+        f6 <- fitCyclopsModel(cd64, prior = prior, forceNewObject = TRUE, warnings = FALSE,
+                              control = createControl(cvType = "auto", fold = 3, seed = 7, startingVariance = 0.05,
+                                                      convergenceType = "gap", tolerance = 1e-6,
+                                                      threads = 6, noiseLevel = "silent"))
+        expect_identical(f3$variance, f1$variance)
+        expect_identical(coef(f3), coef(f1))
+        expect_identical(f6$variance, f1$variance)
+        expect_identical(coef(f6), coef(f1))
+    }
+
+    # fp32 single-precision Cox with threads = 1 vs 4 (exercises computeGradientsAndHessians !hazardSums gating)
+    cd32 <- convertToCyclopsData(outDf, covDf, modelType = "cox", floatingPoint = 32, quiet = TRUE)
+    fp1 <- fitCyclopsModel(cd32, prior = createPrior("laplace", 0.05), forceNewObject = TRUE, warnings = FALSE,
+                           control = createControl(threads = 1, noiseLevel = "silent"))
+    fp4 <- fitCyclopsModel(cd32, prior = createPrior("laplace", 0.05), forceNewObject = TRUE, warnings = FALSE,
+                           control = createControl(threads = 4, noiseLevel = "silent"))
+    expect_identical(coef(fp4), coef(fp1))
+})

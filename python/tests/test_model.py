@@ -646,3 +646,129 @@ def test_merge_duplicates_default_follows_the_prior(small):
     model.set_prior(laplace)
     model.fit()
     np.testing.assert_array_equal(model.coefficients, merged)
+
+
+def test_wide_cox_threaded_fit_cv_and_profile_are_exact():
+    """Wide Cox (p >= 32, dense-at-end) single fit, CV with threads > folds, and
+    post-profile refit must be bitwise thread-invariant."""
+    rng = np.random.default_rng(77)
+    n, p = 2000, 80
+    X = rng.binomial(1, 0.15, size=(n, p)).astype(float)
+    X[:, 70:] = rng.normal(size=(n, 10))
+    eta = (
+        X[:, :5] @ np.array([0.4, -0.35, 0.3, -0.25, 0.2])
+        + X[:, 70:72] @ np.array([0.3, -0.25])
+    )
+    time = np.ceil(rng.exponential(1.0 / (0.05 * np.exp(eta))))
+    y = rng.binomial(1, 0.65, size=n).astype(float)
+
+    data1 = CyclopsData.from_arrays(X, y, "cox", time=time)
+    data4 = CyclopsData.from_arrays(X, y, "cox", time=time)
+
+    for prior in (Prior("laplace", variance=0.05), Prior("normal", variance=0.2)):
+        m1 = CyclopsModel(
+            data1,
+            prior=prior,
+            control=Control(convergence="gap", tolerance=1e-6, threads=1),
+        )
+        m4 = CyclopsModel(
+            data4,
+            prior=prior,
+            control=Control(convergence="gap", tolerance=1e-6, threads=4),
+        )
+        r1, r4 = m1.fit(), m4.fit()
+        assert r1.converged and r4.converged
+        np.testing.assert_array_equal(r4.coefficients, r1.coefficients)
+        assert r4.log_likelihood == r1.log_likelihood
+
+    # CV with threads > folds (6 threads / 3 folds exercises setSecondOrderThreads(2))
+    cv_prior = Prior("laplace", variance="cv")
+    cv1 = CyclopsModel(
+        data1,
+        prior=cv_prior,
+        control=Control(
+            convergence="gap",
+            tolerance=1e-6,
+            fold=3,
+            seed=7,
+            starting_variance=0.05,
+            threads=1,
+        ),
+    ).fit()
+    cv6 = CyclopsModel(
+        data4,
+        prior=cv_prior,
+        control=Control(
+            convergence="gap",
+            tolerance=1e-6,
+            fold=3,
+            seed=7,
+            starting_variance=0.05,
+            threads=6,
+        ),
+    ).fit()
+    assert cv6.variance == cv1.variance
+    np.testing.assert_array_equal(cv6.coefficients, cv1.coefficients)
+
+    # Profile / confidence interval lifecycle must restore thread state cleanly
+    cid = int(data1.covariate_ids[0])
+    prof_prior = Prior("normal", variance=0.5, exclude=[cid])
+    m_prof1 = CyclopsModel(data1, prior=prof_prior, control=Control(threads=1))
+    m_prof4 = CyclopsModel(data4, prior=prof_prior, control=Control(threads=4))
+    m_prof1.fit()
+    m_prof4.fit()
+    ci1 = m_prof1.confidence_intervals([cid], threads=1)[0]
+    ci4 = m_prof4.confidence_intervals([cid], threads=2)[0]
+    assert ci4.lower == pytest.approx(ci1.lower, abs=1e-5)
+    assert ci4.upper == pytest.approx(ci1.upper, abs=1e-5)
+    r_after1 = m_prof1.fit()
+    r_after4 = m_prof4.fit()
+    np.testing.assert_array_equal(r_after4.coefficients, r_after1.coefficients)
+
+
+def test_singular_laplace_logistic_across_panel_boundary():
+    """Blocked solveSemidefinite (nb = 64) + kept rank-revealing FaceFactor across
+    p = 72 with duplicates and linear sums matches CCD without eigendecompositions."""
+    rng = np.random.default_rng(88)
+    n, p_base = 2000, 68
+    X_base = rng.binomial(1, 0.25, size=(n, p_base)).astype(float)
+    X = np.column_stack([
+        X_base,
+        X_base[:, 0],
+        X_base[:, 1],
+        X_base[:, 2] + X_base[:, 3],
+        X_base[:, 4] + X_base[:, 5],
+    ])
+    w = np.array([0.4, -0.35, 0.3, -0.25, 0.25, -0.2, 0.2, -0.15, 0.15, -0.1])
+    eta = -0.8 + X_base[:, :10] @ w
+    y = rng.binomial(1, 1.0 / (1.0 + np.exp(-eta)), size=n).astype(float)
+
+    data = CyclopsData.from_arrays(X, y, "lr", add_intercept=True)
+    prior = Prior("laplace", variance=2.0)
+    newt = CyclopsModel(
+        data,
+        prior=prior,
+        control=Control(
+            algorithm="newton",
+            convergence="gap",
+            tolerance=1e-8,
+            merge_duplicates=False,
+        ),
+    ).fit()
+    ccd = CyclopsModel(
+        data,
+        prior=prior,
+        control=Control(
+            algorithm="ccd",
+            convergence="kkt",
+            tolerance=1e-8,
+            max_iterations=50000,
+            merge_duplicates=False,
+        ),
+    ).fit()
+    assert newt.converged
+    assert newt.convergence["rankDeficientFaceRounds"] > 0
+    assert newt.convergence["eigenFaceRounds"] == 0
+    obj_newt = -(newt.log_likelihood + newt.log_prior)
+    obj_ccd = -(ccd.log_likelihood + ccd.log_prior)
+    assert obj_newt - obj_ccd <= 1e-6 + 1e-9 * abs(obj_ccd)

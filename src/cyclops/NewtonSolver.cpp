@@ -1065,7 +1065,7 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 	// Inner cyclic CD on the model, a seed for the face solve below: it stops at 0.01 max r or after 1,000 sweeps, and
 	// early once its support and signs have held for 5 sweeps with moves below 0.1 max r (signs alone can hold while mass
 	// still moves between collinear columns). The early stop counts on the face solve finishing in cheap rounds on the
-	// kept factor, so it is off after a face solve that needed rank-deficient rounds (each an O(m^3) factorization)
+	// kept factor, so it is off after a face solve that needed unseated or repeated rank-deficient O(m^3) rounds
 	Eigen::VectorXd z = bw;
 	Eigen::VectorXd q = Eigen::VectorXd::Zero(w); // H (z - b)
 	int settled = 0;
@@ -1098,12 +1098,13 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 		}
 	}
 
-	// Exact signed active-set face solve, from the inner support and signs. The Cholesky factor of the face matrix is
-	// kept across rounds (newton::FaceFactor): an entering coordinate costs a triangular solve and a leaving one a
-	// rank-one update, O(m^2) each, not a new O(m^3) factorization. A round without the factor (the first, or a face it
-	// cannot hold) uses SymmetricSolve, which handles singular faces. Every violator enters at once
+	// Exact signed active-set face solve, from the inner support and signs. The Cholesky factor of the face's
+	// independent basis is kept across rounds (newton::FaceFactor), alongside any linearly dependent columns: an
+	// entering coordinate costs a triangular solve and a leaving one a rank-one update, O(m^2) each (or O(|D| m^2)
+	// on a singular face), not a new O(m^3) factorization. A round without the factor (the first, or a face whose
+	// dependent set grew too large or lost conditioning) uses SymmetricSolve. Every violator enters at once
 	bool exact = false;
-	const int rankDeficientBefore = convergenceReport.rankDeficientFaceRounds;
+	int unseatedRankDeficientRounds = 0;
 	{
 		Eigen::VectorXd zf = z;
 		std::vector<int> sign(w, 0);
@@ -1116,41 +1117,97 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 			}
 		}
 		newton::FaceFactor factor(static_cast<Eigen::Index>(w));
-		bool factored = false; // the first round's SymmetricSolve seats the factor when the face is conditioned
+		bool factored = false; // the first round's SymmetricSolve seats the factor (full-rank or rank-revealing)
+		bool skipSeat = false; // suppress re-seating immediately after solveWithDependent/refinement rejected the same face
+		bool stallRetried = false; // allow at most one complete-pivoting retry per unchanged face if kept-factor refinement stalls
 		Eigen::VectorXd gm = gw + H * (zf - bw);
 		Eigen::VectorXd dz = Eigen::VectorXd::Zero(w);
 		double lastResidual = std::numeric_limits<double>::infinity();
-		// Rounds on the kept factor cost O(m^2), and a solve can need a few per coordinate of W (all violators enter at
-		// once, then leave as they block); a round without it refactorizes, O(m^3), and keeps the budget of 200
+		// Rounds on the kept factor cost O(m^2) (or O(|D| m^2) on a singular face), and a solve can need a few per
+		// coordinate of W (all violators enter at once, then leave as they block); unseated rounds refactorize O(m^3),
+		// tapered smoothly on large faces so a pathological face cannot burn 200 O(m^3) factorizations
 		const int maxRounds = 3 * std::max(200, static_cast<int>(w));
+		const int maxFallbackRounds = (w <= 512) ? 200 : ((w <= 1024) ? 60 : 20);
 		int fallbackRounds = 0;
 		for (int iteration = 0; iteration < maxRounds; ++iteration) {
-			if (!factored && ++fallbackRounds > 200) break;
+			if (!factored && ++fallbackRounds > maxFallbackRounds) break;
 			++convergenceReport.faceRounds;
 			S.clear();
 			for (size_t a = 0; a < w; ++a) if (inFace[a]) S.push_back(static_cast<int>(a));
 			const int m = static_cast<int>(S.size());
+			const size_t maxDependent = static_cast<size_t>(std::min(256, std::max(32, m / 4)));
+			const bool usedKeptFactor = factored;
 			dz.setZero();
 			bool ray = false; // dz is a null direction of a singular face, not a Newton step
-			if (factored) {
+			if (factored && factor.dependent().empty()) {
 				const std::vector<int>& members = factor.members();
 				Eigen::VectorXd rF(m);
 				for (int k = 0; k < m; ++k) rF(k) = -(gm(members[k]) + lw(members[k]) * sign[members[k]]);
 				const Eigen::VectorXd xF = factor.solve(rF);
 				for (int k = 0; k < m; ++k) dz(members[k]) = xF(k);
+			} else if (factored) {
+				const std::vector<int>& B = factor.members();
+				const std::vector<int>& D = factor.dependent();
+				const Eigen::Index r = static_cast<Eigen::Index>(B.size());
+				const Eigen::Index d = static_cast<Eigen::Index>(D.size());
+				Eigen::VectorXd rB(r), rD(d), xB, xD;
+				for (Eigen::Index k = 0; k < r; ++k) {
+					const int bk = B[static_cast<size_t>(k)];
+					rB(k) = -(gm(bk) + lw(bk) * sign[bk]);
+				}
+				for (Eigen::Index k = 0; k < d; ++k) {
+					const int dk = D[static_cast<size_t>(k)];
+					rD(k) = -(gm(dk) + lw(dk) * sign[dk]);
+				}
+				Eigen::MatrixXd nullBasis;
+				if (factor.solveWithDependent(H, rB, rD, xB, xD, nullBasis)) {
+					++convergenceReport.rankDeficientFaceRounds;
+					Eigen::VectorXd rAll(r + d);
+					rAll.head(r) = rB;
+					rAll.tail(d) = rD;
+					const Eigen::VectorXd rN = nullBasis * (nullBasis.transpose() * rAll);
+					ray = (r + d) > 0 && rN.norm() > std::max(1e-8 * rAll.norm(), kktTol);
+					for (Eigen::Index k = 0; k < r; ++k) dz(B[static_cast<size_t>(k)]) = ray ? rN(k) : xB(k);
+					for (Eigen::Index k = 0; k < d; ++k) dz(D[static_cast<size_t>(k)]) = ray ? rN(r + k) : xD(k);
+				} else {
+					factor.clear();
+					factored = false;
+					skipSeat = true;
+					--convergenceReport.faceRounds;
+					--iteration;
+					continue;
+				}
 			} else {
+				factor.clear(); // release L before building HS so peak memory stays within 24 w^2
 				Eigen::MatrixXd HS(m, m);
 				Eigen::VectorXd rS(m);
 				for (int a = 0; a < m; ++a) {
 					rS(a) = -(gm(S[a]) + lw(S[a]) * sign[S[a]]);
 					for (int b = 0; b < m; ++b) HS(a, b) = H(S[a], S[b]);
 				}
-				const newton::SymmetricSolve solve(HS, rS);
+				newton::SymmetricSolve solve(HS, rS);
+				HS.resize(0, 0); // free HS before seating factor.L
 				if (solve.method == newton::SolveMethod::RANK_DEFICIENT) ++convergenceReport.rankDeficientFaceRounds;
 				if (solve.method == newton::SolveMethod::EIGEN) ++convergenceReport.eigenFaceRounds;
-				if (solve.method == newton::SolveMethod::CHOLESKY) {
+				if (!skipSeat && solve.method == newton::SolveMethod::CHOLESKY) {
 					factor.seat(solve.cholesky, S); // the face is conditioned: later rounds update its factor
 					factored = true;
+				} else if (!skipSeat && solve.method == newton::SolveMethod::RANK_DEFICIENT &&
+						solve.semidefiniteWellScaled && solve.pivotRank > 0 &&
+						static_cast<size_t>(solve.dropped) <= maxDependent) {
+					std::vector<int> B(static_cast<size_t>(solve.pivotRank));
+					std::vector<int> D(static_cast<size_t>(m - solve.pivotRank));
+					for (Eigen::Index k = 0; k < solve.pivotRank; ++k) {
+						B[static_cast<size_t>(k)] = S[static_cast<size_t>(solve.pivotOrder(k))];
+					}
+					for (Eigen::Index k = solve.pivotRank; k < m; ++k) {
+						D[static_cast<size_t>(k - solve.pivotRank)] = S[static_cast<size_t>(solve.pivotOrder(k))];
+					}
+					factored = factor.seatRankDeficient(std::move(solve.semidefiniteFactor), B, D);
+				}
+				skipSeat = false;
+				if (solve.method == newton::SolveMethod::RANK_DEFICIENT && (!factored || fallbackRounds > 1)) {
+					++unseatedRankDeficientRounds;
 				}
 				Eigen::VectorXd rN = Eigen::VectorXd::Zero(m);
 				if (solve.dropped > 0) {
@@ -1187,11 +1244,27 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 						inFace[c] = 0;
 					}
 				}
-				// the factor holds the face: its columns that left go, from the last down (earlier ones keep their index)
+				// the factor holds the face: remove leaving dependent columns, then basis columns (from the last down),
+				// and promote any remaining dependent column freed by a basis removal
+				if (factored && !factor.dependent().empty()) {
+					const std::vector<int> depCopy = factor.dependent();
+					for (int c : depCopy) {
+						if (!inFace[c]) factor.removeDependent(c);
+					}
+				}
+				bool removedBasis = false;
 				for (size_t k = factor.members().size(); factored && k-- > 0;) {
-					if (!inFace[factor.members()[k]]) factored = factor.remove(k);
+					if (!inFace[factor.members()[k]]) {
+						factored = factor.remove(static_cast<Eigen::Index>(k));
+						removedBasis = true;
+					}
+				}
+				if (factored && removedBasis && !factor.dependent().empty()) {
+					factored = factor.promoteDependent(H);
 				}
 				gm = gw + H * (zf - bw);
+				lastResidual = std::numeric_limits<double>::infinity();
+				stallRetried = false;
 				continue;
 			}
 			for (int a = 0; a < m; ++a) zf(S[a]) += dz(S[a]);
@@ -1213,13 +1286,24 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 				for (int a : violators) {
 					inFace[a] = 1;
 					sign[a] = gm(a) > 0.0 ? -1 : 1;
-					if (factored && !factor.add(H, a)) {
-						factored = false; // the rest of this face solve by SymmetricSolve
+					if (factored && !factor.addRankRevealing(H, a, maxDependent)) {
+						factored = false; // re-factor cleanly with SymmetricSolve on the next round
 					}
 				}
+				lastResidual = std::numeric_limits<double>::infinity();
+				stallRetried = false;
 				continue;
 			}
-			if (residual >= 0.5 * lastResidual) break; // refinement stalled
+			if (residual >= 0.5 * lastResidual) {
+				if (usedKeptFactor && !stallRetried) {
+					factor.clear();
+					factored = false;
+					skipSeat = true;
+					stallRetried = true;
+					continue; // retry refinement once with complete-pivoting SymmetricSolve before giving up
+				}
+				break; // refinement stalled
+			}
 			lastResidual = residual;
 		}
 		if (!exact && model(zf) < model(z)) {
@@ -1227,7 +1311,7 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 		}
 	}
 
-	context.lastRankDeficientFaceRounds = convergenceReport.rankDeficientFaceRounds - rankDeficientBefore;
+	context.lastRankDeficientFaceRounds = unseatedRankDeficientRounds;
 	const double decrease = -model(z);
 	convergenceReport.lambda2Half = decrease;
 	bool stop = false;
@@ -1241,8 +1325,9 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 	}
 
 	// composite Armijo on the penalized objective over W, inside the eta trust region. Unpenalized coordinates move
-	// at most hDelta_j, as in a damped Newton step: where the rows saturate (logistic p of 0 or 1) the curvature
-	// vanishes and the model's ray along them is unbounded, which the eta region alone cannot see
+	// at most max(hDelta_j, initialBound): where rows saturate (logistic p of 0 or 1) curvature vanishes and the
+	// model's ray along them is unbounded, which the eta region alone cannot see, while flooring at initialBound
+	// keeps CCD's shrunken warm-up step bounds from damping healthy finite Newton moves (e.g. intercept shifts)
 	Eigen::VectorXd d = z - bw;
 	if (d.cwiseAbs().maxCoeff() == 0.0) {
 		return stop ? stopHere(NewtonOutcome::FAILED) : NewtonOutcome::FAILED;
@@ -1250,8 +1335,9 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::proxNewtonIterat
 	double scale = 1.0;
 	for (size_t a = 0; a < w; ++a) {
 		const int j = Wcol[a];
-		if (lw(a) == 0.0 && context.precision[W[a]] == 0.0 && std::abs(d(a)) > hDelta[j]) {
-			scale = std::min(scale, hDelta[j] / std::abs(d(a)));
+		const double bound = std::max(hDelta[j], initialBound);
+		if (lw(a) == 0.0 && context.precision[W[a]] == 0.0 && std::abs(d(a)) > bound) {
+			scale = std::min(scale, bound / std::abs(d(a)));
 		}
 	}
 	if (scale < 1.0) {
@@ -1315,14 +1401,16 @@ CyclicCoordinateDescent::NewtonOutcome CyclicCoordinateDescent::newtonIteration(
 		return NewtonOutcome::FAILED;
 	}
 
-	// None coordinates get |delta_j| <= hDelta_j when the solve dropped or damped directions: the eta trust region
-	// cannot see directions in the null space of X (2.6)
+	// None coordinates get |delta_j| <= max(hDelta_j, initialBound) when the solve dropped or damped directions:
+	// the eta trust region cannot see directions in the null space of X (2.6), while flooring at initialBound
+	// avoids damping healthy finite Newton moves after CCD warm-up shrinks hDelta_j
 	if (damped) {
 		double scale = 1.0;
 		for (size_t i = 0; i < n; ++i) {
 			const int j = context.F[i];
-			if (context.precision[i] == 0.0 && std::abs(d(i)) > hDelta[j]) {
-				scale = std::min(scale, hDelta[j] / std::abs(d(i)));
+			const double bound = std::max(hDelta[j], initialBound);
+			if (context.precision[i] == 0.0 && std::abs(d(i)) > bound) {
+				scale = std::min(scale, bound / std::abs(d(i)));
 			}
 		}
 		d *= scale;

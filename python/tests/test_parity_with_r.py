@@ -484,3 +484,60 @@ def test_alternative_convergence_criteria(small, convergence):
         convergence=convergence,
     )
     assert_matches(result, reference)
+
+
+def test_wide_threaded_cox_parity():
+    """Wide threaded Cox (p = 80, threads = 4) matches single-threaded R."""
+    rng = np.random.default_rng(101)
+    n, p = 1500, 80
+    X = rng.binomial(1, 0.15, size=(n, p)).astype(float)
+    X[:, 70:] = rng.normal(size=(n, 10))
+    eta = (
+        X[:, :4] @ np.array([0.4, -0.3, 0.25, -0.2])
+        + X[:, 70:72] @ np.array([0.25, -0.2])
+    )
+    time = np.ceil(rng.exponential(1.0 / (0.05 * np.exp(eta))))
+    y = rng.binomial(1, 0.65, size=n).astype(float)
+
+    _, _, result = fit(
+        X, y, "cox", time=time,
+        prior=Prior("laplace", variance=0.05),
+        control=Control(convergence="gap", tolerance=1e-6, threads=4),
+    )
+    reference = fit_in_r(
+        X, y, "cox", time=time,
+        prior="laplace", prior_variance=0.05,
+        convergence="gap", tolerance=1e-6,
+    )
+    assert_matches(result, reference, coef_tol=1e-7, ll_tol=1e-9)
+
+
+def test_singular_panel_laplace_logistic_parity():
+    """Singular Laplace logistic crossing nb = 64 (linear sums) matches R."""
+    rng = np.random.default_rng(102)
+    n, p_base = 1200, 68
+    X_base = rng.binomial(1, 0.25, size=(n, p_base)).astype(float)
+    X = np.column_stack([
+        X_base,
+        X_base[:, 0] + X_base[:, 1],
+        X_base[:, 2] + X_base[:, 3],
+        X_base[:, 4] + X_base[:, 5],
+    ])
+    w = np.array([0.35, -0.3, 0.25, -0.2, 0.2, -0.15, 0.15, -0.1])
+    eta = -0.7 + X_base[:, :8] @ w
+    y = rng.binomial(1, 1.0 / (1.0 + np.exp(-eta)), size=n).astype(float)
+
+    _, _, result = fit(
+        X, y, "lr", add_intercept=True,
+        prior=Prior("laplace", variance=1.5),
+        control=Control(convergence="gap", tolerance=1e-8),
+    )
+    reference = fit_in_r(
+        X, y, "lr", add_intercept=True,
+        prior="laplace", prior_variance=1.5,
+        convergence="gap", tolerance=1e-8,
+    )
+    obj_py = -(result.log_likelihood + result.log_prior)
+    obj_r = -(reference.log_likelihood + reference.log_prior)
+    assert result.return_flag == reference.return_flag == "SUCCESS"
+    assert abs(obj_py - obj_r) <= 1e-6 + 1e-9 * abs(obj_r)

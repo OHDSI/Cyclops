@@ -26,6 +26,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -67,10 +68,14 @@ public:
 
     void setThreads(int threads);
 
+    void setSecondOrderThreads(int threads);
+
     bool computeGradientsAndHessians(const std::vector<int>& indices,
                                      std::vector<GradientHessian>& gh, bool useWeights);
 
-    bool supportsConcurrentGradients() const { return pool != nullptr; }
+    bool supportsConcurrentGradients() const {
+        return pool != nullptr && coordinateThreads && workspaces.size() >= static_cast<size_t>(pool->size());
+    }
 
     void updateXBeta(double delta, int index, bool useWeights);
 
@@ -224,7 +229,8 @@ private:
     bool hasLayout = false;
 
     std::unique_ptr<WorkerPool> pool; // only with more than one thread
-    std::vector<Workspace> workspaces; // one per pool thread
+    std::vector<Workspace> workspaces; // one per pool thread (only when coordinateThreads is true)
+    bool coordinateThreads = true; // setThreads() (false under setSecondOrderThreads() in CV/bootstrap folds)
 
     // Second-order state. X_F is held row-wise (CSR over all K rows; positions within a row
     // ascend); rows entering and leaving each group are listed per layout.
@@ -435,31 +441,74 @@ void CountingProcessModelSpecifics<RealType>::setupRiskSetIndices() {
 template <typename RealType>
 void CountingProcessModelSpecifics<RealType>::setThreads(int threads) {
 
+    coordinateThreads = false;
     if (threads <= 1) {
         pool.reset();
     } else if (!pool || pool->size() != threads) {
         pool.reset(new WorkerPool(threads));
     }
-    workspaces.resize(pool ? threads : 0);
+    workspaces.resize(pool ? static_cast<size_t>(threads) : 0);
+    coordinateThreads = true;
+}
+
+template <typename RealType>
+void CountingProcessModelSpecifics<RealType>::setSecondOrderThreads(int threads) {
+
+    if (threads <= 1) {
+        pool.reset();
+    } else if (!pool || pool->size() != threads) {
+        pool.reset(new WorkerPool(threads));
+    }
+    coordinateThreads = false;
+    workspaces.clear();
 }
 
 template <typename RealType>
 bool CountingProcessModelSpecifics<RealType>::computeGradientsAndHessians(const std::vector<int>& indices,
         std::vector<GradientHessian>& gh, bool useWeights) {
 
-    if (!pool || cumHazard.size() != N || hasTails) {
+    if (!pool || !coordinateThreads || workspaces.size() < static_cast<size_t>(pool->size()) ||
+            cumHazard.size() != N || hasTails) {
         return false;
     }
     // Each column only reads the model state and writes its own workspace, and the result equals
-    // computeGradientAndHessian()
-    gh.resize(indices.size());
-    pool->run(indices.size(), [&](size_t task, int thread) {
+    // computeGradientAndHessian(). Gate waking the pool on minimum batch work so tiny sparse runs
+    // do not pay synchronization latency (especially on Windows/macOS), and group columns per task
+    // to reduce atomic contention.
+    const size_t count = indices.size();
+    gh.resize(count);
+    constexpr size_t minParallelWork = 16384;
+    size_t totalWork = 0;
+    for (size_t i = 0; i < count && totalWork < minParallelWork; ++i) {
+        const int index = indices[i];
+        const FormatType fmt = hX.getFormatType(index);
+        const size_t entries = (fmt == DENSE || fmt == INTERCEPT) ? static_cast<size_t>(K) : hX.getNumberOfEntries(index);
+        // Single-precision Cox (!hazardSums) scans up to N risk-set groups per non-empty column
+        const size_t colWork = (!hazardSums && entries > 0) ? (entries + static_cast<size_t>(N)) : entries;
+        totalWork = (colWork >= minParallelWork - totalWork) ? minParallelWork : totalWork + colWork;
+    }
+    auto evalOne = [&](size_t task, Workspace& ws) {
         const int index = indices[task];
         if (hX.getNumberOfNonZeroEntries(index) == 0) {
             gh[task] = GradientHessian(0.0, 0.0);
         } else {
-            dispatchHazardGradientAndHessian(index, workspaces[thread], &gh[task].first,
-                                             &gh[task].second, useWeights);
+            dispatchHazardGradientAndHessian(index, ws, &gh[task].first, &gh[task].second, useWeights);
+        }
+    };
+    if (totalWork < minParallelWork || count <= 1) {
+        for (size_t i = 0; i < count; ++i) {
+            evalOne(i, workspace);
+        }
+        return true;
+    }
+    const size_t chunk = std::max<size_t>(1, std::min<size_t>(8, count / (4 * static_cast<size_t>(pool->size()))));
+    const size_t tasks = (count + chunk - 1) / chunk;
+    pool->run(tasks, [&](size_t t, int thread) {
+        const size_t i0 = t * chunk;
+        const size_t i1 = std::min(count, i0 + chunk);
+        Workspace& ws = workspaces[static_cast<size_t>(thread)];
+        for (size_t i = i0; i < i1; ++i) {
+            evalOne(i, ws);
         }
     });
     return true;
@@ -1347,22 +1396,111 @@ void CountingProcessModelSpecifics<RealType>::productXv(const std::vector<double
 template <typename RealType>
 bool CountingProcessModelSpecifics<RealType>::fullGradient(const std::vector<int>& F, std::vector<double>& g) {
 
-    if (!secondOrderReady() || !secondOrderPrepare(F)) {
+    if (!secondOrderReady()) {
         return false;
     }
-    const int unused = static_cast<int>(N);
-    g.assign(F.size(), 0.0);
-    for (size_t k = 0; k < K; ++k) {
-        if (participates(static_cast<int>(k))) {
-            const double r = static_cast<double>(hKWeight[k]) * static_cast<double>(offsExpXBeta[k]) *
-                rowHazard(static_cast<int>(k));
-            for (size_t e = soRowStart[k]; e < soRowStart[k + 1]; ++e) {
-                g[soPosition[e]] += soValue[e] * r;
-            }
+    for (int j : F) {
+        if (j < 0 || static_cast<size_t>(j) >= J) {
+            return false;
         }
     }
-    for (size_t p = 0; p < F.size(); ++p) {
-        g[p] -= static_cast<double>(hXjY[F[p]]);
+    // Compute g = X_F' (w * exp(x'beta) * dC) - X_F' wy directly from X's column storage without rebuilding the
+    // row-wise CSR (which prox-Newton would otherwise thrash between all of F and its working set W). Every column
+    // sums over its rows in ascending order, so the gradient is bitwise identical across thread counts.
+    g.resize(F.size());
+    if (F.empty()) {
+        return true;
+    }
+    const size_t entryCap = std::max<size_t>(static_cast<size_t>(K) / 2, 65536);
+    size_t totalEntries = 0;
+    for (int j : F) {
+        const FormatType fmt = hX.getFormatType(j);
+        const size_t entries = (fmt == DENSE || fmt == INTERCEPT) ? static_cast<size_t>(K) : hX.getNumberOfEntries(j);
+        totalEntries = (entries >= entryCap - totalEntries) ? entryCap : totalEntries + entries;
+        if (totalEntries >= entryCap) {
+            break;
+        }
+    }
+    // Low-dimensional / sparse path (e.g. CohortMethod outcome models or profile refits): evaluate rowHazard()
+    // inline for touched rows instead of allocating and scanning an O(K) vector.
+    if (totalEntries < static_cast<size_t>(K) / 2) {
+        for (size_t p = 0; p < F.size(); ++p) {
+            const int j = F[p];
+            double sum = 0.0;
+            auto pass = [&](auto it) {
+                for (; it; ++it) {
+                    const int k = it.index();
+                    if (participates(k)) {
+                        const double rk = static_cast<double>(hKWeight[k]) *
+                            static_cast<double>(offsExpXBeta[k]) * rowHazard(k);
+                        sum += static_cast<double>(it.value()) * rk;
+                    }
+                }
+            };
+            switch (hX.getFormatType(j)) {
+                case INDICATOR : pass(IndicatorIterator<RealType>(hX, j)); break;
+                case SPARSE :    pass(SparseIterator<RealType>(hX, j)); break;
+                case DENSE :     pass(DenseIterator<RealType>(hX, j)); break;
+                case INTERCEPT : pass(InterceptIterator<RealType>(hX, j)); break;
+            }
+            g[p] = sum - static_cast<double>(hXjY[j]);
+        }
+        return true;
+    }
+
+    std::vector<double> r(K, 0.0);
+    const size_t rowBlock = 4096;
+    auto fillR = [&](size_t b, int) {
+        const size_t k0 = b * rowBlock;
+        const size_t k1 = std::min(static_cast<size_t>(K), k0 + rowBlock);
+        for (size_t k = k0; k < k1; ++k) {
+            if (participates(static_cast<int>(k))) {
+                r[k] = static_cast<double>(hKWeight[k]) * static_cast<double>(offsExpXBeta[k]) *
+                    rowHazard(static_cast<int>(k));
+            }
+        }
+    };
+    const size_t rBlocks = (static_cast<size_t>(K) + rowBlock - 1) / rowBlock;
+    if (pool && static_cast<size_t>(K) >= 4 * rowBlock) {
+        pool->run(rBlocks, fillR);
+    } else {
+        for (size_t b = 0; b < rBlocks; ++b) {
+            fillR(b, 0);
+        }
+    }
+
+    const size_t poolThreads = pool ? static_cast<size_t>(pool->size()) : 1;
+    const size_t colBlock = std::max<size_t>(1, std::min<size_t>(64, F.size() / (4 * poolThreads)));
+    auto dotCols = [&](size_t b, int) {
+        const size_t p0 = b * colBlock;
+        const size_t p1 = std::min(F.size(), p0 + colBlock);
+        for (size_t p = p0; p < p1; ++p) {
+            const int j = F[p];
+            double sum = 0.0;
+            auto pass = [&](auto it) {
+                for (; it; ++it) {
+                    const double rk = r[it.index()];
+                    if (rk != 0.0) {
+                        sum += static_cast<double>(it.value()) * rk;
+                    }
+                }
+            };
+            switch (hX.getFormatType(j)) {
+                case INDICATOR : pass(IndicatorIterator<RealType>(hX, j)); break;
+                case SPARSE :    pass(SparseIterator<RealType>(hX, j)); break;
+                case DENSE :     pass(DenseIterator<RealType>(hX, j)); break;
+                case INTERCEPT : pass(InterceptIterator<RealType>(hX, j)); break;
+            }
+            g[p] = sum - static_cast<double>(hXjY[j]);
+        }
+    };
+    const size_t cBlocks = (F.size() + colBlock - 1) / colBlock;
+    if (pool && cBlocks > 1 && totalEntries >= 65536) {
+        pool->run(cBlocks, dotCols);
+    } else {
+        for (size_t b = 0; b < cBlocks; ++b) {
+            dotCols(b, 0);
+        }
     }
     return true;
 }
@@ -1374,48 +1512,124 @@ bool CountingProcessModelSpecifics<RealType>::hessianBlock(const std::vector<int
         return false;
     }
     prepareGroupLists();
-    const int unused = static_cast<int>(N);
     const size_t n = F.size();
     H.assign(n * n, 0.0);
     if (n == 0) {
         return true;
     }
 
-    // S2 = X_F' diag(u o dC) X_F, lower triangle. Row p of H is owned by one task: it walks column F[p] and, in
-    // each of its rows k, the entries at positions <= p, so every entry sums over k in increasing order whatever
-    // the threads
+    // S2 = X_F' diag(u o dC) X_F, upper triangle in column-major H so writes are contiguous within each column.
+    // On one thread (or small n < 32), one sequential pass over rows handles all columns. On multiple threads
+    // (n >= 32), contiguous work-balanced column ranges with internal split boundaries <= n - 15 keep every
+    // adjacent pair of tasks at least 8 * (n - hi + 1) >= 128 bytes apart (zero false sharing on both 64B and
+    // 128B cache lines) and sum rows in strictly increasing order, so H is bitwise identical across thread counts.
     std::vector<double> r(K, 0.0);
-    for (size_t k = 0; k < K; ++k) {
-        if (participates(static_cast<int>(k))) {
-            r[k] = static_cast<double>(hKWeight[k]) * static_cast<double>(offsExpXBeta[k]) * rowHazard(static_cast<int>(k));
-        }
-    }
-    auto rowS2 = [&](size_t p, int) {
-        double* row = H.data() + p;
-        for (GenericIterator<RealType> it(hX, F[p]); it; ++it) {
-            const int k = it.index();
-            if (!participates(k)) {
-                continue;
-            }
-            const double rp = r[k] * static_cast<double>(it.value());
-            for (size_t b = soRowStart[k]; b < soRowStart[k + 1] && static_cast<size_t>(soPosition[b]) <= p; ++b) {
-                row[soPosition[b] * n] += rp * soValue[b];
+    const size_t rowBlock = 4096;
+    auto fillR = [&](size_t b, int) {
+        const size_t k0 = b * rowBlock;
+        const size_t k1 = std::min(static_cast<size_t>(K), k0 + rowBlock);
+        for (size_t k = k0; k < k1; ++k) {
+            if (participates(static_cast<int>(k)) && soRowStart[k] < soRowStart[k + 1]) {
+                r[k] = static_cast<double>(hKWeight[k]) * static_cast<double>(offsExpXBeta[k]) *
+                    rowHazard(static_cast<int>(k));
             }
         }
     };
-    if (pool) {
-        pool->run(n, rowS2);
-    } else { // the same sums in the same order, from each row's outer product (faster on one thread)
+    const size_t rBlocks = (static_cast<size_t>(K) + rowBlock - 1) / rowBlock;
+    if (pool && static_cast<size_t>(K) >= 4 * rowBlock) {
+        pool->run(rBlocks, fillR);
+    } else {
+        for (size_t b = 0; b < rBlocks; ++b) {
+            fillR(b, 0);
+        }
+    }
+
+    const size_t tasks = (pool && n >= 32) ?
+        std::max<size_t>(1, std::min<size_t>(4 * static_cast<size_t>(pool->size()), n / 16)) : 1;
+    if (tasks == 1) {
         for (size_t k = 0; k < K; ++k) {
-            if (participates(static_cast<int>(k))) {
-                for (size_t a = soRowStart[k]; a < soRowStart[k + 1]; ++a) {
-                    const double ra = r[k] * soValue[a];
-                    double* column = H.data() + soPosition[a];
-                    for (size_t b = soRowStart[k]; b <= a; ++b) {
-                        column[soPosition[b] * n] += ra * soValue[b];
+            const double rk = r[k];
+            if (rk == 0.0) {
+                continue;
+            }
+            const size_t rs = soRowStart[k];
+            const size_t re = soRowStart[k + 1];
+            for (size_t a = rs; a < re; ++a) {
+                const double ra = rk * soValue[a];
+                double* column = H.data() + static_cast<size_t>(soPosition[a]) * n;
+                for (size_t b = rs; b <= a; ++b) {
+                    column[soPosition[b]] += ra * soValue[b];
+                }
+            }
+        }
+    } else {
+        // Compact list of participating rows with entries in F so parallel column-range tasks skip empty rows
+        std::vector<int> activeRows;
+        activeRows.reserve(std::min<size_t>(static_cast<size_t>(K), soPosition.size()));
+        for (size_t k = 0; k < K; ++k) {
+            if (r[k] != 0.0) {
+                activeRows.push_back(static_cast<int>(k));
+            }
+        }
+        std::vector<size_t> bounds;
+        bounds.reserve(tasks + 1);
+        bounds.push_back(0);
+        {
+            std::vector<double> work(n);
+            double before = 0.0, total = 0.0;
+            for (size_t p = 0; p < n; ++p) {
+                const FormatType fmt = hX.getFormatType(F[p]);
+                const double c = (fmt == DENSE || fmt == INTERCEPT) ? static_cast<double>(K) :
+                    static_cast<double>(hX.getNumberOfEntries(F[p]));
+                work[p] = c * (before + 1.0);
+                before += c / std::max<double>(static_cast<double>(K), 1.0);
+                total += work[p];
+            }
+            if (total > 0.0) {
+                const size_t maxSplit = n - 15; // guarantees >= 128B separation between adjacent tasks' writes
+                double runWork = 0.0;
+                size_t target = 1;
+                for (size_t p = 0; p < maxSplit && target < tasks; ++p) {
+                    runWork += work[p];
+                    if (runWork >= total * static_cast<double>(target) / static_cast<double>(tasks)) {
+                        bounds.push_back(p + 1);
+                        while (target < tasks && runWork >= total * static_cast<double>(target) / static_cast<double>(tasks)) {
+                            ++target;
+                        }
                     }
                 }
             }
+            bounds.push_back(n);
+        }
+        auto colRangeS2 = [&](size_t task, int) {
+            const int lo = static_cast<int>(bounds[task]);
+            const int hi = static_cast<int>(bounds[task + 1]);
+            for (int k : activeRows) {
+                const double rk = r[static_cast<size_t>(k)];
+                const size_t rs = soRowStart[static_cast<size_t>(k)];
+                const size_t re = soRowStart[static_cast<size_t>(k) + 1];
+                if (soPosition[re - 1] < lo || soPosition[rs] >= hi) {
+                    continue;
+                }
+                const size_t first = static_cast<size_t>(
+                    std::lower_bound(soPosition.begin() + static_cast<std::ptrdiff_t>(rs),
+                                     soPosition.begin() + static_cast<std::ptrdiff_t>(re), lo) - soPosition.begin());
+                for (size_t a = first; a < re && soPosition[a] < hi; ++a) {
+                    const double ra = rk * soValue[a];
+                    double* column = H.data() + static_cast<size_t>(soPosition[a]) * n;
+                    for (size_t b = rs; b <= a; ++b) {
+                        column[soPosition[b]] += ra * soValue[b];
+                    }
+                }
+            }
+        };
+        pool->run(bounds.size() - 1, colRangeS2);
+    }
+    // Mirror upper triangle to lower triangle for the lower-triangle A'A subtraction below
+    for (size_t c = 0; c < n; ++c) {
+        const double* srcCol = H.data() + c * n;
+        for (size_t i = 0; i < c; ++i) {
+            H[c + i * n] = srcCol[i];
         }
     }
 

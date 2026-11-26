@@ -310,3 +310,240 @@ test_that("a duality gap that Newton steps no longer reduce ends the fit uncerti
     expect_gt(stalled$convergence$gapEstimate, 1e-9)
     expect_equal(coef(stalled), coef(certified), tolerance = 1e-5)
 })
+
+test_that("blocked solveSemidefinite crosses nb = 64 panel boundaries accurately on LR and Cox", {
+    skip_on_cran()
+    for (pBase in c(75L, 145L)) {
+        set.seed(100 + pBase)
+        n <- 2500
+        X <- matrix(rbinom(n * pBase, 1, 0.25), n, pBase)
+        # Add 2 exact duplicates + 1 linear sum -> active face strictly crosses nb = 64 and 2*nb = 128
+        X <- cbind(X, X[, 1], X[, 2], X[, 3] + X[, 4])
+        eta <- -0.8 + drop(X[, 1:12] %*% rep(c(0.35, -0.3), 6))
+        yLr <- rbinom(n, 1, plogis(eta))
+        nz <- which(X != 0, arr.ind = TRUE)
+        covDf <- data.frame(rowId = nz[, 1], covariateId = nz[, 2], covariateValue = X[nz])
+        covDf <- covDf[order(covDf$rowId, covDf$covariateId), ]
+        cdLr <- convertToCyclopsData(data.frame(rowId = seq_len(n), y = yLr), covDf,
+                                     modelType = "lr", addIntercept = TRUE, quiet = TRUE)
+        priorLr <- createPrior("laplace", variance = 5, exclude = 0)
+        newtLr <- fitCyclopsModel(cdLr, prior = priorLr, forceNewObject = TRUE, warnings = FALSE,
+                                  control = createControl(algorithm = "newton", convergenceType = "gap",
+                                                          tolerance = 1e-8, mergeDuplicates = FALSE,
+                                                          noiseLevel = "silent"))
+        ccdLr <- fitCyclopsModel(cdLr, prior = priorLr, forceNewObject = TRUE, warnings = FALSE,
+                                 control = createControl(algorithm = "ccd", convergenceType = "kkt",
+                                                         tolerance = 1e-8, maxIterations = 50000,
+                                                         mergeDuplicates = FALSE, noiseLevel = "silent"))
+        expect_equal(newtLr$return_flag, "SUCCESS")
+        expect_gt(sum(coef(newtLr) != 0), if (pBase == 75L) 64L else 128L)
+        expect_gt(newtLr$convergence$rankDeficientFaceRounds, 0)
+        expect_equal(newtLr$convergence$eigenFaceRounds, 0)
+        expect_lte(objective(newtLr) - objective(ccdLr), 1e-6 + 1e-9 * abs(objective(ccdLr)))
+    }
+
+    # Cox across nb = 64 boundary with duplicates + sum (active face > 64)
+    set.seed(265)
+    n <- 2000
+    X <- matrix(rbinom(n * 75, 1, 0.25), n, 75)
+    X <- cbind(X, X[, 1], X[, 2], X[, 3] + X[, 4])
+    eta <- drop(X[, 1:10] %*% rep(c(0.3, -0.25), 5))
+    tObs <- ceiling(rexp(n, 0.05 * exp(eta)))
+    yCox <- rbinom(n, 1, 0.7)
+    nz <- which(X != 0, arr.ind = TRUE)
+    covDf <- data.frame(rowId = nz[, 1], covariateId = nz[, 2], covariateValue = X[nz])
+    covDf <- covDf[order(covDf$rowId, covDf$covariateId), ]
+    cdCox <- convertToCyclopsData(data.frame(rowId = seq_len(n), y = yCox, time = tObs), covDf,
+                                  modelType = "cox", quiet = TRUE)
+    priorCox <- createPrior("laplace", variance = 5)
+    newtCox <- fitCyclopsModel(cdCox, prior = priorCox, forceNewObject = TRUE, warnings = FALSE,
+                               control = createControl(algorithm = "newton", convergenceType = "gap",
+                                                       tolerance = 1e-8, mergeDuplicates = FALSE,
+                                                       noiseLevel = "silent"))
+    ccdCox <- fitCyclopsModel(cdCox, prior = priorCox, forceNewObject = TRUE, warnings = FALSE,
+                              control = createControl(algorithm = "ccd", convergenceType = "kkt",
+                                                      tolerance = 1e-8, maxIterations = 50000,
+                                                      mergeDuplicates = FALSE, noiseLevel = "silent"))
+    expect_equal(newtCox$return_flag, "SUCCESS")
+    expect_gt(sum(coef(newtCox) != 0), 64L)
+    expect_gt(newtCox$convergence$rankDeficientFaceRounds, 0)
+    expect_equal(newtCox$convergence$eigenFaceRounds, 0)
+    expect_lte(objective(newtCox) - objective(ccdCox), 1e-6 + 1e-9 * abs(objective(ccdCox)))
+})
+
+test_that("kept rank-revealing FaceFactor handles promotion, tiny-curvature columns, scaling, rounding floor, and maxDependent", {
+    # 1) Collinear sum + duplicates + tiny-curvature column + scaled copy: exclude col 2, xScaled, and xTiny so they
+    # stay active in FaceFactor (guards M1 tiny-curvature thrash and M2 >1e4 scaling ping-pong)
+    set.seed(71)
+    n <- 1500
+    X <- matrix(rbinom(n * 20, 1, 0.25), n, 20)
+    xSum <- X[, 1] + X[, 2] + X[, 3]
+    xDup <- X[, 1]
+    xScaled <- 1e5 * X[, 2]
+    xTiny <- rep(0, n); xTiny[1] <- 1e-7 # H(a,a) ~ 1e-14 << 1e-10 * maxDiag
+    Xfull <- cbind(X, xSum, xDup, xScaled, xTiny)
+    y <- rbinom(n, 1, plogis(-1 + 0.7 * X[, 1] - 0.6 * X[, 2] + 0.5 * X[, 3] - 0.4 * X[, 4]))
+    nz <- which(Xfull != 0, arr.ind = TRUE)
+    covDf <- data.frame(rowId = nz[, 1], covariateId = nz[, 2], covariateValue = Xfull[nz])
+    covDf <- covDf[order(covDf$rowId, covDf$covariateId), ]
+    cd <- convertToCyclopsData(data.frame(rowId = seq_len(n), y = y), covDf,
+                               modelType = "lr", addIntercept = TRUE, quiet = TRUE)
+    prior <- createPrior("laplace", variance = 2, exclude = c(0, 2, 23, 24))
+    start <- c(-1, -0.5, 0.5, -0.4, rep(0, 17), 0.4, 0.3, -1e-5, 0.2)
+    newt <- fitCyclopsModel(cd, prior = prior, startingCoefficients = start, forceNewObject = TRUE, warnings = FALSE,
+                            control = createControl(algorithm = "newton", convergenceType = "gap",
+                                                    tolerance = 1e-8, mergeDuplicates = FALSE, noiseLevel = "silent"))
+    ccd <- fitCyclopsModel(cd, prior = prior, forceNewObject = TRUE, warnings = FALSE,
+                           control = createControl(algorithm = "ccd", convergenceType = "kkt",
+                                                   tolerance = 1e-8, maxIterations = 50000,
+                                                   mergeDuplicates = FALSE, noiseLevel = "silent"))
+    expect_equal(newt$return_flag, "SUCCESS")
+    expect_gt(newt$convergence$rankDeficientFaceRounds, 0)
+    expect_equal(newt$convergence$eigenFaceRounds, 0)
+    expect_equal(newt$convergence$fallbacks, 0)
+    expect_lte(objective(newt) - objective(ccd), 1e-6 + 1e-9 * abs(objective(ccd)))
+
+    # 2) Round 0 full-rank, duplicate violator enters later via addRankRevealing: rankDeficientFaceRounds must be > 0
+    X2 <- cbind(X[, 1:10], X[, 1])
+    y2 <- rbinom(n, 1, plogis(-0.5 + 1.2 * X[, 1] - 0.5 * X[, 2]))
+    nz2 <- which(X2 != 0, arr.ind = TRUE)
+    cov2 <- data.frame(rowId = nz2[, 1], covariateId = nz2[, 2], covariateValue = X2[nz2])
+    cov2 <- cov2[order(cov2$rowId, cov2$covariateId), ]
+    cd2 <- convertToCyclopsData(data.frame(rowId = seq_len(n), y = y2), cov2,
+                                modelType = "lr", addIntercept = TRUE, quiet = TRUE)
+    fit2 <- fitCyclopsModel(cd2, prior = createPrior("laplace", variance = 5, exclude = 0),
+                            startingCoefficients = c(-0.5, 0.1, rep(0, 10)),
+                            forceNewObject = TRUE, warnings = FALSE,
+                            control = createControl(algorithm = "newton", convergenceType = "gap",
+                                                    tolerance = 1e-8, mergeDuplicates = FALSE, noiseLevel = "silent"))
+    expect_equal(fit2$return_flag, "SUCCESS")
+    expect_gt(fit2$convergence$rankDeficientFaceRounds, 0)
+    expect_equal(fit2$convergence$eigenFaceRounds, 0)
+
+    # 3) Rounding-floor face (uniformly large-scale covariates where H * z rounding exceeds kktTol):
+    # refinement stall retry must break after at most 1 pivoted retry per outer Hessian, not oscillate for 200 rounds
+    Xu <- 1e5 * (X[, 1:10] - 0.5)
+    nzBig <- which(Xu != 0, arr.ind = TRUE)
+    covBig <- data.frame(rowId = nzBig[, 1], covariateId = nzBig[, 2], covariateValue = Xu[nzBig])
+    covBig <- covBig[order(covBig$covariateId, covBig$rowId), ]
+    cdBig <- convertToCyclopsData(data.frame(rowId = seq_len(n), y = y2), covBig,
+                                  modelType = "lr", addIntercept = FALSE, quiet = TRUE)
+    fitBig <- fitCyclopsModel(cdBig, prior = createPrior("laplace", variance = 1e8),
+                              forceNewObject = TRUE, warnings = FALSE,
+                              control = createControl(algorithm = "newton", convergenceType = "gap",
+                                                      tolerance = 1e-6, maxIterations = 15, noiseLevel = "silent"))
+    expect_gt(fitBig$convergence$hessians, 0)
+    expect_lte(fitBig$convergence$faceRounds, 6 * fitBig$convergence$hessians)
+
+    # 4) High rank deficiency exceeding maxDependent (40 collinear copies in p = 60) falls back cleanly
+    X3 <- cbind(X[, 1:20], matrix(rep(X[, 1], 40), n, 40))
+    nz3 <- which(X3 != 0, arr.ind = TRUE)
+    cov3 <- data.frame(rowId = nz3[, 1], covariateId = nz3[, 2], covariateValue = X3[nz3])
+    cov3 <- cov3[order(cov3$rowId, cov3$covariateId), ]
+    cd3 <- convertToCyclopsData(data.frame(rowId = seq_len(n), y = y), cov3,
+                                modelType = "lr", addIntercept = TRUE, quiet = TRUE)
+    newt3 <- fitCyclopsModel(cd3, prior = createPrior("laplace", variance = 2, exclude = 0),
+                             forceNewObject = TRUE, warnings = FALSE,
+                             control = createControl(algorithm = "newton", convergenceType = "gap",
+                                                     tolerance = 1e-8, mergeDuplicates = FALSE, noiseLevel = "silent"))
+    ccd3 <- fitCyclopsModel(cd3, prior = createPrior("laplace", variance = 2, exclude = 0),
+                            forceNewObject = TRUE, warnings = FALSE,
+                            control = createControl(algorithm = "ccd", convergenceType = "kkt",
+                                                    tolerance = 1e-8, maxIterations = 50000,
+                                                    mergeDuplicates = FALSE, noiseLevel = "silent"))
+    expect_equal(newt3$return_flag, "SUCCESS")
+    expect_gt(newt3$convergence$rankDeficientFaceRounds, 0)
+    expect_equal(newt3$convergence$eigenFaceRounds, 0)
+    expect_lte(objective(newt3) - objective(ccd3), 1e-6 + 1e-9 * abs(objective(ccd3)))
+})
+
+test_that("SCCS with unpenalized collinear splines converges cleanly", {
+    set.seed(81)
+    nPatients <- 400
+    periods <- 6L
+    K <- nPatients * periods
+    pid <- rep(seq_len(nPatients), each = periods)
+    age <- rep(seq_len(periods), times = nPatients)
+    season <- ((pid + age) %% 3L) + 1L
+    exp1 <- rbinom(K, 1, 0.25)
+    exp2 <- rbinom(K, 1, 0.20)
+    dur <- runif(K, 0.5, 2.0)
+    lp <- 0.6 * exp1 - 0.3 * exp2 + 0.15 * age + 0.1 * season
+    y <- integer(K)
+    for (i in seq_len(nPatients)) {
+        idx <- ((i - 1L) * periods + 1L):(i * periods)
+        w <- dur[idx] * exp(lp[idx])
+        y[idx] <- as.integer(rmultinom(1, 1L + rbinom(1, 1, 0.2), w / sum(w)))
+    }
+    covs <- list()
+    cid <- 0L
+    addInd <- function(rows) { cid <<- cid + 1L; covs[[cid]] <<- data.frame(rowId = rows, covariateId = cid, covariateValue = 1) }
+    addInd(which(exp1 == 1L)); addInd(which(exp2 == 1L))
+    # Full partition-of-unity age (6 cols) + season (3 cols): collinear unpenalized splines (rank deficiency = 2)
+    for (a in 1:6) addInd(which(age == a))
+    for (s in 1:3) addInd(which(season == s))
+    splineIds <- 3:cid
+    covDf <- do.call(rbind, covs)
+    covDf$stratumId <- pid[covDf$rowId]
+    covDf <- covDf[order(covDf$covariateId, covDf$stratumId, covDf$rowId), ]
+    outDf <- data.frame(stratumId = pid, rowId = seq_len(K), y = y, time = dur)
+    cd <- convertToCyclopsData(outDf, covDf, modelType = "sccs", addIntercept = FALSE, quiet = TRUE)
+
+    for (priorType in c("laplace", "normal")) {
+        prior <- createPrior(priorType, 0.2, exclude = splineIds)
+        newt <- fitCyclopsModel(cd, prior = prior, forceNewObject = TRUE, warnings = FALSE,
+                                control = createControl(algorithm = "newton", convergenceType = "gap",
+                                                        tolerance = 1e-8, mergeDuplicates = FALSE,
+                                                        noiseLevel = "silent"))
+        ccd <- fitCyclopsModel(cd, prior = prior, forceNewObject = TRUE, warnings = FALSE,
+                               control = createControl(algorithm = "ccd", convergenceType = "kkt",
+                                                       tolerance = 1e-8, maxIterations = 50000,
+                                                       mergeDuplicates = FALSE, noiseLevel = "silent"))
+        expect_equal(newt$return_flag, "SUCCESS")
+        expect_equal(newt$convergence$fallbacks, 0)
+        if (priorType == "laplace") {
+            expect_gt(newt$convergence$rankDeficientFaceRounds, 0)
+        } else {
+            expect_gt(newt$convergence$droppedDirections, 0)
+        }
+        expect_equal(newt$convergence$eigenFaceRounds, 0)
+        expect_lte(objective(newt) - objective(ccd), 1e-6 + 1e-9 * abs(objective(ccd)))
+    }
+})
+
+test_that("unpenalized hDelta floor avoids warm-up damping and stays safe under separation and small initialBound", {
+    # 1) Far starting intercept + Laplace covariates converges quickly and accurately
+    set.seed(91)
+    n <- 2000
+    X <- matrix(rbinom(n * 30, 1, 0.2), n, 30)
+    y <- rbinom(n, 1, plogis(-3.5 + 0.6 * X[, 1] - 0.5 * X[, 2]))
+    cd <- sparseLogisticData(X, y)
+    prior <- createPrior("laplace", variance = 0.2, exclude = 0)
+    fit <- fitCyclopsModel(cd, prior = prior, startingCoefficients = c(0.0, rep(0, 30)),
+                           forceNewObject = TRUE, warnings = FALSE,
+                           control = createControl(algorithm = "newton", convergenceType = "gap",
+                                                   tolerance = 1e-8, noiseLevel = "silent"))
+    ccd <- fitCyclopsModel(cd, prior = prior, forceNewObject = TRUE, warnings = FALSE,
+                           control = createControl(algorithm = "ccd", convergenceType = "kkt",
+                                                   tolerance = 1e-8, maxIterations = 50000, noiseLevel = "silent"))
+    expect_equal(fit$return_flag, "SUCCESS")
+    expect_lte(fit$convergence$newtonIterations, 10)
+    expect_equal(coef(fit), coef(ccd), tolerance = 1e-5)
+
+    # 2) Small initialBound is still respected cleanly
+    fitSmall <- fitCyclopsModel(cd, prior = prior, forceNewObject = TRUE, warnings = FALSE,
+                                control = createControl(algorithm = "newton", convergenceType = "gap",
+                                                        tolerance = 1e-8, initialBound = 1e-2, noiseLevel = "silent"))
+    expect_equal(fitSmall$return_flag, "SUCCESS")
+    expect_equal(coef(fitSmall), coef(ccd), tolerance = 1e-5)
+
+    # 3) 2D separation on excluded unpenalized covariates + Laplace covariates stays finite
+    Xsep <- X
+    Xsep[, 1] <- as.integer(y == 1)
+    cdSep <- sparseLogisticData(Xsep, y)
+    fitSep <- fitCyclopsModel(cdSep, prior = createPrior("laplace", variance = 0.2, exclude = c(0, 1)),
+                              forceNewObject = TRUE, warnings = FALSE,
+                              control = createControl(algorithm = "auto", convergenceType = "gap",
+                                                      tolerance = 1e-6, noiseLevel = "silent"))
+    expect_true(all(is.finite(coef(fitSep, ignoreConvergence = TRUE))))
+})
