@@ -107,17 +107,26 @@ test_that("a face with columns equal on the rows in use reaches the optimum with
     reference <- coef(fitCyclopsModel(sparseLogisticData(single, y[used]), prior = prior, control = control,
                                       forceNewObject = TRUE, warnings = FALSE))
 
-    fits <- lapply(list(c(0.5, 0.3), c(0.7, -0.3)), function(start) { # both columns nonzero: same and opposite signs
-        fitCyclopsModel(sparseLogisticData(X, y), prior = prior, control = control, weights = weights,
-                        startingCoefficients = c(0, start, rep(0, p - 2)), forceNewObject = TRUE, warnings = FALSE)
-    })
-    for (fit in fits) {
+    # Same-sign start stays on the singular face; a small opposite-sign start (0.7, -0.3) can have
+    # inner CD eliminate col 2 to exact 0 before the face solve (platform-dependent at the 1-ULP
+    # level), whereas (5.0, -4.5) keeps both opposite-sign columns active into the face solve
+    cases <- list(
+        list(start = c(0.5, 0.3), expectSingular = TRUE),
+        list(start = c(0.7, -0.3), expectSingular = FALSE),
+        list(start = c(5.0, -4.5), expectSingular = TRUE)
+    )
+    for (case in cases) {
+        fit <- fitCyclopsModel(sparseLogisticData(X, y), prior = prior, control = control, weights = weights,
+                               startingCoefficients = c(0, case$start, rep(0, p - 2)), forceNewObject = TRUE,
+                               warnings = FALSE)
         b <- coef(fit)
         others <- setdiff(names(b), c("1", "2"))
         expect_equal(fit$return_flag, "SUCCESS")
         expect_equal(b[["1"]] + b[["2"]], reference[["1"]], tolerance = 1e-8)
         expect_equal(b[others], reference[others], tolerance = 1e-8)
-        expect_gt(fit$convergence$rankDeficientFaceRounds, 0) # both columns reached the face
+        if (case$expectSingular) {
+            expect_gt(fit$convergence$rankDeficientFaceRounds, 0) # both columns reached the face
+        }
         expect_equal(fit$convergence$eigenFaceRounds, 0)
     }
 })
