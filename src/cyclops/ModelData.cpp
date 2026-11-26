@@ -1043,12 +1043,16 @@ size_t ModelData<RealType>::getNumberOfStrata() const {
     }
 
     if (nStrata == 0) {
-        nStrata = 1;
-        int cLabel = pid[0];
-        for (size_t i = 1; i < pid.size(); ++i) {
-            if (cLabel != pid[i]) {
-                cLabel = pid[i];
-                nStrata++;
+        if (pid.empty()) {
+            nStrata = nRows;
+        } else {
+            nStrata = 1;
+            int cLabel = pid[0];
+            for (size_t i = 1; i < pid.size(); ++i) {
+                if (cLabel != pid[i]) {
+                    cLabel = pid[i];
+                    nStrata++;
+                }
             }
         }
     }
@@ -1132,13 +1136,16 @@ void ModelData<RealType>::sumByGroup(std::vector<double>& out, const IdType cova
 template <typename RealType>
 void ModelData<RealType>::sumByPid(std::vector<double>& out, const IdType covariate, const int power) const {
     size_t covariateIndex = getColumnIndex(covariate);
-    out.resize(nPatients);
+    // Use getStratumIndexRef(), not raw `pid`: unstratified data leave `pid`
+    // empty (each row is its own stratum), matching binaryReductionByStratum.
+    const auto& strata = getStratumIndexRef();
+    out.assign(getNumberOfPatients(), 0.0);
     if (power == 0) {
-        reduceByGroup(out, covariateIndex, pid, ZeroPower());
+        reduceByGroup(out, covariateIndex, strata, ZeroPower());
     } else if (power == 1) {
-        reduceByGroup(out, covariateIndex, pid, FirstPower());
+        reduceByGroup(out, covariateIndex, strata, FirstPower());
     } else {
-        reduceByGroup(out, covariateIndex, pid, SecondPower());
+        reduceByGroup(out, covariateIndex, strata, SecondPower());
     }
 }
 

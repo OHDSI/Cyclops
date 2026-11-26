@@ -1054,6 +1054,9 @@ protected:
 template <typename Itr>
 auto median(Itr begin, Itr end) -> typename Itr::value_type {
     const auto size = std::distance(begin, end);
+    if (size == 0) {
+        return static_cast<typename Itr::value_type>(0);
+    }
     auto target = begin + size / 2;
 
     std::nth_element(begin, target, end);
@@ -1068,6 +1071,9 @@ auto median(Itr begin, Itr end) -> typename Itr::value_type {
 template <typename Itr>
 auto quantile(Itr begin, Itr end, double q) -> typename Itr::value_type {
     const auto size = std::distance(begin, end);
+    if (size == 0) {
+        return static_cast<typename Itr::value_type>(0);
+    }
 
     auto fraction = (size - 1) * q;
     const auto lo = std::floor(fraction);

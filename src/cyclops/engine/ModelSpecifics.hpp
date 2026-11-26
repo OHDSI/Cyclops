@@ -3000,7 +3000,10 @@ void ModelSpecifics<BaseModel,RealType>::setPidForAccumulation(const double* wei
 template <class BaseModel,typename RealType> template <typename AnyRealType>
 void ModelSpecifics<BaseModel,RealType>::setPidForAccumulationImpl(const AnyRealType* weights) {
 
-    hPidInternal =  hPidOriginal; // Make copy
+    hPidInternal = hPidOriginal; // Make copy
+    if (hPidInternal.size() < K) {
+        hPidInternal.assign(K, 0);
+    }
     hPid = hPidInternal.data(); // Point to copy
     hPidSize = hPidInternal.size();
     accReset.clear();
@@ -3010,9 +3013,21 @@ void ModelSpecifics<BaseModel,RealType>::setPidForAccumulationImpl(const AnyReal
     // Find first non-zero weight
     size_t index = 0;
 
-    while(weights != nullptr && weights[index] == 0.0 && index < K) {
+    while (index < K && weights != nullptr && weights[index] == 0.0) {
         hPid[index] = ignore;
         index++;
+    }
+
+    if (index == K) {
+        N = 0;
+        accReset.push_back(0);
+        if (weights != nullptr) {
+            for (size_t i = 0; i < K; ++i) {
+                if (hPid[i] == ignore) hPid[i] = 0;
+            }
+        }
+        setupSparseIndices(0);
+        return;
     }
 
     int lastPid = hPid[index];
