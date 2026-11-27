@@ -224,17 +224,21 @@ double CcdInterface::predictModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	return calculateSeconds(time1, time2);
 }
 
-// The profile drivers run their points (or bounds) in parallel on the profile's threads; each refit's logistic Hessian
-// block keeps one thread meanwhile (the fit's threads would add to the profile's), and gets the fit's threads back at
+// The profile drivers run their points (or bounds) in parallel on the profile's threads; each refit's second-order
+// kernels keep one thread meanwhile (the fit's threads would add to the profile's), and get the fit's threads back at
 // the end, also when a refit throws
 struct SecondOrderThreadsForPoints {
 	CyclicCoordinateDescent* ccd;
 	int fitThreads;
-	SecondOrderThreadsForPoints(CyclicCoordinateDescent* ccd, int threads) :
-			ccd(ccd), fitThreads(threads == -1 ? static_cast<int>(bsccs::thread::hardware_concurrency()) : threads) {
+	explicit SecondOrderThreadsForPoints(CyclicCoordinateDescent* ccd) :
+			ccd(ccd), fitThreads(ccd->getThreads()) {
 		ccd->setSecondOrderThreads(1);
 	}
-	~SecondOrderThreadsForPoints() { ccd->setSecondOrderThreads(fitThreads); }
+	~SecondOrderThreadsForPoints() {
+		try {
+			ccd->setThreads(fitThreads);
+		} catch (...) { }
+	}
 };
 
 struct OptimizationProfile {
@@ -403,7 +407,7 @@ double CcdInterface::profileModel(CyclicCoordinateDescent *ccd, AbstractModelDat
 	// Parallelize across columns and lower/upper bound
 	int nThreads = (inThreads == -1) ?
 	    bsccs::thread::hardware_concurrency() : inThreads;
-	const SecondOrderThreadsForPoints secondOrderThreads(ccd, arguments.threads);
+	const SecondOrderThreadsForPoints secondOrderThreads(ccd);
 
 	std::ostringstream stream2;
 	stream2 << "Using " << nThreads << " thread(s)";
@@ -752,7 +756,7 @@ double CcdInterface::evaluateProfileModel(CyclicCoordinateDescent *ccd, Abstract
     // Parallelize across grid values
     int nThreads = (inThreads == -1) ?
     bsccs::thread::hardware_concurrency() : inThreads;
-    const SecondOrderThreadsForPoints secondOrderThreads(ccd, arguments.threads);
+    const SecondOrderThreadsForPoints secondOrderThreads(ccd);
 
     ccd->getLogLikelihood(); // TODO Remove
 

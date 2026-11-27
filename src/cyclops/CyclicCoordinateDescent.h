@@ -125,8 +125,9 @@ public:
 
 	// Threads within one fit (the engine may evaluate gradients of several coordinates together)
 	void setThreads(int threads);
+	int getThreads() const { return threads; }
 
-	// threads for the second-order kernels only (the logistic Hessian block); coordinate descent keeps its own
+	// threads for the second-order kernels only (logistic and Cox Hessian/gradient blocks); coordinate descent keeps its own
 	void setSecondOrderThreads(int n) { modelSpecifics.setSecondOrderThreads(std::max(n, 1)); }
 
 	// Setters

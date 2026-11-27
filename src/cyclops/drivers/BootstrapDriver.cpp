@@ -107,12 +107,12 @@ void BootstrapDriver::drive(
         const std::vector<double>& beta;
         ~FitRestore() {
             try {
-                ccd.setSecondOrderThreads(threads);
+                ccd.setThreads(threads);
                 ccd.setWeights(weights.empty() ? NULL : weights.data());
                 ccd.setBeta(beta); // assigns rather than updates, so non-finite replicate estimates do not carry over
             } catch (...) { } // a destructor must not throw
         }
-    } fitRestore{ccd, allThreads, savedWeights, savedBeta};
+    } fitRestore{ccd, ccd.getThreads(), savedWeights, savedBeta};
 
     for (int i = 1; i < nThreads; ++i) {
         ccdCopies.emplace_back(ccd.clone(allArguments.computeDevice));
@@ -141,11 +141,10 @@ void BootstrapDriver::drive(
         error->throwError(errorStream);
         }
 
-    // Threads beyond the replicates in parallel go to each replicate's logistic (lr, plr) second-order kernels, whose
-    // results do not depend on their threads. Coordinate descent on a copy keeps one thread. The replicates on the fit
-    // itself (ccdPool[0]) keep the fit's threads (unlike cross-validation, which sets them to 1), so a plr model's
-    // coordinate descent there computes several coordinates' gradients at once on these threads, as before; the
-    // estimates are the same either way
+    // Threads beyond the replicates in parallel go to each replicate's second-order kernels (lr, plr, cox), whose
+    // results do not depend on their threads. Coordinate descent on a copy keeps one thread; on the fit itself
+    // (ccdPool[0]), Cox drops concurrent coordinate gradients while plr may use the spare pool threads, and the
+    // estimates are identical either way.
     for (auto element : ccdPool) {
         element->setSecondOrderThreads(allThreads / nThreads);
     }

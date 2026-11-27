@@ -104,3 +104,42 @@ test_that("A bootstrap by row of a conditional model warns", {
     })
     expect_false(any(grepl("selectorType", messages)))
 })
+
+test_that("Wide Cox bootstrap with threads > replicates uses second-order threads cleanly and restores state", {
+    skip_on_cran() # threads
+    set.seed(151)
+    K <- 1500
+    p <- 70 # exercises parallel colRangeS2 inside bootstrap replicates when threads > replicates
+    X <- matrix(rbinom(K * p, 1, 0.15), K, p)
+    X[, 65:70] <- matrix(rnorm(K * 6), K, 6)
+    eta <- drop(X[, c(1:4, 65:66)] %*% c(0.4, -0.3, 0.25, -0.2, 0.3, -0.25))
+    tObs <- ceiling(rexp(K, 0.05 * exp(eta)))
+    y <- rbinom(K, 1, 0.7)
+    nz <- which(X != 0, arr.ind = TRUE)
+    covDf <- data.frame(rowId = nz[, 1], covariateId = nz[, 2], covariateValue = X[nz])
+    covDf <- covDf[order(covDf$rowId, covDf$covariateId), ]
+    cd1 <- convertToCyclopsData(data.frame(rowId = seq_len(K), y = y, time = tObs), covDf,
+                                modelType = "cox", quiet = TRUE)
+    cd4 <- convertToCyclopsData(data.frame(rowId = seq_len(K), y = y, time = tObs), covDf,
+                                modelType = "cox", quiet = TRUE)
+    prior <- createPrior("laplace", 0.05)
+
+    fit1 <- fitCyclopsModel(cd1, prior = prior, forceNewObject = TRUE, warnings = FALSE,
+                            control = createControl(seed = 19, threads = 1, tolerance = 1e-6, noiseLevel = "silent"))
+    fit4 <- fitCyclopsModel(cd4, prior = prior, forceNewObject = TRUE, warnings = FALSE,
+                            control = createControl(seed = 19, threads = 4, tolerance = 1e-6, noiseLevel = "silent"))
+    expect_identical(coef(fit4), coef(fit1))
+    predBefore <- predict(fit4)
+
+    s1 <- as.matrix(runBootstrap(fit1, replicates = 2)$samples)
+    s4 <- as.matrix(runBootstrap(fit4, replicates = 2)$samples)
+    expect_identical(s4, s1)
+    expect_equal(predict(fit4), predBefore, tolerance = 1e-12)
+
+    # Post-bootstrap refit on fit4's data object still matches serial bit-for-bit
+    refit1 <- fitCyclopsModel(cd1, prior = createPrior("laplace", 0.02), warnings = FALSE,
+                              control = createControl(threads = 1, tolerance = 1e-6, noiseLevel = "silent"))
+    refit4 <- fitCyclopsModel(cd4, prior = createPrior("laplace", 0.02), warnings = FALSE,
+                              control = createControl(threads = 4, tolerance = 1e-6, noiseLevel = "silent"))
+    expect_identical(coef(refit4), coef(refit1))
+})
